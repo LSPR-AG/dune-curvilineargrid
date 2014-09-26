@@ -4,10 +4,10 @@
 #ifndef DUNE_VTKSEQUENCE_HH
 #define DUNE_VTKSEQUENCE_HH
 
-#include <dune/grid/io/file/vtk/vtksequencewriterbase.hh>
+#include <dune/curvilineargrid/io/file/vtk/vtksequencewriterbase.hh>
 
-#include <dune/grid/io/file/vtk/vtkwriter.hh>
-#include <dune/grid/io/file/vtk/subsamplingvtkwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/vtkwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/subsamplingvtkwriter.hh>
 
 namespace Dune {
 

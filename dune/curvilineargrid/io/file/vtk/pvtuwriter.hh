@@ -10,7 +10,7 @@
 #include <dune/common/exceptions.hh>
 #include <dune/common/indent.hh>
 
-#include <dune/grid/io/file/vtk/common.hh>
+#include <dune/curvilineargrid/io/file/vtk/common.hh>
 
 namespace Dune {
 

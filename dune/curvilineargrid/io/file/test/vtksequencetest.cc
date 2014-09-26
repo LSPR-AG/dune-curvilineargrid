@@ -6,7 +6,7 @@
 
 // dune headers
 #include <dune/grid/sgrid.hh>
-#include <dune/grid/io/file/vtk/vtksequencewriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/vtksequencewriter.hh>
 
 #include <vector>
 #include <unistd.h>

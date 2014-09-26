@@ -1,14 +1,14 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_CAPABILITIES_HH
-#define DUNE_GEOGRID_CAPABILITIES_HH
+#ifndef DUNE_CURVGRID_CAPABILITIES_HH
+#define DUNE_CURVGRID_CAPABILITIES_HH
 
 #include <cassert>
 
 #include <dune/common/forloop.hh>
 
 #include <dune/grid/common/capabilities.hh>
-#include <dune/grid/geometrygrid/declaration.hh>
+#include <dune/curvilineargrid/curvilineargrid/declaration.hh>
 
 namespace Dune
 {
@@ -23,7 +23,7 @@ namespace Dune
     // ---------------------------
 
     template< class HostGrid, class CoordFunction, class Allocator >
-    struct hasSingleGeometryType< GeometryGrid< HostGrid, CoordFunction, Allocator > >
+    struct hasSingleGeometryType< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
     {
       static const bool v = hasSingleGeometryType< HostGrid > :: v;
       static const unsigned int topologyId = hasSingleGeometryType< HostGrid > :: topologyId;
@@ -31,52 +31,52 @@ namespace Dune
 
 
     template< class HostGrid, class CoordFunction, class Allocator, int codim >
-    struct hasEntity< GeometryGrid< HostGrid, CoordFunction, Allocator >, codim >
+    struct hasEntity< CurvilinearGrid< HostGrid, CoordFunction, Allocator >, codim >
     {
       static const bool v = true;
     };
 
 
     template< class HostGrid, class CoordFunction, class Allocator >
-    struct isParallel< GeometryGrid< HostGrid, CoordFunction, Allocator > >
+    struct isParallel< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
     {
       static const bool v = isParallel< HostGrid >::v;
     };
 
 
     template< class HostGrid, class CoordFunction, class Allocator, int codim >
-    struct canCommunicate< GeometryGrid< HostGrid, CoordFunction, Allocator >, codim >
+    struct canCommunicate< CurvilinearGrid< HostGrid, CoordFunction, Allocator >, codim >
     {
       static const bool v = canCommunicate< HostGrid, codim >::v;
     };
 
 
     template< class HostGrid, class CoordFunction, class Allocator >
-    struct hasBackupRestoreFacilities< GeometryGrid< HostGrid, CoordFunction, Allocator > >
+    struct hasBackupRestoreFacilities< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
     {
       static const bool v = hasBackupRestoreFacilities< HostGrid >::v;
     };
 
     template< class HostGrid, class CoordFunction, class Allocator >
-    struct isLevelwiseConforming< GeometryGrid< HostGrid, CoordFunction, Allocator > >
+    struct isLevelwiseConforming< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
     {
       static const bool v = isLevelwiseConforming< HostGrid >::v;
     };
 
     template< class HostGrid, class CoordFunction, class Allocator >
-    struct isLeafwiseConforming< GeometryGrid< HostGrid, CoordFunction, Allocator > >
+    struct isLeafwiseConforming< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
     {
       static const bool v = isLeafwiseConforming< HostGrid >::v;
     };
 
     template< class HostGrid, class CoordFunction, class Allocator >
-    struct threadSafe< GeometryGrid< HostGrid, CoordFunction, Allocator > >
+    struct threadSafe< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
     {
       static const bool v = false;
     };
 
     template< class HostGrid, class CoordFunction, class Allocator >
-    struct viewThreadSafe< GeometryGrid< HostGrid, CoordFunction, Allocator > >
+    struct viewThreadSafe< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
     {
       static const bool v = false;
     };
@@ -97,7 +97,7 @@ namespace Dune
     };
 
     template< class HostGrid, class CoordFunction, class Allocator, int codim >
-    struct hasHostEntity< GeometryGrid< HostGrid, CoordFunction, Allocator >, codim >
+    struct hasHostEntity< CurvilinearGrid< HostGrid, CoordFunction, Allocator >, codim >
     {
       static const bool v = hasEntity< HostGrid, codim >::v;
     };
@@ -150,4 +150,4 @@ namespace Dune
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_CAPABILITIES_HH
+#endif // #ifndef DUNE_CURVGRID_CAPABILITIES_HH

@@ -10,9 +10,9 @@
 #include <dune/common/fvector.hh>
 #include <dune/common/shared_ptr.hh>
 
-#include <dune/grid/io/file/vtk/functionwriter.hh>
-#include <dune/grid/io/file/vtk/pvtuwriter.hh>
-#include <dune/grid/io/file/vtk/vtuwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/functionwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/pvtuwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/vtuwriter.hh>
 
 namespace Dune {
 

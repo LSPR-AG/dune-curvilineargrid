@@ -1,15 +1,15 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_INTERSECTIONITERATOR_HH
-#define DUNE_GEOGRID_INTERSECTIONITERATOR_HH
+#ifndef DUNE_CURVGRID_INTERSECTIONITERATOR_HH
+#define DUNE_CURVGRID_INTERSECTIONITERATOR_HH
 
-#include <dune/grid/geometrygrid/entitypointer.hh>
-#include <dune/grid/geometrygrid/intersection.hh>
+#include <dune/curvilineargrid/curvilineargrid/entitypointer.hh>
+#include <dune/curvilineargrid/curvilineargrid/intersection.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // IntersectionIterator
@@ -20,7 +20,7 @@ namespace Dune
     {
       typedef typename remove_const< Grid >::type::Traits Traits;
 
-      typedef GeoGrid::Intersection< Grid, typename HostIntersectionIterator::Intersection > IntersectionImpl;
+      typedef CurvGrid::Intersection< Grid, typename HostIntersectionIterator::Intersection > IntersectionImpl;
 
       typedef typename Traits::template Codim< 0 >::EntityPointerImpl EntityPointerImpl;
       typedef typename Traits::template Codim< 0 >::Geometry ElementGeometry;
@@ -77,8 +77,8 @@ namespace Dune
       mutable Intersection intersection_;
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_INTERSECTIONITERATOR_HH
+#endif // #ifndef DUNE_CURVGRID_INTERSECTIONITERATOR_HH

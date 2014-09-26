@@ -1,23 +1,23 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_PERSISTENTCONTAINER_HH
-#define DUNE_GEOGRID_PERSISTENTCONTAINER_HH
+#ifndef DUNE_CURVGRID_PERSISTENTCONTAINER_HH
+#define DUNE_CURVGRID_PERSISTENTCONTAINER_HH
 
-#include <dune/grid/geometrygrid/declaration.hh>
+#include <dune/curvilineargrid/curvilineargrid/declaration.hh>
 #include <dune/grid/utility/persistentcontainer.hh>
 #include <dune/grid/utility/persistentcontainerwrapper.hh>
 
 namespace Dune
 {
 
-  // PersistentContainer for GeometryGrid
+  // PersistentContainer for CurvilinearGrid
   // ------------------------------------
 
   template< class HostGrid, class CoordFunction, class Allocator, class T >
-  class PersistentContainer< GeometryGrid< HostGrid, CoordFunction, Allocator >, T >
-    : public PersistentContainerWrapper< GeometryGrid< HostGrid, CoordFunction, Allocator >, T >
+  class PersistentContainer< CurvilinearGrid< HostGrid, CoordFunction, Allocator >, T >
+    : public PersistentContainerWrapper< CurvilinearGrid< HostGrid, CoordFunction, Allocator >, T >
   {
-    typedef PersistentContainerWrapper< GeometryGrid< HostGrid, CoordFunction, Allocator >, T > Base;
+    typedef PersistentContainerWrapper< CurvilinearGrid< HostGrid, CoordFunction, Allocator >, T > Base;
 
   public:
     typedef typename Base::Grid Grid;
@@ -30,4 +30,4 @@ namespace Dune
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_PERSISTENTCONTAINER_HH
+#endif // #ifndef DUNE_CURVGRID_PERSISTENTCONTAINER_HH

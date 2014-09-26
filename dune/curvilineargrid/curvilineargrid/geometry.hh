@@ -1,7 +1,7 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_GEOMETRY_HH
-#define DUNE_GEOGRID_GEOMETRY_HH
+#ifndef DUNE_CURVGRID_GEOMETRY_HH
+#define DUNE_CURVGRID_GEOMETRY_HH
 
 #include <dune/common/nullptr.hh>
 #include <dune/common/typetraits.hh>
@@ -12,12 +12,12 @@
 #include <dune/geometry/lagrangegeometry.hh>
 
 #include <dune/grid/common/capabilities.hh>
-#include <dune/grid/geometrygrid/cornerstorage.hh>
+#include <dune/curvilineargrid/curvilineargrid/cornerstorage.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // InferHasSingleGeometryType
@@ -68,7 +68,7 @@ namespace Dune
       template< int mydim, int cdim >
       struct CornerStorage
       {
-        typedef GeoGrid::CornerStorage< mydim, cdim, Grid > Type;
+        typedef CurvGrid::CornerStorage< mydim, cdim, Grid > Type;
       };
 
       template< int mydim >
@@ -233,8 +233,8 @@ namespace Dune
       Mapping* mapping_;
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_GEOMETRY_HH
+#endif // #ifndef DUNE_CURVGRID_GEOMETRY_HH

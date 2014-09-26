@@ -1,19 +1,19 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_DATAHANDLE_HH
-#define DUNE_GEOGRID_DATAHANDLE_HH
+#ifndef DUNE_CURVGRID_DATAHANDLE_HH
+#define DUNE_CURVGRID_DATAHANDLE_HH
 
 #include <dune/common/typetraits.hh>
 
 #include <dune/grid/common/datahandleif.hh>
 #include <dune/grid/common/grid.hh>
-#include <dune/grid/geometrygrid/capabilities.hh>
-#include <dune/grid/geometrygrid/entity.hh>
+#include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
+#include <dune/curvilineargrid/curvilineargrid/entity.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     template< int codim, class Grid >
@@ -22,7 +22,7 @@ namespace Dune
       typedef typename remove_const< Grid >::type::Traits Traits;
 
       typedef typename Traits::template Codim< codim >::Entity Entity;
-      typedef GeoGrid::Entity< codim, Traits::dimension, const Grid > EntityImpl;
+      typedef CurvGrid::Entity< codim, Traits::dimension, const Grid > EntityImpl;
       typedef typename EntityImpl::HostEntity HostEntity;
 
       template< bool >
@@ -64,7 +64,7 @@ namespace Dune
 
 
 
-    // GeometryGridDataHandle
+    // CurvilinearGridDataHandle
     // ----------------------
 
     template< class Grid, class WrappedHandle >
@@ -129,8 +129,8 @@ namespace Dune
       WrappedHandle &wrappedHandle_;
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_DATAHANDLE_HH
+#endif // #ifndef DUNE_CURVGRID_DATAHANDLE_HH

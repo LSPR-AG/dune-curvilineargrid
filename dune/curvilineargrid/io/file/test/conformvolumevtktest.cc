@@ -15,8 +15,8 @@
 #include <dune/common/fvector.hh>
 
 #include <dune/grid/common/gridenums.hh>
-#include <dune/grid/io/file/vtk/common.hh>
-#include <dune/grid/io/file/vtk/volumewriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/common.hh>
+#include <dune/curvilineargrid/io/file/vtk/volumewriter.hh>
 #include <dune/grid/sgrid.hh>
 
 template< class GridView >

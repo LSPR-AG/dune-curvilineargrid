@@ -9,9 +9,9 @@
 #include <dune/common/iteratorfacades.hh>
 #include <dune/common/shared_ptr.hh>
 
-#include <dune/grid/io/file/vtk/corner.hh>
-#include <dune/grid/io/file/vtk/corneriterator.hh>
-#include <dune/grid/io/file/vtk/functionwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/corner.hh>
+#include <dune/curvilineargrid/io/file/vtk/corneriterator.hh>
+#include <dune/curvilineargrid/io/file/vtk/functionwriter.hh>
 
 namespace Dune {
 

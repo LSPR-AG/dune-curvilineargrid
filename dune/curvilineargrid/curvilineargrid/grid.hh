@@ -1,18 +1,18 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_GRID_HH
-#define DUNE_GEOGRID_GRID_HH
+#ifndef DUNE_CURVGRID_GRID_HH
+#define DUNE_CURVGRID_GRID_HH
 
 #include <dune/common/nullptr.hh>
 
 #include <dune/grid/common/grid.hh>
 
-#include <dune/grid/geometrygrid/backuprestore.hh>
-#include <dune/grid/geometrygrid/capabilities.hh>
-#include <dune/grid/geometrygrid/datahandle.hh>
-#include <dune/grid/geometrygrid/gridfamily.hh>
-#include <dune/grid/geometrygrid/identity.hh>
-#include <dune/grid/geometrygrid/persistentcontainer.hh>
+#include <dune/curvilineargrid/curvilineargrid/backuprestore.hh>
+#include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
+#include <dune/curvilineargrid/curvilineargrid/datahandle.hh>
+#include <dune/curvilineargrid/curvilineargrid/gridfamily.hh>
+#include <dune/curvilineargrid/curvilineargrid/identity.hh>
+#include <dune/curvilineargrid/curvilineargrid/persistentcontainer.hh>
 
 namespace Dune
 {
@@ -27,14 +27,14 @@ namespace Dune
 
 
 
-  // GeometryGrid
+  // CurvilinearGrid
   // ------------
 
-  /** \class GeometryGrid
+  /** \class CurvilinearGrid
    *  \brief grid wrapper replacing the geometries
-   *  \ingroup GeoGrid
+   *  \ingroup CurvGrid
    *
-   *  GeometryGrid wraps another DUNE grid and replaces its geometry by the
+   *  CurvilinearGrid wraps another DUNE grid and replaces its geometry by the
    *  generic geometries from dune-grid. These are linear (respectively
    *  n-linear) DUNE geometries interpolating some given corners. These corners
    *  are obtained by mapping the corners of the host grid's geometry (also
@@ -71,40 +71,40 @@ namespace Dune
    *  \nosubgrouping
    */
   template< class HostGrid, class CoordFunction = DefaultCoordFunction< HostGrid >, class Allocator = std::allocator< void > >
-  class GeometryGrid
+  class CurvilinearGrid
   /** \cond */
     : public GridDefaultImplementation
       < HostGrid::dimension, CoordFunction::dimRange, typename HostGrid::ctype,
-          GeoGrid::GridFamily< HostGrid, CoordFunction, Allocator > >,
-      public GeoGrid::ExportParams< HostGrid, CoordFunction >,
-      public GeoGrid::BackupRestoreFacilities< GeometryGrid< HostGrid, CoordFunction, Allocator > >
+          CurvGrid::GridFamily< HostGrid, CoordFunction, Allocator > >,
+      public CurvGrid::ExportParams< HostGrid, CoordFunction >,
+      public CurvGrid::BackupRestoreFacilities< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
       /** \endcond */
   {
-    typedef GeometryGrid< HostGrid, CoordFunction, Allocator > Grid;
+    typedef CurvilinearGrid< HostGrid, CoordFunction, Allocator > Grid;
 
     typedef GridDefaultImplementation
     < HostGrid::dimension, CoordFunction::dimRange, typename HostGrid::ctype,
-        GeoGrid::GridFamily< HostGrid, CoordFunction, Allocator > >
+        CurvGrid::GridFamily< HostGrid, CoordFunction, Allocator > >
     Base;
 
-    friend class GeoGrid::HierarchicIterator< const Grid >;
+    friend class CurvGrid::HierarchicIterator< const Grid >;
 
-    template< int, class, bool > friend class GeoGrid::EntityBase;
-    template< class, bool > friend class GeoGrid::EntityPointer;
-    template< int, class > friend class GeoGrid::EntityProxy;
-    template< int, int, class > friend class GeoGrid::Geometry;
-    template< class, class, class, PartitionIteratorType > friend class GeoGrid::GridView;
-    template< class, class > friend class GeoGrid::Intersection;
-    template< class, class > friend class GeoGrid::IntersectionIterator;
-    template< class, class > friend class GeoGrid::IdSet;
-    template< class, class > friend class GeoGrid::IndexSet;
+    template< int, class, bool > friend class CurvGrid::EntityBase;
+    template< class, bool > friend class CurvGrid::EntityPointer;
+    template< int, class > friend class CurvGrid::EntityProxy;
+    template< int, int, class > friend class CurvGrid::Geometry;
+    template< class, class, class, PartitionIteratorType > friend class CurvGrid::GridView;
+    template< class, class > friend class CurvGrid::Intersection;
+    template< class, class > friend class CurvGrid::IntersectionIterator;
+    template< class, class > friend class CurvGrid::IdSet;
+    template< class, class > friend class CurvGrid::IndexSet;
     template< class > friend struct HostGridAccess;
 
-    template< class, class > friend class GeoGrid::CommDataHandle;
+    template< class, class > friend class CurvGrid::CommDataHandle;
 
   public:
     /** \cond */
-    typedef GeoGrid::GridFamily< HostGrid, CoordFunction, Allocator > GridFamily;
+    typedef CurvGrid::GridFamily< HostGrid, CoordFunction, Allocator > GridFamily;
     /** \endcond */
 
     /** \name Traits
@@ -233,7 +233,7 @@ namespace Dune
      *  \param[in]  coordFunction  reference to the coordinate function
      *  \param[in]  allocator      storage allocator
      */
-    GeometryGrid ( HostGrid &hostGrid, CoordFunction &coordFunction, const Allocator &allocator = Allocator() )
+    CurvilinearGrid ( HostGrid &hostGrid, CoordFunction &coordFunction, const Allocator &allocator = Allocator() )
       : hostGrid_( &hostGrid ),
         coordFunction_( coordFunction ),
         removeHostGrid_( false ),
@@ -250,7 +250,7 @@ namespace Dune
      *  \param[in]  coordFunction  pointer to the coordinate function
      *  \param[in]  allocator      storage allocator
      */
-    GeometryGrid ( HostGrid *hostGrid, CoordFunction *coordFunction, const Allocator &allocator = Allocator() )
+    CurvilinearGrid ( HostGrid *hostGrid, CoordFunction *coordFunction, const Allocator &allocator = Allocator() )
       : hostGrid_( hostGrid ),
         coordFunction_( *coordFunction ),
         removeHostGrid_( true ),
@@ -260,7 +260,7 @@ namespace Dune
 
     /** \brief destructor
      */
-    ~GeometryGrid ()
+    ~CurvilinearGrid ()
     {
       for( unsigned int i = 0; i < levelIndexSets_.size(); ++i )
       {
@@ -556,7 +556,7 @@ namespace Dune
     bool loadBalance ( CommDataHandleIF< DataHandle, Data > &datahandle )
     {
       typedef CommDataHandleIF< DataHandle, Data > DataHandleIF;
-      typedef GeoGrid :: CommDataHandle< Grid, DataHandleIF > WrappedDataHandle;
+      typedef CurvGrid :: CommDataHandle< Grid, DataHandleIF > WrappedDataHandle;
 
       WrappedDataHandle wrappedDataHandle( *this, datahandle );
       const bool gridChanged = hostGrid().loadBalance( wrappedDataHandle );
@@ -638,7 +638,7 @@ namespace Dune
     void update ()
     {
       // adapt the coordinate function
-      GeoGrid::AdaptCoordFunction< typename CoordFunction::Interface >::adapt( coordFunction_ );
+      CurvGrid::AdaptCoordFunction< typename CoordFunction::Interface >::adapt( coordFunction_ );
 
       const int newNumLevels = maxLevel()+1;
       const int oldNumLevels = levelIndexSets_.size();
@@ -691,12 +691,12 @@ namespace Dune
 
 
 
-  // GeometryGrid::Codim
+  // CurvilinearGrid::Codim
   // -------------------
 
   template< class HostGrid, class CoordFunction, class Allocator >
   template< int codim >
-  struct GeometryGrid< HostGrid, CoordFunction, Allocator >::Codim
+  struct CurvilinearGrid< HostGrid, CoordFunction, Allocator >::Codim
     : public Base::template Codim< codim >
   {
     /** \name Entity and Entity Pointer Types
@@ -778,4 +778,4 @@ namespace Dune
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_GRID_HH
+#endif // #ifndef DUNE_CURVGRID_GRID_HH

@@ -6,10 +6,10 @@
 
 #include <dune/grid/common/gridenums.hh>
 
-#include <dune/grid/io/file/vtk/corner.hh>
-#include <dune/grid/io/file/vtk/corneriterator.hh>
-#include <dune/grid/io/file/vtk/functionwriter.hh>
-#include <dune/grid/io/file/vtk/pointiterator.hh>
+#include <dune/curvilineargrid/io/file/vtk/corner.hh>
+#include <dune/curvilineargrid/io/file/vtk/corneriterator.hh>
+#include <dune/curvilineargrid/io/file/vtk/functionwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/pointiterator.hh>
 
 namespace Dune {
   //! \addtogroup VTK

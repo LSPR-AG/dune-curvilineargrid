@@ -1,14 +1,14 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_IDSET_HH
-#define DUNE_GEOGRID_IDSET_HH
+#ifndef DUNE_CURVGRID_IDSET_HH
+#define DUNE_CURVGRID_IDSET_HH
 
 #include <dune/grid/common/indexidset.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // IdSet
@@ -75,8 +75,8 @@ namespace Dune
       const HostIdSet *hostIdSet_;
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_IDSET_HH
+#endif // #ifndef DUNE_CURVGRID_IDSET_HH

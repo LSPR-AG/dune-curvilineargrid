@@ -11,7 +11,7 @@
 
 #include <dune/geometry/referenceelements.hh>
 
-#include <dune/grid/io/file/vtk/corner.hh>
+#include <dune/curvilineargrid/io/file/vtk/corner.hh>
 
 namespace Dune
 {

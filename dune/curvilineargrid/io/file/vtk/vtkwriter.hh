@@ -22,12 +22,12 @@
 #include <dune/geometry/referenceelements.hh>
 #include <dune/grid/common/mcmgmapper.hh>
 #include <dune/grid/common/gridenums.hh>
-#include <dune/grid/io/file/vtk/common.hh>
-#include <dune/grid/io/file/vtk/dataarraywriter.hh>
-#include <dune/grid/io/file/vtk/function.hh>
-#include <dune/grid/io/file/vtk/pvtuwriter.hh>
-#include <dune/grid/io/file/vtk/streams.hh>
-#include <dune/grid/io/file/vtk/vtuwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/common.hh>
+#include <dune/curvilineargrid/io/file/vtk/dataarraywriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/function.hh>
+#include <dune/curvilineargrid/io/file/vtk/pvtuwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/streams.hh>
+#include <dune/curvilineargrid/io/file/vtk/vtuwriter.hh>
 
 /** @file
     @author Peter Bastian, Christian Engwer

@@ -8,7 +8,7 @@
 #include <dune/common/fvector.hh>
 #include <dune/common/parallel/mpihelper.hh>
 
-#include <dune/grid/io/file/vtk/subsamplingvtkwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/subsamplingvtkwriter.hh>
 #include <dune/grid/yaspgrid.hh>
 
 #include <algorithm>

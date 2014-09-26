@@ -1,16 +1,16 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_INTERSECTION_HH
-#define DUNE_GEOGRID_INTERSECTION_HH
+#ifndef DUNE_CURVGRID_INTERSECTION_HH
+#define DUNE_CURVGRID_INTERSECTION_HH
 
-#include <dune/grid/geometrygrid/declaration.hh>
-#include <dune/grid/geometrygrid/entitypointer.hh>
-#include <dune/grid/geometrygrid/cornerstorage.hh>
+#include <dune/curvilineargrid/curvilineargrid/declaration.hh>
+#include <dune/curvilineargrid/curvilineargrid/entitypointer.hh>
+#include <dune/curvilineargrid/curvilineargrid/cornerstorage.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // Intersection
@@ -38,7 +38,7 @@ namespace Dune
       typedef typename Traits::template Codim< 0 >::Geometry ElementGeometry;
 
     private:
-      typedef GeoGrid::IntersectionCoordVector< Grid > CoordVector;
+      typedef CurvGrid::IntersectionCoordVector< Grid > CoordVector;
 
       typedef typename Traits::template Codim< 0 >::EntityPointerImpl EntityPointerImpl;
 
@@ -174,8 +174,8 @@ namespace Dune
       mutable GeometryImpl geo_;
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_INTERSECTION_HH
+#endif // #ifndef DUNE_CURVGRID_INTERSECTION_HH

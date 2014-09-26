@@ -1,9 +1,9 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_IDENTITY_HH
-#define DUNE_GEOGRID_IDENTITY_HH
+#ifndef DUNE_CURVGRID_IDENTITY_HH
+#define DUNE_CURVGRID_IDENTITY_HH
 
-#include <dune/grid/geometrygrid/coordfunction.hh>
+#include <dune/curvilineargrid/curvilineargrid/coordfunction.hh>
 
 namespace Dune
 {
@@ -28,4 +28,4 @@ namespace Dune
 
 }
 
-#endif
+#endif //DUNE_CURVGRID_IDENTITY_HH

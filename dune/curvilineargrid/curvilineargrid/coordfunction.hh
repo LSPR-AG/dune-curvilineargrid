@@ -1,7 +1,7 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_COORDFUNCTION_HH
-#define DUNE_GEOGRID_COORDFUNCTION_HH
+#ifndef DUNE_CURVGRID_COORDFUNCTION_HH
+#define DUNE_CURVGRID_COORDFUNCTION_HH
 
 #include <dune/common/fvector.hh>
 
@@ -23,15 +23,15 @@ namespace Dune
   // --------------------------------
 
   /** \brief Interface class for using an analytical function to define the
-   *  geometry of a Dune::GeometryGrid. An implementation should be derived
+   *  geometry of a Dune::CurvilinearGrid. An implementation should be derived
    *  from Dune::AnalyticalCoordFunction and the evaluate
    *  method mapping \f$ R^d\to R^r \f$ has to be supplied.
    *
-   *  \tparam ct coordinate field type (\c ct in Dune::GeometryGrid)
+   *  \tparam ct coordinate field type (\c ct in Dune::CurvilinearGrid)
    *  \tparam dimD dimension of the domain of the mapping (\c dimension
    *               in the host grid).
    *  \tparam dimR dimension of the range of the mapping (\c dimensionworld
-   *               in Dune::GeometryGrid)
+   *               in Dune::CurvilinearGrid)
    *  \tparam Impl implementation class (BN trick)
    **/
   template< class ct, unsigned int dimD, unsigned int dimR, class Impl >
@@ -119,17 +119,17 @@ namespace Dune
   // ------------------------------
 
   /** \brief Interface class for using a discrete function to define the
-   *  geometry of a Dune::GeometryGrid. An implementation should be derived
+   *  geometry of a Dune::CurvilinearGrid. An implementation should be derived
    *  from Dune::DiscreteCoordinateFunction and the evaluate method taking an entity
    *  of the host grid together with the number of a vertex returns the coordinate in
    *  \f$ R^r \f$
    *  of that corner. The user must ensure continuity of this mapping.
    *  In addition an adapt method is provided which is called whenever
-   *  \c adapt() is called on the Dune::GeometryGrid.
+   *  \c adapt() is called on the Dune::CurvilinearGrid.
    *
-   *  \tparam ct coordinate field type (\c ct in Dune::GeometryGrid)
+   *  \tparam ct coordinate field type (\c ct in Dune::CurvilinearGrid)
    *  \tparam dimR dimension of the range of the mapping (\c dimensionworld
-   *               in Dune::GeometryGrid)
+   *               in Dune::CurvilinearGrid)
    *  \tparam Impl implementation class (BN trick)
    **/
   template< class ct, unsigned int dimR, class Impl >
@@ -229,7 +229,7 @@ namespace Dune
 
 
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // isCoordFunctionInterface
@@ -296,8 +296,8 @@ namespace Dune
       }
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_COORDFUNCTION_HH
+#endif // #ifndef DUNE_CURVGRID_COORDFUNCTION_HH

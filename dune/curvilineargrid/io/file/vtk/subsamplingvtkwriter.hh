@@ -9,8 +9,8 @@
 #include <dune/common/indent.hh>
 #include <dune/geometry/type.hh>
 #include <dune/geometry/virtualrefinement.hh>
-#include <dune/grid/io/file/vtk/vtkwriter.hh>
-#include <dune/grid/io/file/vtk/vtuwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/vtkwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/vtuwriter.hh>
 
 /** @file
     @author Jö Fahlke

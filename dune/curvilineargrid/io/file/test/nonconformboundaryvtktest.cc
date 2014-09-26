@@ -14,9 +14,9 @@
 #include <dune/common/shared_ptr.hh>
 
 #include <dune/grid/common/gridenums.hh>
-#include <dune/grid/io/file/vtk/boundarywriter.hh>
-#include <dune/grid/io/file/vtk/common.hh>
-#include <dune/grid/io/file/vtk/skeletonfunction.hh>
+#include <dune/curvilineargrid/io/file/vtk/boundarywriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/common.hh>
+#include <dune/curvilineargrid/io/file/vtk/skeletonfunction.hh>
 #include <dune/grid/sgrid.hh>
 
 template< class GridView >

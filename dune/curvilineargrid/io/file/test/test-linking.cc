@@ -9,7 +9,7 @@
 #include <dune/geometry/virtualrefinement.hh>
 
 #include <dune/grid/sgrid.hh>
-#include <dune/grid/io/file/vtk/vtkwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/vtkwriter.hh>
 
 /*
    #include "gridcheck.cc"

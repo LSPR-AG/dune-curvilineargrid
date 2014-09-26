@@ -1,17 +1,17 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_ITERATOR_HH
-#define DUNE_GEOGRID_ITERATOR_HH
+#ifndef DUNE_CURVGRID_ITERATOR_HH
+#define DUNE_CURVGRID_ITERATOR_HH
 
 #include <dune/geometry/referenceelements.hh>
 
-#include <dune/grid/geometrygrid/declaration.hh>
-#include <dune/grid/geometrygrid/entitypointer.hh>
+#include <dune/curvilineargrid/curvilineargrid/declaration.hh>
+#include <dune/curvilineargrid/curvilineargrid/entitypointer.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // Internal Forward Declarations
@@ -375,8 +375,8 @@ namespace Dune
       }
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_ITERATOR_HH
+#endif // #ifndef DUNE_CURVGRID_ITERATOR_HH

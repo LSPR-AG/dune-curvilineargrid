@@ -21,7 +21,7 @@
  */
 
 // Autotool generated header.
-#include "config.h"
+#include <config.h>
 
 // Stl headers.
 #include <iostream>
@@ -34,14 +34,14 @@
 
 /** *\brief include functionality that encapsulates MPI */
 #include <dune/common/parallel/mpihelper.hh>
-#include <dune/grid/common/mcmgmapper.hh>
-#include <dune/grid/alugrid/3d/alu3dgridfactory.hh>
-#include <dune/grid/io/file/gmshreader.hh>
-#include <dune/grid/io/file/curvilineargmshreader.hh>
+
 #include <dune/geometry/quadraturerules.hh>
 #include <dune/geometry/referenceelements.hh>
 
-#include <dune/common/parallel/mpihelper.hh>
+#include <dune/grid/common/mcmgmapper.hh>
+
+#include <dune/curvilineargrid/io/file/curvilineargmshreader.hh>
+
 
 // dune grid includes
 #if HAVE_UG
@@ -50,9 +50,17 @@
 #if HAVE_ALBERTA
 #include <dune/grid/albertagrid.hh>
 #endif
+// Old ALUGRID
 #if HAVE_ALUGRID
+#warning "Including old AluGrid from dune/grid"
 #include <dune/grid/alugrid.hh>
+#include <dune/grid/alugrid/3d/alu3dgridfactory.hh>
 #endif
+// New ALUGRID
+#ifdef HAVE_DUNE_ALUGRID
+#include <dune/alugrid/grid.hh>
+#endif
+
 #include <dune/grid/onedgrid.hh>
 
 // alberta related stuff
@@ -68,6 +76,8 @@
 #if HAVE_GRAPE
 #include <dune/grid/io/visual/grapegriddisplay.hh>
 #endif
+
+
 
 
 
@@ -131,8 +141,11 @@ int main(int argc, char** argv)
     //typedef Dune::LeafMultipleCodimMultipleGeomTypeMapper<Dune::GridSelector::GridType,P3Layout> NodeMapper;
 
 
-
+#ifdef HAVE_MPI
+    typedef  ALUGrid<3,3,simplex,nonconforming, mpihelper> ALUSimplexGridType;
+#else
     typedef  ALUGrid<3,3,simplex,nonconforming > ALUSimplexGridType;
+#endif
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     Dune::GridFactory<ALUSimplexGridType> factory;

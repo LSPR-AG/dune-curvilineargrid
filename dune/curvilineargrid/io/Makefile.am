@@ -1,6 +1,6 @@
 # $Id$
 
-SUBDIRS = file visual
+SUBDIRS = file
 
 iodir = $(includedir)/dune/grid/io
 io_HEADERS =

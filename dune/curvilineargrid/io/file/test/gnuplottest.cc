@@ -4,7 +4,7 @@
 #include <iostream>
 #include <ostream>
 #include <dune/grid/sgrid.hh>
-#include <dune/grid/io/file/gnuplot.hh>
+#include <dune/curvilineargrid/io/file/gnuplot.hh>
 
 template <class GV>
 void testIO(const GV & gridView, std::string fname)

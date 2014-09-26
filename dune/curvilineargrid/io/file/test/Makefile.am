@@ -1,31 +1,8 @@
 ALLTESTS = vtktest gnuplottest vtksequencetest subsamplingvtktest gmshtest curvilineargmshtest
 
-GRIDDIM=2
-GRIDTYPE=YASPGRID
-
 # The directory where the example grid files used for testing are located
 AM_CPPFLAGS+=-DDUNE_GRID_EXAMPLE_GRIDS_PATH=\"$(top_srcdir)/doc/grids/\"
 
-# run amiramesh test only if amiramesh was found
-if AMIRAMESH
-if PSURFACE
-ALLTESTS += amirameshtest
-endif
-endif
-
-if ALBERTA
-ALLTESTS += gmshtest-alberta2d
-ALLTESTS += gmshtest-alberta3d
-endif
-
-if ALUGRID
-ALLTESTS += gmshtest-alugrid
-endif
-
-# Currently, Star-CD files can only be read into UGGrid objects
-if UG
-ALLTESTS += starcdreadertest
-endif
 
 # programs just to build when "make check" is used
 check_PROGRAMS = $(ALLTESTS)
@@ -61,27 +38,6 @@ subsamplingvtktest_LDADD =			\
 	$(DUNEMPILIBS)				\
 	$(LDADD)
 
-amirameshtest_SOURCES = amirameshtest.cc
-amirameshtest_CPPFLAGS = $(AM_CPPFLAGS)		\
-	$(AMIRAMESH_CPPFLAGS)			\
-	$(UG_CPPFLAGS)				\
-	$(ALBERTA_CPPFLAGS)			\
-	$(ALUGRID_CPPFLAGS)			\
-	$(PSURFACE_CPPFLAGS)
-amirameshtest_LDFLAGS = $(AM_LDFLAGS)		\
-	$(AMIRAMESH_LDFLAGS)			\
-	$(UG_LDFLAGS)				\
-	$(ALBERTA_LDFLAGS)			\
-	$(ALUGRID_LDFLAGS)			\
-	$(PSURFACE_LDFLAGS)
-amirameshtest_LDADD =				\
-	$(PSURFACE_LIBS)			\
-	$(ALUGRID_LIBS)				\
-	$(ALBERTA_LIBS)				\
-	$(UG_LIBS)				\
-	$(AMIRAMESH_LIBS)			\
-	$(LDADD)
-
 gmshtest_SOURCES  = gmshtest.cc
 gmshtest_CPPFLAGS = $(AM_CPPFLAGS)  $(ALL_PKG_CPPFLAGS)
 gmshtest_LDFLAGS  = $(AM_LDFLAGS)   $(ALL_PKG_LDFLAGS)
@@ -107,18 +63,6 @@ curvilineargmshtest_CPPFLAGS = $(AM_CPPFLAGS)  $(ALL_PKG_CPPFLAGS) -static
 curvilineargmshtest_LDFLAGS  = $(AM_LDFLAGS)   $(ALL_PKG_LDFLAGS)
 curvilineargmshtest_LDADD    = $(ALL_PKG_LIBS) $(LDADD)
 
-
-starcdreadertest_SOURCES = starcdreadertest.cc
-starcdreadertest_CPPFLAGS = $(AM_CPPFLAGS)	\
-	$(DUNEMPICPPFLAGS)			\
-	$(UG_CPPFLAGS)
-starcdreadertest_LDFLAGS = $(AM_LDFLAGS)	\
-	$(DUNEMPILDFLAGS)			\
-	$(UG_LDFLAGS)
-starcdreadertest_LDADD =			\
-	$(DUNEMPILIBS)				\
-	$(UG_LIBS)				\
-	$(LDADD)
 
 include $(top_srcdir)/am/global-rules
 

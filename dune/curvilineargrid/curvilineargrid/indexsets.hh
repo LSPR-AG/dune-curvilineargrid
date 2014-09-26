@@ -1,7 +1,7 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_INDEXSETS_HH
-#define DUNE_GEOGRID_INDEXSETS_HH
+#ifndef DUNE_CURVGRID_INDEXSETS_HH
+#define DUNE_CURVGRID_INDEXSETS_HH
 
 #include <vector>
 
@@ -10,12 +10,12 @@
 #include <dune/grid/common/gridenums.hh>
 #include <dune/grid/common/indexidset.hh>
 
-#include <dune/grid/geometrygrid/declaration.hh>
+#include <dune/curvilineargrid/curvilineargrid/declaration.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // IndexSet
@@ -103,8 +103,8 @@ namespace Dune
       const HostIndexSet *hostIndexSet_;
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_INDEXSETS_HH
+#endif // #ifndef DUNE_CURVGRID_INDEXSETS_HH

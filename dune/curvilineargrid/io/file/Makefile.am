@@ -1,16 +1,14 @@
 # $Id$
 
-SUBDIRS = amiramesh test dgfparser vtk gnuplot
+SUBDIRS = test vtk gnuplot
 
 iofiledir = $(includedir)/dune/grid/io/file
 iofile_HEADERS =				\
-	amirameshreader.hh			\
-	amirameshwriter.hh			\
-	dgfparser.hh				\
 	gmshreader.hh				\
 	gmshwriter.hh				\
 	gnuplot.hh				\
-	starcdreader.hh				\
+	curvilineargmshreader.hh		\
+	curvilinearvtkwriter.hh 		\
 	vtk.hh
 
 include $(top_srcdir)/am/global-rules

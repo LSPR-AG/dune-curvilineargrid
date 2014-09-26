@@ -1,18 +1,18 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_BACKUPRESTORE_HH
-#define DUNE_GEOGRID_BACKUPRESTORE_HH
+#ifndef DUNE_CURVGRID_BACKUPRESTORE_HH
+#define DUNE_CURVGRID_BACKUPRESTORE_HH
 
 #include <dune/grid/common/backuprestore.hh>
 #include <dune/grid/utility/grapedataioformattypes.hh>
 
-#include <dune/grid/geometrygrid/declaration.hh>
-#include <dune/grid/geometrygrid/capabilities.hh>
+#include <dune/curvilineargrid/curvilineargrid/declaration.hh>
+#include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // BackupRestoreFacilities
@@ -63,17 +63,17 @@ namespace Dune
       }
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 
 
-  // BackupRestoreFacility for GeometryGrid
+  // BackupRestoreFacility for CurvilinearGrid
   // --------------------------------------
 
   template< class HostGrid, class CoordFunction, class Allocator >
-  struct BackupRestoreFacility< GeometryGrid< HostGrid, CoordFunction, Allocator > >
+  struct BackupRestoreFacility< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
   {
-    typedef GeometryGrid< HostGrid, CoordFunction, Allocator > Grid;
+    typedef CurvilinearGrid< HostGrid, CoordFunction, Allocator > Grid;
     typedef BackupRestoreFacility< HostGrid > HostBackupRestoreFacility;
 
     static void backup ( const Grid &grid, const std::string &path, const std::string &fileprefix )
@@ -107,4 +107,4 @@ namespace Dune
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_BACKUPRESTORE_HH
+#endif // #ifndef DUNE_CURVGRID_BACKUPRESTORE_HH

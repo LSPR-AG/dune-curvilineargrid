@@ -1,20 +1,20 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_ENTITY_HH
-#define DUNE_GEOGRID_ENTITY_HH
+#ifndef DUNE_CURVGRID_ENTITY_HH
+#define DUNE_CURVGRID_ENTITY_HH
 
 #include <dune/common/nullptr.hh>
 
 #include <dune/geometry/referenceelements.hh>
 
 #include <dune/grid/common/grid.hh>
-#include <dune/grid/geometrygrid/capabilities.hh>
-#include <dune/grid/geometrygrid/cornerstorage.hh>
+#include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
+#include <dune/curvilineargrid/curvilineargrid/cornerstorage.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // Internal Forward Declarations
@@ -22,10 +22,10 @@ namespace Dune
 
     /** \class EntityBase
      *  \brief actual implementation of the entity
-     *  \ingroup GeoGrid
+     *  \ingroup CurvGrid
      *
      *  \tparam  codim  codimension of the entity
-     *  \tparam  Grid   GeometryGrid, this entity belongs to
+     *  \tparam  Grid   CurvilinearGrid, this entity belongs to
      *  \tparam  fake   \b true, if the host grid does not provide this entity
      *                  (do not specify, the defualt value is already the
      *                  intended use)
@@ -35,7 +35,7 @@ namespace Dune
 
     /** \class Entity
      *  \brief DUNE-conform implementation of the entity
-     *  \ingroup GeoGrid
+     *  \ingroup CurvGrid
      *
      *  This class merely changes the template parameters of the entity to make
      *  DUNE happy. The actual implementation of the entity can be found in
@@ -43,7 +43,7 @@ namespace Dune
      *
      *  \tparam  codim  codimension of the entity
      *  \tparam  dim    dimension of the Grid (redundant information)
-     *  \tparam  Grid   GeometryGrid, this entity belongs to
+     *  \tparam  Grid   CurvilinearGrid, this entity belongs to
      */
     template< int codim, int dim, class Grid >
     class Entity;
@@ -129,7 +129,7 @@ namespace Dune
     private:
       typedef typename HostGrid::template Codim< codimension >::Geometry HostGeometry;
 
-      typedef GeoGrid::CoordVector< mydimension, Grid, fake > CoordVector;
+      typedef CurvGrid::CoordVector< mydimension, Grid, fake > CoordVector;
 
     public:
       /** \name Construction, Initialization and Destruction
@@ -137,7 +137,7 @@ namespace Dune
 
       /** \brief construct an uninitialized entity
        *
-       *  \param[in]  grid  GeometryGrid this entity belongs to
+       *  \param[in]  grid  CurvilinearGrid this entity belongs to
        *
        *  \note The geometry of an uninitialized entity might already be set
        */
@@ -202,12 +202,12 @@ namespace Dune
        *
        *  Each DUNE entity encapsulates a geometry object, representing the map
        *  from the reference element to world coordinates. Wrapping the geometry
-       *  is the main objective of the GeometryGrid.
+       *  is the main objective of the CurvilinearGrid.
        *
-       *  The GeometryGrid provides geometries of order 1, obtained by
+       *  The CurvilinearGrid provides geometries of order 1, obtained by
        *  interpolation of its corners \f$y_i\f$. There corners are calculated
        *  from the corners \f$x_i\f$ of the host geometry through the
-       *  GeometryGrid's coordinate function \f$c\f$, i.e.,
+       *  CurvilinearGrid's coordinate function \f$c\f$, i.e.,
        *  \f$y_i = c( x_i )\f$.
        *
        *  \returns a const reference to the geometry
@@ -379,7 +379,7 @@ namespace Dune
       typedef typename HostGrid::template Codim< 0 >::Geometry HostGeometry;
       typedef typename HostGrid::template Codim< dimension >::EntityPointer HostVertexPointer;
 
-      typedef GeoGrid::CoordVector< mydimension, Grid, fake > CoordVector;
+      typedef CurvGrid::CoordVector< mydimension, Grid, fake > CoordVector;
 
     public:
       /** \name Construction, Initialization and Destruction
@@ -387,7 +387,7 @@ namespace Dune
 
       /** \brief construct an uninitialized entity
        *
-       *  \param[in]  grid       GeometryGrid this entity belongs to
+       *  \param[in]  grid       CurvilinearGrid this entity belongs to
        *  \param[in]  subEntity  number of this entity within the host element
        *
        *  \note The geometry of an uninitialized entity might already be set
@@ -479,12 +479,12 @@ namespace Dune
        *
        *  Each DUNE entity encapsulates a geometry object, representing the map
        *  from the reference element to world coordinates. Wrapping the geometry
-       *  is the main objective of the GeometryGrid.
+       *  is the main objective of the CurvilinearGrid.
        *
-       *  The GeometryGrid provides geometries of order 1, obtained by
+       *  The CurvilinearGrid provides geometries of order 1, obtained by
        *  interpolation of its corners \f$y_i\f$. There corners are calculated
        *  from the corners \f$x_i\f$ of the host geometry through the
-       *  GeometryGrid's coordinate function \f$c\f$, i.e.,
+       *  CurvilinearGrid's coordinate function \f$c\f$, i.e.,
        *  \f$y_i = c( x_i )\f$.
        *
        *  \returns a const reference to the geometry
@@ -721,25 +721,25 @@ namespace Dune
 
       LevelIntersectionIterator ilevelbegin () const
       {
-        typedef GeoGrid::IntersectionIterator< Grid, typename HostGrid::LevelIntersectionIterator > LevelIntersectionIteratorImpl;
+        typedef CurvGrid::IntersectionIterator< Grid, typename HostGrid::LevelIntersectionIterator > LevelIntersectionIteratorImpl;
         return LevelIntersectionIteratorImpl( *this, hostEntity().ilevelbegin() );
       }
 
       LevelIntersectionIterator ilevelend () const
       {
-        typedef GeoGrid::IntersectionIterator< Grid, typename HostGrid::LevelIntersectionIterator > LevelIntersectionIteratorImpl;
+        typedef CurvGrid::IntersectionIterator< Grid, typename HostGrid::LevelIntersectionIterator > LevelIntersectionIteratorImpl;
         return LevelIntersectionIteratorImpl( *this, hostEntity().ilevelend() );
       }
 
       LeafIntersectionIterator ileafbegin () const
       {
-        typedef GeoGrid::IntersectionIterator< Grid, typename HostGrid::LeafIntersectionIterator > LeafIntersectionIteratorImpl;
+        typedef CurvGrid::IntersectionIterator< Grid, typename HostGrid::LeafIntersectionIterator > LeafIntersectionIteratorImpl;
         return LeafIntersectionIteratorImpl( *this, hostEntity().ileafbegin() );
       }
 
       LeafIntersectionIterator ileafend () const
       {
-        typedef GeoGrid::IntersectionIterator< Grid, typename HostGrid::LeafIntersectionIterator > LeafIntersectionIteratorImpl;
+        typedef CurvGrid::IntersectionIterator< Grid, typename HostGrid::LeafIntersectionIterator > LeafIntersectionIteratorImpl;
         return LeafIntersectionIteratorImpl( *this, hostEntity().ileafend() );
       }
 
@@ -771,13 +771,13 @@ namespace Dune
 
       HierarchicIterator hbegin ( int maxLevel ) const
       {
-        typedef GeoGrid::HierarchicIterator< Grid > HierarchicIteratorImpl;
+        typedef CurvGrid::HierarchicIterator< Grid > HierarchicIteratorImpl;
         return HierarchicIteratorImpl( grid(), hostEntity().hbegin( maxLevel ) );
       }
 
       HierarchicIterator hend ( int maxLevel ) const
       {
-        typedef GeoGrid::HierarchicIterator< Grid > HierarchicIteratorImpl;
+        typedef CurvGrid::HierarchicIterator< Grid > HierarchicIteratorImpl;
         return HierarchicIteratorImpl( grid(), hostEntity().hend( maxLevel ) );
       }
 
@@ -797,8 +797,8 @@ namespace Dune
       }
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_ENTITY_HH
+#endif // #ifndef DUNE_CURVGRID_ENTITY_HH

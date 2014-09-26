@@ -6,7 +6,7 @@
 
 #include <ostream>
 
-#include <dune/grid/io/file/vtk/b64enc.hh>
+#include <dune/curvilineargrid/io/file/vtk/b64enc.hh>
 
 namespace Dune {
 

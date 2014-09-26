@@ -1,16 +1,16 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_CORNERSTORAGE_HH
-#define DUNE_GEOGRID_CORNERSTORAGE_HH
+#ifndef DUNE_CURVGRID_CORNERSTORAGE_HH
+#define DUNE_CURVGRID_CORNERSTORAGE_HH
 
 #include <dune/common/array.hh>
 
-#include <dune/grid/geometrygrid/coordfunctioncaller.hh>
+#include <dune/curvilineargrid/curvilineargrid/coordfunctioncaller.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // CoordVector
@@ -39,7 +39,7 @@ namespace Dune
 
       typedef typename HostGrid::template Codim< codimension >::Entity HostEntity;
 
-      typedef GeoGrid :: CoordFunctionCaller< HostEntity, typename CoordFunction::Interface >
+      typedef CurvGrid :: CoordFunctionCaller< HostEntity, typename CoordFunction::Interface >
       CoordFunctionCaller;
 
     public:
@@ -81,7 +81,7 @@ namespace Dune
 
       typedef typename HostGrid::template Codim< 0 >::Entity HostElement;
 
-      typedef GeoGrid::CoordFunctionCaller< HostElement, typename CoordFunction::Interface >
+      typedef CurvGrid::CoordFunctionCaller< HostElement, typename CoordFunction::Interface >
       CoordFunctionCaller;
 
     public:
@@ -204,8 +204,8 @@ namespace Dune
       Coords coords_;
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_CORNERSTORAGE_HH
+#endif // #ifndef DUNE_CURVGRID_CORNERSTORAGE_HH

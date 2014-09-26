@@ -10,8 +10,8 @@
 #include <dune/common/exceptions.hh>
 #include <dune/common/indent.hh>
 
-#include <dune/grid/io/file/vtk/streams.hh>
-#include <dune/grid/io/file/vtk/common.hh>
+#include <dune/curvilineargrid/io/file/vtk/streams.hh>
+#include <dune/curvilineargrid/io/file/vtk/common.hh>
 
 /** @file
     @author Peter Bastian, Christian Engwer

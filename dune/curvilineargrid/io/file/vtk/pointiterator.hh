@@ -10,8 +10,8 @@
 #include <dune/common/iteratorfacades.hh>
 #include <dune/common/typetraits.hh>
 
-#include <dune/grid/io/file/vtk/corner.hh>
-#include <dune/grid/io/file/vtk/corneriterator.hh>
+#include <dune/curvilineargrid/io/file/vtk/corner.hh>
+#include <dune/curvilineargrid/io/file/vtk/corneriterator.hh>
 
 namespace Dune
 {

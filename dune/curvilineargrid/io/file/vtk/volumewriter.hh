@@ -6,10 +6,10 @@
 
 #include <dune/common/shared_ptr.hh>
 
-#include <dune/grid/io/file/vtk/basicwriter.hh>
-#include <dune/grid/io/file/vtk/function.hh>
-#include <dune/grid/io/file/vtk/functionwriter.hh>
-#include <dune/grid/io/file/vtk/volumeiterators.hh>
+#include <dune/curvilineargrid/io/file/vtk/basicwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/function.hh>
+#include <dune/curvilineargrid/io/file/vtk/functionwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/volumeiterators.hh>
 
 namespace Dune {
   //! \addtogroup VTK

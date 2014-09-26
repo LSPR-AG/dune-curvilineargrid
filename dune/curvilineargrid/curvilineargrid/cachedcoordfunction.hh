@@ -1,7 +1,7 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_CACHEDCOORDFUNCTION_HH
-#define DUNE_GEOGRID_CACHEDCOORDFUNCTION_HH
+#ifndef DUNE_CURVGRID_CACHEDCOORDFUNCTION_HH
+#define DUNE_CURVGRID_CACHEDCOORDFUNCTION_HH
 
 #include <cassert>
 #include <memory>
@@ -10,8 +10,8 @@
 
 #include <dune/grid/common/gridenums.hh>
 
-#include <dune/grid/geometrygrid/capabilities.hh>
-#include <dune/grid/geometrygrid/coordfunctioncaller.hh>
+#include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
+#include <dune/curvilineargrid/curvilineargrid/coordfunctioncaller.hh>
 #include <dune/grid/utility/persistentcontainer.hh>
 
 namespace Dune
@@ -25,10 +25,10 @@ namespace Dune
 
 
 
-  // GeoGrid::CoordCache
+  // CurvGrid::CoordCache
   // -------------------
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     template< class HostGrid, class Coordinate >
@@ -84,7 +84,7 @@ namespace Dune
       DataCache data_;
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 
 
@@ -104,7 +104,7 @@ namespace Dune
     typedef typename Base::RangeVector RangeVector;
 
   private:
-    typedef GeoGrid::CoordCache< HostGrid, RangeVector > Cache;
+    typedef CurvGrid::CoordCache< HostGrid, RangeVector > Cache;
 
   public:
     explicit
@@ -133,7 +133,7 @@ namespace Dune
     {
       y = cache_( hostEntity, corner );
 #ifndef NDEBUG
-      typedef GeoGrid::CoordFunctionCaller< HostEntity, typename CoordFunction::Interface >
+      typedef CurvGrid::CoordFunctionCaller< HostEntity, typename CoordFunction::Interface >
       CoordFunctionCaller;
 
       RangeVector z;
@@ -184,7 +184,7 @@ namespace Dune
   inline void CachedCoordFunction< HostGrid, CoordFunction >
     ::insertEntity ( const HostEntity &hostEntity )
   {
-    typedef GeoGrid::CoordFunctionCaller< HostEntity, typename CoordFunction::Interface >
+    typedef CurvGrid::CoordFunctionCaller< HostEntity, typename CoordFunction::Interface >
     CoordFunctionCaller;
 
     CoordFunctionCaller coordFunctionCaller( hostEntity, coordFunction_ );
@@ -198,4 +198,4 @@ namespace Dune
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_CACHEDCOORDFUNCTION_HH
+#endif // #ifndef DUNE_CURVGRID_CACHEDCOORDFUNCTION_HH

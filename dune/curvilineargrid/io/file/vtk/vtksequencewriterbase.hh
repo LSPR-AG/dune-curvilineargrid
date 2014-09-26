@@ -10,7 +10,7 @@
 #include <fstream>
 #include <iomanip>
 
-#include <dune/grid/io/file/vtk/common.hh>
+#include <dune/curvilineargrid/io/file/vtk/common.hh>
 #include <dune/common/path.hh>
 
 namespace Dune {

@@ -1,18 +1,18 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_ENTITYPOINTER_HH
-#define DUNE_GEOGRID_ENTITYPOINTER_HH
+#ifndef DUNE_CURVGRID_ENTITYPOINTER_HH
+#define DUNE_CURVGRID_ENTITYPOINTER_HH
 
 #include <dune/grid/common/grid.hh>
 
-#include <dune/grid/geometrygrid/declaration.hh>
-#include <dune/grid/geometrygrid/capabilities.hh>
-#include <dune/grid/geometrygrid/entityseed.hh>
+#include <dune/curvilineargrid/curvilineargrid/declaration.hh>
+#include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
+#include <dune/curvilineargrid/curvilineargrid/entityseed.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // External Forward Declarations
@@ -52,10 +52,10 @@ namespace Dune
     /** \endcond */
 
     template< int codim, class HostGrid, class CoordFunction, class Allocator >
-    struct EntityPointerTraits< codim, GeometryGrid< HostGrid, CoordFunction, Allocator > >
+    struct EntityPointerTraits< codim, CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
       : public ExportParams< HostGrid, CoordFunction >
     {
-      typedef Dune::GeometryGrid< HostGrid, CoordFunction, Allocator > Grid;
+      typedef Dune::CurvilinearGrid< HostGrid, CoordFunction, Allocator > Grid;
 
       static const bool fake = !Capabilities::hasHostEntity< Grid, codim >::v;
 
@@ -64,8 +64,8 @@ namespace Dune
       static const int dimension = HostGrid::dimension;
       static const int codimension = codim;
 
-      typedef Dune::Entity< codimension, dimension, const Grid, GeoGrid::Entity > Entity;
-      typedef Dune::EntitySeed< const Grid, GeoGrid::EntitySeed< codimension, const Grid > > EntitySeed;
+      typedef Dune::Entity< codimension, dimension, const Grid, CurvGrid::Entity > Entity;
+      typedef Dune::EntitySeed< const Grid, CurvGrid::EntitySeed< codimension, const Grid > > EntitySeed;
 
       typedef typename HostGrid::template Codim< codim >::Entity HostEntity;
       typedef typename HostGrid::template Codim< codim >::EntityPointer HostEntityPointer;
@@ -107,7 +107,7 @@ namespace Dune
 
       typedef typename Traits::EntitySeed EntitySeed;
 
-      typedef GeoGrid::Entity< codimension, dimension, const Grid > EntityImpl;
+      typedef CurvGrid::Entity< codimension, dimension, const Grid > EntityImpl;
       typedef typename EntityImpl::GeometryImpl GeometryImpl;
 
     public:
@@ -226,7 +226,7 @@ namespace Dune
 
       typedef typename Traits::EntitySeed EntitySeed;
 
-      typedef GeoGrid::Entity< codimension, dimension, const Grid > EntityImpl;
+      typedef CurvGrid::Entity< codimension, dimension, const Grid > EntityImpl;
       typedef typename EntityImpl::GeometryImpl GeometryImpl;
 
     public:
@@ -336,8 +336,8 @@ namespace Dune
       HostElementIterator hostElementIterator_;
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_ENTITYPOINTER_HH
+#endif // #ifndef DUNE_CURVGRID_ENTITYPOINTER_HH

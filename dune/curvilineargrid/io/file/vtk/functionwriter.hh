@@ -15,10 +15,10 @@
 
 #include <dune/geometry/referenceelements.hh>
 
-#include <dune/grid/io/file/vtk/common.hh>
-#include <dune/grid/io/file/vtk/dataarraywriter.hh>
-#include <dune/grid/io/file/vtk/pvtuwriter.hh>
-#include <dune/grid/io/file/vtk/vtuwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/common.hh>
+#include <dune/curvilineargrid/io/file/vtk/dataarraywriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/pvtuwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/vtuwriter.hh>
 
 namespace Dune
 {

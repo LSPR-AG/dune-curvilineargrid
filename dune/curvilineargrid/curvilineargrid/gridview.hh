@@ -1,23 +1,23 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_GRIDVIEW_HH
-#define DUNE_GEOGRID_GRIDVIEW_HH
+#ifndef DUNE_CURVGRID_GRIDVIEW_HH
+#define DUNE_CURVGRID_GRIDVIEW_HH
 
 #include <dune/common/typetraits.hh>
 #include <dune/common/exceptions.hh>
 
 #include <dune/grid/common/capabilities.hh>
 #include <dune/grid/common/gridview.hh>
-#include <dune/grid/geometrygrid/datahandle.hh>
-#include <dune/grid/geometrygrid/indexsets.hh>
-#include <dune/grid/geometrygrid/intersection.hh>
-#include <dune/grid/geometrygrid/intersectioniterator.hh>
-#include <dune/grid/geometrygrid/iterator.hh>
+#include <dune/curvilineargrid/curvilineargrid/datahandle.hh>
+#include <dune/curvilineargrid/curvilineargrid/indexsets.hh>
+#include <dune/curvilineargrid/curvilineargrid/intersection.hh>
+#include <dune/curvilineargrid/curvilineargrid/intersectioniterator.hh>
+#include <dune/curvilineargrid/curvilineargrid/iterator.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // Internal Forward Declarations
@@ -45,14 +45,14 @@ namespace Dune
     public:
       typedef GridView< HostGridView, CoordFunction, Allocator, pitype > GridViewImp;
 
-      typedef Dune::GeometryGrid< HostGrid, CoordFunction, Allocator > Grid;
+      typedef Dune::CurvilinearGrid< HostGrid, CoordFunction, Allocator > Grid;
 
-      typedef GeoGrid::IndexSet< const Grid, typename HostGridView::IndexSet > IndexSet;
+      typedef CurvGrid::IndexSet< const Grid, typename HostGridView::IndexSet > IndexSet;
 
-      typedef Dune::Intersection< const Grid, GeoGrid::Intersection< const Grid, HostIntersection > > Intersection;
+      typedef Dune::Intersection< const Grid, CurvGrid::Intersection< const Grid, HostIntersection > > Intersection;
 
       typedef Dune::IntersectionIterator
-      < const Grid, GeoGrid::IntersectionIterator< const Grid, HostIntersectionIterator >, GeoGrid::Intersection< const Grid, HostIntersection > >
+      < const Grid, CurvGrid::IntersectionIterator< const Grid, HostIntersectionIterator >, CurvGrid::Intersection< const Grid, HostIntersection > >
       IntersectionIterator;
 
       typedef typename HostGridView::CollectiveCommunication CollectiveCommunication;
@@ -60,8 +60,8 @@ namespace Dune
       template< int codim >
       struct Codim
       {
-        typedef GeoGrid::IteratorTraits< HostGridView, codim, pitype, const Grid > IteratorTraits;
-        typedef Dune::EntityIterator< codim, const Grid, GeoGrid::Iterator< IteratorTraits > > Iterator;
+        typedef CurvGrid::IteratorTraits< HostGridView, codim, pitype, const Grid > IteratorTraits;
+        typedef Dune::EntityIterator< codim, const Grid, CurvGrid::Iterator< IteratorTraits > > Iterator;
 
         typedef typename Grid::Traits::template Codim< codim >::Entity Entity;
         typedef typename Grid::Traits::template Codim< codim >::EntityPointer EntityPointer;
@@ -72,8 +72,8 @@ namespace Dune
         template< PartitionIteratorType pit >
         struct Partition
         {
-          typedef GeoGrid::IteratorTraits< HostGridView, codim, pit, const Grid > IteratorTraits;
-          typedef Dune::EntityIterator< codim, const Grid, GeoGrid::Iterator< IteratorTraits > > Iterator;
+          typedef CurvGrid::IteratorTraits< HostGridView, codim, pit, const Grid > IteratorTraits;
+          typedef Dune::EntityIterator< codim, const Grid, CurvGrid::Iterator< IteratorTraits > > Iterator;
         };
       };
 
@@ -144,39 +144,39 @@ namespace Dune
       typename Codim< codim >::Iterator begin () const
       {
         typedef typename Traits::template Codim< codim >::template Partition< pitype >::IteratorTraits IteratorTraits;
-        return GeoGrid::Iterator< IteratorTraits >( grid(), hostGridView(), IteratorTraits::begin );
+        return CurvGrid::Iterator< IteratorTraits >( grid(), hostGridView(), IteratorTraits::begin );
       }
 
       template< int codim, PartitionIteratorType pit >
       typename Codim< codim >::template Partition< pit >::Iterator begin () const
       {
         typedef typename Traits::template Codim< codim >::template Partition< pit >::IteratorTraits IteratorTraits;
-        return GeoGrid::Iterator< IteratorTraits >( grid(), hostGridView(), IteratorTraits::begin );
+        return CurvGrid::Iterator< IteratorTraits >( grid(), hostGridView(), IteratorTraits::begin );
       }
 
       template< int codim >
       typename Codim< codim >::Iterator end () const
       {
         typedef typename Traits::template Codim< codim >::template Partition< pitype >::IteratorTraits IteratorTraits;
-        return GeoGrid::Iterator< IteratorTraits >( grid(), hostGridView(), IteratorTraits::end );
+        return CurvGrid::Iterator< IteratorTraits >( grid(), hostGridView(), IteratorTraits::end );
       }
 
       template< int codim, PartitionIteratorType pit >
       typename Codim< codim >::template Partition< pit >::Iterator end () const
       {
         typedef typename Traits::template Codim< codim >::template Partition< pit >::IteratorTraits IteratorTraits;
-        return GeoGrid::Iterator< IteratorTraits >( grid(), hostGridView(), IteratorTraits::end );
+        return CurvGrid::Iterator< IteratorTraits >( grid(), hostGridView(), IteratorTraits::end );
       }
 
       IntersectionIterator ibegin ( const typename Codim< 0 >::Entity &entity ) const
       {
-        typedef GeoGrid::IntersectionIterator< const Grid, typename HostGridView::IntersectionIterator > IntersectionIteratorImpl;
+        typedef CurvGrid::IntersectionIterator< const Grid, typename HostGridView::IntersectionIterator > IntersectionIteratorImpl;
         return IntersectionIteratorImpl( entity, hostGridView().ibegin( Grid::getRealImplementation( entity ).hostEntity() ) );
       }
 
       IntersectionIterator iend ( const typename Codim< 0 >::Entity &entity ) const
       {
-        typedef GeoGrid::IntersectionIterator< const Grid, typename HostGridView::IntersectionIterator > IntersectionIteratorImpl;
+        typedef CurvGrid::IntersectionIterator< const Grid, typename HostGridView::IntersectionIterator > IntersectionIteratorImpl;
         return IntersectionIteratorImpl( entity, hostGridView().iend( Grid::getRealImplementation( entity ).hostEntity() ) );
       }
 
@@ -201,7 +201,7 @@ namespace Dune
                          CommunicationDirection direction ) const
       {
         typedef CommDataHandleIF< DataHandle, Data > DataHandleIF;
-        typedef GeoGrid::CommDataHandle< Grid, DataHandleIF > WrappedDataHandle;
+        typedef CurvGrid::CommDataHandle< Grid, DataHandleIF > WrappedDataHandle;
 
         WrappedDataHandle wrappedDataHandle( grid(), dataHandle );
         hostGridView().communicate( wrappedDataHandle, interface, direction );
@@ -215,8 +215,8 @@ namespace Dune
       mutable IndexSet indexSet_;
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_GRIDVIEW_HH
+#endif // #ifndef DUNE_CURVGRID_GRIDVIEW_HH

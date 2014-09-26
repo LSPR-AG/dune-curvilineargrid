@@ -8,9 +8,9 @@
 
 #include <dune/common/shared_ptr.hh>
 
-#include <dune/grid/io/file/vtk/basicwriter.hh>
-#include <dune/grid/io/file/vtk/boundaryiterators.hh>
-#include <dune/grid/io/file/vtk/skeletonfunction.hh>
+#include <dune/curvilineargrid/io/file/vtk/basicwriter.hh>
+#include <dune/curvilineargrid/io/file/vtk/boundaryiterators.hh>
+#include <dune/curvilineargrid/io/file/vtk/skeletonfunction.hh>
 
 namespace Dune {
   //! \addtogroup VTK

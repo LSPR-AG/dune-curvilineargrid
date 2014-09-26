@@ -4,7 +4,7 @@
 #ifndef DUNE_GRID_IO_FILE_VTK_CORNER_HH
 #define DUNE_GRID_IO_FILE_VTK_CORNER_HH
 
-#include <dune/grid/io/file/vtk/common.hh>
+#include <dune/curvilineargrid/io/file/vtk/common.hh>
 
 namespace Dune
 {

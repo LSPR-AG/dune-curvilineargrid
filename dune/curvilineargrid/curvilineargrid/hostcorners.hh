@@ -1,7 +1,7 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_HOSTCORNERS_HH
-#define DUNE_GEOGRID_HOSTCORNERS_HH
+#ifndef DUNE_CURVGRID_HOSTCORNERS_HH
+#define DUNE_CURVGRID_HOSTCORNERS_HH
 
 #include <dune/geometry/type.hh>
 
@@ -22,7 +22,7 @@ namespace Dune
 
 
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // HostCorners
@@ -114,8 +114,8 @@ namespace Dune
     };
 #endif // #if DUNE_GRID_EXPERIMENTAL_GRID_EXTENSIONS
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_HOSTCORNERS_HH
+#endif // #ifndef DUNE_CURVGRID_HOSTCORNERS_HH

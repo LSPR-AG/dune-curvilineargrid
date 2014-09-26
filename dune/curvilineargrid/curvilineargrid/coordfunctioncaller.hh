@@ -1,15 +1,15 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_COORDFUNCTIONCALLER_HH
-#define DUNE_GEOGRID_COORDFUNCTIONCALLER_HH
+#ifndef DUNE_CURVGRID_COORDFUNCTIONCALLER_HH
+#define DUNE_CURVGRID_COORDFUNCTIONCALLER_HH
 
-#include <dune/grid/geometrygrid/hostcorners.hh>
-#include <dune/grid/geometrygrid/coordfunction.hh>
+#include <dune/curvilineargrid/curvilineargrid/hostcorners.hh>
+#include <dune/curvilineargrid/curvilineargrid/coordfunction.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // CoordFunctionCaller
@@ -92,8 +92,8 @@ namespace Dune
       const CoordFunctionInterface &coordFunction_;
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_COORDFUNCTIONCALLER_HH
+#endif // #ifndef DUNE_CURVGRID_COORDFUNCTIONCALLER_HH

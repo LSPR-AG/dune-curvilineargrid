@@ -1,17 +1,17 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_GEOGRID_ENTITYSEED_HH
-#define DUNE_GEOGRID_ENTITYSEED_HH
+#ifndef DUNE_CURVGRID_ENTITYSEED_HH
+#define DUNE_CURVGRID_ENTITYSEED_HH
 
 #include <dune/common/typetraits.hh>
 
 #include <dune/grid/common/entityseed.hh>
-#include <dune/grid/geometrygrid/capabilities.hh>
+#include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
 
 namespace Dune
 {
 
-  namespace GeoGrid
+  namespace CurvGrid
   {
 
     // Internal Forward Declarations
@@ -111,8 +111,8 @@ namespace Dune
       unsigned int subEntity_;
     };
 
-  } // namespace GeoGrid
+  } // namespace CurvGrid
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_GEOGRID_ENTITYSEED_HH
+#endif // #ifndef DUNE_CURVGRID_ENTITYSEED_HH

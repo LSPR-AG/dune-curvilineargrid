@@ -93,11 +93,11 @@ using namespace Dune;
 
 /** \brief straight sided grids **/
 
-//const std::string    GMSH_FILE_NAME    =    "sphere32.msh";
+const std::string    GMSH_FILE_NAME    =    "sphere32.msh";
 //const std::string    GMSH_FILE_NAME    =    "sphere32ord2.msh";
 //const std::string    GMSH_FILE_NAME    =    "sphere32ord3.msh";
 //const std::string    GMSH_FILE_NAME    =    "sphere32ord4.msh";
-const std::string    GMSH_FILE_NAME    =    "sphere32ord5.msh";
+//const std::string    GMSH_FILE_NAME    =    "sphere32ord5.msh";
 
 
 
@@ -141,11 +141,9 @@ int main(int argc, char** argv)
     //typedef Dune::LeafMultipleCodimMultipleGeomTypeMapper<Dune::GridSelector::GridType,P3Layout> NodeMapper;
 
 
-#ifdef HAVE_MPI
-    typedef  ALUGrid<3,3,simplex,nonconforming, mpihelper> ALUSimplexGridType;
-#else
-    typedef  ALUGrid<3,3,simplex,nonconforming > ALUSimplexGridType;
-#endif
+
+    typedef  Dune::ALUGrid<3,3,simplex,nonconforming> ALUSimplexGridType;
+
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     Dune::GridFactory<ALUSimplexGridType> factory;
@@ -162,13 +160,22 @@ int main(int argc, char** argv)
     std::vector<int> elementIndex2PhysicalEntity;
     elementIndex2PhysicalEntity.clear();
 
+#ifdef HAVE_MPI
     Dune::CurvilinearGmshReader< ALUSimplexGridType >::read(factory,
-                                                        GMSH_FILE_NAME,
-                                                        boundaryId2physicalEntity,
-                                                        elementIndex2PhysicalEntity,
-                                                        true,
-                                                        true);
-
+                                                            GMSH_FILE_NAME,
+                                                            mpihelper,
+                                                            boundaryId2physicalEntity,
+                                                            elementIndex2PhysicalEntity,
+                                                            true,
+                                                            true);
+#else
+    Dune::CurvilinearGmshReader< ALUSimplexGridType >::read(factory,
+                                                            GMSH_FILE_NAME,
+                                                            boundaryId2physicalEntity,
+                                                            elementIndex2PhysicalEntity,
+                                                            true,
+                                                            true);
+#endif
 
     /** \brief leave program peacefully */
     return(0);

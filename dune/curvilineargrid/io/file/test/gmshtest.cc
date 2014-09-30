@@ -16,6 +16,11 @@
 #if HAVE_ALUGRID
 #include <dune/grid/alugrid.hh>
 #endif
+// New ALUGRID
+#ifdef HAVE_DUNE_ALUGRID
+#include <dune/alugrid/grid.hh>
+#endif
+
 #include <dune/grid/onedgrid.hh>
 
 // alberta related stuff
@@ -88,7 +93,7 @@ try
   if ( argc > 1 )
     refinements = atoi( argv[1] );
 
-  const std::string path = std::string(DUNE_GRID_EXAMPLE_GRIDS_PATH) + "gmsh/";
+  const std::string path = std::string("../../../../../../dune-grid/doc/grids/") + "gmsh/";
   std::string curved2d( path ); curved2d += "curved2d.msh";
   std::string circ2nd(  path ); circ2nd  += "circle2ndorder.msh";
   std::string unitsquare_quads_2x2(path);  unitsquare_quads_2x2 += "unitsquare_quads_2x2.msh";
@@ -142,6 +147,17 @@ try
 
   std::cout << "reading and writing ALUGrid<3,3,simplex,nonconforming>" << std::endl;
   testReadingAndWritingGrid<ALUGrid<3,3,simplex,nonconforming> >( pyramid, pyramid+".ALUGrid_3_3_simplex-gmshtest-write.msh", refinements );
+#endif
+
+#if HAVE_DUNE_ALUGRID
+  typedef Dune::ALUGrid<2,2,simplex,nonconforming> Simplex2DType;
+  typedef Dune::ALUGrid<3,3,simplex,nonconforming> Simplex3DType;
+
+  std::cout << "reading and writing ALUGrid<2,2,simplex,nonconforming>" << std::endl;
+  testReadingAndWritingGrid< Simplex2DType >( curved2d, curved2d+".ALUGrid_2_2_simplex-gmshtest-write.msh", refinements );
+
+  std::cout << "reading and writing ALUGrid<3,3,simplex,nonconforming>" << std::endl;
+  testReadingAndWritingGrid< Simplex3DType >( pyramid, pyramid+".ALUGrid_3_3_simplex-gmshtest-write.msh", refinements );
 #endif
 
   std::cout << "reading and writing OneDGrid" << std::endl;

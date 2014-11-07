@@ -1,566 +1,846 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
 
-#ifndef DUNE_ALBERTA_GRIDFACTORY_HH
-#define DUNE_ALBERTA_GRIDFACTORY_HH
+#ifndef DUNE_CURVGRID_GRIDFACTORY_HH
+#define DUNE_CURVGRID_GRIDFACTORY_HH
 
 /** \file
- *  \author Martin Nolte
- *  \brief  specialization of the generic GridFactory for AlbertaGrid
+ *  \author Aleksejs Fomins
+ *  \brief  Implementation of Curvilinear Grid Factory
  */
 
-#include <algorithm>
-#include <limits>
+#include <config.h>
+
 #include <map>
+#include <limits>
+#include <vector>
+#include <algorithm>
+#include <utility>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <iostream>
+#include <fstream>
 
 #include <dune/common/array.hh>
+#include <dune/common/exceptions.hh>
+#include <dune/common/parallel/mpihelper.hh>
+#include <dune/common/parallel/mpicollectivecommunication.hh>
 
+#include <dune/geometry/type.hh>
 #include <dune/geometry/referenceelements.hh>
 
 #include <dune/grid/common/gridfactory.hh>
+#include <dune/grid/common/boundaryprojection.hh>
 
-#include <dune/grid/utility/grapedataioformattypes.hh>
+//#include <dune/grid/utility/globalindex.hh>
 
-#include <dune/grid/albertagrid/agrid.hh>
+#include <dune/alugrid/common/transformation.hh>
+#include <dune/alugrid/3d/alugrid.hh>
+#include <dune/alugrid/3d/gridfactory.hh>
+#include <dune/alugrid/3d/gridfactory.cc>
 
-#if HAVE_ALBERTA
+
+
+#include <parmetis.h>
+
+
+
+
+
 
 namespace Dune
 {
 
-  /** \brief specialization of the generic GridFactory for AlbertaGrid
-   *
-   *  \ingroup GridFactory
-   *
-   *  The GridFactory for AlbertaGrid adds some extensions to the standard
-   *  GridFactoryInterface. It provides the following additional features:
-   *  - It allows to set boundary ids via insertBoundary. For ALBERTA 1.2,
-   *    these boundary ids are ignored, though.
-   *  - For ALBERTA 3.0 and above, you can add face transformation to identify
-   *    faces. This allows the construction of periodic grids.
-   *  - The grid can be written in ALBERTA's native format for macro
-   *    triangulations via write (both ASCII and XDR format are supported).
-   *  - On grid creation, a name can be assigned to the grid.
-   *  - On grid creation, the grid can be reordered such that ALBERTA uses
-   *    the longest edge as refinement edge during recursive bisection.
-   *  .
-   */
-  template< int dim, int dimworld >
-  class GridFactory< AlbertaGrid< dim, dimworld > >
-    : public GridFactoryInterface< AlbertaGrid< dim, dimworld > >
-  {
-    typedef GridFactory< AlbertaGrid< dim, dimworld > > This;
+
+template< class ALUGrid >
+class CurvilinearGridFactory
+{
+	/** \brief Factory class for 3d ALUGrids */
 
   public:
-    //! type of grid this factory is for
-    typedef AlbertaGrid< dim, dimworld > Grid;
+    typedef ALUGrid HostGrid;
 
-    //! type of (scalar) coordinates
-    typedef typename Grid::ctype ctype;
+    typedef typename HostGrid::ctype ctype;
 
-    //! dimension of the grid
-    static const int dimension = Grid::dimension;
-    //! dimension of the world
-    static const int dimensionworld = Grid::dimensionworld;
+    typedef unsigned int VertexGlobalId;
+    typedef unsigned int VertexLocalIndex;
+    typedef unsigned int CornerLocalIndex;
 
-    //! type of vector for world coordinates
-    typedef FieldVector< ctype, dimensionworld > WorldVector;
-    //! type of matrix from world coordinates to world coordinates
-    typedef FieldMatrix< ctype, dimensionworld, dimensionworld > WorldMatrix;
+    typedef unsigned int ElementGlobalId;
+    typedef unsigned int ElementLocalIndex;
+    typedef unsigned int BoundaryLocalIndex;
 
-    typedef DuneBoundaryProjection< dimensionworld > DuneProjection;
-    typedef Dune::shared_ptr< const DuneProjection > DuneProjectionPtr;
-    typedef Dune::BoundarySegment< dimension, dimensionworld > BoundarySegment;
+    static const unsigned int dimension = HostGrid::dimension;
+    static const unsigned int dimensionworld = HostGrid::dimensionworld;
 
     template< int codim >
     struct Codim
     {
-      typedef typename Grid::template Codim< codim >::Entity Entity;
+      typedef typename HostGrid::template Codim< codim >::Entity Entity;
+      typedef typename HostGrid::template Codim< codim >::EntityPointer EntityPointer;
     };
 
-  private:
-    typedef Dune::BoundarySegmentWrapper< dimension, dimensionworld > BoundarySegmentWrapper;
-
-    static const int numVertices
-      = Alberta::NumSubEntities< dimension, dimension >::value;
-
-    typedef Alberta::MacroElement< dimension > MacroElement;
-    typedef Alberta::ElementInfo< dimension > ElementInfo;
-    typedef Alberta::MacroData< dimension > MacroData;
-    typedef Alberta::NumberingMap< dimension, Alberta::Dune2AlbertaNumbering > NumberingMap;
-    typedef Alberta::DuneBoundaryProjection< dimension > Projection;
-
-    typedef array< unsigned int, dimension > FaceId;
-    typedef std::map< FaceId, size_t > BoundaryMap;
-
-    class ProjectionFactory;
-
-  public:
-    //! are boundary ids supported by this factory?
-    static const bool supportsBoundaryIds = true;
-    //! is the factory able to create periodic meshes?
-    static const bool supportPeriodicity = MacroData::supportPeriodicity;
-
-    /** default constructor */
-    GridFactory ()
-      : globalProjection_( (const DuneProjection *) 0 )
-    {
-      macroData_.create();
-    }
-
-    virtual ~GridFactory ();
-
-    /** \brief insert a vertex into the macro grid
-     *
-     *  \param[in]  pos  position of the vertex (in world coordinates)
-     */
-    virtual void insertVertex ( const WorldVector &pos )
-    {
-      macroData_.insertVertex( pos );
-    }
-
-    /** \brief insert an element into the macro grid
-     *
-     *  \param[in]  type      GeometryType of the new element
-     *  \param[in]  vertices  indices of the element vertices (in DUNE numbering)
-     */
-    virtual void insertElement ( const GeometryType &type,
-                                 const std::vector< unsigned int > &vertices )
-    {
-      if( (int)type.dim() != dimension )
-        DUNE_THROW( AlbertaError, "Inserting element of wrong dimension: " << type.dim() );
-      if( !type.isSimplex() )
-        DUNE_THROW( AlbertaError, "Alberta supports only simplices." );
-
-      if( vertices.size() != (size_t)numVertices )
-        DUNE_THROW( AlbertaError, "Wrong number of vertices passed: " << vertices.size() << "." );
-
-      int array[ numVertices ];
-      for( int i = 0; i < numVertices; ++i )
-        array[ i ] = vertices[ numberingMap_.alberta2dune( dimension, i ) ];
-      macroData_.insertElement( array );
-    }
-
-    /** \brief mark a face as boundary (and assign a boundary id)
-     *
-     *  \internal
-     *
-     *  \param[in]  element  index of the element, the face belongs to
-     *  \param[in]  face     local number of the face within the element
-     *  \param[in]  id       boundary id to assign to the face
-     *
-     *  \note ALBERTA supports only boundary id in the range 1,...,127.
-     */
-    virtual void insertBoundary ( int element, int face, int id )
-    {
-      if( (id <= 0) || (id > 127) )
-        DUNE_THROW( AlbertaError, "Invalid boundary id: " << id << "." );
-      macroData_.boundaryId( element, numberingMap_.dune2alberta( 1, face ) ) = id;
-    }
-
-    /** \brief insert a boundary projection into the macro grid
-     *
-     *  \internal
-     *
-     *  \param[in]  type        geometry type of boundary face
-     *  \param[in]  vertices    vertices of the boundary face
-     *  \param[in]  projection  boundary projection
-     *
-     *  \note The grid takes control of the projection object.
-     */
-    virtual void
-    insertBoundaryProjection ( const GeometryType &type,
-                               const std::vector< unsigned int > &vertices,
-                               const DuneProjection *projection )
-    {
-      if( (int)type.dim() != dimension-1 )
-        DUNE_THROW( AlbertaError, "Inserting boundary face of wrong dimension: " << type.dim() );
-      if( !type.isSimplex() )
-        DUNE_THROW( AlbertaError, "Alberta supports only simplices." );
-
-      FaceId faceId;
-      if( vertices.size() != faceId.size() )
-        DUNE_THROW( AlbertaError, "Wrong number of face vertices passed: " << vertices.size() << "." );
-      for( size_t i = 0; i < faceId.size(); ++i )
-        faceId[ i ] = vertices[ i ];
-      std::sort( faceId.begin(), faceId.end() );
-
-      typedef std::pair< typename BoundaryMap::iterator, bool > InsertResult;
-      const InsertResult result = boundaryMap_.insert( std::make_pair( faceId, boundaryProjections_.size() ) );
-      if( !result.second )
-        DUNE_THROW( GridError, "Only one boundary projection can be attached to a face." );
-      boundaryProjections_.push_back( DuneProjectionPtr( projection ) );
-    }
-
-
-    /** \brief insert a global (boundary) projection into the macro grid
-     *
-     *  \internal
-     *
-     *  \param[in]  projection  global (boundary) projection
-     *
-     *  \note The grid takes control of the projection object.
-     */
-    virtual void insertBoundaryProjection ( const DuneProjection *projection )
-    {
-      if( globalProjection_ )
-        DUNE_THROW( GridError, "Only one global boundary projection can be attached to a grid." );
-      globalProjection_ = DuneProjectionPtr( projection );
-    }
-
-    /** \brief insert a boundary segment into the macro grid
-     *
-     *  Only influences the ordering of the boundary segments
-     *  \param[in]  vertices         vertex indices of boundary face
-     */
-    virtual void
-    insertBoundarySegment ( const std::vector< unsigned int >& vertices )
-    {
-      typedef typename GenericGeometry::SimplexTopology< dimension-1 >::type Topology;
-      insertBoundaryProjection( GeometryType( Topology() ), vertices, 0 );
-    }
-
-    /** \brief insert a shaped boundary segment into the macro grid
-     *
-     *  \param[in]  vertices         vertex indices of boundary face
-     *  \param[in]  boundarySegment  geometric realization of shaped boundary
-     */
-    virtual void
-    insertBoundarySegment ( const std::vector< unsigned int > &vertices,
-                            const shared_ptr< BoundarySegment > &boundarySegment )
-    {
-      const ReferenceElement< ctype, dimension-1 > &refSimplex
-        = ReferenceElements< ctype, dimension-1 >::simplex();
-
-      if( !boundarySegment )
-        DUNE_THROW( GridError, "Trying to insert null as a boundary segment." );
-      if( (int)vertices.size() != refSimplex.size( dimension-1 ) )
-        DUNE_THROW( GridError, "Wrong number of face vertices passed: " << vertices.size() << "." );
-
-      std::vector< WorldVector > coords( refSimplex.size( dimension-1 ) );
-      for( int i = 0; i < dimension; ++i )
-      {
-        Alberta::GlobalVector &x = macroData_.vertex( vertices[ i ] );
-        for( int j = 0; j < dimensionworld; ++j )
-          coords[ i ][ j ] = x[ j ];
-        if( ((*boundarySegment)( refSimplex.position( i, dimension-1 ) ) - coords[ i ]).two_norm() > 1e-6 )
-          DUNE_THROW( GridError, "Boundary segment does not interpolate the corners." );
-      }
-
-      const GeometryType gt = refSimplex.type( 0, 0 );
-      const DuneProjection *prj = new BoundarySegmentWrapper( gt, coords, boundarySegment );
-      insertBoundaryProjection( gt, vertices, prj );
-    }
-
-    /** \brief add a face transformation (for periodic identification)
-     *
-     *  A face transformation is an affine mapping T from world coordinates
-     *  to world coordinates. ALBERTA periodically identifies two faces f and g
-     *  if T( f ) = g or T( g ) = f.
-     *
-     *  \param[in]  matrix  matrix describing the linear part of T
-     *  \param[in]  shift   vector describing T( 0 )
-     *
-     *  \note ALBERTA requires the matrix to be orthogonal.
-     *
-     *  \note ALBERTA automatically adds the inverse transformation.
-     */
-    void insertFaceTransformation ( const WorldMatrix &matrix, const WorldVector &shift );
-
-    /** \brief mark the longest edge as refinemet edge
-     *
-     *  Marking the longest edge avoids cycles in the recursive bisection
-     *  algorithm, if the longest edge of each element is unique. It also
-     *  makes sure the angles degenerate least. It can, hoowever, produce
-     *  more nonlocal refinements than necessary. Therefore this feature is
-     *  disabled by default.
-     */
-    void markLongestEdge ()
-    {
-      macroData_.markLongestEdge();
-    }
-
-    /** \brief finalize grid creation and hand over the grid
-     *
-     *  This version of createGrid is original to the AlbertaGrid grid factroy,
-     *  allowing to specity a grid name.
-     *
-     *  \returns a pointer to the newly created grid
-     *
-     *  \note The caller takes responsibility of freeing the memory allocated
-     *        for the grid.
-     *  \note ALBERTA's grid factory provides a static method for freeing the
-     *        grid (destroyGrid).
-     */
-    Grid *createGrid ()
-    {
-      macroData_.finalize();
-      if( macroData_.elementCount() == 0 )
-        DUNE_THROW( GridError, "Cannot create empty AlbertaGrid." );
-      if( dimension < 3 )
-        macroData_.setOrientation( Alberta::Real( 1 ) );
-      assert( macroData_.checkNeighbors() );
-      macroData_.checkCycles();
-      ProjectionFactory projectionFactory( *this );
-      return new Grid( macroData_, projectionFactory );
-    }
-
-    /** \brief destroy a grid previously obtain from this factory
-     *
-     *  \param[in]  grid  pointer to the grid to destroy
-     */
-    static void destroyGrid ( Grid *grid )
-    {
-      delete grid;
-    }
-
-    /** \brief write out the macro triangulation in native grid file format
-     *
-     *  \tparam  type  type of file to write (either ascii or xdr)
-     *
-     *  \param[in]  filename  name of the file to write to
-     *
-     *  \returns \c true on success
-     */
-    template< GrapeIOFileFormatType type >
-    bool write ( const std::string &filename )
-    {
-      static_assert( type != pgm, "AlbertaGridFactory: writing pgm format is not supported." );
-      macroData_.finalize();
-      if( dimension < 3 )
-        macroData_.setOrientation( Alberta::Real( 1 ) );
-      assert( macroData_.checkNeighbors() );
-      return macroData_.write( filename, (type == xdr) );
-    }
-
-    /** \brief write out the macro triangulation in native grid file format
-     *
-     *  The grid is written in human readable form (ascii).
-     *
-     *  \param[in]  filename  name of the file to write to
-     *
-     *  \returns \c true on success
-     */
-    virtual bool write ( const std::string &filename )
-    {
-      return write< ascii >( filename );
-    }
-
-    virtual unsigned int
-    insertionIndex ( const typename Codim< 0 >::Entity &entity ) const
-    {
-      return insertionIndex( Grid::getRealImplementation( entity ).elementInfo() );
-    }
-
-    virtual unsigned int
-    insertionIndex ( const typename Codim< dimension >::Entity &entity ) const
-    {
-      const int elIndex = insertionIndex( Grid::getRealImplementation( entity ).elementInfo() );
-      const typename MacroData::ElementId &elementId = macroData_.element( elIndex );
-      return elementId[ Grid::getRealImplementation( entity ).subEntity() ];
-    }
-
-    virtual unsigned int
-    insertionIndex ( const typename Grid::LeafIntersection &intersection ) const
-    {
-      const Grid &grid = Grid::getRealImplementation( intersection ).grid();
-      const ElementInfo &elementInfo = Grid::getRealImplementation( intersection ).elementInfo();
-      const int face = grid.generic2alberta( 1, intersection.indexInInside() );
-      return insertionIndex( elementInfo, face );
-    }
-
-    virtual bool
-    wasInserted ( const typename Grid::LeafIntersection &intersection ) const
-    {
-      return (insertionIndex( intersection ) < std::numeric_limits< unsigned int >::max());
-    }
 
   private:
-    unsigned int insertionIndex ( const ElementInfo &elementInfo ) const;
-    unsigned int insertionIndex ( const ElementInfo &elementInfo, const int face ) const;
+    bool verbose = true;
 
-    FaceId faceId ( const ElementInfo &elementInfo, const int face ) const;
-
-    MacroData macroData_;
-    NumberingMap numberingMap_;
-    DuneProjectionPtr globalProjection_;
-    BoundaryMap boundaryMap_;
-    std::vector< DuneProjectionPtr > boundaryProjections_;
-  };
-
-
-  template< int dim, int dimworld >
-  GridFactory< AlbertaGrid< dim, dimworld > >::~GridFactory ()
-  {
-    macroData_.release();
-  }
-
-
-  template< int dim, int dimworld >
-  inline void
-  GridFactory< AlbertaGrid< dim, dimworld > >
-  ::insertFaceTransformation ( const WorldMatrix &matrix, const WorldVector &shift )
-  {
-    // make sure the matrix is orthogonal
-    for( int i = 0; i < dimworld; ++i )
-      for( int j = 0; j < dimworld; ++j )
-      {
-        const ctype delta = (i == j ? ctype( 1 ) : ctype( 0 ));
-        const ctype epsilon = (8*dimworld)*std::numeric_limits< ctype >::epsilon();
-
-        if( std::abs( matrix[ i ] * matrix[ j ] - delta ) > epsilon )
-        {
-          DUNE_THROW( AlbertaError,
-                      "Matrix of face transformation is not orthogonal." );
-        }
-      }
-
-    // copy matrix
-    Alberta::GlobalMatrix M;
-    for( int i = 0; i < dimworld; ++i )
-      for( int j = 0; j < dimworld; ++j )
-        M[ i ][ j ] = matrix[ i ][ j ];
-
-    // copy shift
-    Alberta::GlobalVector t;
-    for( int i = 0; i < dimworld; ++i )
-      t[ i ] = shift[ i ];
-
-    // insert into ALBERTA macro data
-    macroData_.insertWallTrafo( M, t );
-  }
-
-
-  template< int dim, int dimworld >
-  inline unsigned int
-  GridFactory< AlbertaGrid< dim, dimworld > >
-  ::insertionIndex ( const ElementInfo &elementInfo ) const
-  {
-    const MacroElement &macroElement = elementInfo.macroElement();
-    const unsigned int index = macroElement.index;
-
-#ifndef NDEBUG
-    const typename MacroData::ElementId &elementId = macroData_.element( index );
-    for( int i = 0; i <= dimension; ++i )
+    struct ElementData
     {
-      const Alberta::GlobalVector &x = macroData_.vertex( elementId[ i ] );
-      const Alberta::GlobalVector &y = macroElement.coordinate( i );
-      for( int j = 0; j < dimensionworld; ++j )
-      {
-        if( x[ j ] != y[ j ] )
-          DUNE_THROW( GridError, "Vertex in macro element does not coincide with same vertex in macro data structure." );
-      }
-    }
-#endif // #ifndef NDEBUG
+    	GeometryType geometryType;
+    	ElementGlobalId globalId;
+    	int interpOrder;
+    	std::vector< VertexLocalIndex > vertexIndex;
+    };
 
-    return index;
-  }
+    typedef FieldVector< ctype, dimensionworld > VertexCoordinate;
+    typedef std::vector<VertexLocalIndex > ElementVertexIndex;
+    typedef std::vector< std::pair< VertexCoordinate, VertexGlobalId > > VertexVector;
+    typedef std::vector< ElementData > ElementVector;
+    typedef std::vector<BoundaryLocalIndex > ElementBoundaryIndex;
 
+    typedef std::map< VertexGlobalId, VertexLocalIndex > VertexGlobal2LocalMap;
+    typedef std::map< VertexGlobalId, CornerLocalIndex > VertexGlobal2CornerLocalMap;
+    typedef std::map< ElementLocalIndex, std::vector<BoundaryLocalIndex> > Element2BoundaryLinker;
 
-  template< int dim, int dimworld >
-  inline unsigned int
-  GridFactory< AlbertaGrid< dim, dimworld > >
-  ::insertionIndex ( const ElementInfo &elementInfo, const int face ) const
-  {
-    typedef typename BoundaryMap::const_iterator Iterator;
-    const Iterator it = boundaryMap_.find( faceId( elementInfo, face ) );
-    if( it != boundaryMap_.end() )
-      return it->second;
-    else
-      return std::numeric_limits< unsigned int >::max();
-  }
+    typedef Dune::ReferenceElement< ctype, dimension > ReferenceElement;
+    typedef Dune::ReferenceElements< ctype, dimension > ReferenceElements;
+    typedef Dune::ReferenceElements< ctype, dimension-1 > SubReferenceElements;
 
+    typedef std::vector<VertexLocalIndex >              BoundaryKey;
+    typedef std::vector< BoundaryKey > 					BoundaryKeyVector;
+    typedef std::map< BoundaryKey, BoundaryLocalIndex > ProcessBorderMap;
 
-  template< int dim, int dimworld >
-  inline typename GridFactory< AlbertaGrid< dim, dimworld > >::FaceId
-  GridFactory< AlbertaGrid< dim, dimworld > >
-  ::faceId ( const ElementInfo &elementInfo, const int face ) const
-  {
-    const unsigned int index = insertionIndex( elementInfo );
-    const typename MacroData::ElementId &elementId = macroData_.element( index );
-
-    FaceId faceId;
-    for( size_t i = 0; i < faceId.size(); ++i )
-    {
-      const int k = Alberta::MapVertices< dimension, 1 >::apply( face, i );
-      faceId[ i ] = elementId[ k ];
-    }
-    std::sort( faceId.begin(), faceId.end() );
-    return faceId;
-  }
+    typedef std::pair<unsigned, unsigned>   IndexToProcess;
 
 
 
-  // GridFactory::ProjectionFactory
-  // ------------------------------
 
-  template< int dim, int dimworld >
-  class GridFactory< AlbertaGrid< dim, dimworld > >::ProjectionFactory
-    : public Alberta::ProjectionFactory< Alberta::DuneBoundaryProjection< dim >, ProjectionFactory >
-  {
-    typedef ProjectionFactory This;
-    typedef Alberta::ProjectionFactory< Alberta::DuneBoundaryProjection< dim >, ProjectionFactory > Base;
+    // Auxiliary structures
+    VertexGlobal2LocalMap       vertexIndexMap_;
+    VertexGlobal2CornerLocalMap cornerIndexMap_;
+    int cornercount_;
 
-    typedef typename Dune::GridFactory< AlbertaGrid< dim, dimworld > > Factory;
+    // Data
+    VertexVector vertices_;
+    ElementVector elements_;
+    ElementVector boundarySegments_;
+    Element2BoundaryLinker elementBoundaries_;
+
+    // Parallel Implementation
+    MPIHelper &mpihelper_;
+    static const int MASTER_RANK = 0;
+
+
+
+
+
 
   public:
-    typedef typename Base::Projection Projection;
-    typedef typename Base::ElementInfo ElementInfo;
 
-    typedef typename Projection::Projection DuneProjection;
 
-    ProjectionFactory( const GridFactory &gridFactory )
-      : gridFactory_( gridFactory )
+    // TODO: Figure out the meaning of the first argument "const bool realGrid" in alugrid constructor
+    CurvilinearGridFactory( MPIHelper &mpihelper ) :
+      mpihelper_(mpihelper),
+      cornercount_(0)
     {}
 
-    bool hasProjection ( const ElementInfo &elementInfo, const int face ) const
-    {
-      if( gridFactory().globalProjection_ )
-        return true;
+    ~CurvilinearGridFactory ()  {}
 
-      const unsigned int index = gridFactory().insertionIndex( elementInfo, face );
-      if( index < std::numeric_limits< unsigned int >::max() )
-        return bool( gridFactory().boundaryProjections_[ index ] );
-      else
-        return false;
+
+    // Insert vertex with globalID specification
+    // NOTE: Vertices will be inserted into HostGrid at the InsertElement stage
+    // NOTE: Has protection from double-insertion, because may be added multiple times during partition phase
+    void insertVertex ( const VertexCoordinate &pos, const VertexGlobalId globalId )
+    {
+    	print_debug("Factory insertVertex localId = " + std::to_string(vertices_.size()) + ", globalID = " + std::to_string(globalId) + " with coordinates = " + vector2string(pos));
+
+		if (vertexIndexMap_.find(globalId) == vertexIndexMap_.end())  {
+			vertexIndexMap_[globalId] = vertices_.size();
+			vertices_.push_back( std::make_pair( pos, globalId ) );
+		}
     }
 
-    bool hasProjection ( const ElementInfo &elementInfo ) const
+    // Store curvilinear element, insert linearised element to HostGridFactory
+    // NOTE: Vertices given in globalID, converted intrinsically into
+    //   - vertexInsertionIndex for curvilinear elements
+    //   - cornerInsertionIndex for linearised elements
+    void insertElement(
+      GeometryType &geometry,
+      const int globalId,
+      const std::vector< VertexLocalIndex > &elementVertexId,
+      const int elemOrder)
     {
-      return bool( gridFactory().globalProjection_ );
+        ElementData thisElement;
+
+        print_debug("Factory insertElement localID = " + std::to_string(elements_.size()) + ", globalID = " + std::to_string(globalId) + " with vertices = " + vector2string(elementVertexId));
+
+        thisElement.geometryType = geometry;
+        thisElement.globalId = globalId;
+        thisElement.interpOrder = elemOrder;
+        thisElement.vertexIndex = elementVertexId;
+
+        // Insert element into CurvGrid and HostGrid
+        elements_.push_back(thisElement);
     }
 
-    Projection projection ( const ElementInfo &elementInfo, const int face ) const
-    {
-      const unsigned int index = gridFactory().insertionIndex( elementInfo, face );
-      if( index < std::numeric_limits< unsigned int >::max() )
-      {
-        const DuneProjectionPtr &projection = gridFactory().boundaryProjections_[ index ];
-        if( projection )
-          return Projection( projection );
-      }
 
-      assert( gridFactory().globalProjection_ );
-      return Projection( gridFactory().globalProjection_ );
-    };
+    // Insert boundary as face of some element
+    // void insertBoundary ( const int element, const int face, const int id )  { hostgridfactory_.insertBoundary(element, face, id );  }
 
-    Projection projection ( const ElementInfo &elementInfo ) const
-    {
-      assert( gridFactory().globalProjection_ );
-      return Projection( gridFactory().globalProjection_ );
-    };
 
-    const GridFactory &gridFactory () const
+    // Store curvilinear boundarySegment, insert linearised segment to HostGridFactory
+    // NOTE: Vertices given in globalID, converted intrinsically into
+    //   - vertexInsertionIndex for curvilinear elements
+    //   - cornerInsertionIndex for linearised elements
+    // NOTE: Requires the element this boundary is linked to
+    void insertBoundarySegment(
+        GeometryType &geometry,
+        const int globalId,
+        const std::vector< VertexGlobalId > &boundaryVertexId,
+        const int elemOrder,
+        const ElementLocalIndex linkedElement)
     {
-      return gridFactory_;
+        ElementData thisBoundarySegment;
+
+        print_debug("Factory insertBoundarySegment localID = " + std::to_string(boundarySegments_.size()) + ", globalID = " + std::to_string(globalId) + " with vertices = " + vector2string(boundaryVertexId));
+
+        thisBoundarySegment.geometryType = geometry;
+        thisBoundarySegment.globalId = globalId;
+        thisBoundarySegment.interpOrder = elemOrder;
+        thisBoundarySegment.vertexIndex = boundaryVertexId;
+
+        // Link a corresponding internal element to this boundary
+        Element2BoundaryLinker::iterator linkedIter = elementBoundaries_.find(linkedElement);
+
+        // If this element has no boundaries specified yet, add a new boundary vector
+        if (linkedIter != elementBoundaries_.end()) { elementBoundaries_[linkedElement] = ElementBoundaryIndex(1, boundarySegments_.size());    print_debug("eeee-a"); }
+        else
+        {
+        	// Otherwise extract the existing boundaries, add a new one, and push back to the map
+			//ElementBoundaryIndex thisElementLinked = linkedIter->second;
+			ElementBoundaryIndex thisElementLinked = elementBoundaries_[linkedElement];
+			thisElementLinked.push_back(boundarySegments_.size());
+			elementBoundaries_[linkedElement] = thisElementLinked;
+        }
+
+        // Store boundary segments
+        boundarySegments_.push_back(thisBoundarySegment);
+    }
+
+    //insertBoundarySegment ( const std::vector< unsigned int >& vertices, const shared_ptr<BoundarySegment<3,3> >& boundarySegment )  {  }
+
+
+    //CurvilinearGrid* createGrid ()
+    void createGrid()
+    {
+    	// 1) Compute the partitioning of the elements among processes
+      	// ***********************************************************
+    	unsigned numElements = elements_.size();
+    	unsigned numBSegments = boundarySegments_.size();
+
+    	std::vector<unsigned> part(numElements);
+    	//partition_compute(part);
+    	//print_debug("Partition computation result: " + vector2string(part));
+
+    	// 2) Communicate corresponding elements, create maps
+    	// ***********************************************************
+    	//partition_communicate(part);
+    	//print_debug("Partitioning communicated");
+
+    	// 3) Construct HostGrid
+    	// ***********************************************************
+    	HostGrid* Grid;
+    	{
+    		Dune::GridFactory<HostGrid> hostgridfactory;
+
+    		// 3.1) Insert elements and associated vertices
+    		for (int i = 0; i < numElements; i++)   { insertHostElement(hostgridfactory, elements_[i], false); }
+    		print_debug("Inserted elements to HostGridFactory");
+
+    		// 3.2) Insert boundarySegments and associated vertices
+    		for (int i = 0; i < numBSegments; i++)  { insertHostElement(hostgridfactory, boundarySegments_[i], true); }
+    		print_debug("Inserted boundary segments to HostGridFactory");
+
+    		// 3.3) Compute and insert process boundaries
+    		computeAndInsertProcessBorders(hostgridfactory);
+    		print_debug("Inserted processBorders to HostGridFactory");
+
+    		// 3.4) Create HostGrid
+    		// According to Andreas Dedner, ALUGrid* createGrid ( const bool addMissingBoundaries, const std::string dgfName = "" );
+    		// We do not really want to add missing boundaries as we hope to have inserted all of them
+    		HostGrid* Grid = hostgridfactory.createGrid(false);
+    		print_debug("Created HostGrid");
+    	}
+
+    	// Create CurvilinearGrid
+
+    }
+
+
+
+
+
+
+
+    // ????????????????????????????????????
+    virtual unsigned int
+    insertionIndex ( const typename HostGrid::LeafIntersection &intersection ) const
+    {
+
+    }
+
+    // ????????????????????????????????????
+    virtual bool
+    wasInserted ( const typename HostGrid::LeafIntersection &intersection ) const
+    {
+
     }
 
   private:
-    const GridFactory &gridFactory_;
+
+    // Converts an arbitrary vector into string by sticking all of the entries together
+    // Whitespace separated
+    template <class T>
+    std::string vector2string(const T & V)
+    {
+        std::string tmp_str;
+        for (int i = 0; i < V.size(); i++) { tmp_str += std::to_string(V[i]) + " "; }
+        return tmp_str;
+    }
+
+    // Writes debug info to the command line
+    // TODO: Use IFDEF to manipulate between no output, all output, or only master process output
+    void print_debug(std::string s)
+    {
+        if (verbose) { std::cout << "Process_" << mpihelper_.rank() << ": " << s << std::endl; }
+    }
+
+
+    // Get GlobalID of a vertex
+    size_t globalId ( const VertexLocalIndex &id ) const  {  return vertices_[ id ].second; }
+
+    // Get Coordinate of a vertex
+    const VertexCoordinate &position ( const VertexLocalIndex &id ) const  {  return vertices_[ id ].first;  }
+
+
+
+
+    // Inserts corners into HostGridFactory. Uses global-to-local map to check if already inserted
+    // Then inserts element into HostGridFactory using cornerInsertionIndex
+    void insertHostElement(Dune::GridFactory<HostGrid> & hostgridfactory, ElementData elem, bool is_bsegment) {
+    	// Compute corners, add to renumber, insert to HostGridFactory
+
+    	print_debug("Adding element globalId=" + std::to_string(elem.globalId) + " to HostGridFactory as " + (is_bsegment ? "boundarySegment" : "internal element"));
+
+
+    	std::vector< VertexLocalIndex > cornerVertexIndex = getCornerInfo(elem.geometryType, elem.interpOrder, elem.vertexIndex);
+        std::vector< CornerLocalIndex > cornerIndex;
+
+        if ((is_bsegment && (elem.geometryType.dim() != dimensionworld - 1)) || (!is_bsegment && (elem.geometryType.dim() != dimensionworld)))
+        {
+        	DUNE_THROW(Dune::IOError, "Curvilinear Grid Factory: Unexpected geometry type dimension");
+        }
+
+        for (int i = 0; i < cornerVertexIndex.size(); i++)
+        {
+        	// If this corner has already been inserted into HostGrid, reuse inserted vertex
+        	// Otherwise insert new vertex to hostgrid and update map
+
+        	VertexGlobal2CornerLocalMap::iterator cornerpos = cornerIndexMap_.find(cornerVertexIndex[i]);
+
+            if (cornerpos == cornerIndexMap_.end())
+        	  {
+        		  // Insert corner into HostGridFactory
+            	  hostgridfactory.insertVertex(
+        				  vertices_[cornerVertexIndex[i]].first,
+        				  vertices_[cornerVertexIndex[i]].second);
+
+        		  cornerIndex.push_back(cornercount_);
+        		  cornerIndexMap_[cornerVertexIndex[i]] = cornercount_++;
+        	  } else {
+        		  cornerIndex.push_back(cornerpos->second);
+        	  }
+        }
+
+        // Insert Element or a boundarySegment
+        if (!is_bsegment)  { hostgridfactory.insertElement(elem.geometryType, cornerIndex); }
+        else               { hostgridfactory.insertBoundarySegment(cornerIndex);  }
+    }
+
+    // Gets corner information from Dune-style curvilinear vertex array
+    // Templated because information can mean {id's, indices, vertex coordinates, etc}
+    template <class T>
+    std::vector<T> getCornerInfo(GeometryType & geomType, const int order, const std::vector<T> & vertexInfo)
+    {
+    	std::vector<T> rez;
+
+    	// Get corner number of this element
+    	int cornerNumber;
+    	if (geomType.dim() == 2)  { cornerNumber = SubReferenceElements::general(geomType).size( geomType.dim() ); }
+    	else                      { cornerNumber = ReferenceElements::general(geomType).size( geomType.dim() ); }
+
+    	for (int i = 0; i < cornerNumber; i++) {
+    		int cornerCurvIndex = Dune::CurvilinearElementInterpolator<ctype, dimension, dimensionworld>::cornerID(geomType, order, i);
+    		rez.push_back(vertexInfo[cornerCurvIndex]);
+    	}
+    	return rez;
+    }
+
+
+    // Returns d-1 subentity corner local indices, sorted
+    std::vector<int> GEOMETRY_ElementSubentityCornerInternalIndices(GeometryType & gt, const int ind)
+    {
+        std::vector<int> rez;
+        if (gt.isTriangle())
+        {
+            switch (ind)
+            {
+            case 0 :  rez = std::vector<int> {0, 1};  break;
+            case 1 :  rez = std::vector<int> {1, 2};  break;
+            case 2 :  rez = std::vector<int> {0, 2};  break;
+            default : DUNE_THROW(Dune::IOError, "GMSH Reader: Wrong input arguments for SubentityCorners " );
+            }
+        }
+        else if (gt.isTetrahedron())
+        {
+            switch (ind)
+            {
+            case 0 :  rez = std::vector<int> {0, 1, 2};  break;
+            case 1 :  rez = std::vector<int> {0, 1, 3};  break;
+            case 2 :  rez = std::vector<int> {0, 2, 3};  break;
+            case 3 :  rez = std::vector<int> {1, 2, 3};  break;
+            default : DUNE_THROW(Dune::IOError, "GMSH Reader: Wrong input arguments for SubentityCorners " );
+            }
+        } else  {  DUNE_THROW(Dune::IOError, "GMSH Reader: Not implemented element subentityNo for this element type " ); }
+        return rez;
+    }
+
+    // Takes all interpolatory vertex indices, extracts corner indices, sorts them in ascending order
+    BoundaryKey GEOMETRY_MakeElementCornerKey(
+    		GeometryType & gt,
+    		const int interpOrder,
+    		const ElementVertexIndex & vertexIndex)
+	{
+    	// 1) Get corners
+    	BoundaryKey key = getCornerInfo(gt, interpOrder, vertexIndex);
+
+    	// 2) sort by increasing index
+        std::sort(key.begin(), key.end());
+
+        return key;
+	}
+
+
+    BoundaryKeyVector GEOMETRY_MakeElementSubentityCornerKeys(
+    		GeometryType & gt,
+    		const int interpOrder,
+    		const ElementVertexIndex & vertexIndex)
+	{
+    	BoundaryKeyVector keys(4);
+
+    	// 1) Get corners
+    	std::vector<VertexLocalIndex > corners = getCornerInfo(gt, interpOrder, vertexIndex);
+
+    	// 2) sort by increasing index
+        std::sort(corners.begin(), corners.end());
+
+        // 3) Get this element subentity number
+		int thisElmSubentities = ReferenceElements::general(gt).size(1);
+
+		// 4) Create key for each codim-1 subentity of the element
+        for (int iSub = 0; iSub < thisElmSubentities; iSub++)
+        {
+        	// 4.1) get all subentities associated with this element type
+        	std::vector<int> this_subentity_ind = GEOMETRY_ElementSubentityCornerInternalIndices(gt, iSub);
+        	for (int iCoord = 0; iCoord < this_subentity_ind.size(); iCoord++) { keys[iSub].push_back(corners[this_subentity_ind[iCoord]]); }
+        }
+
+        return keys;
+	}
+
+    // Calculates process borders by finding all subentities of all elements,
+    // Subtracting those that count twice, and those which match with boundarySegments
+    void computeAndInsertProcessBorders(Dune::GridFactory<HostGrid> & hostgridfactory)
+    {
+    	// Make an std::set of faces (face = indices of all facial vertices sorted in ascending order)
+    	ProcessBorderMap processFaces;
+
+    	// Go over all elements on this process
+    	for (int i = 0; i < elements_.size(); i++)
+    	{
+    		print_debug("Making subentity keys for element " + std::to_string(i) + " given by: " + vector2string(elements_[i].vertexIndex));
+
+        	// 1) Get index sets which correspond to all faces of this element
+    		BoundaryKeyVector subentityKeys = GEOMETRY_MakeElementSubentityCornerKeys(elements_[i].geometryType, elements_[i].interpOrder, elements_[i].vertexIndex);
+
+    		// 2) Add all faces on the boundary of this process to a map
+            for (int iSub = 0; iSub < subentityKeys.size(); iSub++)
+            {
+            	print_debug("* Adding boundary key " + vector2string(subentityKeys[iSub]));
+
+            	// Check if this face has been seen already
+            	auto faceit = processFaces.find(subentityKeys[iSub]);
+
+                // If this boundary not added yet, add it
+                if (faceit == processFaces.end())  { processFaces[subentityKeys[iSub]] = i; }
+                // If this boundary added twice, it is not a processBoundary so erase it
+                else                               { processFaces.erase(faceit); }
+            }
+    	}
+
+    	// 3) Subtract from the map all faces which are on the domain boundary
+        for (int i = 0; i < boundarySegments_.size(); i++)
+        {
+        	print_debug("Making boundary key for boundary given by: " + vector2string(boundarySegments_[i].vertexIndex));
+
+    		// 3.1) Make key of corners of this boundary
+    		BoundaryKey key = GEOMETRY_MakeElementCornerKey(boundarySegments_[i].geometryType, boundarySegments_[i].interpOrder, boundarySegments_[i].vertexIndex);
+
+    		// 3.2) Now delete this face
+    		auto faceit = processFaces.find(key);
+
+    		if (faceit == processFaces.end()) { print_debug("Error: Have not found boundary face " + vector2string(key)); }
+
+    		processFaces.erase(faceit);
+        }
+
+        print_debug("Writing process boundaries");
+
+
+        // 4) Loop over all process boundaries and insert them
+        ProcessBorderMap::iterator procMapEnd = processFaces.end();
+        for (ProcessBorderMap::iterator it=processFaces.begin(); it!=procMapEnd; ++it) {
+        	hostgridfactory.insertProcessBorder(it->first);
+        }
+    }
+
+    // Compute which partner to cling with in this round
+    int ClinkAlgorithmFriend(int rank, int s, int round)
+    {
+    	if (rank == 0) { return s - round; }
+    	else           { return rank + s - 3 - 2 * ((rank + round - 1) % (s - 1)); }
+    }
+
+    // Order of sorting Index-Process pairs, sort ascending wrt index
+    static bool indexToProcessOrder(IndexToProcess a, IndexToProcess b)  { return a.first < b.first; }
+
+    // Binary search for finding beginning of elements which correspond to requested process
+    unsigned indexToProcessBinaryFindFirst(std::vector<IndexToProcess> & part_sorted, unsigned p)
+    {
+    	int l = 0;
+    	int r = part_sorted.size() - 1;
+
+    	while (r-l > 1) {
+    		int mid = (l + r) / 2;
+    		if (part_sorted[mid].first < p) { l = mid; } else { r = mid; }
+    	}
+
+    	return r;
+    }
+
+    // TODO: At the moment the boundarySegment must share vertices with some element
+    void partition_communicate(std::vector<unsigned> & part)
+    {
+    	// 1) Sort communicated element indices by process
+    	// ****************************************************
+    	std::vector<IndexToProcess> part_sorted;
+    	for (int i = 0; i < part.size(); i++) { part_sorted.push_back(IndexToProcess(part[i], i)); }
+    	std::sort(part_sorted.begin(), part_sorted.end(), indexToProcessOrder);
+
+    	// 2) Create new arrays for all the important information
+    	// ****************************************************
+        VertexVector vertices_tmp;
+        ElementVector elements_tmp;
+        ElementVector boundarySegments_tmp;
+        Element2BoundaryLinker elementBoundaries_tmp;
+
+        vertices_.swap(vertices_tmp);
+        elements_.swap(elements_tmp);
+        boundarySegments_.swap(boundarySegments_tmp);
+        std::swap(elementBoundaries_, elementBoundaries_tmp);
+
+
+        // 3) Fill in data to stay on this process, adjust new local vertex index
+        // ****************************************************
+        int rank = mpihelper_.rank();
+        int size = mpihelper_.size();
+        int thisDataInd = indexToProcessBinaryFindFirst(part_sorted, rank);
+
+        // Nullify the vertex map, because we are inserting all vertices from scratch again
+        vertexIndexMap_ = VertexGlobal2LocalMap();
+
+        while (part_sorted[thisDataInd].first == rank)
+        {
+        	// 3.1) Get element
+        	int thisElmLocalIndexOld = part_sorted[thisDataInd].second;
+        	ElementData thisElem = elements_tmp[thisElmLocalIndexOld];
+
+        	// 3.2) Get its vertex coordinates, insert them to the updated factory, update local vertex index
+        	for (int i = 0; i < thisElem.vertexIndex.size(); i++)
+        	{
+        		std::pair< VertexCoordinate, VertexGlobalId > thisVertexPair = vertices_tmp[thisElem.vertexIndex[i]];
+        		insertVertex(thisVertexPair.first, thisVertexPair.second);
+
+        		thisElem.vertexIndex[i] = vertexIndexMap_[thisVertexPair.second];
+        	}
+
+        	// 3.3) Insert element to the updated factory
+        	insertElement(thisElem.geometryType, thisElem.globalId, thisElem.vertexIndex, thisElem.interpOrder);
+
+
+        	// 3.4) Insert linked boundary segments to updated factory
+        	std::vector<BoundaryLocalIndex> thisElmBoundaryLocalIndicesOld = elementBoundaries_tmp[thisElmLocalIndexOld];
+
+        	for (int i = 0; i < thisElmBoundaryLocalIndicesOld.size(); i++)
+        	{
+        		// 3.4.1) Get boundary segment
+        		ElementData thisBoundary = boundarySegments_tmp[thisElmBoundaryLocalIndicesOld[i]];
+
+            	// 3.4.2) Get its vertex coordinates, update their local vertex index
+            	for (int j = 0; j < thisBoundary.vertexIndex.size(); j++)
+            	{
+            		VertexLocalIndex vertexIndexOld = thisBoundary.vertexIndex[j];
+            		VertexGlobalId vertexGlobalId = vertices_tmp[vertexIndexOld].second;
+            		VertexLocalIndex vertexIndexNew = vertexIndexMap_[vertexGlobalId];
+
+            		thisBoundary.vertexIndex[j] = vertexIndexNew;
+            	}
+
+            	// 3.4.3) Insert boundary segment to the updated factory
+                insertBoundarySegment(
+                		thisBoundary.geometryType,
+                		thisBoundary.globalId,
+                		thisBoundary.vertexIndex,
+                		thisBoundary.interpOrder,
+                		elements_.size() - 1);
+        	}
+        }
+
+
+        // 4) Communicate-Fill data from other processes
+        // ****************************************************
+        int comm_stage_max = size % 2 ? size - 1 : size;
+        for (int iStage = 0; iStage < comm_stage_max; iStage++ )
+        {
+        	// 4.1) Find out which process will this be communicating with at this stage
+        	// -------------------------------------------------------------------------
+        	int rank_friend = ClinkAlgorithmFriend(rank, comm_stage_max, iStage);
+
+        	// 4.2) Prepare data for communication: elements, boundary segments, vertices, boundarylinkers
+        	// TODO: For communicated vertices use GlobalVertexID vectors
+        	// -------------------------------------------------------------------------
+        	int pDataInd = indexToProcessBinaryFindFirst(part_sorted, rank_friend);
+
+        	VertexGlobal2LocalMap vertexCommMap;
+
+        	// TODO: comm_send and comm_recv arrays come here
+            VertexVector vertices_comm;
+            ElementVector elements_comm;
+            ElementVector boundarySegments_comm;
+            std::vector<unsigned> boundaryLinker_comm;
+
+            VertexVector vertices_recv;
+            ElementVector elements_recv;
+            ElementVector boundarySegments_recv;
+            std::vector<unsigned> boundaryLinker_recv;
+
+            while (part_sorted[pDataInd].first == rank_friend)
+            {
+            	// 4.2.1) Get element
+            	int thisElmIndex = part_sorted[pDataInd++].second;
+            	ElementData thisElem = elements_tmp[thisElmIndex];
+
+            	for (int iVert = 0; iVert < thisElem.vertexIndex.size(); iVert++)
+            	{
+            		// 4.2.2) Add vertices to communication renumber, then to communication array
+            		int globalId = vertices_tmp[thisElem.vertexIndex[iVert]].second;
+            		if (vertexCommMap.find(globalId) == vertexCommMap.end())
+            		{
+            			vertices_comm.push_back(vertices_tmp[thisElem.vertexIndex[iVert]]);
+            			vertexCommMap[globalId] = iVert;
+            		}
+
+            		// 4.2.3) Change all vertexIndex by globalID
+            		thisElem.vertexIndex[iVert] = globalId;
+            	}
+
+            	// 4.2.4) Add element to communication array
+            	elements_comm.push_back(thisElem);
+
+            	// 4.2.5) Get Boundary Segments, change vertexIndex too, add to comm array
+            	std::vector<BoundaryLocalIndex> thisElmBoundaryLocalIndicesOld = elementBoundaries_tmp[thisElmIndex];
+            	for (int iBound = 0; iBound < thisElmBoundaryLocalIndicesOld.size(); iBound++)
+            	{
+            		// 4.2.5.1) Get boundary segment
+            		ElementData thisBoundary = boundarySegments_tmp[thisElmBoundaryLocalIndicesOld[iBound]];
+
+
+                	// 4.2.5.2) Get its vertex coordinates, update local vertex index
+                	for (int iVert = 0; iVert < thisBoundary.vertexIndex.size(); iVert++)
+                	{
+                		int globalId = vertices_tmp[thisBoundary.vertexIndex[iVert]].second;
+                		thisBoundary.vertexIndex[iVert] = globalId;
+                	}
+
+                	// 4.2.5.3) add boundary segment to the comm array
+                	boundarySegments_comm.push_back(thisBoundary);
+
+                	// 4.2.5.4) Link from this boundary to the element it belongs to, localProcCommIndex
+                	boundaryLinker_comm.push_back(elements_comm.size() - 1);
+            	}
+            }
+
+
+        	// 4.3) Communicate arrays
+            // -------------------------------------------------------------------------
+        	mpiExchange(
+        			rank_friend,
+        			vertices_comm, elements_comm, boundarySegments_comm, boundaryLinker_comm,
+        			vertices_recv, elements_recv, boundarySegments_recv, boundaryLinker_recv);
+
+
+        	// 4.4) Insert received data
+        	// -------------------------------------------------------------------------
+        	std::vector<unsigned> localCom2localProcElem;
+
+        	// 4.4.1) Insert vertices
+        	for (int iVert = 0; iVert < vertices_recv.size(); iVert++) { insertVertex(vertices_recv[iVert].first, vertices_recv[iVert].second);  }
+
+        	// 4.4.2) Insert elements
+        	for (int iElem = 0; iElem < elements_recv.size(); iElem++) {
+        		insertElement(elements_recv[iElem].geometryType, elements_recv[iElem].globalId, elements_recv[iElem].vertexIndex, elements_recv[iElem].interpOrder);
+        		localCom2localProcElem[iElem] = elements_.size() - 1;
+        	}
+
+        	// 4.4.3) Inseert boundary segments
+        	for (int iBound = 0; iBound < boundarySegments_recv.size(); iBound++) {
+        		insertBoundarySegment(
+        				boundarySegments_recv[iBound].geometryType,
+        				boundarySegments_recv[iBound].globalId,
+        				boundarySegments_recv[iBound].vertexIndex,
+        				boundarySegments_recv[iBound].interpOrder,
+        				localCom2localProcElem[boundaryLinker_recv[iBound]]
+        				);
+        	}
+
+        }
+    }
+
+    // Sends all comm arrays to friend, receives all recv arrays
+    void mpiExchange(
+    		int rank_friend,
+    		VertexVector & vertices_comm, ElementVector & elements_comm, ElementVector & boundarySegments_comm, std::vector<unsigned> & boundaryLinker_comm,
+    		VertexVector & vertices_recv, ElementVector & elements_recv, ElementVector & boundarySegments_recv, std::vector<unsigned> & boundaryLinker_recv)
+    {
+    	// MPI_RECV/SEND
+    	// Or, even better MPI_Sendrecv for exchange
+    }
+
+
+    /** \brief Create an initial partitioning of a Dune grid, i.e., not taking into account communication cost
+     *
+     * This pipes a Dune grid into the method ParMETIS_V3_PartMeshKway (see the ParMetis documentation for details)
+     *
+     * \param gv The grid view to be partitioned
+     * \param mpihelper The MPIHelper object, needed to get the MPI communicator
+     *
+     * \return std::vector with one uint per All_Partition element.  For each element, the entry is the
+     *    number of the partition the element is assigned to.
+     */
+     // Partition mesh using ParMETIS
+     void partition_compute(std::vector<unsigned> & part) {
+
+        // ****************************************************
+        // Preliminaries
+        // ****************************************************
+#if PARMETIS_MAJOR_VERSION < 4
+      typedef idxtype idx_t;
+      typedef float real_t;
+#endif
+
+      int elementNumber = elements_.size();
+      int elementDim = elements_[0].geometryType.dim();
+      int elementFaceCorners = ReferenceElements::general( elements_[0].geometryType ).size(0, 1, elementDim);
+
+      // ****************************************************
+      // Setup parameters for ParMETIS
+      // ****************************************************
+      idx_t wgtflag = 2;                                  // We use different weights for each element
+      idx_t numflag = 0;                                  // we are using C-style arrays
+      idx_t ncon = 1;                                     // number of balance constraints
+      idx_t ncommonnodes = elementFaceCorners;            // number of nodes elements must have in common in order to be adjacent to each other
+      idx_t nparts = mpihelper_.size();                   // number of parts equals number of processes
+      std::vector<real_t> tpwgts(ncon*nparts, 1./nparts); // load per subdomain and weight (same load on every process)
+      std::vector<real_t> ubvec(ncon, 1.05);              // weight tolerance (same weight tolerance for every weight there is)
+      idx_t options[4] = {0, 0, 0, 0};                    // use default values for random seed, output and coupling
+      idx_t edgecut;                                      // will store number of edges cut by partition
+
+      // ****************************************************
+      // Communicate the number of elements on each process
+      // ****************************************************
+      std::vector<idx_t> elmdist;
+
+      int* elmdist_tmp = new int[mpihelper_.rank()];
+
+      // The index of elmdist_tmp should be the process number, the value the number of elements on each process
+      MPI_Comm comm = Dune::MPIHelper::getCommunicator();
+      Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
+
+      collective_comm.allgather(&elementNumber, 1, elmdist_tmp);
+
+      // elmdist should be an incremental array whose entries are the sum of all element numbers on previous processes
+      elmdist.push_back(0);
+      for (int i = 0; i < elementNumber; i++)  { elmdist.push_back(elmdist[i] + elmdist_tmp[i]); }
+      delete[] elmdist_tmp;
+
+      // ****************************************************
+      // Construct element weights
+      // The amount of computation associated with a curvilinear element is approx. calculated:
+      //  1) The number of Lagrange Polynomials interpolating the element is equal to the number of interpolation points
+      //  2) The number of basis functions to interpolate the field inside should be approximately that number too (why???)
+      //  3) The number of new non-zero matrix elements is approx. number of basis functions squared
+      // ****************************************************
+      std::vector<idx_t> elmwgt;
+      for (size_t i = 0; i < elementNumber; i++) { elmwgt.push_back(pow(elements_[i].interpOrder, 2)); }
+
+      // ****************************************************
+      // Create and fill arrays "eptr", where eptr[i] is the number of vertices that belong to the i-th element, and
+      // "eind" contains the vertex-numbers of the i-the element in eind[eptr[i]] to eind[eptr[i+1]-1]
+      // ****************************************************
+      std::vector<idx_t> eptr, eind;
+      int numVertices = 0;
+      eptr.push_back(numVertices);
+
+      for (size_t i = 0; i < elementNumber; i++)
+      {
+    	  std::vector< CornerLocalIndex > cornerIndex = getCornerInfo(elements_[i].geometryType, elements_[i].interpOrder, elements_[i].vertexIndex);
+
+    	  int curNumCorners = cornerIndex.size();
+    	  numVertices += curNumCorners;
+    	  eptr.push_back(numVertices);
+
+        for (size_t k = 0; k < curNumCorners; ++k)  { eind.push_back(cornerIndex[k]); }
+      }
+
+#if PARMETIS_MAJOR_VERSION >= 4
+        const int OK =
+#endif
+        ParMETIS_V3_PartMeshKway(elmdist.data(), eptr.data(), eind.data(), elmwgt.data(), &wgtflag, &numflag,
+                                 &ncon, &ncommonnodes, &nparts, tpwgts.data(), ubvec.data(),
+                                 options, &edgecut, reinterpret_cast<idx_t*>(part.data()), &comm);
+
+#if PARMETIS_MAJOR_VERSION >= 4
+        if (OK != METIS_OK)
+          DUNE_THROW(Dune::Exception, "ParMETIS returned an error code.");
+#endif
+
+    }
+
+
   };
 
-}
+} // End of Namespace Dune
 
-#endif // #if HAVE_ALBERTA
 
-#endif // #ifndef DUNE_ALBERTA_GRIDFACTORY_HH
+#endif // #ifndef DUNE_CURVGRID_GRIDFACTORY_HH

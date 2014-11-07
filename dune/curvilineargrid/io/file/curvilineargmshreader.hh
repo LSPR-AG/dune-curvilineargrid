@@ -19,20 +19,27 @@
 
 #include <dune/common/exceptions.hh>
 #include <dune/common/fvector.hh>
+#include <dune/common/parallel/mpicollectivecommunication.hh>
 
 #include <dune/geometry/type.hh>
 #include <dune/geometry/polynomialinterpolation/curvilinearelementinterpolator.hh>
 
 #include <dune/grid/common/boundarysegment.hh>
 #include <dune/grid/common/gridfactory.hh>
+#include <dune/curvilineargrid/curvilineargrid/gridfactory.hh>
 
 #include <dune/curvilineargrid/io/file/curvilinearvtkwriter.hh>
+
+#include <parmetis.h>
+
+
+
 
 namespace Dune
 {
 
   // Stores all info associated with an element, except explicit vertex coordinates
-  struct ElementData
+  struct GMSHElementData
   {
       int element_id;
       int gmsh_index;
@@ -56,7 +63,8 @@ namespace Dune
     bool vtk_output = true;
 
     // Grid Factory
-    Dune::GridFactory<GridType>& factory;
+    //Dune::GridFactory<GridType>& factory;
+    Dune::CurvilinearGridFactory<GridType> & factory;
 
     // static data
     static const int dim = GridType::dimension;
@@ -73,6 +81,11 @@ namespace Dune
     std::vector<int> internal_element_index_to_physical_entity;
 
     // Parallel Implementation
+#ifdef HAVE_MPI
+    MPIHelper &mpihelper_;
+#endif
+    static const int MASTER_RANK = 0;
+
     int rank_;
     int size_;
 
@@ -80,14 +93,17 @@ namespace Dune
     std::vector< std::vector< int > > triangularPointRenumberings_;
     std::vector< std::vector< int > > tetrahedralPointRenumberings_;
 
-
-    std::map<int, unsigned int> nodeofelement; /** \brief map stores the number of vertex indices for a specific element type **/
-
+    // Testing capabilities for writing to VTK.
+    CurvilinearVTKWriter<dimWorld> vtkCurvWriter_;
 
 
     // typedefs
     typedef Dune::FieldVector< double, dimWorld > GlobalVector;
+    typedef Dune::ReferenceElement< double, dim > ReferenceElement;
+    typedef Dune::ReferenceElements< double, dim > ReferenceElements;
 
+    typedef Dune::ReferenceElement< double, dim-1 > SubReferenceElement;
+    typedef Dune::ReferenceElements< double, dim-1 > SubReferenceElements;
 
 
     // TODO: Possibly merge this element name enum with internal DUNE one.
@@ -102,67 +118,20 @@ namespace Dune
          GMSH_PYRAMID         = 8
     };
 
-    // Returns the dimension corresponding to a given element type name
-    // TODO: Throw error if wrong element name or order
-    int GMSH_ElementDim(int elemName) {
-
-        switch (elemName) {
-            case GMSH_NODE             : return 0;   break;
-            case GMSH_EDGE             : return 1;   break;
-            case GMSH_TRIANGLE         : return 2;   break;
-            case GMSH_QUADRANGLE       : return 2;   break;
-            case GMSH_TETRAHEDRON      : return 3;   break;
-            case GMSH_HEXAHEDRON       : return 3;   break;
-            case GMSH_PRISM            : return 3;   break;
-            case GMSH_PYRAMID          : return 3;   break;
-        }
-
-        return 0;
-    }
-
-    // Returns the corner number corresponding to a given element type name
-    // TODO: Throw error if wrong element name
-    int GMSH_ElementCorners(int elemName) {
-
-        switch (elemName) {
-            case GMSH_NODE             : return 1;   break;
-            case GMSH_EDGE             : return 2;   break;
-            case GMSH_TRIANGLE         : return 3;   break;
-            case GMSH_QUADRANGLE       : return 4;   break;
-            case GMSH_TETRAHEDRON      : return 4;   break;
-            case GMSH_HEXAHEDRON       : return 8;   break;
-            case GMSH_PRISM            : return 6;   break;
-            case GMSH_PYRAMID          : return 5;   break;
-        }
-
-        return 0;
-    }
-
-    // TODO: Throw error if wrong element name or order
-    int GMSH_ElementDofNumber(int elemName, int order)
-    {
-        switch (elemName) {
-            case GMSH_EDGE             : return order + 1;                                   break;    // {2,3,4,5,6}
-            case GMSH_TRIANGLE         : return (order + 1) * (order + 2) / 2;               break;    // {3,6,10,15,21}
-            case GMSH_TETRAHEDRON      : return (order + 1)*(order + 2)*(order + 3) / 6  ;   break;    // {4,10,20,35,56}
-        }
-        return 0;
-    }
-
     // Constructs a DUNE geometry type based on GMSH element index
-    GeometryType GMSH_GeometryType(int gmsh_index)
+    GeometryType gmshGeometryType(int gmsh_index)
     {
         GeometryType rez;
         int gi = gmsh_index;
 
-             if (gi == 15)                                                                                                       { rez.makeVertex(); }
-        else if ((gi == 1) || (gi == 8) || (gi == 26) || (gi == 27) || (gi == 28))                                               { rez.makeLine(); }
+             if (gi == 15)                                                                                                     { rez.makeVertex(); }
+        else if ((gi == 1) || (gi == 8) || (gi == 26) || (gi == 27) || (gi == 28))                                             { rez.makeLine(); }
         else if ((gi == 2) || (gi == 9) || (gi == 20) || (gi == 21) || (gi == 22) || (gi == 23) || (gi == 24) || (gi == 25))   { rez.makeTriangle(); }
-        else if ((gi == 3) || (gi == 10) || (gi == 16))                                                                            { rez.makeQuadrilateral(); }
-        else if ((gi == 4) || (gi == 11) || (gi == 29) || (gi == 30) || (gi == 31))                                               { rez.makeTetrahedron(); }
-        else if ((gi == 5) || (gi == 12) || (gi == 17) || (gi == 92) || (gi == 93))                                               { rez.makeHexahedron(); }
-        else if ((gi == 6) || (gi == 13) || (gi == 18))                                                                            { rez.makePrism(); }
-        else if ((gi == 7) || (gi == 14) || (gi == 19))                                                                            { rez.makePyramid(); }
+        else if ((gi == 3) || (gi == 10) || (gi == 16))                                                                        { rez.makeQuadrilateral(); }
+        else if ((gi == 4) || (gi == 11) || (gi == 29) || (gi == 30) || (gi == 31))                                            { rez.makeTetrahedron(); }
+        else if ((gi == 5) || (gi == 12) || (gi == 17) || (gi == 92) || (gi == 93))                                            { rez.makeHexahedron(); }
+        else if ((gi == 6) || (gi == 13) || (gi == 18))                                                                        { rez.makePrism(); }
+        else if ((gi == 7) || (gi == 14) || (gi == 19))                                                                        { rez.makePyramid(); }
         else  { DUNE_THROW(Dune::IOError, "Unexpected geometry type");  }
 
 /*             // Note that hexahedron GeometryType is missing
@@ -181,22 +150,7 @@ namespace Dune
     }
 
     // Returns the type name of the element given its GMSH_index
-    int GMSH_ElementName(int gmsh_index)
-    {
-        // Hexahedra of high dimension have funny index
-        if ((gmsh_index == 92) || (gmsh_index == 93)) { return GMSH_HEXAHEDRON; }
-
-        // Array copy-pasted from GMSH Brute-Force because it does not seem to have any pattern :)
-        const int elemName[32]        = { -1,
-                    GMSH_EDGE, GMSH_TRIANGLE, GMSH_QUADRANGLE, GMSH_TETRAHEDRON, GMSH_HEXAHEDRON, GMSH_PRISM, GMSH_PYRAMID, GMSH_EDGE, GMSH_TRIANGLE, GMSH_QUADRANGLE,
-                    GMSH_TETRAHEDRON, GMSH_HEXAHEDRON, GMSH_PRISM, GMSH_PYRAMID, GMSH_NODE, GMSH_QUADRANGLE, GMSH_HEXAHEDRON, GMSH_PRISM, GMSH_PYRAMID, GMSH_TRIANGLE,
-                    GMSH_TRIANGLE, GMSH_TRIANGLE, GMSH_TRIANGLE, GMSH_TRIANGLE, GMSH_TRIANGLE, GMSH_EDGE, GMSH_EDGE, GMSH_EDGE, GMSH_TETRAHEDRON, GMSH_TETRAHEDRON, GMSH_TETRAHEDRON };
-
-        return elemName[gmsh_index];
-    }
-
-    // Returns the type name of the element given its GMSH_index
-    int GMSH_ElementOrder(int gmsh_index)
+    int gmshElementOrder(int gmsh_index)
     {
         // Hexahedra of high dimension have funny index
         if (gmsh_index == 92) { return 3; }
@@ -208,7 +162,7 @@ namespace Dune
         return elemOrder[gmsh_index];
     }
 
-    bool GMSH_ElementIsIncomplete(int gmsh_index)
+    bool gmshElementIsIncomplete(int gmsh_index)
     {
         // Both high-order hexahedrons are complete
         if ((gmsh_index == 92) || (gmsh_index == 93)) { return 0; }
@@ -221,7 +175,7 @@ namespace Dune
 
     // Returns the number of degrees of freedom of the element given its GMSH_index
     // note: This info can not simply be obtained from referenceElement, because some of the elements in GMSH have incomplete order, so less DoF than expected
-    int GMSH_ElementDofNumber(int gmsh_index)
+    int gmshElementDofNumber(int gmsh_index)
     {
         // Array copy-pasted from GMSH Brute-Force because it does not seem to have any pattern :)
         const int nDofs[32]              = {-1, 2, 3, 4, 4, 8, 6, 5, 3, 6, 9, 10, 27, 18, 14, 1, 8, 20, 15, 13, 9, 10, 12, 15, 15, 21, 4, 5, 6, 20, 35, 56};
@@ -230,7 +184,7 @@ namespace Dune
     }
 
     // Returns the total number of DoF associated with all subentities of a given dimension for this element, subtracting the ones that come from the corners
-    int GMSH_ElementSubentityExtraDim(int gmsh_index, int dim)
+    int gmshElementSubentityExtraDim(int gmsh_index, int dim)
     {
         const int nDofsExtraEdges[32] = {-1, 0, 0, 0, 0, 0, 0, 0, 1, 3, 4, 6, 12, 9, 8, 0, 4, 12, 9, 8, 6, 6, 9, 9, 12, 12, 2, 3, 4, 12, 18, 24};
         const int nDofsExtraFaces[32] = {-1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 6, 3, 1, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 6, 0, 0, 0, 4, 12, 24};
@@ -248,131 +202,68 @@ namespace Dune
 
     // correct differences between gmsh and Dune in the local vertex numbering
     // NOTE: THIS METHOD DOES NOT WORK WITH INCOMPLETE ORDER GMSH ELEMENTS AT THE MOMENT
-    void Gmsh2DuneElementDofNumbering(std::vector<int> &elementDofs, int thisElmName, int thisElmOrder) {
-        int thisElmDofNo = GMSH_ElementDofNumber(thisElmName, thisElmOrder);
+    void gmsh2DuneElementDofNumbering(GeometryType gt, int thisElmOrder, std::vector<int> &elementDofs) {
+        int thisElmDofNo = elementDofs.size();
         std::vector<int> tmp;
 
-        switch (thisElmName)
+        if (!gt.isSimplex() || gt.dim() < 2 || gt.dim() > 3)  {
+        	DUNE_THROW(Dune::IOError, "CURVILINEAR_GMSH_READER: gmsh2duneRenumbering() only implemented for Simplex 2D and 3D geometries at the moment");
+        }
+
+        if (gt.isTriangle())
         {
-        case GMSH_TRIANGLE :
             for (int i = 0; i < thisElmDofNo; i++) { tmp.push_back(elementDofs[triangularPointRenumberings_[thisElmOrder - 1][i]]); }
             for (int i = 0; i < thisElmDofNo; i++) { elementDofs[i] = tmp[i]; }
-
-            break;
-        case GMSH_TETRAHEDRON :
+        }
+        else if (gt.isTetrahedron())
+        {
             for (int i = 0; i < thisElmDofNo; i++) { tmp.push_back(elementDofs[tetrahedralPointRenumberings_[thisElmOrder - 1][i]]); }
             for (int i = 0; i < thisElmDofNo; i++) { elementDofs[i] = tmp[i]; }
-
-            break;
         }
-    }
-
-    // Finds the corners in the DUNE-convention DoF vector
-    int DUNE_CornerIndex(int cornerNo, GeometryType gt, int thisElmOrder, int thisElmDoF) {
-
-        if (!gt.isSimplex())  { DUNE_THROW(Dune::IOError, "CornerIndex only implemented for Simplex geometries at the moment"); }
-
-        int ind = 0;
-
-        switch(gt.dim()) {
-        case 1 :  // EDGE
-        {
-            switch (cornerNo)
-            {
-            case 0 : ind = 0;                   break;
-            case 1 : ind = thisElmOrder;              break;
-            }
-        } break;
-        case 2 : // TRIANGLE
-        {
-            switch (cornerNo)
-            {
-            case 0 : ind = 0;                  break;
-            case 1 : ind = thisElmOrder;             break;
-            case 2 : ind = thisElmDoF - 1;  break;
-            }
-        } break;
-
-        case 3 : // TETRAHEDRON
-        {
-            switch (cornerNo)
-            {
-            case 0 : ind = 0;                         break;
-            case 1 : ind = thisElmOrder;                    break;
-            case 2 : ind = thisElmOrder*(thisElmOrder + 3) / 2;   break;
-            case 3 : ind = thisElmDoF - 1;         break;
-            }
-        } break;
-        }
-
-        return ind;
-    }
-
-    // Says how many d-1 subentities does an element with this name have
-    int GEOMETRY_ElementSubentityNo(int elemName)
-    {
-    	int rez;
-    	switch (elemName)
-    	{
-    		case GMSH_TRIANGLE :     rez = 3;  break;
-    		case GMSH_TETRAHEDRON :  rez = 4;  break;
-    		default:  DUNE_THROW(Dune::IOError, "GMSH Reader: Not implemented element subentityNo for this element type " );
-    	}
-    	return rez;
     }
 
     // Returns d-1 subentity corner local indices, sorted
-    std::vector<int> GEOMETRY_ElementSubentityCorners(int elemName, int ind)
+    std::vector<int> GEOMETRY_ElementSubentityCorners(GeometryType gt, int ind)
     {
-    	std::vector<int> rez;
-    	switch (elemName)
-    	{
-    		case GMSH_TRIANGLE :
-    		{
-    			switch (ind)
-    			{
-    			case 0 :  rez = std::vector<int> {0, 1};  break;
-    			case 1 :  rez = std::vector<int> {1, 2};  break;
-    			case 2 :  rez = std::vector<int> {0, 2};  break;
-    			default : DUNE_THROW(Dune::IOError, "GMSH Reader: Wrong input arguments for SubentityCorners " );
-    			}
-    		}  break;
-    		case GMSH_TETRAHEDRON :
-    		{
-    			switch (ind)
-    			{
-    			case 0 :  rez = std::vector<int> {0, 1, 2};  break;
-				case 1 :  rez = std::vector<int> {0, 1, 3};  break;
-				case 2 :  rez = std::vector<int> {0, 2, 3};  break;
-				case 3 :  rez = std::vector<int> {1, 2, 3};  break;
-				default : DUNE_THROW(Dune::IOError, "GMSH Reader: Wrong input arguments for SubentityCorners " );
-    			}
-    		}  break;
-    		default:  DUNE_THROW(Dune::IOError, "GMSH Reader: Not implemented element subentityNo for this element type " );
-    	}
-    	return rez;
+        std::vector<int> rez;
+        if (gt.isTriangle())
+        {
+            switch (ind)
+            {
+            case 0 :  rez = std::vector<int> {0, 1};  break;
+            case 1 :  rez = std::vector<int> {1, 2};  break;
+            case 2 :  rez = std::vector<int> {0, 2};  break;
+            default : DUNE_THROW(Dune::IOError, "GMSH Reader: Wrong input arguments for SubentityCorners " );
+            }
+        }
+        else if (gt.isTetrahedron())
+        {
+            switch (ind)
+            {
+            case 0 :  rez = std::vector<int> {0, 1, 2};  break;
+            case 1 :  rez = std::vector<int> {0, 1, 3};  break;
+            case 2 :  rez = std::vector<int> {0, 2, 3};  break;
+            case 3 :  rez = std::vector<int> {1, 2, 3};  break;
+            default : DUNE_THROW(Dune::IOError, "GMSH Reader: Wrong input arguments for SubentityCorners " );
+            }
+        } else  {  DUNE_THROW(Dune::IOError, "GMSH Reader: Not implemented element subentityNo for this element type " ); }
+        return rez;
     }
 
-
     // Testing if the current element type can be handled by DUNE
-    bool checkElementAllowed(int gmsh_element_index)
+    bool checkElementAllowed(int gmsh_index)
     {
+    	GeometryType gt = gmshGeometryType(gmsh_index);
         bool isAllowedElement = true;
-        int thisElmName = GMSH_ElementName(gmsh_element_index);
+
+        // Only allow simplex geometries for now
+        isAllowedElement &= gt.isSimplex();
 
         // Check if element is polynomial-complete (ask GMSH what that even means I dont know :) )
-        isAllowedElement &= !GMSH_ElementIsIncomplete(gmsh_element_index);
-
-        // in 2D only allow lines and triangles
-        isAllowedElement &= (dim != 2) || ((thisElmName == GMSH_EDGE)||(thisElmName == GMSH_TRIANGLE));
-
-        // in 3D only allow triangles and tetrahedrons
-        isAllowedElement &= (dim != 3) || ((thisElmName == GMSH_TRIANGLE)||(thisElmName == GMSH_TETRAHEDRON));
-
+        isAllowedElement &= !gmshElementIsIncomplete(gmsh_index);
 
         // test whether we support the element type at the moment
-        if (!isAllowedElement) { DUNE_THROW(Dune::IOError, "GMSH Reader: Have read an element of unexpected type " << gmsh_element_index); }
-
+        if (!isAllowedElement) { DUNE_THROW(Dune::IOError, "GMSH Reader: Have read an element of unexpected type "); }
 
         return isAllowedElement;
     }
@@ -386,6 +277,202 @@ namespace Dune
 
         return ((eIndex >= eFirst)&&(eIndex < eLast));
     }
+
+
+    /** \brief Partition a mesh based on corner indices.
+     * Computes for each element of this process (given by globalId) to which process it should belong.
+     *
+     * \param[in] part            return vector. Contains process ranks indexed over elements
+     * \param[in] baseElements    vector of elements with their data, in particular corner id's and element id.
+     */
+     void partition_compute(
+    		 std::vector<unsigned> & part,
+    		 std::vector<GMSHElementData> & baseElements
+     ) {
+
+        // ****************************************************
+        // Preliminaries
+        // ****************************************************
+#if PARMETIS_MAJOR_VERSION < 4
+      typedef idxtype idx_t;
+      typedef float real_t;
+#endif
+
+      GeometryType elementType = gmshGeometryType(baseElements[0].gmsh_index);
+      int elementNumber = baseElements.size();
+      int elementDim = elementType.dim();
+      int elementFaceCorners = ReferenceElements::general(elementType).size(0, 1, elementDim);
+
+      // ****************************************************
+      // Setup parameters for ParMETIS
+      // ****************************************************
+      idx_t wgtflag = 2;                                  // We use different weights for each element
+      idx_t numflag = 0;                                  // we are using C-style arrays
+      idx_t ncon = 1;                                     // number of balance constraints
+      idx_t ncommonnodes = elementFaceCorners;            // number of nodes elements must have in common in order to be adjacent to each other
+      idx_t nparts = size_;                               // number of parts equals number of processes
+      std::vector<real_t> tpwgts(ncon*nparts, 1./nparts); // load per subdomain and weight (same load on every process)
+      std::vector<real_t> ubvec(ncon, 1.05);              // weight tolerance (same weight tolerance for every weight there is)
+      idx_t options[4] = {0, 0, 0, 0};                    // use default values for random seed, output and coupling
+      idx_t edgecut;                                      // will store number of edges cut by partition
+
+      // ****************************************************
+      // Communicate the number of elements on each process
+      // ****************************************************
+      print_debug(" Communicating element numbers on all processes to each process");
+
+      std::vector<idx_t> elmdist;
+      std::vector<idx_t> elmdist_tmp (size_, 0);
+
+      // The index of elmdist_tmp should be the process number, the value the number of elements on each process
+      MPI_Comm comm = Dune::MPIHelper::getCommunicator();
+      Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
+
+      collective_comm.allgather(&elementNumber, 1, reinterpret_cast<idx_t*>(elmdist_tmp.data()));
+
+      // elmdist should be an incremental array whose entries are the sum of all element numbers on previous processes
+      elmdist.push_back(0);
+      for (int i = 0; i < elementNumber; i++)  { elmdist.push_back(elmdist[i] + elmdist_tmp[i]); }
+
+      // ****************************************************
+      // Construct element weights
+      // The amount of computation associated with a curvilinear element is approx. calculated:
+      //  1) The number of Lagrange Polynomials interpolating the element is equal to the number of interpolation points
+      //  2) The number of basis functions to interpolate the field inside should be approximately that number too (why???)
+      //  3) The number of new non-zero matrix elements is approx. number of basis functions squared
+      // ****************************************************
+      std::vector<idx_t> elmwgt;
+      for (size_t i = 0; i < elementNumber; i++) {
+    	  int elementOrder = gmshElementOrder(baseElements[i].gmsh_index);
+    	  elmwgt.push_back(pow(elementOrder, 2));
+      }
+
+      // ****************************************************
+      // Create and fill arrays "eptr", where eptr[i] is the number of vertices that belong to the i-th element, and
+      // "eind" contains the vertex-numbers of the i-the element in eind[eptr[i]] to eind[eptr[i+1]-1]
+      // ****************************************************
+      std::vector<idx_t> eptr, eind;
+      int numVertices = 0;
+      eptr.push_back(numVertices);
+
+      for (size_t i = 0; i < elementNumber; i++)
+      {
+    	  int curNumCorners = baseElements[i].elementDofs.size();
+    	  numVertices += curNumCorners;
+    	  eptr.push_back(numVertices);
+
+    	  for (size_t k = 0; k < curNumCorners; ++k)  { eind.push_back(baseElements[i].elementDofs[k]); }
+      }
+
+      print_debug(" Run parmetis routine");
+
+#if PARMETIS_MAJOR_VERSION >= 4
+        const int OK =
+#endif
+        ParMETIS_V3_PartMeshKway(elmdist.data(), eptr.data(), eind.data(), elmwgt.data(), &wgtflag, &numflag,
+                                 &ncon, &ncommonnodes, &nparts, tpwgts.data(), ubvec.data(),
+                                 options, &edgecut, reinterpret_cast<idx_t*>(part.data()), &comm);
+
+#if PARMETIS_MAJOR_VERSION >= 4
+        if (OK != METIS_OK)
+          DUNE_THROW(Dune::Exception, "ParMETIS returned an error code.");
+#endif
+
+        //print_debug(" Parmetis-suggested processes for elements: " + vector2string(part));
+    }
+
+
+     /** \brief Communicate the mesh as partitioned by partition_compute
+      * First, communicates how many elements are sent to each process from this process.
+      * Then, communicates all elements (only globalId's)
+      *
+      * \param[in] part                     Contains process ranks indexed over elements.
+      * \param[in] baseElements             vector of elements with their data, in particular corner id's and element id.
+      * \param[in] this_process_elements    set of globalId's of all elements present on this process
+      *
+      */
+     void partition_communicate(
+    		 std::vector<unsigned> & part,
+    		 std::vector<GMSHElementData> & baseElements,
+    		 std::set<int> & this_process_elements
+     )
+     {
+    	 typedef std::pair<unsigned, unsigned> ETP;
+    	 MPI_Comm comm = Dune::MPIHelper::getCommunicator();
+
+
+    	 // 1) Construct a vector of globalId's sorted by the corresponding process number
+    	 // *****************************************************************************
+
+    	 print_debug(" Sort golbalId array");
+
+    	 // Combine element globalId's with processes to which these elements go
+    	 std::vector<ETP> elementToProcess;
+    	 for (int i = 0; i < baseElements.size(); i++) {
+    		 elementToProcess.push_back(std::make_pair(baseElements[i].element_id, part[i]));
+    	 }
+    	 // Sort according to increasing process order
+    	 struct comparator {
+    		 bool operator() (ETP A, ETP B) { return (A.second < B.second); }
+    	 } mycomparator;
+    	 std::sort(elementToProcess.begin(), elementToProcess.end(), mycomparator);
+
+
+    	 // 2) Compute how many elements are send to each process. Communicate this to all processes
+    	 // *****************************************************************************
+    	 print_debug(" Communicate number of elements to sent do each process");
+
+    	 std::vector<int> sendcounts (size_, 0);
+    	 std::vector<int> recvcounts (size_, 0);
+    	 for (int i = 0; i < part.size(); i++) {
+    		 //std::cout << " step " << i << " requests process " << part[i] << " of total " << size_ << std::endl;
+    		 sendcounts[part[i]] += 1;
+    	 }
+
+    	 MPI_Alltoall (sendcounts.data(), 1, MPI_INT, reinterpret_cast<int*>(recvcounts.data()), 1, MPI_INT, comm);
+
+
+    	 // 3) Construct send and receive displacements (sdispls)
+    	 // *****************************************************************************
+
+    	 print_debug(" Compute buffer sizes");
+
+    	 std::vector<int> sdispls (size_, 0);
+    	 std::vector<int> rdispls (size_, 0);
+
+    	 for (int i = 1; i < size_; i++) {
+    		 sdispls[i] = sdispls[i - 1] + sendcounts[i - 1];
+    		 rdispls[i] = rdispls[i - 1] + recvcounts[i - 1];
+    	 }
+
+
+    	 // 4) Construct sendbuffer and recvbuffer
+    	 // *****************************************************************************
+
+    	 int recvbuf_size = 0;
+    	 std::vector<int> sendbuf;
+    	 for (int i = 0; i < elementToProcess.size(); i++) { sendbuf.push_back(elementToProcess[i].first); }
+    	 for (int i = 0; i < recvcounts.size(); i++)       { recvbuf_size += recvcounts[i]; }
+
+    	 std::vector<int> recvbuf(recvbuf_size, 0);
+
+
+    	 // 5) Communicate global indices, put place them into part vector as return value
+    	 // *****************************************************************************
+    	 print_debug(" Communicate globalId's");
+
+   	     MPI_Alltoallv (sendbuf.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvbuf.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
+
+   	     //print_debug(" Sending buffer: " + vector2string(sendbuf));
+   	     //print_debug(" Sending counts: " + vector2string(sendcounts));
+   	     //print_debug(" Sending displs: " + vector2string(sdispls));
+   	     //print_debug(" Receiving buffer: " + vector2string(recvbuf));
+   	     //print_debug(" Receiving counts: " + vector2string(recvcounts));
+   	     //print_debug(" Receiving displs: " + vector2string(rdispls));
+
+   	     this_process_elements = std::set<int> (recvbuf.begin(), recvbuf.end());
+
+     }
 
 
     /** \brief Reads vertices into a map, given a set of indices of vertices that should be read
@@ -420,16 +507,16 @@ namespace Dune
             if (vertex_index_set.count(i) == 0)  { fgets(buf, 512, file ); }
             else
             {
-            	fscanf(file, "%d ", &id);
-            	std::string tmp_out;
+                fscanf(file, "%d ", &id);
+                std::string tmp_out;
 
                 if( id != i )  { DUNE_THROW( Dune::IOError, "Expected id " << i << "(got id " << id << "." ); }
                 for (int d = 0; d < dimWorld; d++) {
-                	double tmp_coord;
-                	fscanf(file, "%lg", &tmp_coord);
-                	x[d] = tmp_coord;
+                    double tmp_coord;
+                    fscanf(file, "%lg", &tmp_coord);
+                    x[d] = tmp_coord;
 
-                	tmp_out += std::to_string(tmp_coord) + " ";
+                    tmp_out += std::to_string(tmp_coord) + " ";
                 }
 
                 // The local id of this vertex is equalt to the number of vertices added so far
@@ -442,7 +529,7 @@ namespace Dune
 
                 // Insert vertex into a factory, noting its globalId.
                 // Its localId in the factory should be given by the order the vertices are added to the factory
-                //factory.insertVertex(x, i);
+                factory.insertVertex(x, i);
 
                 fscanf(file, "\n");
             }
@@ -454,12 +541,13 @@ namespace Dune
         return vertices.size();
     }
 
+
     // Reads the data about this element, everything except the interpolation vertex id's
     // Assumes it is in the correct position in the file
-    ElementData readElementSpec(FILE* file)
+    GMSHElementData readElementSpec(FILE* file)
     {
-    	int number_of_tags;
-    	ElementData thisElement;
+        int number_of_tags;
+        GMSHElementData thisElement;
 
         fscanf(file, "%d %d %d ", &thisElement.element_id, &thisElement.gmsh_index, &number_of_tags);
         print_debug("    * element " + std::to_string(thisElement.element_id) + " has " + std::to_string(number_of_tags) + " tags");
@@ -493,38 +581,36 @@ namespace Dune
     }
 
 
-    /** \brief Reads all internal element data into a vector. Only reads elements which should be on this process
+    /** \brief Communicate the mesh as partitioned by partition_compute
+     * First, communicates how many elements are sent to each process from this process.
+     * Then, communicates all elements (only globalId's)
      *
-     *  \param[in]  file                           file pointer to read from
-     *  \param[in]  elements_total                 the total number of elements specified in the file
-     *  \param[in]  internal_elements_total        the number of internal elements specified in the file
-     *  \param[in]  internal_elements              A vector in which the globalID's of internal elements will be stored
-     *  \param[in]  vertex_index_set               the set of globalID's of all vertices that belong to this process
-     *  \param[in]  element_boundary_linker        A map from a sorted array of globalID's of vertices that make up a boundary to an array of localID's of internal elements to whom this boundary belongs.
+     * \param[in]  file                           file pointer to read from
+     * \param[in]  elements_total                 the total number of elements specified in the file
+     * \param[in]  internal_elements_total        the number of internal elements specified in the file
+     * \param[in] this_process_elements           set of globalId's of all elements present on this process
      *
-     *  \note Assumes it is in the correct position in the file
-     *
-     *  TODO: Make factory.insertVertex() work with globalId
      */
-    void readInternalElements(
-    		FILE* file,
-    		int elements_total,
-    		int internal_elements_total,
-    		std::vector<ElementData> & internal_elements,
-    		std::set<int> & vertex_index_set,
-    		std::map< std::vector<int>, std::vector<int> > & element_boundary_linker
-    		)
+    void readAndPartitionBaseElements(
+            FILE* file,
+            int elements_total,
+            int internal_elements_total,
+    		std::set<int> & this_process_elements)
     {
-    	int iSelectElem = 0;
+        int iSelectElem = 0;
+        std::vector<GMSHElementData> baseElements;
 
         // Reading element info - tag information and vertex global indices
-        for (int i = 0; i < elements_total; i++)
+        // *************************************************************
+        for (int i = 1; i <= elements_total; i++)
         {
-        	// Read the first part of the element info
-        	ElementData thisElement = readElementSpec(file);
+            // Read the first part of the element info
+            GMSHElementData thisElement = readElementSpec(file);
 
             // Find if this is a boundary element
-            bool on_boundary = (GMSH_ElementDim(GMSH_ElementName(thisElement.gmsh_index)) < dimWorld);
+            GeometryType elemType          = gmshGeometryType(thisElement.gmsh_index);
+            int elemDim = elemType.dim();
+            bool on_boundary = (elemDim < dimWorld);
 
             // Check if we want to read this element at this stage
             if (on_boundary || !elementOnProcess(iSelectElem++, internal_elements_total)) { fgets(buf, 512, file ); }
@@ -537,11 +623,106 @@ namespace Dune
 
                 // Obtain all necessary info not to use gmsh_element_index in the following steps
                 // *****************************************************
-                int thisElmName                = GMSH_ElementName(thisElement.gmsh_index);
-                int thisElmOrder               = GMSH_ElementOrder(thisElement.gmsh_index);
-                int thisElmDofNo               = GMSH_ElementDofNumber(thisElement.gmsh_index);
-                int thisElmCorners             = GMSH_ElementCorners(thisElmName);
-                int thisElmSubentities		   = GEOMETRY_ElementSubentityNo(thisElmName);
+                int thisElmOrder               = gmshElementOrder(thisElement.gmsh_index);
+                int thisElmDofNo               = gmshElementDofNumber(thisElement.gmsh_index);
+                int thisElmCorners             = ReferenceElements::general(elemType).size(elemType.dim());
+                int thisElmSubentities         = ReferenceElements::general(elemType).size(1);
+
+                // Reading Corners of the Element
+                // Note: In GMSH notation corners go first
+                // *************************************************
+                for (int iCorner = 0; iCorner < thisElmCorners; iCorner++) {
+                    int tmp_vertex_global_id;
+                    fscanf(file, "%d", &tmp_vertex_global_id);
+                    print_debug("  --- have read corner " + std::to_string(tmp_vertex_global_id) );
+                    thisElement.elementDofs.push_back(tmp_vertex_global_id);
+                }
+                fgets(buf, 512, file );
+
+                // Store elements just read
+                baseElements.push_back(thisElement);
+            }
+        }
+
+        print_debug(" Finished reading base elements");
+
+
+        std::cout << "Process " << rank_ << ": elements before partition: ";
+        for (int i = 0; i < baseElements.size(); i++) { std::cout << baseElements[i].element_id << " "; }
+        std::cout << std::endl;
+
+        // Partition the elements
+        // Communicate the partitioning
+        // Fill the element set
+        // *************************************************************
+    	std::vector<unsigned> part(baseElements.size());
+    	partition_compute(part, baseElements);
+    	print_debug(" Finished computing partition");
+
+    	partition_communicate(part, baseElements, this_process_elements);
+    	print_debug(" Finished communicating partition");
+
+    	std::vector<int> test2 (this_process_elements.begin(), this_process_elements.end());
+    	print_debug(" elements after partition: " + vector2string(test2));
+
+        // Finish reading file
+        // *************************************************************
+        fscanf(file, "%s\n", buf);
+        if (strcmp(buf,"$EndElements")!=0)  { DUNE_THROW(Dune::IOError, "expected $EndElements"); }
+    }
+
+
+    /** \brief Reads all internal element data into a vector. Only reads elements which should be on this process
+     *
+     *  \param[in]  file                           file pointer to read from
+     *  \param[in]  elements_total                 the total number of elements specified in the file
+     *  \param[in]  internal_elements_total        the number of internal elements specified in the file
+     *  \param[in]  this_process_elements          set of globalId's of all elements present on this process
+     *  \param[in]  internal_elements              A vector in which the globalID's of internal elements will be stored
+     *  \param[in]  vertex_index_set               the set of globalID's of all vertices that belong to this process
+     *  \param[in]  element_boundary_linker        A map from a sorted array of globalID's of vertices that make up a boundary to an array of localID's of internal elements to whom this boundary belongs.
+     *
+     *  \note Assumes it is in the correct position in the file
+     *
+     *  TODO: Make factory.insertVertex() work with globalId
+     */
+    void readInternalElements(
+            FILE* file,
+            int elements_total,
+            int internal_elements_total,
+            std::set< int > & this_process_elements,
+            std::vector<GMSHElementData> & internal_elements,
+            std::set<int> & vertex_index_set,
+            std::map< std::vector<int>, std::vector<int> > & element_boundary_linker
+            )
+    {
+        // Reading element info - tag information and vertex global indices
+        for (int i = 1; i <= elements_total; i++)
+        {
+            // Read the first part of the element info
+            GMSHElementData thisElement = readElementSpec(file);
+
+            // Find if this is a boundary element
+            GeometryType elemType          = gmshGeometryType(thisElement.gmsh_index);
+            int elemDim = elemType.dim();
+            bool on_boundary = (elemDim < dimWorld);
+
+            // Check if this element belongs on this process
+            // Note: There is no need to check if the element is a boundary segment, because
+            if (this_process_elements.count(thisElement.element_id) == 0) { fgets(buf, 512, file ); }
+            else
+            {
+                // Testing if the current element type can be handled by DUNE
+                // *****************************************************************
+                checkElementAllowed(thisElement.gmsh_index);
+                print_debug("    * element " + std::to_string(thisElement.element_id) + " can be treated by Dune grid ");
+
+                // Obtain all necessary info not to use gmsh_element_index in the following steps
+                // *****************************************************
+                int thisElmOrder               = gmshElementOrder(thisElement.gmsh_index);
+                int thisElmDofNo               = gmshElementDofNumber(thisElement.gmsh_index);
+                int thisElmCorners             = ReferenceElements::general(elemType).size(elemType.dim());
+                int thisElmSubentities         = ReferenceElements::general(elemType).size(1);
 
                 // Reading DoF's
                 // *************************************************
@@ -563,6 +744,7 @@ namespace Dune
                 // *************************************************************************************
 
                 // 1) get all corners of this process
+                // Note that in GMSH convention the corners come first in the Dof array
                 std::vector<int> corners;
                 for (int iCorner = 0; iCorner < thisElmCorners; iCorner++) { corners.push_back(thisElement.elementDofs[iCorner]); }
 
@@ -574,38 +756,33 @@ namespace Dune
 
                 for (int iSub = 0; iSub < thisElmSubentities; iSub++)
                 {
-                	// 4) get all subsets associated with this element type
-                	std::vector<int> this_subentity_ind = GEOMETRY_ElementSubentityCorners(thisElmName, iSub);
-                	std::vector<int> key;
+                    // 4) get all subsets associated with this element type
+                    std::vector<int> this_subentity_ind = GEOMETRY_ElementSubentityCorners(elemType, iSub);
+                    std::vector<int> key;
 
-                	print_debug(" for iSub = " + std::to_string(iSub) + " out of " + std::to_string(thisElmSubentities) + " have sub_size = " + std::to_string(this_subentity_ind.size())  );
+                    print_debug(" for iSub = " + std::to_string(iSub) + " out of " + std::to_string(thisElmSubentities) + " have sub_size = " + std::to_string(this_subentity_ind.size())  );
 
-                	for (int iCoord = 0; iCoord < this_subentity_ind.size(); iCoord++) { key.push_back(corners[this_subentity_ind[iCoord]]); }
+                    for (int iCoord = 0; iCoord < this_subentity_ind.size(); iCoord++) { key.push_back(corners[this_subentity_ind[iCoord]]); }
 
-                	// 5) Check if map empty for this entry, then add to the map
-                	if (element_boundary_linker.find(key) == element_boundary_linker.end()) {
-                		std::cout << " -- element " << localID << " has added boundary ";
-                		for (int k = 0; k < key.size(); k++) { std::cout << key[k] << " "; }
-                		std::cout << std::endl;
+                    // 5) Check if map empty for this entry, then add to the map
+                    if (element_boundary_linker.find(key) == element_boundary_linker.end()) {
+                        print_debug(" -- element " + std::to_string(localID) + " has added boundary " + vector2string(key) );
 
+                        element_boundary_linker[key] = std::vector<int> (1, localID);
+                    } else
+                    {
+                        // 6) In this case this is the 2nd element sharing this boundary
+                        std::vector<int>  tmp = element_boundary_linker[key];
+                        tmp.push_back(localID);
+                        element_boundary_linker[key] = tmp;   // Should overwrite previous value
 
-                		element_boundary_linker[key] = std::vector<int> (1, localID);
-                	} else
-                	{
-                    	// 6) In this case this is the 2nd element sharing this boundary
-                		std::vector<int>  tmp = element_boundary_linker[key];
-                		tmp.push_back(localID);
-                		element_boundary_linker[key] = tmp;   // Should overwrite previous value
-
-                		std::cout << " -- element " << localID << " shares boundary ";
-                		for (int k = 0; k < key.size(); k++) { std::cout << key[k] << " "; }
-                		std::cout << " with element " << tmp[0] << std::endl;
-                	}
+                        print_debug(" -- element " + std::to_string(localID) + " shares boundary " + vector2string(key) + " with element " + std::to_string(tmp[0]) );
+                    }
                 }
 
                 // correct differences between gmsh and Dune in the local vertex numbering
                 // *************************************************
-                Gmsh2DuneElementDofNumbering(thisElement.elementDofs, thisElmName, thisElmOrder);
+                gmsh2DuneElementDofNumbering(elemType, thisElmOrder, thisElement.elementDofs);
 
                 internal_elements.push_back(thisElement);
             }
@@ -624,30 +801,32 @@ namespace Dune
      *  \param[in]  elements_total                 the total number of elements specified in the file
      *  \param[in]  boundary_elements              A vector in which the globalID's of boundary elements will be stored
      *  \param[in]  element_boundary_linker        A map from a sorted array of globalID's of vertices that make up a boundary to an array of localID's of internal elements to whom this boundary belongs.
-     *  \param[in]  internal_element_boundaries    A vector that stores a vector of localID's of all boundaries linked this element, for each element
+     *  \param[in]  linked_element_local_indices   A vector that stores a vector of localID's of all elements linked this boundary, for each boundary localID
      *
      *  \note Assumes it is in the correct position in the file
      *
      *  TODO: Make factory.insertVertex() work with globalId
      */
     void readBoundaryElements(
-    		FILE* file,
-    		int elements_total,
-    		std::vector<ElementData> & boundary_elements,
-    		std::map< std::vector<int>, std::vector<int> > & element_boundary_linker,
-    		std::vector< std::vector<int> > & internal_element_boundaries
-    		)
+            FILE* file,
+            int elements_total,
+            std::vector<GMSHElementData> & boundary_elements,
+            std::map< std::vector<int>, std::vector<int> > & element_boundary_linker,
+            std::vector< std::vector<int> > & linked_element_local_indices
+            )
     {
-    	int iSelectElem = 0;
+        int iSelectElem = 0;
 
         // Reading element info - tag information and vertex global indices
-        for (int i = 0; i < elements_total; i++)
+        for (int i = 1; i <= elements_total; i++)
         {
-        	// Read the first part of the element info
-        	ElementData thisElement = readElementSpec(file);
+            // Read the first part of the element info
+            GMSHElementData thisElement = readElementSpec(file);
 
             // Find if this is a boundary element
-            bool on_boundary = (GMSH_ElementDim(GMSH_ElementName(thisElement.gmsh_index)) < dimWorld);
+            GeometryType elemType          = gmshGeometryType(thisElement.gmsh_index);
+            int elemDim = elemType.dim();
+            bool on_boundary = (elemDim < dimWorld);
 
             // If this element is not on the boundary just skip the rest of info on this line
             if (!on_boundary) { fgets(buf, 512, file ); }
@@ -660,10 +839,9 @@ namespace Dune
 
                 // Obtain all necessary info not to use gmsh_element_index in the following steps
                 // *****************************************************
-                int thisElmName                = GMSH_ElementName(thisElement.gmsh_index);
-                int thisElmOrder               = GMSH_ElementOrder(thisElement.gmsh_index);
-                int thisElmDofNo               = GMSH_ElementDofNumber(thisElement.gmsh_index);
-                int thisElmCorners             = GMSH_ElementCorners(thisElmName);
+                int thisElmOrder               = gmshElementOrder(thisElement.gmsh_index);
+                int thisElmDofNo               = gmshElementDofNumber(thisElement.gmsh_index);
+                int thisElmCorners             = SubReferenceElements::general(elemType).size(elemType.dim());
 
                 // Reading DoF's
                 // *************************************************
@@ -690,19 +868,19 @@ namespace Dune
                 // 3) Obtain this boundary element's localID
                 int localID = boundary_elements.size();
 
-        		std::cout << " -- boundary " << localID << " checking key ";
-        		for (int k = 0; k < corners.size(); k++) { std::cout << corners[k] << " "; }
-        		std::cout << std::endl;
+                print_debug(" -- boundary " + std::to_string(localID) + " checking key " + vector2string(corners) );
+
 
 
                 // If this boundary already exists in the map, then add this element
+                // If not, it is likely on another process
                 if (element_boundary_linker.find(corners) != element_boundary_linker.end())
                 {
-                    std::cout << " -found b.e localID = " << element_boundary_linker[corners][0] << std::endl;
+                    print_debug(" -found b.e localID = " + vector2string(element_boundary_linker[corners]) );
 
-                	// correct differences between gmsh and Dune in the local vertex numbering
+                    // correct differences between gmsh and Dune in the local vertex numbering
                     // *************************************************
-                    Gmsh2DuneElementDofNumbering(thisElement.elementDofs, thisElmName, thisElmOrder);
+                    gmsh2DuneElementDofNumbering(elemType, thisElmOrder, thisElement.elementDofs);
 
                     // Add boundary element
                     boundary_elements.push_back(thisElement);
@@ -711,12 +889,7 @@ namespace Dune
                     std::vector<int> thisBoundaryLinkedElements = element_boundary_linker[corners];
                     if (thisBoundaryLinkedElements.size() > 1) { DUNE_THROW(Dune::IOError, "Have 2 boundaries associated with 1 element. Not implemented yet"); }
 
-                    for (int iLinked = 0; iLinked < thisBoundaryLinkedElements.size(); iLinked++)
-                    {
-                    	std::cout << iLinked << " " << thisBoundaryLinkedElements.size() << " " << thisBoundaryLinkedElements[iLinked] << std::endl;
-
-                    	internal_element_boundaries[thisBoundaryLinkedElements[iLinked]].push_back(localID);
-                    }
+                    linked_element_local_indices.push_back(thisBoundaryLinkedElements);
                 }
             }
         }
@@ -734,17 +907,14 @@ namespace Dune
      *  \param[in]  global_to_local_vertex_id_map  the map from vertex globalID to localID
      *  \param[in]  vertices                       the map from vertex globalID to vertex coordinate.
      *  \param[in]  internal_elements              A vector in which the globalID's of internal elements are stored
-     *  \param[in]  internal_element_boundaries    A vector that stores a vector of localID's of all boundaries linked this element, for each element
      *
      *  TODO: The vertex and element vectors are stored twice - once inside the read procedure and once in factory
      *  as they are being added. Maybe possible to save space
      */
     void addInternalElements(
-            CurvilinearVTKWriter<dimWorld> & vtk_curv_writer,
             std::map<int, int> & global_to_local_vertex_id_map,
             std::map<int, GlobalVector> & vertices,
-            std::vector< ElementData > & internal_elements,
-            std::vector< std::vector<int> > & internal_element_boundaries
+            std::vector< GMSHElementData > & internal_elements
             )
     {
         // Write elements to factory
@@ -752,55 +922,51 @@ namespace Dune
         {
               // Obtain all necessary info not to use gmsh_element_index in the following steps
             // *****************************************************
-            GeometryType elemType = GMSH_GeometryType(internal_elements[i].gmsh_index);
-            int elemName                = GMSH_ElementName(internal_elements[i].gmsh_index);
-            int elemOrder               = GMSH_ElementOrder(internal_elements[i].gmsh_index);
-            int elemDofNo               = GMSH_ElementDofNumber(internal_elements[i].gmsh_index);
+            GeometryType elemType = gmshGeometryType(internal_elements[i].gmsh_index);
+            int elemOrder               = gmshElementOrder(internal_elements[i].gmsh_index);
+            int elemDofNo               = gmshElementDofNumber(internal_elements[i].gmsh_index);
 
-            int elemDim                 = GMSH_ElementDim(elemName);
-            int elemCornerNo            = GMSH_ElementCorners(elemName);
+            int elemDim                 = elemType.dim();
+            int elemCornerNo            = ReferenceElements::general(elemType).size(elemDim);
 
-            // Compute local DoF vector
-            std::vector<int> localDofs;
-            for (int iDof = 0; iDof < internal_elements[i].elementDofs.size(); iDof++) {
-                localDofs.push_back(global_to_local_vertex_id_map[internal_elements[i].elementDofs[iDof]]);
-            }
+
 
             print_debug("    * internal_element " + std::to_string(i) + " has dimension " + std::to_string(elemDim) + " and vertex number " + std::to_string(elemCornerNo) + " and physical entity number " + std::to_string(internal_elements[i].physical_entity_tag));
+
+
+            std::vector<unsigned> localDofs;
+            std::vector<GlobalVector> elementNodes;
+
+            for (int iDof = 0; iDof < elemDofNo; iDof++) {
+            	// Compute local DoF vector
+                localDofs.push_back(global_to_local_vertex_id_map[internal_elements[i].elementDofs[iDof]]);
+
+                // Compute vertices of this element
+                elementNodes.push_back(vertices[internal_elements[i].elementDofs[iDof]]);
+            }
+
 
             // TESTING SECTION FOR TETRAHEDRA
             // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if (vtk_output)
             {
-                switch (elemName)
-                {
-                case GMSH_TRIANGLE    : vtk_curv_writer.addTestTriangleFromSurface(elemType, internal_elements[i].elementDofs, vertices, elemOrder, elemDofNo);         break;
-                //case GMSH_TETRAHEDRON : vtk_curv_writer.addTestTrianglesFromTetrahedron_NoInterp(elements[i].elementDofs, vertices, elemOrder, elemDofNo);              break;
-                case GMSH_TETRAHEDRON : vtk_curv_writer.addTestTrianglesFromTetrahedron(elemType, internal_elements[i].elementDofs, vertices, elemOrder, elemDofNo);    break;
-                //case GMSH_TETRAHEDRON : vtk_curv_writer.addTestEdgesFromTetrahedron(elemType, elements[i].elementDofs, vertices, elemOrder, elemDofNo);                 break;
-                }
-              print_debug("    * internal_element " + std::to_string(i) + " has been added to the VTK triangles  ");
+            	addElementToVTK(elemType, elementNodes, elemOrder, internal_elements[i].physical_entity_tag, false);
+            	print_debug("    * internal_element " + std::to_string(i) + " has been added to the VTK triangles  ");
             }
-            // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 
             //Insert internal element
             //****************************************************
 
             internal_element_index_to_physical_entity.push_back(internal_elements[i].physical_entity_tag);
+            // Insert element to factory
+            factory.insertElement(elemType, internal_elements[i].element_id, localDofs, elemOrder);
 
-            if (insert_boundary_segments) {
-                // We should pass an array of boundaries that are connected to this element (internal_element_boundaries, if any)
-                // Without this it is impossible to correctly loadBalance the mesh
 
-                //factory.insertElement(elemType, internal_elements[i].element_id, localDofs, internal_elements[i].elementDofs, elemOrder, internal_element_boundaries[i]);
-            } else {
-                // The corners can in be computed at this stage as well, but it is simpler if we just do following in factory
-                // 1) Create LagrangeGeometry from all DoF, store in Metagrid
-                // 2) Request corners from LG, send them to HostGrid
-
-                //factory.insertElement(elemType, corners);  // Old
-                //factory.insertElement(elemType, internal_elements[i].element_id, localDofs, internal_elements[i].elementDofs, elemOrder);
+            if (!insert_boundary_segments) {
+                // This should not happen because CurvGridFactory demands insertion of all boundary segments
+                DUNE_THROW(Dune::IOError, "You must insert boundary segments, you do not have a choice :D" );
             }
 
             print_debug("    * internal_element " + std::to_string(i) + " has been added to the Geometry Factory ");
@@ -814,15 +980,16 @@ namespace Dune
      *  \param[in]  global_to_local_vertex_id_map  the map from vertex globalID to localID
      *  \param[in]  vertices                       the map from vertex globalID to vertex coordinate.
      *  \param[in]  boundary_elements              A vector in which the globalID's of boundary elements are stored
+     *  \param[in]  linked_element_local_indices   A vector that stores a vector of localID's of all elements linked this boundary, for each boundary localID
      *
      *  TODO: The vertex and element vectors are stored twice - once inside the read procedure and once in factory
      *  as they are being added. Maybe possible to save space
      */
     void addBoundaryElements(
-            CurvilinearVTKWriter<dimWorld> & vtk_curv_writer,
             std::map<int, int> & global_to_local_vertex_id_map,
             std::map<int, GlobalVector> & vertices,
-            std::vector< ElementData > & boundary_elements
+            std::vector< GMSHElementData > & boundary_elements,
+            std::vector< std::vector<int> > & linked_element_local_indices
             )
     {
         // Write elements to factory
@@ -830,34 +997,34 @@ namespace Dune
         {
             // Obtain all necessary info not to use gmsh_element_index in the following steps
             // *****************************************************
-            GeometryType boundaryType = GMSH_GeometryType(boundary_elements[i].gmsh_index);
-            int boundaryName                = GMSH_ElementName(boundary_elements[i].gmsh_index);
-            int boundaryOrder               = GMSH_ElementOrder(boundary_elements[i].gmsh_index);
-            int boundaryDofNo               = GMSH_ElementDofNumber(boundary_elements[i].gmsh_index);
+            GeometryType boundaryType = gmshGeometryType(boundary_elements[i].gmsh_index);
+            int boundaryOrder               = gmshElementOrder(boundary_elements[i].gmsh_index);
+            int boundaryDofNo               = gmshElementDofNumber(boundary_elements[i].gmsh_index);
+            int boundaryDim                 = boundaryType.dim();
+            int boundaryCornerNo            = SubReferenceElements::general(boundaryType).size(boundaryDim);
 
-            int boundaryDim                    = GMSH_ElementDim(boundaryName);
-            int boundaryCornerNo            = GMSH_ElementCorners(boundaryName);
 
             print_debug("    * boundary_element " + std::to_string(i) + " has dimension " + std::to_string(boundaryDim) + " and vertex number " + std::to_string(boundaryCornerNo) + " and physical entity number " + std::to_string(boundary_elements[i].physical_entity_tag));
 
-            // Compute local DoF vector
-            std::vector<int> localDofs;
-            for (int iDof = 0; iDof < boundary_elements[i].elementDofs.size(); iDof++) {
+
+            std::vector<unsigned> localDofs;
+            std::vector<GlobalVector> elementNodes;
+
+            for (int iDof = 0; iDof < boundaryDofNo; iDof++) {
+            	// Compute local DoF vector
                 localDofs.push_back(global_to_local_vertex_id_map[boundary_elements[i].elementDofs[iDof]]);
+
+                // Compute vertices of this element
+                elementNodes.push_back(vertices[boundary_elements[i].elementDofs[iDof]]);
             }
+
 
             // TESTING SECTION FOR TETRAHEDRA
             // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if (vtk_output)
             {
-                switch (boundaryName)
-                {
-                case GMSH_TRIANGLE    : vtk_curv_writer.addTestTriangleFromSurface(boundaryType, boundary_elements[i].elementDofs, vertices, boundaryOrder, boundaryDofNo);         break;
-                //case GMSH_TETRAHEDRON : vtk_curv_writer.addTestTrianglesFromTetrahedron_NoInterp(elements[i].elementDofs, vertices, boundaryOrder, boundaryDofNo);        break;
-                case GMSH_TETRAHEDRON : vtk_curv_writer.addTestTrianglesFromTetrahedron(boundaryType, boundary_elements[i].elementDofs, vertices, boundaryOrder, boundaryDofNo);    break;
-                //case GMSH_TETRAHEDRON : vtk_curv_writer.addTestEdgesFromTetrahedron(boundaryType, elements[i].elementDofs, vertices, boundaryOrder, boundaryDofNo);        break;
-                }
-              print_debug("    * boundary_element " + std::to_string(i) + " has been added to the VTK triangles  ");
+            	addElementToVTK(boundaryType, elementNodes, boundaryOrder, boundary_elements[i].physical_entity_tag, true);
+            	print_debug("    * boundary_element " + std::to_string(i) + " has been added to the VTK triangles  ");
             }
             // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -865,20 +1032,54 @@ namespace Dune
             //Insert boundary segments and elements
             //****************************************************
 
+            // Adding boundarySegment to factory
             if (insert_boundary_segments)
             {
-                // Adding element to factory
-                //factory.insertBoundarySegment(corners);
-                //factory.insertBoundarySegment(boundaryType, boundary_elements[i].element_id, localDofs, boundary_elements[i].elementDofs, boundaryOrder);
+                factory.insertBoundarySegment(boundaryType, boundary_elements[i].element_id, localDofs, boundaryOrder, linked_element_local_indices[i][0]);
 
                 // Adding physical tag
                 boundary_element_index_to_physical_entity.push_back(boundary_elements[i].physical_entity_tag);
 
                 print_debug("    * boundary_element " + std::to_string(i) + " has been added to the Geometry Factory ");
             }
+            else
+            {
+                // This should not happen because CurvGridFactory demands insertion of all boundary segments
+                DUNE_THROW(Dune::IOError, "You must insert boundary segments, you do not have a choice :D" );
+            }
         }
     }
 
+    /** \brief Adds an element to a vtk writer
+     *
+     *  \param[in]  is_boundary                Whether this is an internal or a boundary element
+     *
+     */
+    void addElementToVTK(const GeometryType & elemType, const std::vector<GlobalVector> & elementNodes, const int elemOrder, const int physicalTag, const bool is_boundary)
+    {
+    	const int vtk_internal = Dune::CurvilinearVTKWriter<dimWorld>::VTK_ENTITY_STRUCTURAL_TYPE::ENTITY_INTERNAL;
+    	const int vtk_boundary = Dune::CurvilinearVTKWriter<dimWorld>::VTK_ENTITY_STRUCTURAL_TYPE::ENTITY_DOMAIN_BOUNDARY;
+
+    	int VTK_DISCRETIZATION_POINTS = 2;   // Sampling frequency over curved element. min=2 is linear sampling
+    	int VTK_INTERPOLATE = true;          // Whether to use lagrange interpolation or intrinsic interpolatory vertices
+    	int VTK_WRITE_EDGES = false;         // Whether to write volume discretization edges to file
+    	int VTK_WRITE_TRIANGLES = true;      // Whether to write surface discretization triangles to file
+
+    	// Defines what structural purpose this element has in the grid.
+    	// Different elements will have different structural tags
+    	int VTK_ELEMENT_STRUCTURAL_TYPE = is_boundary ? vtk_boundary : vtk_internal;
+
+    	vtkCurvWriter_.addCurvilinearElement(
+    			elemType,
+    			elementNodes,
+    			elemOrder,
+    			physicalTag,
+    			VTK_DISCRETIZATION_POINTS,
+    			VTK_INTERPOLATE,
+    			VTK_WRITE_EDGES,
+    			VTK_WRITE_TRIANGLES,
+    			VTK_ELEMENT_STRUCTURAL_TYPE);
+    }
 
     // Writes debug info to the command line
     // TODO: Use IFDEF to manipulate between no output, all output, or only master process output
@@ -887,17 +1088,30 @@ namespace Dune
         if (verbose) { std::cout << "Process_" << rank_ << ": " << s << std::endl; }
     }
 
+    // Converts an arbitrary vector into string by sticking all of the entries together
+    // Whitespace separated
+    template <class T>
+    std::string vector2string(const T & V)
+    {
+        std::string tmp_str;
+        for (int i = 0; i < V.size(); i++) { tmp_str += std::to_string(V[i]) + " "; }
+        return tmp_str;
+    }
+
   public:
 
     // TODO: Processor number should be passed to the constructor as argument
     CurvilinearGmshReaderParser(
-    		Dune::GridFactory<GridType>& _factory,
-    		bool v,
-    		bool i
+    		Dune::CurvilinearGridFactory<GridType> & _factory,
+            bool v,
+            bool i
 #ifdef HAVE_MPI
-    		,MPIHelper &mpihelper
+            ,MPIHelper &mpihelper
 #endif
-    		) : factory(_factory), verbose(v), insert_boundary_segments(i)
+            ) : factory(_factory), verbose(v), insert_boundary_segments(i)
+#ifdef HAVE_MPI
+            , mpihelper_ (mpihelper)
+#endif
    {
         // Initialize process parameters
 #ifdef HAVE_MPI
@@ -932,8 +1146,6 @@ namespace Dune
     // This reads the GMSH format to parse the node and element structure
     void read (const std::string& f)
     {
-        verbose = false;
-
         int vertices_total = 0;
         int elements_total = 0;
         int internal_elements_total = 0;
@@ -1010,13 +1222,26 @@ namespace Dune
             print_debug(std::to_string(id) + " " + std::to_string(gmsh_element_index) + " " + std::string(buf));
 
             // A boundary segment is defined here as any element with dimension less than world dimension
-            if (GMSH_ElementDim(GMSH_ElementName(gmsh_element_index)) < dimWorld )     { boundary_elements_total++; }
-            else                                                                         { internal_elements_total++; }
+            GeometryType elemType          = gmshGeometryType(gmsh_element_index);
+            int elemDim = elemType.dim();
+
+            if (elemDim < dimWorld )     { boundary_elements_total++; }
+            else                         { internal_elements_total++; }
         }
 
 
+        //=========================================================
+        // ELEMENT PASS 2: Read all linear internal elements
+        // Immediately partition them and distribute among processes
+        //=========================================================
+        print_debug("----- Elements-Pass 2: reading internal elements for this process ---");
+        fseek(file, section_element_offset, SEEK_SET);
+        std::set< int > this_process_elements;
+
+        readAndPartitionBaseElements(file, elements_total, internal_elements_total, this_process_elements);
+
         //==========================================================
-        // ELEMENT PASS 2: Read all data associated with element.
+        // ELEMENT PASS 3: Read all data associated with element.
         // Note all necessary vertex global indices into a map
         // Map all d-1 subentities of all elements to the element localID's.
         //    - Needed to find boundaries corresponding to each element.
@@ -1024,23 +1249,24 @@ namespace Dune
         print_debug("----- Elements-Pass 2: reading internal elements for this process ---");
         fseek(file, section_element_offset, SEEK_SET);
         std::set<int> this_process_vertex_index_set;
-        std::vector< ElementData > internal_elements;
+        std::vector< GMSHElementData > internal_elements;
         std::map< std::vector<int>, std::vector<int> > element_boundary_linker;
-        readInternalElements(file, elements_total, internal_elements_total, internal_elements, this_process_vertex_index_set, element_boundary_linker);
+        readInternalElements(file, elements_total, internal_elements_total, this_process_elements, internal_elements, this_process_vertex_index_set, element_boundary_linker);
+        int internal_elements_onprocess = internal_elements.size();
 
 
         //==========================================================
-        // ELEMENT PASS 3: Read all data associated with boundary elements.
+        // ELEMENT PASS 4: Read all data associated with boundary elements.
         // Only read boundary element if it is associated with this process
         //    - Note: Can not read internal and boundary elements at the same time
         //            because need d-1 subentity map from all internal elements first
         //==========================================================
         print_debug("----- Elements-Pass 3: reading boundary elements for this process ---");
         fseek(file, section_element_offset, SEEK_SET);
-        std::vector< ElementData > boundary_elements;
-        std::vector< std::vector<int> > internal_element_boundaries;
-        readBoundaryElements(file, elements_total, boundary_elements, element_boundary_linker, internal_element_boundaries);
-
+        std::vector< GMSHElementData > boundary_elements;
+        std::vector< std::vector<int> > linked_element_local_indices;
+        readBoundaryElements(file, elements_total, boundary_elements, element_boundary_linker, linked_element_local_indices);
+        int boundary_elements_onprocess = boundary_elements.size();
 
 
 
@@ -1060,25 +1286,32 @@ namespace Dune
         //==========================================================
         print_debug("----- Adding internal boundary elements to factory ---");
 
-        // Testing VTK output
-        CurvilinearVTKWriter<dimWorld> vtk_curv_writer;
-
-        addInternalElements(vtk_curv_writer, global_to_local_vertex_id_map, vertices, internal_elements, internal_element_boundaries);
-        addBoundaryElements(vtk_curv_writer, global_to_local_vertex_id_map, vertices, boundary_elements);
-
-
+        addInternalElements(global_to_local_vertex_id_map, vertices, internal_elements);
+        addBoundaryElements(global_to_local_vertex_id_map, vertices, boundary_elements, linked_element_local_indices);
 
 
         print_debug(":: total vertices          = " + std::to_string(vertices_total)          + " of which on this process " + std::to_string(vertices_on_process) );
-        print_debug(":: total internal elements = " + std::to_string(internal_elements_total) + " of which on this process " + std::to_string(internal_elements.size()) );
-        print_debug(":: total boundary elements = " + std::to_string(boundary_elements_total) + " of which on this process " + std::to_string(boundary_elements.size()) );
+        print_debug(":: total internal elements = " + std::to_string(internal_elements_total) + " of which on this process " + std::to_string(internal_elements_onprocess) );
+        print_debug(":: total boundary elements = " + std::to_string(boundary_elements_total) + " of which on this process " + std::to_string(boundary_elements_onprocess) );
+
+
+#ifdef HAVE_MPI
+        Dune::CollectiveCommunication<MPI_Comm> comm = mpihelper_.getCollectiveCommunication();
+        int parallel_sum_elem  = comm.sum(internal_elements_onprocess);
+        int parallel_sum_bound = comm.sum(boundary_elements_onprocess);
+
+        if (rank_ == MASTER_RANK) {
+            print_debug(" I am Master Process. Sum of internal elements = " +  std::to_string(parallel_sum_elem) + ", sum of boundary elements = " +  std::to_string(parallel_sum_bound));
+        }
+#endif
 
 
         // TESTING SECTION - WRITES TEST ELEMENTS TO .VTK FILE
         // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         if (vtk_output)
         {
-            vtk_curv_writer.VTK_Write("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
+        	vtkCurvWriter_.VTK_Write("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
+        	vtkCurvWriter_.VTU_ParallelWrite("./curvreader_output", rank_, size_);
             print_debug( ">>> wrote test output to .vtk " );
         }
 
@@ -1120,14 +1353,15 @@ namespace Dune
      * */
     static Grid* read (const std::string& fileName,
 #ifdef HAVE_MPI
-    					MPIHelper &mpihelper,
+                       MPIHelper &mpihelper,
 #endif
-    					bool verbose = true,
-    					bool insert_boundary_segments=true
+                        bool verbose = true,
+                        bool insert_boundary_segments=true
                        )
     {
         // make a grid factory
-        Dune::GridFactory<Grid> factory;
+        //Dune::GridFactory<Grid> factory;
+    	Dune::CurvilinearGridFactory<Grid> factory;
 
         // create parse object
 #ifdef HAVE_MPI
@@ -1147,7 +1381,7 @@ namespace Dune
      * */
     static Grid* read (const std::string& fileName,
 #ifdef HAVE_MPI
-    					MPIHelper &mpihelper,
+                       MPIHelper &mpihelper,
 #endif
                        std::vector<int>& boundary_element_index_to_physical_entity,
                        std::vector<int>& internal_element_index_to_physical_entity,
@@ -1155,7 +1389,8 @@ namespace Dune
                        )
     {
         // make a grid factory
-        Dune::GridFactory<Grid> factory;
+        //Dune::GridFactory<Grid> factory;
+    	Dune::CurvilinearGridFactory<Grid> factory;
 
         // create parse object
 #ifdef HAVE_MPI
@@ -1173,9 +1408,9 @@ namespace Dune
     }
 
     /** \brief Reads .GMSH grid, factory provided as argument */
-    static void read (Dune::GridFactory<Grid>& factory, const std::string& fileName,
+    static void read (Dune::CurvilinearGridFactory<Grid> & factory, const std::string& fileName,
 #ifdef HAVE_MPI
-    					MPIHelper &mpihelper,
+                      MPIHelper &mpihelper,
 #endif
                       bool verbose = true, bool insert_boundary_segments=true
                      )
@@ -1192,10 +1427,10 @@ namespace Dune
     /** \brief Reads .GMSH grid, factory provided as argument
      *  Also receives physical_tag vector for both internal and boundary elements
      * */
-    static void read (Dune::GridFactory<Grid>& factory,
+    static void read (Dune::CurvilinearGridFactory<Grid> & factory,
                       const std::string& fileName,
 #ifdef HAVE_MPI
-    					MPIHelper &mpihelper,
+                      MPIHelper &mpihelper,
 #endif
                       std::vector<int>& boundary_element_index_to_physical_entity,
                       std::vector<int>& internal_element_index_to_physical_entity,

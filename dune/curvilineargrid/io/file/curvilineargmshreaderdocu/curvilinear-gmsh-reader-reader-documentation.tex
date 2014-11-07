@@ -2,6 +2,7 @@
 
 \documentclass[12pt]{article}
 
+\usepackage{hyperref}
 \usepackage{amsmath}
 \usepackage{listings}
 \usepackage{mathtools}
@@ -281,14 +282,54 @@ As a rule of thumb, we can calculate the expected number of intervals for a stan
 
 
 
+\section{CurvilinearGridFactory}
+
+\subsection{Parallel Communication - Clink Protocol}
+
+After running Partition step, the elements need to be communicated between the processes. The suggestions are
+\begin{itemize}
+	\item \uline{Andreas Dedner:} consider a callback approach similar to the one we are using for the repartitioning in ALUGrid. So the method createGrid gets a callback object which it can ask for a partition number to which to send the process. That would mean that the code would not be restricted to ParMetis.
+	\item \uline{George Karypis:} Parmetis contain a function that moves a graph around based on the partitioning that is used internally. You may want to take a look at that code. It is in the file called move.c.
+\end{itemize}
+
+\noindent
+We decided to implement our own protocol, which comes from classical toasting protocol or alternatively chess all-play-all tournaments (\url{http://en.wikipedia.org/wiki/Round-robin_tournament#Scheduling_algorithm}). The idea of this protocol is that each player plays every other player exactly one time, and the total number of rounds is minimal. \\
+
+\noindent
+We shall now adapt this algorithm to multiprocess communication and discuss its advantages and disadvantages. Let $size$ be the total number of processes, $r \in [0..size-1]$ be the rank of the current process, and $m \in [0..s-1]$ the round number. The total number of rounds $s$ that needs to be played is $s = size$ for odd size and $s = size - 1$ for even size. Then the above protocol can be rewritten to obtain the rank of the friend of this process $r_f(s,r,m)$\\
+
+\begin{mybox}
+1) If ($r == 0$) \{$r_f = s - 1 - m$\} \\ \indent  \;\;\;\;\; The case for master process \\
+2) else \{$r_f = r + s - 3 - 2((r + m - 1)\mod (s - 1) )$ \} \\  \indent  \;\;\;\;\; The case for all other processes \\
+3) If ($r_f == size$) \{ skip this element if it is not paired with anything \}
+\end{mybox}
+
+\noindent
+Thus, each process can calculate the order in which it needs to communicate with other processes. Both communicating processes at every round use the safe $MPI\_EXCHANGE$ communication protocol to give each other elements that belong there.\\
+
+
+\noindent
+Advantages of this method:
+\begin{itemize}
+	\item No communication at all used to determine who communicates who.
+	\item All processes communicate at the same time.
+	\item No need to wait until the end of the round - if both processes are ready, they can communicate in the next round before some other processes have finished the previous rounds, thus different processes can be in different rounds of the communication.
+	\item \textbf{TODO\:} See if a more greedy than standard $MPI\_SEND$ can be used to save computation time.
+\end{itemize}
+
+\noindent
+Disadvantages
+\begin{itemize}
+	\item It may be advantageous to use some communication between processes to have an insight into fixing the communication order. The order in above protocol is paradigmatic - there is flexibility to modify it without changing the protocol itself.
+	\item The communication need not only exchange necessary elements - it may be beneficial to exchange elements belonging to some other processes to communicate them to their owners faster. However, this should not be done one requires a priori knowledge 
+\end{itemize}
 
 
 
 
 
 
-
-
+\newpage
 \appendix
 
 \subsection{Calculate the average number of elements that are common to a point}

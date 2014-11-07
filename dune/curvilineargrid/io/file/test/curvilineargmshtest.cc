@@ -93,11 +93,14 @@ using namespace Dune;
 
 /** \brief straight sided grids **/
 
-const std::string    GMSH_FILE_NAME    =    "sphere32.msh";
-//const std::string    GMSH_FILE_NAME    =    "sphere32ord2.msh";
-//const std::string    GMSH_FILE_NAME    =    "sphere32ord3.msh";
-//const std::string    GMSH_FILE_NAME    =    "sphere32ord4.msh";
-//const std::string    GMSH_FILE_NAME    =    "sphere32ord5.msh";
+//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32.msh";
+//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32ord2.msh";
+//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32ord3.msh";
+//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32ord4.msh";
+//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32ord5.msh";
+const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere2000ord5.msh";
+//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/bullseye-rev-400.msh";
+
 
 
 
@@ -146,7 +149,8 @@ int main(int argc, char** argv)
 
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
-    Dune::GridFactory<ALUSimplexGridType> factory;
+    //Dune::GridFactory<ALUSimplexGridType> factory;
+    Dune::CurvilinearGridFactory<ALUSimplexGridType> factory(mpihelper);
 
 
 
@@ -173,9 +177,12 @@ int main(int argc, char** argv)
                                                             GMSH_FILE_NAME,
                                                             boundaryId2physicalEntity,
                                                             elementIndex2PhysicalEntity,
-                                                            true,
+                                                            false,
                                                             true);
 #endif
+
+
+    factory.createGrid();
 
     /** \brief leave program peacefully */
     return(0);

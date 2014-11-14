@@ -97,8 +97,8 @@ using namespace Dune;
 //const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32ord2.msh";
 //const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32ord3.msh";
 //const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32ord4.msh";
-//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32ord5.msh";
-const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere2000ord5.msh";
+const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32ord5.msh";
+//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere2000ord5.msh";
 //const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/bullseye-rev-400.msh";
 
 

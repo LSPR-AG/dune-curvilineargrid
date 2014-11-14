@@ -1060,10 +1060,11 @@ namespace Dune
     	const int vtk_internal = Dune::CurvilinearVTKWriter<dimWorld>::VTK_ENTITY_STRUCTURAL_TYPE::ENTITY_INTERNAL;
     	const int vtk_boundary = Dune::CurvilinearVTKWriter<dimWorld>::VTK_ENTITY_STRUCTURAL_TYPE::ENTITY_DOMAIN_BOUNDARY;
 
-    	int VTK_DISCRETIZATION_POINTS = 2;   // Sampling frequency over curved element. min=2 is linear sampling
-    	int VTK_INTERPOLATE = true;          // Whether to use lagrange interpolation or intrinsic interpolatory vertices
-    	int VTK_WRITE_EDGES = false;         // Whether to write volume discretization edges to file
-    	int VTK_WRITE_TRIANGLES = true;      // Whether to write surface discretization triangles to file
+    	int VTK_DISCRETIZATION_POINTS = 6;    // Sampling frequency over curved element. min=2 is linear sampling
+    	bool VTK_INTERPOLATE = true;          // Whether to use lagrange interpolation or intrinsic interpolatory vertices
+    	bool VTK_EXPLODE = false;             // Whether to make gaps between all elements by scaling them away from center
+    	bool VTK_WRITE_EDGES = false;         // Whether to write volume discretization edges to file
+    	bool VTK_WRITE_TRIANGLES = true;      // Whether to write surface discretization triangles to file
 
     	// Defines what structural purpose this element has in the grid.
     	// Different elements will have different structural tags
@@ -1076,6 +1077,7 @@ namespace Dune
     			physicalTag,
     			VTK_DISCRETIZATION_POINTS,
     			VTK_INTERPOLATE,
+    			VTK_EXPLODE,
     			VTK_WRITE_EDGES,
     			VTK_WRITE_TRIANGLES,
     			VTK_ELEMENT_STRUCTURAL_TYPE);

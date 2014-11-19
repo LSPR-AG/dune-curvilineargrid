@@ -362,7 +362,7 @@ public:
         generateProcessBoundaryNeighbors();
         generateGhostElements();
         generateGlobalIndices();
-        construct_octree();
+        //construct_octree();
 
 
     	// Deletes all temporary memory
@@ -471,7 +471,7 @@ public:
     }
 
     /** Return pointer to Octree or 0 if it is not constructed. */
-    LooseOctree<Tet>* get_octree() const { return _octree; }
+    //LooseOctree<Tet>* get_octree() const { return _octree; }
 
 
     /** Compute center and extent (halved) of the bounding box of the whole mesh. */
@@ -792,6 +792,7 @@ protected:
 
 
     /** Construct octree for locating tetrahedrons in mesh */
+    /*
     void construct_octree() {
         rAssert(_octree == 0);
 
@@ -948,7 +949,7 @@ protected:
         }
     #endif
     }
-
+    */
 
 	// [TODO] Possibly inefficient implementation:
 	// 1) Excessive communication. Package sent to all can only be used by 1 other process
@@ -1688,6 +1689,7 @@ protected:
 
     // Checks if given point fits into the bounding box of a Tetrahedron
     // FIXME: This method should be superseded by COM-CURVATURE-BOUND from LagrangeGeometry
+    /*
     bool is_inside_bounding_box_gracious(const Vertex & point) const {
         const double grace_tolerance = 1e-13;
         Vertex node_center, node_extent;
@@ -1699,9 +1701,11 @@ protected:
         node_center.z = fabs(node_center.z);
         return node_center <= node_extent * (1.0 + grace_tolerance);
     }
+    */
 
     // Gets a box in which this Tetrahedron fits
     // FIXME: This method should be superseded by COM-CURVATURE-BOUND from LagrangeGeometry
+    /*
     void get_bounding_box(Vertex center, Vertex extent) const {
         Vertex min, max, coord;
 
@@ -1715,9 +1719,11 @@ protected:
         center = max.mid_point(min);
         extent = 0.5 * (max - min);
     }
+    */
 
     // Checks if a point is inside the element
     // FIXME: This method should be superseded by isInside method from LagrangeGeometry
+    /*
     bool is_inside_gracious(int id, const Vertex & point) const {
         const double grace_tolerance = 1e-14;
         Vector4 simplex_coord;
@@ -1731,6 +1737,7 @@ protected:
                 return false;
         return true;
     }
+    */
 
     /** Find all tets in mesh which contain the specified point p. The found
         tets are returned in "tets". If p is outside the mesh an empty vector
@@ -1738,6 +1745,7 @@ protected:
         than one entry. */
 
     // TODO: PBE file allows femaxx to count time. Use alternative in Dune?
+    /*
     void find_tets_by_point(const Vertex p, std::vector<id_t>& tets) const {
         assert(_octree);
 
@@ -1757,6 +1765,7 @@ protected:
         // pbe_stop(132);
         // rDebug("find_tets_by_point: nof_found=%d, nof_visited=%d", static_cast<int>(nodes.size()), nof_visited);
     }
+    */
 
 
 private: // Private members

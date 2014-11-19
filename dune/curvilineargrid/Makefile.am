@@ -1,7 +1,7 @@
 curvilineargridincludedir = $(includedir)/dune/curvilineargrid
 curvilineargridinclude_HEADERS = curvilineargrid.hh
 
-SUBDIRS = io
+SUBDIRS = io curvilineargridbase
 
 EXTRA_DIST = CMakeLists.txt
 

@@ -87,11 +87,11 @@ namespace Dune
       }
 
       /** \brief Calculates the centre of mass of a vector of points (equal-weighted) */
-      GlobalVector vectorCentreOfMass( const std::vector<GlobalVector> & corners)
+      GlobalVector vectorCentreOfMass( const std::vector<GlobalVector> & cornerVector)
       {
     	  GlobalVector rez;
-    	  for (int i = 0; i < corners.size(); i++) { rez += corners[i]; }
-    	  rez /= corners.size();
+    	  for (int i = 0; i < cornerVector.size(); i++) { rez += cornerVector[i]; }
+    	  rez /= cornerVector.size();
     	  return rez;
       }
 
@@ -99,14 +99,14 @@ namespace Dune
        *
        *  \param[in]  triangleEnumeratorReduced      A vector of keys that enumerate triangular discretization points.
        *                                             Reduced means that enumerator's points-per-edge is one less than the number used to discretize the element.
-       *  \param[in]  nIntervals                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
+       *  \param[in]  nInterval                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
        *  \param[in]  thisElmPhysTag                 Physical Tag of the element being discretized
        *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
        *
        */
       void addTriangularInterpolationEdgeSet(
     		  ElemGridEnumerate & triangleEnumeratorReduced,
-    		  int nIntervals,
+    		  int nInterval,
     		  int thisElmPhysTag,
     		  int thisElmStructuralType,
     		  LocalCoordinate2GlobalIdMap & parametricToIndex)
@@ -137,14 +137,14 @@ namespace Dune
        *
        *  \param[in]  tetrahedronEnumeratorReduced   A vector of keys that enumerate tetrahedral discretization points.
        *                                             Reduced means that enumerator's points-per-edge is one less than the number used to discretize the element.
-       *  \param[in]  nIntervals                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
+       *  \param[in]  nInterval                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
        *  \param[in]  thisElmPhysTag                 Physical Tag of the element being discretized
        *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
        *
        */
       void addTetrahedralInterpolationEdgeSet(
     		  ElemGridEnumerate & tetrahedronEnumeratorReduced,
-    		  int nIntervals,
+    		  int nInterval,
     		  int thisElmPhysTag,
     		  int thisElmStructuralType,
     		  LocalCoordinate2GlobalIdMap & parametricToIndex)
@@ -246,18 +246,18 @@ namespace Dune
       /** \brief Checks if the tetrahedral discretization point corresponds to tetrahedral boundary
        *
        *  \param[in]  p      						 tetrahedral discretization point key
-       *  \param[in]  nIntervals                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
+       *  \param[in]  nInterval                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
        *
        */
-      bool onTetrahedronBoundary(const std::vector<int> & p, const int nIntervals)
+      bool onTetrahedronBoundary(const std::vector<int> & p, const int nInterval)
       {
-  		  return ((p[0] == 0) || (p[1] == 0) || (p[2] == 0) || (p[0] + p[1] + p[2] == nIntervals));
+  		  return ((p[0] == 0) || (p[1] == 0) || (p[2] == 0) || (p[0] + p[1] + p[2] == nInterval));
       }
 
       /** \brief Takes tetrahedral discretization point key to globalID 3D map, and splits it into 4 triangle 2D maps, corresponding to the faces of the tetrahedron
        *
        *  \param[in]  triangleEnumerator             A vector of keys that enumerate tetrahedral discretization points.
-       *  \param[in]  nIntervals                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
+       *  \param[in]  nInterval                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
        *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
        *
        *  \return vector of 4 face triangle maps from 2D discretization point enumerator key to globalId of the point
@@ -265,7 +265,7 @@ namespace Dune
        */
       Coord2GlobalMapVector tetrahedralInterpolationFaceSet(
     		  ElemGridEnumerate & triangleEnumerator,
-    		  int nIntervals,
+    		  int nInterval,
     		  LocalCoordinate2GlobalIdMap & parametricToIndex)
       {
     	  Coord2GlobalMapVector rez(4);
@@ -274,7 +274,7 @@ namespace Dune
     	  {
     		  int x = triangleEnumerator[i][0];
     		  int y = triangleEnumerator[i][1];
-    		  int z = nIntervals - x - y;
+    		  int z = nInterval - x - y;
 
               std::vector<int> faceInd_0 {x, y, 0};
               std::vector<int> faceInd_1 {x, 0, y};
@@ -322,11 +322,11 @@ namespace Dune
           // Step 1. Find coordinates of the corners and the (linear) center of mass
     	  // *******************************************************************************
     	  int thisElmDofNo = elementNodeSet.size();
-    	  int thisElmCornerNo = thisElementInt.corners();
+    	  int thisElmCornerNo = thisElementInt.nCorner();
 
-    	  std::vector<GlobalVector> corners;
-    	  for (int i = 0; i < thisElementInt.corners(); i++) { corners.push_back(thisElementInt.corner(i)); }
-          GlobalVector CoM = vectorCentreOfMass(corners);
+    	  std::vector<GlobalVector> cornerVector;
+    	  for (int i = 0; i < thisElmCornerNo; i++) { cornerVector.push_back(thisElementInt.corner(i)); }
+          GlobalVector CoM = vectorCentreOfMass(cornerVector);
 
 
           //std::cout << "Element with init dof " << elementDofs[0] << std::endl;
@@ -346,27 +346,27 @@ namespace Dune
           //
           // *******************************************************************************
           LocalCoordinate2GlobalIdMap parametricToIndex;
-          int nIntervals = interpolate ? nDiscretizationPoints - 1 : thisElmOrder;
+          int nInterval = interpolate ? nDiscretizationPoints - 1 : thisElmOrder;
 
           // Expand all boundary surfaces a little bit so that they do not interlay with element surfaces
-          double boundary_magnification = isBoundary(thisElmStructuralType) ? 1.2 : 1.0;
+          double BOUNDARY_MAGNIFICATION = isBoundary(thisElmStructuralType) ? 1.2 : 1.0;
 
-          ElemGridEnumerate  simplexEnumerate        = thisElementInt.simplexGridEnumerate(nIntervals);
-          ElemGridEnumerate  simplexEnumerateReduced = thisElementInt.simplexGridEnumerate(nIntervals-1);
-          std::vector< LocalVector > simplexLocalGrid = thisElementInt.simplexGridCoordinates(simplexEnumerate, nIntervals);
+          ElemGridEnumerate  simplexEnumerate        = thisElementInt.simplexGridEnumerate(nInterval);
+          ElemGridEnumerate  simplexEnumerateReduced = thisElementInt.simplexGridEnumerate(nInterval-1);
+          std::vector< LocalVector > simplexLocalGrid = thisElementInt.simplexGridCoordinateSet(simplexEnumerate, nInterval);
 
           for (int i = 0; i < simplexEnumerate.size(); i++)
           {
         	  // Find if this vertex is internal or boundary
-        	  bool boundary_point = (mydim == 3) ? onTetrahedronBoundary(simplexEnumerate[i], nIntervals) : true;
+        	  bool isBoundaryPoint = (mydim == 3) ? onTetrahedronBoundary(simplexEnumerate[i], nInterval) : true;
 
         	  // Write this vertex only if we are going to write an element using it
-        	  if (writeEdgeData || (writeTriangleData && boundary_point)) {
+        	  if (writeEdgeData || (writeTriangleData && isBoundaryPoint)) {
             	  // If we interpolate, then all points will be taken from new sample grid
             	  // Otherwise we take the intrinsic interpolation point grid which has the same shape
             	  GlobalVector tmpPoint = interpolate ? thisElementInt.realCoordinate(simplexLocalGrid[i]) : elementNodeSet[i];
             	  for (int d = 0; d < cdim; d++)  {
-            		  tmpPoint[d] = (tmpPoint[d] + (CoM[d] - tmpPoint[d]) * shrinkMagnitude) * boundary_magnification;
+            		  tmpPoint[d] = (tmpPoint[d] + (CoM[d] - tmpPoint[d]) * shrinkMagnitude) * BOUNDARY_MAGNIFICATION;
             	  }
 
             	  // Add coordinates to the coordinates array
@@ -386,8 +386,8 @@ namespace Dune
           {
         	  switch (mydim)
         	  {
-        	  case 2:  addTriangularInterpolationEdgeSet(simplexEnumerateReduced, nIntervals, thisElmPhysTag, thisElmStructuralType, parametricToIndex);  break;
-        	  case 3:  addTetrahedralInterpolationEdgeSet(simplexEnumerateReduced, nIntervals, thisElmPhysTag, thisElmStructuralType, parametricToIndex);  break;
+        	  case 2:  addTriangularInterpolationEdgeSet(simplexEnumerateReduced, nInterval, thisElmPhysTag, thisElmStructuralType, parametricToIndex);  break;
+        	  case 3:  addTetrahedralInterpolationEdgeSet(simplexEnumerateReduced, nInterval, thisElmPhysTag, thisElmStructuralType, parametricToIndex);  break;
         	  }
           }
 
@@ -402,10 +402,10 @@ namespace Dune
         	  	  case 2:  addTriangularInterpolationTriangleSet(simplexEnumerateReduced, parametricToIndex, thisElmPhysTag, thisElmStructuralType, nDiscretizationPoints);  break;
         	  	  case 3:
         	  	  {
-        	  		  ElemGridEnumerate triangleEnumerate = CurvilinearElementInterpolator<double, 2, 3>::simplexGridEnumerate(nIntervals);
-        	  		  ElemGridEnumerate triangleEnumerateReduced = CurvilinearElementInterpolator<double, 2, 3>::simplexGridEnumerate(nIntervals - 1);
+        	  		  ElemGridEnumerate triangleEnumerate = CurvilinearElementInterpolator<double, 2, 3>::simplexGridEnumerate(nInterval);
+        	  		  ElemGridEnumerate triangleEnumerateReduced = CurvilinearElementInterpolator<double, 2, 3>::simplexGridEnumerate(nInterval - 1);
 
-        	          Coord2GlobalMapVector consistingTriangles = tetrahedralInterpolationFaceSet(triangleEnumerate, nIntervals, parametricToIndex);
+        	          Coord2GlobalMapVector consistingTriangles = tetrahedralInterpolationFaceSet(triangleEnumerate, nInterval, parametricToIndex);
 
         	          for (int iFace = 0; iFace < 4; iFace++)
         	          {
@@ -476,71 +476,71 @@ namespace Dune
 
     // Writes serial VTK file
     // Takes a vector of vertices, a vector of edges and a vector of triangles, writes them all to a .VTK file
-    void VTK_Write( std::string file_name)
+    void writeVTK( std::string filename)
     {
-        FILE* vtk_file = fopen(file_name.c_str(), "w");
+        FILE* vtkFile = fopen(filename.c_str(), "w");
 
-        int total_elements = vtkEdge.size() + vtkTriangle.size();
-        int total_cell_entries = vtkEdge.size()*3 + vtkTriangle.size()*4;
+        int nElements = vtkEdge.size() + vtkTriangle.size();
+        int nCells = vtkEdge.size()*3 + vtkTriangle.size()*4;
 
-        fprintf(vtk_file, "# vtk DataFile Version 2.0\n");
-        fprintf(vtk_file, "CurvilinearGmshReader test output\n");
-        fprintf(vtk_file, "ASCII\n");
-        fprintf(vtk_file, "DATASET UNSTRUCTURED_GRID\n");
-        fprintf(vtk_file, "POINTS %d double\n", vtkPoint.size() );
+        fprintf(vtkFile, "# vtk DataFile Version 2.0\n");
+        fprintf(vtkFile, "CurvilinearGmshReader test output\n");
+        fprintf(vtkFile, "ASCII\n");
+        fprintf(vtkFile, "DATASET UNSTRUCTURED_GRID\n");
+        fprintf(vtkFile, "POINTS %d double\n", vtkPoint.size() );
 
         // Write all points
         for (int i = 0; i < vtkPoint.size(); i++ ) {
-        	for (int d = 0; d < cdim; d++)  { fprintf(vtk_file, "%lg ", vtkPoint[i][d]); }
-        	fprintf(vtk_file, "\n");
+        	for (int d = 0; d < cdim; d++)  { fprintf(vtkFile, "%lg ", vtkPoint[i][d]); }
+        	fprintf(vtkFile, "\n");
         }
 
-        fprintf(vtk_file, "\n");
-        fprintf(vtk_file, "CELLS %d %d\n", total_elements, total_cell_entries );
+        fprintf(vtkFile, "\n");
+        fprintf(vtkFile, "CELLS %d %d\n", nElements, nCells );
 
         // Write all elements
-        for (int i = 0; i < vtkEdge.size(); i++ )        { fprintf(vtk_file, "2 %d %d \n", vtkEdge[i][0], vtkEdge[i][1]); }
-        for (int i = 0; i < vtkTriangle.size(); i++ )    { fprintf(vtk_file, "3 %d %d %d\n", vtkTriangle[i][0], vtkTriangle[i][1], vtkTriangle[i][2] ); }
+        for (int i = 0; i < vtkEdge.size(); i++ )        { fprintf(vtkFile, "2 %d %d \n", vtkEdge[i][0], vtkEdge[i][1]); }
+        for (int i = 0; i < vtkTriangle.size(); i++ )    { fprintf(vtkFile, "3 %d %d %d\n", vtkTriangle[i][0], vtkTriangle[i][1], vtkTriangle[i][2] ); }
 
-        fprintf(vtk_file, "\n");
-        fprintf(vtk_file, "CELL_TYPES %d\n", total_elements );
+        fprintf(vtkFile, "\n");
+        fprintf(vtkFile, "CELL_TYPES %d\n", nElements );
 
         // Write edge and triangle cell types
-        for (int i = 0; i < vtkEdge.size(); i++ )        { fprintf(vtk_file, "3\n"); }
-        for (int i = 0; i < vtkTriangle.size(); i++ )    { fprintf(vtk_file, "5\n"); }
+        for (int i = 0; i < vtkEdge.size(); i++ )        { fprintf(vtkFile, "3\n"); }
+        for (int i = 0; i < vtkTriangle.size(); i++ )    { fprintf(vtkFile, "5\n"); }
 
 
-        fprintf(vtk_file, "\n");
-        fprintf(vtk_file, "CELL_DATA %d\n", total_elements );
+        fprintf(vtkFile, "\n");
+        fprintf(vtkFile, "CELL_DATA %d\n", nElements );
 
         // Write edge and triangle Structural type
-        fprintf(vtk_file, "SCALARS physicalTag FLOAT\n");
-        fprintf(vtk_file, "LOOKUP_TABLE default\n");
-        for (int i = 0; i < vtkEdgeTag.size(); i++ )        { fprintf(vtk_file, "%d\n", vtkEdgeTag[i]); }
-        for (int i = 0; i < vtkTriangleTag.size(); i++ )    { fprintf(vtk_file, "%d\n", vtkTriangleTag[i]); }
+        fprintf(vtkFile, "SCALARS physicalTag FLOAT\n");
+        fprintf(vtkFile, "LOOKUP_TABLE default\n");
+        for (int i = 0; i < vtkEdgeTag.size(); i++ )        { fprintf(vtkFile, "%d\n", vtkEdgeTag[i]); }
+        for (int i = 0; i < vtkTriangleTag.size(); i++ )    { fprintf(vtkFile, "%d\n", vtkTriangleTag[i]); }
 
         // Write edge and triangle physicalTags
-        fprintf(vtk_file, "SCALARS structuralType FLOAT\n");
-        fprintf(vtk_file, "LOOKUP_TABLE default\n");
-        for (int i = 0; i < vtkEdgeStructuralType.size(); i++ )        { fprintf(vtk_file, "%d\n", vtkEdgeStructuralType[i]); }
-        for (int i = 0; i < vtkTriangleStructuralType.size(); i++ )    { fprintf(vtk_file, "%d\n", vtkTriangleStructuralType[i]); }
+        fprintf(vtkFile, "SCALARS structuralType FLOAT\n");
+        fprintf(vtkFile, "LOOKUP_TABLE default\n");
+        for (int i = 0; i < vtkEdgeStructuralType.size(); i++ )        { fprintf(vtkFile, "%d\n", vtkEdgeStructuralType[i]); }
+        for (int i = 0; i < vtkTriangleStructuralType.size(); i++ )    { fprintf(vtkFile, "%d\n", vtkTriangleStructuralType[i]); }
 
         // Empty line at the end of file
-        fprintf(vtk_file, "\n");
-        fclose(vtk_file);
+        fprintf(vtkFile, "\n");
+        fclose(vtkFile);
     }
 
     // Writes a PVTU parallel file (no data in this file)
-    void PVTU_Write(std::string file_name_body, int size)
+    void writePVTU(std::string filenameBody, int size)
     {
-        std::string file_name = file_name_body + ".pvtu";
-    	FILE* pvtu_file = fopen(file_name.c_str(), "w");
+        std::string filename = filenameBody + ".pvtu";
+    	FILE* pvtuFile = fopen(filename.c_str(), "w");
 
         // Write header
         // *****************************************************
-        fprintf(pvtu_file, "<?xml version=\"%s\"?>\n", VTK_XML_VERSION.c_str());
-        fprintf(pvtu_file, "<VTKFile type=\"%s\" version=\"%s\" byte_order=\"%s\">\n", VTK_GRID_TYPE.c_str(), VTK_VTU_VERSION.c_str(), VTK_BYTE_ORDER.c_str());
-        fprintf(pvtu_file, "<%s GhostLevel=\"0\">\n", VTK_GRID_TYPE.c_str());
+        fprintf(pvtuFile, "<?xml version=\"%s\"?>\n", VTK_XML_VERSION.c_str());
+        fprintf(pvtuFile, "<VTKFile type=\"%s\" version=\"%s\" byte_order=\"%s\">\n", VTK_GRID_TYPE.c_str(), VTK_VTU_VERSION.c_str(), VTK_BYTE_ORDER.c_str());
+        fprintf(pvtuFile, "<%s GhostLevel=\"0\">\n", VTK_GRID_TYPE.c_str());
 
         // PointData could be provided here
         // (For example, tags associated with vertices, which we do not have at the moment)
@@ -550,54 +550,54 @@ namespace Dune
 
         // Write edge and triangle physicalTags
         // *****************************************************
-        fprintf(pvtu_file, "<PCellData Scalars=\"physicalTag\">\n");
-        fprintf(pvtu_file, "<PDataArray type=\"Float32\" Name=\"physicalTag\" NumberOfComponents=\"1\"/>\n");
+        fprintf(pvtuFile, "<PCellData Scalars=\"physicalTag\">\n");
+        fprintf(pvtuFile, "<PDataArray type=\"Float32\" Name=\"physicalTag\" NumberOfComponents=\"1\"/>\n");
 
         // Write edge and triangle structural types
         // *****************************************************
-        fprintf(pvtu_file, "<PDataArray type=\"Float32\" Name=\"structuralType\" NumberOfComponents=\"1\"/>\n");
-        fprintf(pvtu_file, "</PCellData>\n");
+        fprintf(pvtuFile, "<PDataArray type=\"Float32\" Name=\"structuralType\" NumberOfComponents=\"1\"/>\n");
+        fprintf(pvtuFile, "</PCellData>\n");
 
 
         // Write coordinates of vertices
         // *****************************************************
-        fprintf(pvtu_file, "<PPoints>\n");
-        fprintf(pvtu_file, "<PDataArray type=\"Float32\" NumberOfComponents=\"3\"/>\n");
-        fprintf(pvtu_file, "</PPoints>\n");
+        fprintf(pvtuFile, "<PPoints>\n");
+        fprintf(pvtuFile, "<PDataArray type=\"Float32\" NumberOfComponents=\"3\"/>\n");
+        fprintf(pvtuFile, "</PPoints>\n");
 
 
         // Write element information
         // *****************************************************
-        fprintf(pvtu_file, "<PCells>\n");
-        fprintf(pvtu_file, "<PDataArray type=\"Int32\" Name=\"connectivity\"/>\n");   // Vertex indices
-        fprintf(pvtu_file, "<PDataArray type=\"Int32\" Name=\"offsets\"/>\n");
-        fprintf(pvtu_file, "<PDataArray type=\"UInt8\" Name=\"types\"/>\n");   // Element types
-        fprintf(pvtu_file, "</PCells>\n");
+        fprintf(pvtuFile, "<PCells>\n");
+        fprintf(pvtuFile, "<PDataArray type=\"Int32\" Name=\"connectivity\"/>\n");   // Vertex indices
+        fprintf(pvtuFile, "<PDataArray type=\"Int32\" Name=\"offsets\"/>\n");
+        fprintf(pvtuFile, "<PDataArray type=\"UInt8\" Name=\"types\"/>\n");   // Element types
+        fprintf(pvtuFile, "</PCells>\n");
 
 
         // Write all .vtu data files file
         // *****************************************************
         for (int iProc = 0; iProc < size; iProc++ )
         {
-        	std::string vtu_file_name = file_name_body + "_process_" + std::to_string(iProc) + ".vtu";
-        	fprintf(pvtu_file, "<Piece  Source=\"%s\"/>\n", vtu_file_name.c_str());
+        	std::string vtuFilename = filenameBody + "_process_" + std::to_string(iProc) + ".vtu";
+        	fprintf(pvtuFile, "<Piece  Source=\"%s\"/>\n", vtuFilename.c_str());
         }
 
 
         // Finish writing file
         // *****************************************************
-        fprintf(pvtu_file, "</%s>\n", VTK_GRID_TYPE.c_str());
-        fprintf(pvtu_file, "</VTKFile>\n");
-        fclose(pvtu_file);
+        fprintf(pvtuFile, "</%s>\n", VTK_GRID_TYPE.c_str());
+        fprintf(pvtuFile, "</VTKFile>\n");
+        fclose(pvtuFile);
     }
 
     // Writes serial VTU file
-    void VTU_Write( std::string file_name)
+    void writeVTU( std::string filename)
     {
-        FILE* vtu_file = fopen(file_name.c_str(), "w");
+        FILE* vtuFile = fopen(filename.c_str(), "w");
 
-        int total_vertices = vtkPoint.size();
-        int total_elements = vtkEdge.size() + vtkTriangle.size();
+        int nVertices = vtkPoint.size();
+        int nElements = vtkEdge.size() + vtkTriangle.size();
 
         // Compute offsets which is a general way to determine the number of vertices per element
         std::vector<int> offsets;
@@ -607,10 +607,10 @@ namespace Dune
 
         // Write header
         // *****************************************************
-        fprintf(vtu_file, "<?xml version=\"%s\"?>\n", VTK_XML_VERSION.c_str());
-        fprintf(vtu_file, "<VTKFile type=\"%s\" version=\"%s\" byte_order=\"%s\">\n", VTK_GRID_TYPE.c_str(), VTK_VTU_VERSION.c_str(), VTK_BYTE_ORDER.c_str());
-        fprintf(vtu_file, "<%s>\n", VTK_GRID_TYPE);
-        fprintf(vtu_file, "<Piece NumberOfPoints=\"%d\" NumberOfCells=\"%d\">\n", total_vertices, total_elements);
+        fprintf(vtuFile, "<?xml version=\"%s\"?>\n", VTK_XML_VERSION.c_str());
+        fprintf(vtuFile, "<VTKFile type=\"%s\" version=\"%s\" byte_order=\"%s\">\n", VTK_GRID_TYPE.c_str(), VTK_VTU_VERSION.c_str(), VTK_BYTE_ORDER.c_str());
+        fprintf(vtuFile, "<%s>\n", VTK_GRID_TYPE.c_str());
+        fprintf(vtuFile, "<Piece NumberOfPoints=\"%d\" NumberOfCells=\"%d\">\n", nVertices, nElements);
 
 
         // PointData could be provided here
@@ -621,83 +621,83 @@ namespace Dune
 
         // Write edge and triangle physicalTags and structural types
         // *****************************************************
-        fprintf(vtu_file, "<CellData Scalars=\"physicalTag\">\n");
-        fprintf(vtu_file, "<DataArray type=\"Float32\" Name=\"physicalTag\" NumberOfComponents=\"1\" format=\"ascii\">\n");
+        fprintf(vtuFile, "<CellData Scalars=\"physicalTag\">\n");
+        fprintf(vtuFile, "<DataArray type=\"Float32\" Name=\"physicalTag\" NumberOfComponents=\"1\" format=\"ascii\">\n");
 
         // Write edge and triangle physicalTags
-        for (int i = 0; i < vtkEdgeTag.size(); i++ )        { fprintf(vtu_file, "%d ", vtkEdgeTag[i]); }
-        for (int i = 0; i < vtkTriangleTag.size(); i++ )    { fprintf(vtu_file, "%d ", vtkTriangleTag[i]); }
+        for (int i = 0; i < vtkEdgeTag.size(); i++ )        { fprintf(vtuFile, "%d ", vtkEdgeTag[i]); }
+        for (int i = 0; i < vtkTriangleTag.size(); i++ )    { fprintf(vtuFile, "%d ", vtkTriangleTag[i]); }
 
-        fprintf(vtu_file, "\n</DataArray>\n");
-        fprintf(vtu_file, "<DataArray type=\"Float32\" Name=\"structuralType\" NumberOfComponents=\"1\" format=\"ascii\">\n");
+        fprintf(vtuFile, "\n</DataArray>\n");
+        fprintf(vtuFile, "<DataArray type=\"Float32\" Name=\"structuralType\" NumberOfComponents=\"1\" format=\"ascii\">\n");
 
         // Write edge and triangle structural type
-        for (int i = 0; i < vtkEdgeStructuralType.size(); i++ )        { fprintf(vtu_file, "%d ", vtkEdgeStructuralType[i]); }
-        for (int i = 0; i < vtkTriangleStructuralType.size(); i++ )    { fprintf(vtu_file, "%d ", vtkTriangleStructuralType[i]); }
+        for (int i = 0; i < vtkEdgeStructuralType.size(); i++ )        { fprintf(vtuFile, "%d ", vtkEdgeStructuralType[i]); }
+        for (int i = 0; i < vtkTriangleStructuralType.size(); i++ )    { fprintf(vtuFile, "%d ", vtkTriangleStructuralType[i]); }
 
 
-        fprintf(vtu_file, "\n");
-        fprintf(vtu_file, "</DataArray>\n");
-        fprintf(vtu_file, "</CellData>\n");
+        fprintf(vtuFile, "\n");
+        fprintf(vtuFile, "</DataArray>\n");
+        fprintf(vtuFile, "</CellData>\n");
 
 
         // Write coordinates of vertices
         // *****************************************************
-        fprintf(vtu_file, "<Points>\n");
-        fprintf(vtu_file, "<DataArray type=\"Float32\" NumberOfComponents=\"3\" format=\"ascii\">\n");
+        fprintf(vtuFile, "<Points>\n");
+        fprintf(vtuFile, "<DataArray type=\"Float32\" NumberOfComponents=\"3\" format=\"ascii\">\n");
 
         // Write all points
         for (int i = 0; i < vtkPoint.size(); i++ ) {
-        	for (int d = 0; d < cdim; d++)  { fprintf(vtu_file, "%lg ", vtkPoint[i][d]); }
-        	fprintf(vtu_file, "\n");
+        	for (int d = 0; d < cdim; d++)  { fprintf(vtuFile, "%lg ", vtkPoint[i][d]); }
+        	fprintf(vtuFile, "\n");
         }
 
-        fprintf(vtu_file, "</DataArray>\n");
-        fprintf(vtu_file, "</Points>\n");
+        fprintf(vtuFile, "</DataArray>\n");
+        fprintf(vtuFile, "</Points>\n");
 
 
         // Write element information
         // *****************************************************
-        fprintf(vtu_file, "<Cells>\n");
-        fprintf(vtu_file, "<DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">\n");   // Vertex indices
+        fprintf(vtuFile, "<Cells>\n");
+        fprintf(vtuFile, "<DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">\n");   // Vertex indices
 
-        for (int i = 0; i < vtkEdge.size(); i++ )        { fprintf(vtu_file, "%d %d ", vtkEdge[i][0], vtkEdge[i][1]); }
-        for (int i = 0; i < vtkTriangle.size(); i++ )    { fprintf(vtu_file, "%d %d %d ", vtkTriangle[i][0], vtkTriangle[i][1], vtkTriangle[i][2] ); }
+        for (int i = 0; i < vtkEdge.size(); i++ )        { fprintf(vtuFile, "%d %d ", vtkEdge[i][0], vtkEdge[i][1]); }
+        for (int i = 0; i < vtkTriangle.size(); i++ )    { fprintf(vtuFile, "%d %d %d ", vtkTriangle[i][0], vtkTriangle[i][1], vtkTriangle[i][2] ); }
 
-        fprintf(vtu_file, "\n");
-        fprintf(vtu_file, "</DataArray>\n");
-        fprintf(vtu_file, "<DataArray type=\"Int32\" Name=\"offsets\" format=\"ascii\">\n");
+        fprintf(vtuFile, "\n");
+        fprintf(vtuFile, "</DataArray>\n");
+        fprintf(vtuFile, "<DataArray type=\"Int32\" Name=\"offsets\" format=\"ascii\">\n");
 
-        for (int i = 0; i < offsets.size(); i++ )        { fprintf(vtu_file, "%d ", offsets[i]); }
+        for (int i = 0; i < offsets.size(); i++ )        { fprintf(vtuFile, "%d ", offsets[i]); }
 
-        fprintf(vtu_file, "\n");
-        fprintf(vtu_file, "</DataArray>\n");
-        fprintf(vtu_file, "<DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">\n");   // Element types
+        fprintf(vtuFile, "\n");
+        fprintf(vtuFile, "</DataArray>\n");
+        fprintf(vtuFile, "<DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">\n");   // Element types
 
-        for (int i = 0; i < vtkEdge.size(); i++ )        { fprintf(vtu_file, "3 "); }
-        for (int i = 0; i < vtkTriangle.size(); i++ )    { fprintf(vtu_file, "5 "); }
+        for (int i = 0; i < vtkEdge.size(); i++ )        { fprintf(vtuFile, "3 "); }
+        for (int i = 0; i < vtkTriangle.size(); i++ )    { fprintf(vtuFile, "5 "); }
 
-        fprintf(vtu_file, "\n");
-        fprintf(vtu_file, "</DataArray>\n");
-        fprintf(vtu_file, "</Cells>\n");
+        fprintf(vtuFile, "\n");
+        fprintf(vtuFile, "</DataArray>\n");
+        fprintf(vtuFile, "</Cells>\n");
 
 
         // Finish writing file
         // *****************************************************
-        fprintf(vtu_file, "</Piece>\n");
-        fprintf(vtu_file, "</%s>\n", VTK_GRID_TYPE);
-        fprintf(vtu_file, "</VTKFile>\n");
-        fclose(vtu_file);
+        fprintf(vtuFile, "</Piece>\n");
+        fprintf(vtuFile, "</%s>\n", VTK_GRID_TYPE.c_str());
+        fprintf(vtuFile, "</VTKFile>\n");
+        fclose(vtuFile);
     }
 
     // Writes a VTU file on all processes and a PVTU on Master Process
-    void VTU_ParallelWrite(std::string file_name_body, int rank, int size)
+    void writeParallelVTU(std::string filenameBody, int rank, int size)
     {
     	// Write a PVTU file on master process
-    	if (rank == 0) { PVTU_Write(file_name_body, size); }
+    	if (rank == 0) { writePVTU(filenameBody, size); }
 
     	// Write a VTU file on all processes
-    	VTU_Write(file_name_body  + "_process_" + std::to_string(rank) + ".vtu");
+    	writeVTU(filenameBody  + "_process_" + std::to_string(rank) + ".vtu");
     }
 
   };

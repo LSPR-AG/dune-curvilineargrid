@@ -1,4 +1,15 @@
-// curvilinear gmsh reader functionality - in this implementation of the curvilinear gmsh reader we ONLY read higher order triangles and tetrahedra
+/*******************************************************************
+ * Curvilinear GMSH Reader
+ * 
+ * author: Aleksejs Fomins
+ * date: 01.08.2014 - created
+ * 
+ * description:
+ * Reads curvilinear GMSH files in parallel. Partitiones the mesh in parallel using ParMetis.
+ * - Writes mesh to a factory
+ * - [optional] Writes the output to VTK file using Curvilinear VTK Writer
+ * 
+ *******************************************************************/
 
 
 #ifndef DUNE_CURVILINEARGMSHREADER_HH
@@ -22,12 +33,16 @@
 #include <dune/common/parallel/mpicollectivecommunication.hh>
 
 #include <dune/geometry/type.hh>
-#include <dune/geometry/polynomialinterpolation/curvilinearelementinterpolator.hh>
 
 #include <dune/grid/common/boundarysegment.hh>
 #include <dune/grid/common/gridfactory.hh>
-#include <dune/curvilineargrid/curvilineargrid/gridfactory.hh>
 
+#include <dune/curvilineargeometry/interpolation/curvilinearelementinterpolator.hh>
+#include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
+
+
+#include <dune/curvilineargrid/feedback/loggingmessage.hh>
+#include <dune/curvilineargrid/curvilineargrid/gridfactory.hh>
 #include <dune/curvilineargrid/io/file/curvilinearvtkwriter.hh>
 
 #include <parmetis.h>
@@ -57,10 +72,13 @@ namespace Dune
   {
   protected:
     // If to show debug output
-    bool verbose_ = false;
+    bool verbose_;
+
+    // If to log using all processes or only master process
+    bool processVerbose_;
 
     // If to save mesh to VTK format after reading
-    bool writeVtkFile_ = true;
+    bool writeVtkFile_;
 
     // Grid Factory
     //Dune::GridFactory<GridType>& factory;
@@ -80,12 +98,16 @@ namespace Dune
     std::vector<int> boundaryElement2PhysicalEntityIndex;
     std::vector<int> internalElement2PhysicalEntityIndex;
 
-    // Parallel Implementation
-#ifdef HAVE_MPI
-    MPIHelper &mpihelper_;
-#endif
-    static const int MASTER_RANK = 0;
+    // Total data about the mesh
+    int nVertexTotal_ = 0;
+    int nElementTotal_ = 0;
+    int nInternalElementTotal_ = 0;
+    int nBoundaryElementTotal_ = 0;
 
+
+    // Parallel Implementation
+    MPIHelper &mpihelper_;
+    static const int MASTER_RANK = 0;
     int rank_;
     int size_;
 
@@ -96,6 +118,9 @@ namespace Dune
     // Testing capabilities for writing to VTK.
     CurvilinearVTKWriter<dimWorld_> vtkCurvWriter_;
 
+    // Logging Message Typedefs
+    const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
+    const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
 
     // typedefs
     typedef Dune::FieldVector< double, dimWorld_ > GlobalVector;
@@ -210,33 +235,7 @@ namespace Dune
         }
     }
 
-    // Returns d-1 subentity corner local indices, sorted
-    std::vector<int> subentityCornerSet(GeometryType gt, int ind)
-    {
-        std::vector<int> rez;
-        if (gt.isTriangle())
-        {
-            switch (ind)
-            {
-            case 0 :  rez = std::vector<int> {0, 1};  break;
-            case 1 :  rez = std::vector<int> {1, 2};  break;
-            case 2 :  rez = std::vector<int> {0, 2};  break;
-            default : DUNE_THROW(Dune::IOError, "GMSH Reader: Wrong input arguments for SubentityCorners " );
-            }
-        }
-        else if (gt.isTetrahedron())
-        {
-            switch (ind)
-            {
-            case 0 :  rez = std::vector<int> {0, 1, 2};  break;
-            case 1 :  rez = std::vector<int> {0, 1, 3};  break;
-            case 2 :  rez = std::vector<int> {0, 2, 3};  break;
-            case 3 :  rez = std::vector<int> {1, 2, 3};  break;
-            default : DUNE_THROW(Dune::IOError, "GMSH Reader: Wrong input arguments for SubentityCorners " );
-            }
-        } else  {  DUNE_THROW(Dune::IOError, "GMSH Reader: Not implemented element subentityNo for this element type " ); }
-        return rez;
-    }
+
 
     // Testing if the current element type can be handled by DUNE
     bool checkElementAllowed(int gmshIndex)
@@ -261,7 +260,8 @@ namespace Dune
         int eFirst = (eTotal * rank_) / size_;
         int eLast = (eTotal * (rank_+1)) / size_;
 
-        print_debug(" == checkprocess if " + std::to_string(eIndex) + " in [" + std::to_string(eFirst) + "," + std::to_string(eLast) + "]");
+        std::string log_string = " == checkprocess if " + std::to_string(eIndex) + " in [" + std::to_string(eFirst) + "," + std::to_string(eLast) + "]";
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
         return ((eIndex >= eFirst)&&(eIndex < eLast));
     }
@@ -307,16 +307,18 @@ namespace Dune
       // ****************************************************
       // Communicate the number of elements on each process
       // ****************************************************
-      print_debug(" Communicating element numbers on all processes to each process");
+      Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Communicating element numbers on all processes to each process");
 
       std::vector<idx_t> elmdist;
       std::vector<idx_t> elmdist_tmp (size_, 0);
 
       // The index of elmdist_tmp should be the process number, the value the number of elements on each process
+#if HAVE_MPI
       MPI_Comm comm = Dune::MPIHelper::getCommunicator();
       Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
 
       collective_comm.allgather(&elementNumber, 1, reinterpret_cast<idx_t*>(elmdist_tmp.data()));
+#endif
 
       // elmdist should be an incremental array whose entries are the sum of all element numbers on previous processes
       elmdist.push_back(0);
@@ -352,8 +354,10 @@ namespace Dune
     	  for (size_t k = 0; k < curNumCorners; ++k)  { eind.push_back(baseElementVector[i].elementDofSet_[k]); }
       }
 
-      print_debug(" Run parmetis routine");
+      Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Run parmetis routine");
 
+
+#if HAVE_MPI
 #if PARMETIS_MAJOR_VERSION >= 4
         const int OK =
 #endif
@@ -365,8 +369,9 @@ namespace Dune
         if (OK != METIS_OK)
           DUNE_THROW(Dune::Exception, "ParMETIS returned an error code.");
 #endif
+#endif
 
-        //print_debug(" Parmetis-suggested processes for elements: " + vector2string(part));
+        //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Parmetis-suggested processes for elements: " + vector2string(part));
     }
 
 
@@ -386,13 +391,15 @@ namespace Dune
      )
      {
     	 typedef std::pair<unsigned, unsigned> ETP;
+#if HAVE_MPI
     	 MPI_Comm comm = Dune::MPIHelper::getCommunicator();
+#endif   // In sequential case this method will not be run at all, so no specialized impl
 
 
     	 // 1) Construct a vector of globalId's sorted by the corresponding process number
     	 // *****************************************************************************
 
-    	 print_debug(" Sort golbalId array");
+    	 Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Sort golbalId array");
 
     	 // Combine element globalId's with processes to which these elements go
     	 std::vector<ETP> elementToProcess;
@@ -408,7 +415,7 @@ namespace Dune
 
     	 // 2) Compute how many elements are send to each process. Communicate this to all processes
     	 // *****************************************************************************
-    	 print_debug(" Communicate number of elements to sent do each process");
+    	 Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Communicate number of elements to sent do each process");
 
     	 std::vector<int> sendcounts (size_, 0);
     	 std::vector<int> recvcounts (size_, 0);
@@ -417,13 +424,15 @@ namespace Dune
     		 sendcounts[part[i]] += 1;
     	 }
 
+#if HAVE_MPI
     	 MPI_Alltoall (sendcounts.data(), 1, MPI_INT, reinterpret_cast<int*>(recvcounts.data()), 1, MPI_INT, comm);
+#endif
 
 
     	 // 3) Construct send and receive displacements (sdispls)
     	 // *****************************************************************************
 
-    	 print_debug(" Compute buffer sizes");
+    	 Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Compute buffer sizes");
 
     	 std::vector<int> sdispls (size_, 0);
     	 std::vector<int> rdispls (size_, 0);
@@ -447,16 +456,18 @@ namespace Dune
 
     	 // 5) Communicate global indices, put place them into part vector as return value
     	 // *****************************************************************************
-    	 print_debug(" Communicate globalId's");
+    	 Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Communicate globalId's");
 
+#if HAVE_MPI
    	     MPI_Alltoallv (sendbuf.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvbuf.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
+#endif
 
-   	     //print_debug(" Sending buffer: " + vector2string(sendbuf));
-   	     //print_debug(" Sending counts: " + vector2string(sendcounts));
-   	     //print_debug(" Sending displs: " + vector2string(sdispls));
-   	     //print_debug(" Receiving buffer: " + vector2string(recvbuf));
-   	     //print_debug(" Receiving counts: " + vector2string(recvcounts));
-   	     //print_debug(" Receiving displs: " + vector2string(rdispls));
+   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Sending buffer: " + vector2string(sendbuf));
+   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Sending counts: " + vector2string(sendcounts));
+   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Sending displs: " + vector2string(sdispls));
+   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Receiving buffer: " + vector2string(recvbuf));
+   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Receiving counts: " + vector2string(recvcounts));
+   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Receiving displs: " + vector2string(rdispls));
 
    	     thisProcessElementIndexSet = std::set<int> (recvbuf.begin(), recvbuf.end());
 
@@ -466,7 +477,7 @@ namespace Dune
     /** \brief Reads vertices into a map, given a set of indices of vertices that should be read
      *
      *  \param[in]  file                           file pointer to read from
-     *  \param[in]  nVerticesTotal                 the total number of vertices specified in the file
+     *  \param[in]  nVertexTotal_                 the total number of vertices specified in the file
      *  \param[in]  vertices                       the map from vertex globalID to vertex coordinate. Here the vertices will be stored
      *  \param[in]  vertexIndexSet               the set of globalID's of all vertices that belong to this process
      *  \param[in]  vertexGlobal2LocalIndexMap  the map from vertex globalID to localID
@@ -479,7 +490,7 @@ namespace Dune
      */
     int readVertices(
             FILE* file,
-            int nVerticesTotal,
+            int nVertexTotal_,
             std::map<int, GlobalVector> & vertexIndex2CoordinateMap,
             std::set<int> & vertexIndexSet,
             std::map<int, int> & vertexGlobal2LocalIndexMap
@@ -489,7 +500,7 @@ namespace Dune
         GlobalVector x;
 
         // Iterator starts from 1 because GMSH numbers vertices [1,n]
-        for( int i = 1; i <= nVerticesTotal; ++i )
+        for( int i = 1; i <= nVertexTotal_; ++i )
         {
             // If this vertex does not belong to this process, just skip it
             if (vertexIndexSet.count(i) == 0)  { fgets(buf_, 512, file ); }
@@ -510,7 +521,7 @@ namespace Dune
                 // The local id of this vertex is equalt to the number of vertices added so far
                 vertexGlobal2LocalIndexMap[i] = vertexIndex2CoordinateMap.size();
 
-                print_debug("  * Have read vertex " + tmp_out);
+                Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "  * Have read vertex " + tmp_out);
 
                 // Maps global id to global coordinate
                 vertexIndex2CoordinateMap[i] = x;
@@ -538,7 +549,9 @@ namespace Dune
         GmshElementData thisElement;
 
         fscanf(file, "%d %d %d ", &thisElement.elementId_, &thisElement.gmshIndex_, &nTag);
-        print_debug("    * element " + std::to_string(thisElement.elementId_) + " has " + std::to_string(nTag) + " tags");
+
+        std::string log_string =  "    * element " + std::to_string(thisElement.elementId_) + " has " + std::to_string(nTag) + " tags";
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
         /** \brief Reading tags
          *
@@ -574,15 +587,15 @@ namespace Dune
      * Then, communicates all elements (only globalId's)
      *
      * \param[in]  file                           file pointer to read from
-     * \param[in]  nElementTotal                 the total number of elements specified in the file
-     * \param[in]  nInternalElementTotal        the number of internal elements specified in the file
+     * \param[in]  nElementTotal_                 the total number of elements specified in the file
+     * \param[in]  nInternalElementTotal_        the number of internal elements specified in the file
      * \param[in]  thisProcessElementIndexSet           set of globalId's of all elements present on this process
      *
      */
     void readAndPartitionBaseElements(
             FILE* file,
-            int nElementTotal,
-            int nInternalElementTotal,
+            int nElementTotal_,
+            int nInternalElementTotal_,
     		std::set<int> & thisProcessElementIndexSet)
     {
         int iSelectElem = 0;
@@ -590,7 +603,7 @@ namespace Dune
 
         // Reading element info - tag information and vertex global indices
         // *************************************************************
-        for (int i = 1; i <= nElementTotal; i++)
+        for (int i = 1; i <= nElementTotal_; i++)
         {
             // Read the first part of the element info
             GmshElementData thisElement = readElementSpec(file);
@@ -601,13 +614,14 @@ namespace Dune
             bool onBoundary = (elemDim < dimWorld_);
 
             // Check if we want to read this element at this stage
-            if (onBoundary || !elementOnProcess(iSelectElem++, nInternalElementTotal)) { fgets(buf_, 512, file ); }
+            if (onBoundary || !elementOnProcess(iSelectElem++, nInternalElementTotal_)) { fgets(buf_, 512, file ); }
             else
             {
                 // Testing if the current element type can be handled by DUNE
                 // *****************************************************************
                 checkElementAllowed(thisElement.gmshIndex_);
-                print_debug("    * element " + std::to_string(thisElement.elementId_) + " can be treated by Dune grid ");
+                std::string log_string = "    * element " + std::to_string(thisElement.elementId_) + " can be treated by Dune grid ";
+                Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
                 // Obtain all necessary info not to use gmshElementIndex in the following steps
                 // *****************************************************
@@ -622,7 +636,10 @@ namespace Dune
                 for (int iCorner = 0; iCorner < thisElmCorners; iCorner++) {
                     int tmpVertexGlobalId;
                     fscanf(file, "%d", &tmpVertexGlobalId);
-                    print_debug("  --- have read corner " + std::to_string(tmpVertexGlobalId) );
+
+                    log_string = "  --- have read corner " + std::to_string(tmpVertexGlobalId);
+                    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
+
                     thisElement.elementDofSet_.push_back(tmpVertexGlobalId);
                 }
                 fgets(buf_, 512, file );
@@ -632,27 +649,31 @@ namespace Dune
             }
         }
 
-        print_debug(" Finished reading base elements");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Finished reading base elements");
 
 
-        std::cout << "Process " << rank_ << ": elements before partition: ";
-        for (int i = 0; i < baseElementVector.size(); i++) { std::cout << baseElementVector[i].elementId_ << " "; }
-        std::cout << std::endl;
+        //std::cout << "Process " << rank_ << ": elements before partition: ";
+        //for (int i = 0; i < baseElementVector.size(); i++) { std::cout << baseElementVector[i].elementId_ << " "; }
+        //std::cout << std::endl;
 
+#if HAVE_MPI
         // Partition the elements
         // Communicate the partitioning
         // Fill the element set
         // *************************************************************
     	std::vector<unsigned> part(baseElementVector.size());
     	partitionCompute(part, baseElementVector);
-    	print_debug(" Finished computing partition");
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Finished computing partition");
 
     	partitionCommunicate(part, baseElementVector, thisProcessElementIndexSet);
-    	print_debug(" Finished communicating partition");
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Finished communicating partition");
 
     	std::vector<int> test2 (thisProcessElementIndexSet.begin(), thisProcessElementIndexSet.end());
-    	print_debug(" elements after partition: " + vector2string(test2));
-
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " elements after partition: " + vector2string(test2));
+#else
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "No MPI found! Running sequential case without partitioning");
+    	for (int i = 0; i < baseElementVector.size(); i++) { thisProcessElementIndexSet.insert(baseElementVector[i].elementId_); }
+#endif
         // Finish reading file
         // *************************************************************
         fscanf(file, "%s\n", buf_);
@@ -663,8 +684,8 @@ namespace Dune
     /** \brief Reads all internal element data into a vector. Only reads elements which should be on this process
      *
      *  \param[in]  file                           file pointer to read from
-     *  \param[in]  nElementTotal                 the total number of elements specified in the file
-     *  \param[in]  nInternalElementTotal        the number of internal elements specified in the file
+     *  \param[in]  nElementTotal_                 the total number of elements specified in the file
+     *  \param[in]  nInternalElementTotal_        the number of internal elements specified in the file
      *  \param[in]  thisProcessElementIndexSet          set of globalId's of all elements present on this process
      *  \param[in]  internalElementVector              A vector in which the globalID's of internal elements will be stored
      *  \param[in]  vertexIndexSet               the set of globalID's of all vertices that belong to this process
@@ -676,16 +697,18 @@ namespace Dune
      */
     void readInternalElements(
             FILE* file,
-            int nElementTotal,
-            int nInternalElementTotal,
+            int nElementTotal_,
+            int nInternalElementTotal_,
             std::set< int > & thisProcessElementIndexSet,
             std::vector<GmshElementData> & internalElementVector,
             std::set<int> & vertexIndexSet,
             std::map< std::vector<int>, std::vector<int> > & boundaryKey2LinkedElementSet
             )
     {
+    	std::string log_string;
+
         // Reading element info - tag information and vertex global indices
-        for (int i = 1; i <= nElementTotal; i++)
+        for (int i = 1; i <= nElementTotal_; i++)
         {
             // Read the first part of the element info
             GmshElementData thisElement = readElementSpec(file);
@@ -703,7 +726,8 @@ namespace Dune
                 // Testing if the current element type can be handled by DUNE
                 // *****************************************************************
                 checkElementAllowed(thisElement.gmshIndex_);
-                print_debug("    * element " + std::to_string(thisElement.elementId_) + " can be treated by Dune grid ");
+                log_string = "    * element " + std::to_string(thisElement.elementId_) + " can be treated by Dune grid ";
+                Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
                 // Obtain all necessary info not to use gmshElementIndex in the following steps
                 // *****************************************************
@@ -717,7 +741,10 @@ namespace Dune
                 for (int iDof = 0; iDof < thisElmDofNo; iDof++) {
                     int tmpVertexGlobalId;
                     fscanf(file, "%d", &tmpVertexGlobalId);
-                    print_debug("  --- have read DoF " + std::to_string(tmpVertexGlobalId) );
+
+                    log_string = "  --- have read DoF " + std::to_string(tmpVertexGlobalId);
+                    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
+
                     thisElement.elementDofSet_.push_back(tmpVertexGlobalId);
 
                     // Insert all used global vertex indexes into set
@@ -745,16 +772,18 @@ namespace Dune
                 for (int iSub = 0; iSub < thisElmSubentities; iSub++)
                 {
                     // 4) get all subsets associated with this element type
-                    std::vector<int> this_subentity_ind = subentityCornerSet(elemType, iSub);
+                    std::vector<int> thisSubentityCornerIndexSet = Dune::CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet(elemType, 1, iSub);
                     std::vector<int> key;
 
-                    print_debug(" for iSub = " + std::to_string(iSub) + " out of " + std::to_string(thisElmSubentities) + " have sub_size = " + std::to_string(this_subentity_ind.size())  );
+                    log_string = " for iSub = " + std::to_string(iSub) + " out of " + std::to_string(thisElmSubentities) + " have sub_size = " + std::to_string(thisSubentityCornerIndexSet.size());
+                    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
-                    for (int iCoord = 0; iCoord < this_subentity_ind.size(); iCoord++) { key.push_back(cornerVector[this_subentity_ind[iCoord]]); }
+                    for (int iCoord = 0; iCoord < thisSubentityCornerIndexSet.size(); iCoord++) { key.push_back(cornerVector[thisSubentityCornerIndexSet[iCoord]]); }
 
                     // 5) Check if map empty for this entry, then add to the map
                     if (boundaryKey2LinkedElementSet.find(key) == boundaryKey2LinkedElementSet.end()) {
-                        print_debug(" -- element " + std::to_string(localID) + " has added boundary " + vector2string(key) );
+                    	log_string = " -- element " + std::to_string(localID) + " has added boundary " + vector2string(key);
+                        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
                         boundaryKey2LinkedElementSet[key] = std::vector<int> (1, localID);
                     } else
@@ -764,7 +793,8 @@ namespace Dune
                         tmp.push_back(localID);
                         boundaryKey2LinkedElementSet[key] = tmp;   // Should overwrite previous value
 
-                        print_debug(" -- element " + std::to_string(localID) + " shares boundary " + vector2string(key) + " with element " + std::to_string(tmp[0]) );
+                        log_string = " -- element " + std::to_string(localID) + " shares boundary " + vector2string(key) + " with element " + std::to_string(tmp[0]);
+                        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
                     }
                 }
 
@@ -786,7 +816,7 @@ namespace Dune
     /** \brief Reads all internal element data into a vector. Only reads elements which should be on this process
      *
      *  \param[in]  file                           file pointer to read from
-     *  \param[in]  nElementTotal                 the total number of elements specified in the file
+     *  \param[in]  nElementTotal_                 the total number of elements specified in the file
      *  \param[in]  boundaryElementVector              A vector in which the globalID's of boundary elements will be stored
      *  \param[in]  boundaryKey2LinkedElementSet        A map from a sorted array of globalID's of vertices that make up a boundary to an array of localID's of internal elements to whom this boundary belongs.
      *  \param[in]  linkedElementLocalIndexSet   A vector that stores a vector of localID's of all elements linked this boundary, for each boundary localID
@@ -795,16 +825,18 @@ namespace Dune
      */
     void readBoundaryElements(
             FILE* file,
-            int nElementTotal,
+            int nElementTotal_,
             std::vector<GmshElementData> & boundaryElementVector,
             std::map< std::vector<int>, std::vector<int> > & boundaryKey2LinkedElementSet,
             std::vector< std::vector<int> > & linkedElementLocalIndexSet
             )
     {
+    	std::string log_string;
+
         int iSelectElem = 0;
 
         // Reading element info - tag information and vertex global indices
-        for (int i = 1; i <= nElementTotal; i++)
+        for (int i = 1; i <= nElementTotal_; i++)
         {
             // Read the first part of the element info
             GmshElementData thisElement = readElementSpec(file);
@@ -821,7 +853,8 @@ namespace Dune
                 // Testing if the current element type can be handled by DUNE
                 // *****************************************************************
                 checkElementAllowed(thisElement.gmshIndex_);
-                print_debug("    * element " + std::to_string(i) + " can be treated by Dune grid ");
+                log_string = "    * element " + std::to_string(i) + " can be treated by Dune grid ";
+                Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
                 // Obtain all necessary info not to use gmshElementIndex in the following steps
                 // *****************************************************
@@ -834,7 +867,10 @@ namespace Dune
                 for (int iDof = 0; iDof < thisElmDofNo; iDof++) {
                     int tmpVertexGlobalId;
                     fscanf(file, "%d", &tmpVertexGlobalId);
-                    print_debug("  --- have read DoF " + std::to_string(tmpVertexGlobalId) );
+
+                    log_string = "  --- have read DoF " + std::to_string(tmpVertexGlobalId);
+                    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
+
                     thisElement.elementDofSet_.push_back(tmpVertexGlobalId);
                 }
                 fscanf(file, "\n");
@@ -854,7 +890,8 @@ namespace Dune
                 // 3) Obtain this boundary element's localID
                 int localID = boundaryElementVector.size();
 
-                print_debug(" -- boundary " + std::to_string(localID) + " checking key " + vector2string(cornerVector) );
+                log_string = " -- boundary " + std::to_string(localID) + " checking key " + vector2string(cornerVector);
+                Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
 
 
@@ -862,7 +899,8 @@ namespace Dune
                 // If not, it is likely on another process
                 if (boundaryKey2LinkedElementSet.find(cornerVector) != boundaryKey2LinkedElementSet.end())
                 {
-                    print_debug(" -found b.e localID = " + vector2string(boundaryKey2LinkedElementSet[cornerVector]) );
+                	log_string = " -found b.e localID = " + vector2string(boundaryKey2LinkedElementSet[cornerVector]);
+                    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
                     // correct differences between gmsh and Dune in the local vertex numbering
                     // *************************************************
@@ -915,12 +953,12 @@ namespace Dune
             int elemDim                 = elemType.dim();
             int elemCornerNo            = ReferenceElements::general(elemType).size(elemDim);
 
+            std::string log_string = "    * internal_element " + std::to_string(i) + " has dimension " + std::to_string(elemDim) + " and vertex number " + std::to_string(elemCornerNo) + " and physical entity number " + std::to_string(internalElementVector[i].physicalEntityTag_);
+            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
 
-            print_debug("    * internal_element " + std::to_string(i) + " has dimension " + std::to_string(elemDim) + " and vertex number " + std::to_string(elemCornerNo) + " and physical entity number " + std::to_string(internalElementVector[i].physicalEntityTag_));
 
-
-            std::vector<unsigned> localDofVector;
+            std::vector<int> localDofVector;
             std::vector<GlobalVector> elementNodeVector;
 
             for (int iDof = 0; iDof < elemDofNo; iDof++) {
@@ -937,7 +975,9 @@ namespace Dune
             if (writeVtkFile_)
             {
             	addElementToVTK(elemType, elementNodeVector, elemOrder, internalElementVector[i].physicalEntityTag_, false);
-            	print_debug("    * internal_element " + std::to_string(i) + " has been added to the VTK triangles  ");
+
+            	log_string = "    * internal_element " + std::to_string(i) + " has been added to the VTK triangles  ";
+            	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
             }
 
 
@@ -947,7 +987,7 @@ namespace Dune
 
             internalElement2PhysicalEntityIndex.push_back(internalElementVector[i].physicalEntityTag_);
             // Insert element to factory
-            factory.insertElement(elemType, internalElementVector[i].elementId_, localDofVector, elemOrder);
+            factory.insertElement(elemType, internalElementVector[i].elementId_, localDofVector, elemOrder, internalElementVector[i].physicalEntityTag_);
 
 
             if (!insertBoundarySegment) {
@@ -955,7 +995,8 @@ namespace Dune
                 DUNE_THROW(Dune::IOError, "You must insert boundary segments, you do not have a choice :D" );
             }
 
-            print_debug("    * internal_element " + std::to_string(i) + " has been added to the Geometry Factory ");
+            log_string = "    * internal_element " + std::to_string(i) + " has been added to the Geometry Factory ";
+            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
         }
     }
 
@@ -989,11 +1030,12 @@ namespace Dune
             int boundaryDim                 = boundaryType.dim();
             int boundaryCornerNo            = SubReferenceElements::general(boundaryType).size(boundaryDim);
 
+            std::string log_string = "    * boundary_element " + std::to_string(i) + " has dimension " + std::to_string(boundaryDim) + " and vertex number " + std::to_string(boundaryCornerNo) + " and physical entity number " + std::to_string(boundaryElementVector[i].physicalEntityTag_);
+            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
-            print_debug("    * boundary_element " + std::to_string(i) + " has dimension " + std::to_string(boundaryDim) + " and vertex number " + std::to_string(boundaryCornerNo) + " and physical entity number " + std::to_string(boundaryElementVector[i].physicalEntityTag_));
 
 
-            std::vector<unsigned> localDofVector;
+            std::vector<int> localDofVector;
             std::vector<GlobalVector> elementNodeVector;
 
             for (int iDof = 0; iDof < boundaryDofNo; iDof++) {
@@ -1010,7 +1052,9 @@ namespace Dune
             if (writeVtkFile_)
             {
             	addElementToVTK(boundaryType, elementNodeVector, boundaryOrder, boundaryElementVector[i].physicalEntityTag_, true);
-            	print_debug("    * boundary_element " + std::to_string(i) + " has been added to the VTK triangles  ");
+
+            	log_string = "    * boundary_element " + std::to_string(i) + " has been added to the VTK triangles  ";
+            	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
             }
             // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1021,12 +1065,13 @@ namespace Dune
             // Adding boundarySegment to factory
             if (insertBoundarySegment)
             {
-                factory.insertBoundarySegment(boundaryType, boundaryElementVector[i].elementId_, localDofVector, boundaryOrder, linkedElementLocalIndexSet[i][0]);
+                factory.insertBoundarySegment(boundaryType, boundaryElementVector[i].elementId_, localDofVector, boundaryOrder, linkedElementLocalIndexSet[i][0], boundaryElementVector[i].physicalEntityTag_);
 
                 // Adding physical tag
                 boundaryElement2PhysicalEntityIndex.push_back(boundaryElementVector[i].physicalEntityTag_);
 
-                print_debug("    * boundary_element " + std::to_string(i) + " has been added to the Geometry Factory ");
+                log_string = "    * boundary_element " + std::to_string(i) + " has been added to the Geometry Factory ";
+                Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
             }
             else
             {
@@ -1043,8 +1088,8 @@ namespace Dune
      */
     void addElementToVTK(const GeometryType & elemType, const std::vector<GlobalVector> & elementNodeVector, const int elemOrder, const int physicalTag, const bool isBoundary)
     {
-    	const int VTK_INTERNAL = Dune::CurvilinearVTKWriter<dimWorld_>::VTK_ENTITY_STRUCTURAL_TYPE::ENTITY_INTERNAL;
-    	const int VTK_BOUNDARY = Dune::CurvilinearVTKWriter<dimWorld_>::VTK_ENTITY_STRUCTURAL_TYPE::ENTITY_DOMAIN_BOUNDARY;
+    	const int VTK_INTERNAL = Dune::VtkEntityStructuralType::Internal;
+    	const int VTK_BOUNDARY = Dune::VtkEntityStructuralType::DomainBoundary;
 
     	int VTK_DISCRETIZATION_POINTS = 6;    // Sampling frequency over curved element. min=2 is linear sampling
     	bool VTK_INTERPOLATE = true;          // Whether to use lagrange interpolation or intrinsic interpolatory vertices
@@ -1069,13 +1114,6 @@ namespace Dune
     			VTK_ELEMENT_STRUCTURAL_TYPE);
     }
 
-    // Writes debug info to the command line
-    // TODO: Use IFDEF to manipulate between no output, all output, or only master process output
-    void print_debug(std::string s)
-    {
-        if (verbose_) { std::cout << "Process_" << rank_ << ": " << s << std::endl; }
-    }
-
     // Converts an arbitrary vector into string by sticking all of the entries together
     // Whitespace separated
     template <class T>
@@ -1089,27 +1127,23 @@ namespace Dune
   public:
 
     CurvilinearGmshReaderParser(
-    		Dune::CurvilinearGridFactory<GridType> & _factory,
-            bool verbose,
-            bool insertBoundarySegment
-#ifdef HAVE_MPI
-            ,MPIHelper &mpihelper
-#endif
-            ) : factory(_factory), verbose_(verbose), insertBoundarySegment(insertBoundarySegment)
-#ifdef HAVE_MPI
-            , mpihelper_ (mpihelper)
-#endif
-   {
+    	Dune::CurvilinearGridFactory<GridType> & _factory,
+    	bool verbose,
+    	bool processVerbose,
+    	bool insertBoundarySegment
+    	,MPIHelper &mpihelper) :
+    		factory(_factory),
+    		verbose_(verbose),
+    		processVerbose_(processVerbose),
+    		insertBoundarySegment(insertBoundarySegment),
+    		mpihelper_ (mpihelper)
+    {
         // Initialize process parameters
-#ifdef HAVE_MPI
-    rank_=mpihelper.rank();
-    size_=mpihelper.size();
-#else
-    rank_=0;
-    size_=1;
-#endif
+        rank_=mpihelper.rank();
+        size_=mpihelper.size();
 
-        print_debug("I am process " + std::to_string(rank_) + " with total processes " + std::to_string(size_));
+        std::string log_string = "I am process " + std::to_string(rank_) + " with total processes " + std::to_string(size_);
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
         // Initialize triangular point renumberings for GMSH->DUNE convention
         triangularInterpolatoryVertexGmsh2DuneMap.push_back( std::vector<int> {0, 1, 2} );
@@ -1126,6 +1160,10 @@ namespace Dune
         tetrahedralInterpolatoryVertexGmsh2DuneMap.push_back( std::vector<int> {0, 19, 18, 17, 16, 3, 4, 34, 39, 36, 24, 5, 37, 38, 25, 6, 35, 26, 7, 27, 1, 15, 40, 43, 41, 20, 28, 52, 55, 46, 33, 53, 49, 30, 47, 8, 14, 45, 44, 21, 31, 54, 51, 32, 50, 9, 13, 42, 22, 29, 48, 10, 12, 23, 11, 2} );
    }
 
+    int & totalVertex()   { return nVertexTotal_; }
+
+    int & totalElement()   { return nElementTotal_; }
+
     std::vector<int> & boundaryIdMap()   { return boundaryElement2PhysicalEntityIndex; }
 
     std::vector<int> & elementIndexMap() { return internalElement2PhysicalEntityIndex; }
@@ -1133,13 +1171,10 @@ namespace Dune
     // This reads the GMSH format to parse the node and element structure
     void read (const std::string& f)
     {
-        int nVerticesTotal = 0;
-        int nElementTotal = 0;
-        int nInternalElementTotal = 0;
-        int nBoundaryElementTotal = 0;
+    	std::string log_string;
 
-        print_debug(":: using file " + fileName);
-        print_debug(":: reading" + std::to_string(dim_) + "d curvilinear gmsh grid...");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, ":: using file " + fileName);
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, ":: reading" + std::to_string(dim_) + "d curvilinear gmsh grid...");
 
         // open file name, we use C I/O
         // ***********************************************
@@ -1156,25 +1191,29 @@ namespace Dune
         if (strcmp(buf_,"$MeshFormat")!=0)   { DUNE_THROW(Dune::IOError, "expected $MeshFormat in first line"); }
         fscanf(file, "%lg %d %d ", &version_number, &file_type, &data_size);
         if( (version_number < 2.0) || (version_number > 2.3) )  { DUNE_THROW(Dune::IOError, "can only read Gmsh version 2 files"); }
-        print_debug(":: version " + std::to_string(version_number) + " Gmsh file detected");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, ":: version " + std::to_string(version_number) + " Gmsh file detected");
         fscanf(file, "%s\n", buf_);
         if (strcmp(buf_,"$EndMeshFormat")!=0)  { DUNE_THROW(Dune::IOError, "expected $EndMeshFormat"); }
 
         // Reading Node data
         // ***********************************************
-        print_debug("----- Reading vertex header ------------------------");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "----- Reading vertex header ------------------------");
         fscanf(file, "%s\n", buf_);
         if (strcmp(buf_,"$Nodes")!=0)  { DUNE_THROW(Dune::IOError, "expected $Nodes"); }
-        fscanf(file, "%d\n", &nVerticesTotal);
-        print_debug(":: file contains " + std::to_string(nVerticesTotal) + " vertices");
+        fscanf(file, "%d\n", &nVertexTotal_);
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, ":: file contains " + std::to_string(nVertexTotal_) + " vertices");
 
 
         //==========================================================
         // VERTEX PASS 1: Put file pointer and skip all vertices
         //==========================================================
-        print_debug("----- Vertex-Pass 1: skip all vertices, since we need element data first ---");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "----- Vertex-Pass 1: skip all vertices, since we need element data first ---");
         long section_vertex_offset = ftell(file);
-        for (int iVertex = 0; iVertex < nVerticesTotal; iVertex++ ) { fgets(buf_, 512, file );   print_debug(std::string(buf_)); }
+        for (int iVertex = 0; iVertex < nVertexTotal_; iVertex++ )
+        {
+        	fgets(buf_, 512, file );
+        	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, std::string(buf_));
+        }
         fscanf(file, "%s\n", buf_);
         if (strcmp(buf_,"$EndNodes")!=0)  { DUNE_THROW(Dune::IOError, "expected $EndNodes"); }
         //==========================================================
@@ -1184,21 +1223,21 @@ namespace Dune
 
         // Reading Element Data
         // *************************************************
-        print_debug("----- Reading elements-header -----------------------");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "----- Reading elements-header -----------------------");
         fscanf(file, "%s\n", buf_);
         if (strcmp(buf_,"$Elements")!=0)  { DUNE_THROW(Dune::IOError, "expected $Elements"); }
-        fscanf(file, "%d\n", &nElementTotal);
-        print_debug(":: file contains " + std::to_string(nElementTotal) + " elements");
+        fscanf(file, "%d\n", &nElementTotal_);
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, ":: file contains " + std::to_string(nElementTotal_) + " elements");
 
 
 
         //=========================================================
         // ELEMENT PASS 1: Count the number of boundary segments
         //=========================================================
-        print_debug("----- Elements-Pass 1: counting elements on the boundary---");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "----- Elements-Pass 1: counting elements on the boundary---");
         long fileOffsetElementSection = ftell(file);
 
-        for (int i = 0; i < nElementTotal; i++)
+        for (int i = 0; i < nElementTotal_; i++)
         {
             int id, gmshElementIndex;
             fscanf(file, "%d %d ", &id, &gmshElementIndex);
@@ -1206,14 +1245,14 @@ namespace Dune
             // Ignore the rest of data on this line
             fgets(buf_, 512, file );
 
-            print_debug(std::to_string(id) + " " + std::to_string(gmshElementIndex) + " " + std::string(buf_));
+            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, std::to_string(id) + " " + std::to_string(gmshElementIndex) + " " + std::string(buf_));
 
             // A boundary segment is defined here as any element with dimension less than world dimension
             GeometryType elemType          = gmshGeometryType(gmshElementIndex);
             int elemDim = elemType.dim();
 
-            if (elemDim < dimWorld_ )     { nBoundaryElementTotal++; }
-            else                          { nInternalElementTotal++; }
+            if (elemDim < dimWorld_ )     { nBoundaryElementTotal_++; }
+            else                          { nInternalElementTotal_++; }
         }
 
 
@@ -1221,11 +1260,11 @@ namespace Dune
         // ELEMENT PASS 2: Read all linear internal elements
         // Immediately partition them and distribute among processes
         //=========================================================
-        print_debug("----- Elements-Pass 2: reading internal elements for this process ---");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "----- Elements-Pass 2: reading internal elements for this process ---");
         fseek(file, fileOffsetElementSection, SEEK_SET);
         std::set< int > thisProcessElementIndexSet;
 
-        readAndPartitionBaseElements(file, nElementTotal, nInternalElementTotal, thisProcessElementIndexSet);
+        readAndPartitionBaseElements(file, nElementTotal_, nInternalElementTotal_, thisProcessElementIndexSet);
 
         //==========================================================
         // ELEMENT PASS 3: Read all data associated with element.
@@ -1233,12 +1272,12 @@ namespace Dune
         // Map all d-1 subentities of all elements to the element localID's.
         //    - Needed to find boundaries corresponding to each element.
         //==========================================================
-        print_debug("----- Elements-Pass 2: reading internal elements for this process ---");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "----- Elements-Pass 2: reading internal elements for this process ---");
         fseek(file, fileOffsetElementSection, SEEK_SET);
         std::set<int> thisProcessVertexIndexSet;
         std::vector< GmshElementData > internalElementVector;
         std::map< std::vector<int>, std::vector<int> > boundaryKey2LinkedElementSet;
-        readInternalElements(file, nElementTotal, nInternalElementTotal, thisProcessElementIndexSet, internalElementVector, thisProcessVertexIndexSet, boundaryKey2LinkedElementSet);
+        readInternalElements(file, nElementTotal_, nInternalElementTotal_, thisProcessElementIndexSet, internalElementVector, thisProcessVertexIndexSet, boundaryKey2LinkedElementSet);
         int nInternalElement = internalElementVector.size();
 
 
@@ -1248,11 +1287,11 @@ namespace Dune
         //    - Note: Can not read internal and boundary elements at the same time
         //            because need d-1 subentity map from all internal elements first
         //==========================================================
-        print_debug("----- Elements-Pass 3: reading boundary elements for this process ---");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "----- Elements-Pass 3: reading boundary elements for this process ---");
         fseek(file, fileOffsetElementSection, SEEK_SET);
         std::vector< GmshElementData > boundaryElementVector;
         std::vector< std::vector<int> > linkedElementLocalIndexSet;
-        readBoundaryElements(file, nElementTotal, boundaryElementVector, boundaryKey2LinkedElementSet, linkedElementLocalIndexSet);
+        readBoundaryElements(file, nElementTotal_, boundaryElementVector, boundaryKey2LinkedElementSet, linkedElementLocalIndexSet);
         int nBoundaryElement = boundaryElementVector.size();
 
 
@@ -1261,36 +1300,34 @@ namespace Dune
         // VERTEX PASS 2: Read the vertices
         // But only the ones that correspond to elements on this process
         //==========================================================
-        print_debug("----- Vertex-Pass 2: reading all vertices necessary for this process ---");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "----- Vertex-Pass 2: reading all vertices necessary for this process ---");
         fseek(file, section_vertex_offset, SEEK_SET);
         std::map<int, GlobalVector> vertexIndex2CoordinateMap;                // Only for testing purposes
         std::map<int, int> vertexGlobal2LocalIndexMap;
-        int vertices_on_process = readVertices(file, nVerticesTotal, vertexIndex2CoordinateMap, thisProcessVertexIndexSet, vertexGlobal2LocalIndexMap);
+        int nVertex = readVertices(file, nVertexTotal_, vertexIndex2CoordinateMap, thisProcessVertexIndexSet, vertexGlobal2LocalIndexMap);
 
 
         //==========================================================
         // Final Step: Insert boundary segments and elements
         //==========================================================
-        print_debug("----- Adding internal boundary elements to factory ---");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "----- Adding internal boundary elements to factory ---");
 
         addInternalElements(vertexGlobal2LocalIndexMap, vertexIndex2CoordinateMap, internalElementVector);
         addBoundaryElements(vertexGlobal2LocalIndexMap, vertexIndex2CoordinateMap, boundaryElementVector, linkedElementLocalIndexSet);
 
 
-        print_debug(":: total vertices          = " + std::to_string(nVerticesTotal)          + " of which on this process " + std::to_string(vertices_on_process) );
-        print_debug(":: total internal elements = " + std::to_string(nInternalElementTotal) + " of which on this process " + std::to_string(nInternalElement) );
-        print_debug(":: total boundary elements = " + std::to_string(nBoundaryElement) + " of which on this process " + std::to_string(nBoundaryElement) );
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, ":: total vertices          = " + std::to_string(nVertexTotal_)          + " of which on this process " + std::to_string(nVertex) );
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, ":: total internal elements = " + std::to_string(nInternalElementTotal_) + " of which on this process " + std::to_string(nInternalElement) );
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, ":: total boundary elements = " + std::to_string(nBoundaryElementTotal_) + " of which on this process " + std::to_string(nBoundaryElement) );
 
 
-#ifdef HAVE_MPI
         Dune::CollectiveCommunication<MPI_Comm> comm = mpihelper_.getCollectiveCommunication();
         int nElementParallelSum  = comm.sum(nInternalElement);
         int nBoundaryParallelSum = comm.sum(nBoundaryElement);
 
         if (rank_ == MASTER_RANK) {
-            print_debug(" I am Master Process. Sum of internal elements = " +  std::to_string(nElementParallelSum) + ", sum of boundary elements = " +  std::to_string(nBoundaryParallelSum));
+            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " I am Master Process. Sum of internal elements = " +  std::to_string(nElementParallelSum) + ", sum of boundary elements = " +  std::to_string(nBoundaryParallelSum));
         }
-#endif
 
 
         // TESTING SECTION - WRITES TEST ELEMENTS TO .VTK FILE
@@ -1299,7 +1336,7 @@ namespace Dune
         {
         	vtkCurvWriter_.writeVTK("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
         	vtkCurvWriter_.writeParallelVTU("./curvreader_output", rank_, size_);
-            print_debug( ">>> wrote test output to .vtk " );
+            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__,  ">>> wrote test output to .vtk " );
         }
 
         // Close file
@@ -1339,116 +1376,29 @@ namespace Dune
     // Therefore we avoid methods explicitly returning pointers to the grid
 
 
-
-    /** \brief Reads .GMSH grid, constructing its own factory to put it in
-     * Returns Grid from own factory
-     * */
-
-    /*
-    static Grid* read (const std::string& fileName,
-#ifdef HAVE_MPI
-                       MPIHelper &mpihelper,
-#endif
-                        bool verbose = true,
-                        bool insertBoundarySegment=true
-                       )
-    {
-        // make a grid factory
-        //Dune::GridFactory<Grid> factory;
-    	Dune::CurvilinearGridFactory<Grid> factory;
-
-        // create parse object
-#ifdef HAVE_MPI
-        CurvilinearGmshReaderParser<Grid> parser(factory,verbose,insertBoundarySegment, mpihelper);
-#else
-        CurvilinearGmshReaderParser<Grid> parser(factory,verbose,insertBoundarySegment);
-#endif
-
-        parser.read(fileName);
-
-        return factory.createGrid();
-    }
-
-    /*
-
-
-    /** \brief Reads .GMSH grid, constructing its own factory to put it in
-     *  Also receives physical_tag vector for both internal and boundary elements
-     *  Returns Grid from own factory
-     * */
-
-    /*
-
-    static Grid* read (const std::string& fileName,
-#ifdef HAVE_MPI
-                       MPIHelper &mpihelper,
-#endif
-                       std::vector<int>& boundaryElement2PhysicalEntityIndex,
-                       std::vector<int>& internalElement2PhysicalEntityIndex,
-                       bool verbose = true, bool insertBoundarySegment=true
-                       )
-    {
-        // make a grid factory
-        //Dune::GridFactory<Grid> factory;
-    	Dune::CurvilinearGridFactory<Grid> factory;
-
-        // create parse object
-#ifdef HAVE_MPI
-        CurvilinearGmshReaderParser<Grid> parser(factory,verbose,insertBoundarySegment, mpihelper);
-#else
-        CurvilinearGmshReaderParser<Grid> parser(factory,verbose,insertBoundarySegment);
-#endif
-
-        parser.read(fileName);
-
-        boundaryElement2PhysicalEntityIndex.swap(parser.boundaryIdMap());
-        internalElement2PhysicalEntityIndex.swap(parser.elementIndexMap());
-
-        return factory.createGrid();
-    }
-
-    /*
-
-    /** \brief Reads .GMSH grid, factory provided as argument */
-    static void read (Dune::CurvilinearGridFactory<Grid> & factory, const std::string& fileName,
-#ifdef HAVE_MPI
-                      MPIHelper &mpihelper,
-#endif
-                      bool verbose = true, bool insertBoundarySegment=true
-                     )
-    {
-#ifdef HAVE_MPI
-        CurvilinearGmshReaderParser<Grid> parser(factory,verbose,insertBoundarySegment, mpihelper);
-#else
-        CurvilinearGmshReaderParser<Grid> parser(factory,verbose,insertBoundarySegment);
-#endif
-
-        parser.read(fileName);
-    }
-
     /** \brief Reads .GMSH grid, factory provided as argument
      *  Also receives physical_tag vector for both internal and boundary elements
      * */
     static void read (Dune::CurvilinearGridFactory<Grid> & factory,
                       const std::string& fileName,
-#ifdef HAVE_MPI
                       MPIHelper &mpihelper,
-#endif
                       std::vector<int>& boundaryElement2PhysicalEntityIndex,
                       std::vector<int>& internalElement2PhysicalEntityIndex,
-                      bool verbose = true, bool insertBoundarySegment=true
+                      int & nVertexTotal,
+                      int & nElementTotal,
+                      bool verbose,
+                      bool insertBoundarySegment=true
                      )
     {
         // create parse object
-#ifdef HAVE_MPI
-        CurvilinearGmshReaderParser<Grid> parser(factory,verbose,insertBoundarySegment, mpihelper);
-#else
-        CurvilinearGmshReaderParser<Grid> parser(factory,verbose,insertBoundarySegment);
-#endif
-          parser.read(fileName);
+        CurvilinearGmshReaderParser<Grid> parser(factory,verbose, true, insertBoundarySegment, mpihelper);
+        parser.read(fileName);
 
-          boundaryElement2PhysicalEntityIndex.swap(parser.boundaryIdMap());
-          internalElement2PhysicalEntityIndex.swap(parser.elementIndexMap());
+        boundaryElement2PhysicalEntityIndex.swap(parser.boundaryIdMap());
+        internalElement2PhysicalEntityIndex.swap(parser.elementIndexMap());
+
+        nVertexTotal = parser.totalVertex();
+        nElementTotal = parser.totalElement();
     }
   };
 

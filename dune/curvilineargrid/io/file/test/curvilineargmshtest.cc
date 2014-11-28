@@ -43,63 +43,42 @@
 #include <dune/curvilineargrid/io/file/curvilineargmshreader.hh>
 
 
-// dune grid includes
-#if HAVE_UG
-#include <dune/grid/uggrid.hh>
-#endif
-#if HAVE_ALBERTA
-#include <dune/grid/albertagrid.hh>
-#endif
+
 // Old ALUGRID
-#if HAVE_ALUGRID
-#warning "Including old AluGrid from dune/grid"
-#include <dune/grid/alugrid.hh>
-#include <dune/grid/alugrid/3d/alu3dgridfactory.hh>
-#endif
+// #if HAVE_ALUGRID
+// #warning "Including old AluGrid from dune/grid"
+// #include <dune/grid/alugrid.hh>
+// #include <dune/grid/alugrid/3d/alu3dgridfactory.hh>
+// #endif
 // New ALUGRID
-#ifdef HAVE_DUNE_ALUGRID
-#include <dune/alugrid/grid.hh>
-#endif
-
-#include <dune/grid/onedgrid.hh>
-
-// alberta related stuff
-#ifndef ALBERTA_DIM
-#define ALBERTA_DIM 2
-#endif
-
-#ifndef GRIDDIM
-#define GRIDDIM ALBERTA_DIM
-#endif
-
-// grape include
-#if HAVE_GRAPE
-#include <dune/grid/io/visual/grapegriddisplay.hh>
-#endif
-
-
-
-
-
-
-
-
+// #ifdef HAVE_DUNE_ALUGRID
+// #include <dune/alugrid/grid.hh>
+// #endif
 
 /** \brief provide hades3d namespace */
 using namespace Dune;
 
 
-/************************* define specific grid file names *************************/
 
-/** \brief straight sided grids **/
 
-//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32.msh";
-//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32ord2.msh";
-//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32ord3.msh";
-//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32ord4.msh";
-//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere32ord5.msh";
-const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere2000ord5.msh";
-//const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/bullseye-rev-400.msh";
+// Define path to meshes
+const std::string CURVILINEARGRID_TEST_GRID_PATH = std::string(DUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH) + "curvilinear/";
+
+// Define mesh file names
+const std::string    GMSH_FILE_NAME_SPHERE32_ORD1     =    "sphere32.msh";
+const std::string    GMSH_FILE_NAME_SPHERE32_ORD2     =    "sphere32ord2.msh";
+const std::string    GMSH_FILE_NAME_SPHERE32_ORD3     =    "sphere32ord3.msh";
+const std::string    GMSH_FILE_NAME_SPHERE32_ORD4     =    "sphere32ord4.msh";
+const std::string    GMSH_FILE_NAME_SPHERE32_ORD5     =    "sphere32ord5.msh";
+const std::string    GMSH_FILE_NAME_SPHERE2000_ORD5   =    "sphere2000ord5.msh";
+const std::string    GMSH_FILE_NAME_BULLSEYE400_ORD1  =    "bullseye-rev-400.msh";
+
+
+
+
+
+
+
 
 
 
@@ -108,17 +87,17 @@ const std::string    GMSH_FILE_NAME    =    "../curvilinear_meshes/sphere2000ord
 
 /** Layout function returns true for all elements with codimensions. */
 
-template<int dim>
-struct P0Layout { bool contains (Dune::GeometryType gt) { return gt.dim()==dim; } };
+//template<int dim>
+//struct P0Layout { bool contains (Dune::GeometryType gt) { return gt.dim()==dim; } };
 
-template<int dim>
-struct P1Layout { bool contains (Dune::GeometryType gt) { return gt.dim()==dim-1; } };
+//template<int dim>
+//struct P1Layout { bool contains (Dune::GeometryType gt) { return gt.dim()==dim-1; } };
 
-template<int dim>
-struct P2Layout { bool contains (Dune::GeometryType gt) { return gt.dim()==dim-2; } };
+//template<int dim>
+//struct P2Layout { bool contains (Dune::GeometryType gt) { return gt.dim()==dim-2; } };
 
-template<int dim>
-struct P3Layout { bool contains (Dune::GeometryType gt) { return gt.dim()==dim-3; } };
+//template<int dim>
+//struct P3Layout { bool contains (Dune::GeometryType gt) { return gt.dim()==dim-3; } };
 
 
 
@@ -126,16 +105,15 @@ struct P3Layout { bool contains (Dune::GeometryType gt) { return gt.dim()==dim-3
  * a vtk file. */
 int main(int argc, char** argv)
 {
-
-#ifdef HAVE_MPI
     // initialize MPI, finalize is done automatically on exit
     static MPIHelper &mpihelper=Dune::MPIHelper::instance(argc,argv);
     int rank=mpihelper.rank();
     int size=mpihelper.size();
-#else
-    int rank=0;
-    int size=1;
-#endif
+
+
+    // Assemble the file name
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD5;
+
 
     //! Define datatypes for grid mappers and  iterators to access all elements of a specific geometry type.
     //typedef Dune::LeafMultipleCodimMultipleGeomTypeMapper<Dune::GridSelector::GridType,P0Layout> ElementMapper;
@@ -145,44 +123,33 @@ int main(int argc, char** argv)
 
 
 
-    typedef  Dune::ALUGrid<3,3,simplex,nonconforming> ALUSimplexGridType;
+    // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
+    typedef Dune::CurvilinearFakeGrid<3,3,double>  SimplexGridType;
 
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridFactory<ALUSimplexGridType> factory(mpihelper);
-
-
-
-    /** \brief open the GMSH formatted curvilinear tetrahedral mesh file */
+    Dune::CurvilinearGridFactory<SimplexGridType> factory(true, true, mpihelper);
 
 
     /** \brief open the GMSH formatted tetrahedral mesh file into a grid factory */
     std::vector<int> boundaryId2physicalEntity;
-    boundaryId2physicalEntity.clear();
-
     std::vector<int> elementIndex2PhysicalEntity;
-    elementIndex2PhysicalEntity.clear();
 
-#ifdef HAVE_MPI
-    Dune::CurvilinearGmshReader< ALUSimplexGridType >::read(factory,
-                                                            GMSH_FILE_NAME,
+    int nVertexTotal;
+    int nElementTotal;
+
+    Dune::CurvilinearGmshReader< SimplexGridType >::read(factory,
+                                                            filename,
                                                             mpihelper,
                                                             boundaryId2physicalEntity,
                                                             elementIndex2PhysicalEntity,
+                                                            nVertexTotal,
+                                                            nElementTotal,
                                                             true,
                                                             true);
-#else
-    Dune::CurvilinearGmshReader< ALUSimplexGridType >::read(factory,
-                                                            GMSH_FILE_NAME,
-                                                            boundaryId2physicalEntity,
-                                                            elementIndex2PhysicalEntity,
-                                                            false,
-                                                            true);
-#endif
 
-
-    factory.createGrid();
+    factory.createGrid(nVertexTotal, nElementTotal);
 
     /** \brief leave program peacefully */
     return(0);

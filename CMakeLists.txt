@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 2.8.6)
 project(dune-curvilineargrid CXX)
 
+
+#find_package(ParMETIS 4.0.3 COMPONENTS system REQUIRED)
+#target_link_libraries(target ${ParMETIS_LIBRARIES})
+
+
 if(NOT (dune-common_DIR OR dune-common_ROOT OR
       "${CMAKE_PREFIX_PATH}" MATCHES ".*dune-common.*"))
     string(REPLACE  ${CMAKE_PROJECT_NAME} dune-common dune-common_DIR

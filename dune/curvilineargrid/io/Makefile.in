@@ -18,22 +18,16 @@
 # $Id$
 
 # -*- Makefile -*-
-# $Id$
-
 #
 # this file should be included into any Makefile.am so that we can
 # easily introduce new global rules. DO NOT OVERUSE!
 #
 
 # -*- Makefile -*-
-# $Id$
 
 # -*- Makefile -*-
-# $Id: sourcescheck 5183 2008-04-27 17:37:08Z christi $
 
 # -*- Makefile -*-
-# $Id$
-
 #
 # check-log
 #
@@ -60,7 +54,6 @@
 #
 
 # -*- Makefile -*-
-# $Id: global-rules 5267 2008-09-10 10:45:42Z christi $
 
 VPATH = @srcdir@
 am__make_dryrun = \
@@ -1157,7 +1150,7 @@ maintainer-clean-local: doc-clean-am
 
 ###
 # build doc / web-install recursively
-doc-clean-am: clean-am doc-clean-documentation doc-clean-local
+doc-clean-am: doc-clean-documentation doc-clean-local
 doc-am: doc-all-documentation doc-local
 web-install-am: web-install-local
 

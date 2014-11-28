@@ -1,4 +1,15 @@
-// curvilinear gmsh reader functionality - in this implementation of the curvilinear gmsh reader we ONLY read higher order triangles and tetrahedra
+/*******************************************************************
+ * Curvilinear VTK writer
+ * 
+ * author: Aleksejs Fomins
+ * date: 01.09.2014 - created
+ * 
+ * description:
+ * Generates VTK, VTU and PVTU files to visualise curvilinear elements.
+ * Curvilinear elements added to the writer are automatically discretized using
+ * fixed interval linear elements, which are consequently written to a file
+ * 
+ *******************************************************************/
 
 
 #ifndef DUNE_CURVILINEARVTKWRITER_HH
@@ -20,11 +31,28 @@
 
 #include <dune/geometry/type.hh>
 
-#include <dune/geometry/polynomialinterpolation/curvilinearelementinterpolator.hh>
+#include <dune/curvilineargeometry/interpolation/curvilinearelementinterpolator.hh>
+#include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 
 namespace Dune
 {
 
+  
+  struct VtkEntityStructuralType
+  {
+    enum {
+        Internal = 0,          // Elements internal to this process
+        DomainBoundary = 1,    // Faces on the boundary of the computational domain
+        ProcessBoundary = 2,   // Faces on the interprocessor boundary (not including overlap)
+        Ghost = 3,             // Elements borrowed from the neighboring process
+        Overlap = 4,           // Elements overlapping between processes
+        Front = 5,             // Faces on the overlap boundary
+        Periodic = 6           // Boundary faces which are periodic
+    };
+  };
+  
+  
+  
   template<int cdim>
   class CurvilinearVTKWriter
   {
@@ -35,20 +63,10 @@ namespace Dune
  */
   public:
 
-	  const std::string VTK_XML_VERSION = "1.0";
-	  const std::string VTK_GRID_TYPE = "UnstructuredGrid";
-	  const std::string VTK_VTU_VERSION = "0.1";
-	  const std::string VTK_BYTE_ORDER = "LittleEndian";
-
-	  enum VTK_ENTITY_STRUCTURAL_TYPE {
-	   	ENTITY_INTERNAL = 0,			// Elements internal to this process
-	   	ENTITY_DOMAIN_BOUNDARY = 1,	// Faces on the boundary of the computational domain
-	   	ENTITY_PROCESS_BOUNDARY = 2,   // Faces on the interprocessor boundary (not including overlap)
-	   	ENTITY_GHOST = 3,              // Elements borrowed from the neighboring process
-	   	ENTITY_OVERLAP = 4,			// Elements overlapping between processes
-	   	ENTITY_FRONT = 5,				// Faces on the overlap boundary
-	   	ENTITY_PERIODIC_BOUNDARY = 6   // Boundary faces which are periodic
-	  };
+      const std::string VTK_XML_VERSION = "1.0";
+      const std::string VTK_GRID_TYPE = "UnstructuredGrid";
+      const std::string VTK_VTU_VERSION = "0.1";
+      const std::string VTK_BYTE_ORDER = "LittleEndian";
 
 
   protected:
@@ -292,7 +310,7 @@ namespace Dune
 
       bool isBoundary(int thisElmStructuralType)
       {
-    	  return thisElmStructuralType == ENTITY_DOMAIN_BOUNDARY;
+    	  return thisElmStructuralType == VtkEntityStructuralType::DomainBoundary;
       }
 
       // Test Function - Takes a triangle with all its interpolatory points, splits it into visualisation triangles
@@ -351,9 +369,10 @@ namespace Dune
           // Expand all boundary surfaces a little bit so that they do not interlay with element surfaces
           double BOUNDARY_MAGNIFICATION = isBoundary(thisElmStructuralType) ? 1.2 : 1.0;
 
-          ElemGridEnumerate  simplexEnumerate        = thisElementInt.simplexGridEnumerate(nInterval);
-          ElemGridEnumerate  simplexEnumerateReduced = thisElementInt.simplexGridEnumerate(nInterval-1);
-          std::vector< LocalVector > simplexLocalGrid = thisElementInt.simplexGridCoordinateSet(simplexEnumerate, nInterval);
+
+          ElemGridEnumerate  simplexEnumerate        = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval);
+          ElemGridEnumerate  simplexEnumerateReduced = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval-1);
+          std::vector< LocalVector > simplexLocalGrid = Dune::CurvilinearGeometryHelper::simplexGridCoordinateSet<double, mydim>(simplexEnumerate, nInterval);
 
           for (int i = 0; i < simplexEnumerate.size(); i++)
           {
@@ -402,8 +421,8 @@ namespace Dune
         	  	  case 2:  addTriangularInterpolationTriangleSet(simplexEnumerateReduced, parametricToIndex, thisElmPhysTag, thisElmStructuralType, nDiscretizationPoints);  break;
         	  	  case 3:
         	  	  {
-        	  		  ElemGridEnumerate triangleEnumerate = CurvilinearElementInterpolator<double, 2, 3>::simplexGridEnumerate(nInterval);
-        	  		  ElemGridEnumerate triangleEnumerateReduced = CurvilinearElementInterpolator<double, 2, 3>::simplexGridEnumerate(nInterval - 1);
+        	  		  ElemGridEnumerate triangleEnumerate = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<2>(nInterval);
+        	  		  ElemGridEnumerate triangleEnumerateReduced = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<2>(nInterval - 1);
 
         	          Coord2GlobalMapVector consistingTriangles = tetrahedralInterpolationFaceSet(triangleEnumerate, nInterval, parametricToIndex);
 

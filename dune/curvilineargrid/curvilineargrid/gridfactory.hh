@@ -35,16 +35,12 @@
 
 //#include <dune/grid/utility/globalindex.hh>
 
-#include <dune/alugrid/common/transformation.hh>
-#include <dune/alugrid/3d/alugrid.hh>
-#include <dune/alugrid/3d/gridfactory.hh>
-#include <dune/alugrid/3d/gridfactory.cc>
+//#include <dune/alugrid/common/transformation.hh>
+//#include <dune/alugrid/3d/alugrid.hh>
+//#include <dune/alugrid/3d/gridfactory.hh>
+//#include <dune/alugrid/3d/gridfactory.cc>
 
-
-
-#include <parmetis.h>
-
-
+#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
 
 
 
@@ -53,57 +49,98 @@ namespace Dune
 {
 
 
-template< class ALUGrid >
+
+
+template <int dim, int dimworld, class ct>
+class CurvilinearFakeGrid
+{
+public:
+
+	typedef  ct            ctype;
+	enum      { dimension = dim};
+	enum      { dimensionworld = dimworld };
+
+	CurvilinearFakeGrid() {}
+};
+
+
+
+
+
+
+template< class GridType >
 class CurvilinearGridFactory
 {
   private:
 
-	typedef double ctype;
-
-    static const unsigned int dimension = 3;
-    static const unsigned int dimensionworld = 3;
+	// Typedefs and const variables
+	// -----------------------------------------------------------
+	typedef typename GridType::ctype      ctype;
+    static const int dimension = GridType::dimension;
+    static const int dimensionworld = GridType::dimensionworld;
 
 	typedef FieldVector< ctype, dimensionworld > VertexCoordinate;
 
-	typedef unsigned int VertexGlobalId;
-	typedef unsigned int VertexLocalIndex;
-	typedef unsigned int ElementLocalIndex;
+	typedef int VertexGlobalId;
+	typedef int VertexLocalIndex;
+	typedef int ElementLocalIndex;
+
+    bool verbose_;
+
+    // Parallel implementation
+    int rank_;
+    int size_;
 
 
-    // Parallel Implementation
-    MPIHelper &mpihelper_;
-    static const int MASTER_RANK = 0;
-
-    bool verbose_ = true;
+    // Variables
+    // -----------------------------------------------------------
+    Dune::CurvilinearGridBase<ctype> gridbase_;
 
   public:
 
-    CurvilinearGridFactory(MPIHelper &mpihelper) : mpihelper_(mpihelper) {}
+    CurvilinearGridFactory(
+    		bool withGhostElements,
+    		bool verbose,
+    		MPIHelper &mpihelper) :
+    			gridbase_(withGhostElements, verbose, mpihelper),
+    			verbose_(verbose)
+    {
+    	rank_ = mpihelper.rank();
+    	size_ = mpihelper.size();
+    }
 
     ~CurvilinearGridFactory ()  {}
 
-    void insertVertex ( const VertexCoordinate &pos, const VertexGlobalId globalId )   { }
+    void insertVertex ( const VertexCoordinate &pos, const VertexGlobalId globalId )
+    {
+    	gridbase_.insertVertex(pos, globalId);
+    }
 
     void insertElement(
       GeometryType &geometry,
-      const int globalId,
-      const std::vector< VertexLocalIndex > &elementVertexId,
-      const int elemOrder)
+      const int globalId,          // Not actually used
+      const std::vector< VertexLocalIndex > &vertexIndexSet,
+      const int elemOrder,
+      const int physicalTag)
     {
-
+    	gridbase_.insertElement(geometry, globalId, vertexIndexSet, elemOrder, physicalTag);
     }
 
     void insertBoundarySegment(
         GeometryType &geometry,
-        const int globalId,
-        const std::vector< VertexGlobalId > &boundaryVertexId,
+        const int globalId,          // Not actually used
+        const std::vector< VertexGlobalId > &vertexIndexSet,
         const int elemOrder,
-        const ElementLocalIndex linkedElement)
+        const ElementLocalIndex associatedElementIndex,
+        const int physicalTag)
     {
-
+    	gridbase_.insertBoundarySegment(geometry, globalId, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag);
     }
 
-    void createGrid()  { }
+    void createGrid(int nVertexTotal, int nElementTotal)
+    {
+    	gridbase_.generateMesh(nVertexTotal, nElementTotal);
+    }
 
 
   private:
@@ -122,7 +159,7 @@ class CurvilinearGridFactory
     // TODO: Use IFDEF to manipulate between no output, all output, or only master process output
     void print_debug(std::string s)
     {
-        if (verbose_) { std::cout << "Process_" << mpihelper_.rank() << ": " << s << std::endl; }
+        if (verbose_) { std::cout << "Process_" << rank_ << ": " << s << std::endl; }
     }
 
 

@@ -7,4 +7,5 @@ Module: dune-curvilineargrid
 Version: 0.1
 Maintainer: aleksejs.fomins@lspr.ch
 #depending on
-Depends: dune-common dune-geometry dune-grid dune-alugrid
+Depends: dune-common dune-geometry dune-curvilineargeometry dune-grid
+#dune-alugrid

@@ -1,27 +1,5 @@
 set(HEADERS
-  backuprestore.hh
-  cachedcoordfunction.hh
-  capabilities.hh
-  cornerstorage.hh
-  coordfunction.hh
-  coordfunctioncaller.hh
-  datahandle.hh
-  declaration.hh
-  entity.hh
-  entitypointer.hh
-  entityseed.hh
-  geometry.hh
-  grid.hh
-  gridfamily.hh
-  gridview.hh
-  hostcorners.hh
-  identity.hh
-  idset.hh
-  indexsets.hh
-  intersection.hh
-  intersectioniterator.hh
-  iterator.hh
-  persistentcontainer.hh)
+  gridfactory.hh)
 
 install(FILES ${HEADERS}
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dune/grid/geometrygrid)
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dune/grid/curvilineargrid/curvilineargrid)

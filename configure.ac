@@ -34,16 +34,13 @@ AC_CONFIG_FILES([
   dune/Makefile
   dune/curvilineargrid/Makefile
   m4/Makefile
+  dune/curvilineargrid/curvilineargridbase/Makefile
   dune/curvilineargrid/test/Makefile
   dune/curvilineargrid/io/file/test/Makefile
-  dune/curvilineargrid/io/file/gnuplot/Makefile
-  dune/curvilineargrid/io/file/vtk/Makefile
   dune/curvilineargrid/io/file/Makefile
   dune/curvilineargrid/io/Makefile  
   dune-curvilineargrid.pc
 ])
-AC_CONFIG_FILES([dune/curvilineargrid/io/file/test/mpivtktest],
-    [chmod +x dune/curvilineargrid/io/file/test/mpivtktest])
 AC_OUTPUT
 # finally print the summary information
 DUNE_SUMMARY_ALL

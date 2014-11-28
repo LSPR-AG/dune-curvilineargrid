@@ -1,14 +1,9 @@
-add_subdirectory(test EXCLUDE_FROM_ALL)
-add_subdirectory(vtk)
-add_subdirectory(gnuplot)
+#add_subdirectory(test EXCLUDE_FROM_ALL)
+add_subdirectory(test)
 
 set(HEADERS
-  gmshreader.hh
-  gmshwriter.hh
   curvilineargmshreader.hh
-  curvilinearvtkreader.hh
-  gnuplot.hh
-  vtk.hh)
+  curvilinearvtkwriter.hh)
 
 install(FILES ${HEADERS}
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dune/grid/io/file)
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dune/curvilineargrid/io/file)

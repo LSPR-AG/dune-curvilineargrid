@@ -21,6 +21,13 @@ namespace Dune
 
 
 
+
+
+
+
+
+
+
 /** \brief Provide a logging message.
  * The output behaviour can be controlled with some compilation flags:
  *  HAVE_DEBUG:          We get all output including line number and file
@@ -37,32 +44,16 @@ namespace Dune
 
 class LoggingMessage
 {
-private:
+public:
     static const int MPI_MASTER_RANK = 0;
 
-    /** Define the text output for LoggingMessagePhase. */
-    static const std::vector<std::string> loggingMessagePhaseText =
-    {
-        "DEVELOPMENT",
-        "PRODUCTION "
-    };
+    static const std::vector<std::string> PHASE_TEXT;
+    static const std::vector<std::string> CATEGORY_TEXT;
 
-    static const std::vector<std::string> loggingMessageCategoryText = {
-        "DEBUG   ",
-        "MESSAGE ",
-        "WARNING ",
-        "ERROR   ",
-        "TIME    ",
-        "MEMORY  ",
-        "PARALLEL",
-        "CLEAN   "
-    };
-
-public:
 
     /** \brief Determine if the logging message is only used in the development
      *  phase or also during the production runs */
-    static struct Phase
+    struct Phase
     {
         enum
         {
@@ -72,7 +63,7 @@ public:
     };
 
     /** \brief Define the type of logging message */
-    static struct Category
+    struct Category
     {
         enum
         {
@@ -120,14 +111,14 @@ public:
             printedMessage.clear();
 
             /** Set the phase string text: */
-            std::string phasestring = loggingMessagePhaseText[phase];
+            std::string phasestring = Dune::LoggingMessage::PHASE_TEXT[phase];
             std::string categorystring = std::string("");
 
 
             /** Set the category string text: */
             if ((messageCat != Category::TIME) && (messageCat != Category::MEMORY))
             {
-                categorystring = loggingMessageCategoryText[messageCat];
+                categorystring = Dune::LoggingMessage::CATEGORY_TEXT[messageCat];
             } else
             {
                 // Get the time ...
@@ -167,13 +158,35 @@ public:
 
     };
 
-
-    
-    
-
-
-
 };
+
+
+
+
+
+/** Define the text output for LoggingMessagePhase. */
+const std::vector<std::string> LoggingMessage::PHASE_TEXT
+(
+	{
+		"DEVELOPMENT",
+		"PRODUCTION "
+	}
+);
+
+/** Define the text output for LoggingMessageCategory. */
+const std::vector<std::string> LoggingMessage::CATEGORY_TEXT
+(
+	{
+    	"DEBUG   ",
+    	"MESSAGE ",
+    	"WARNING ",
+    	"ERROR   ",
+    	"TIME    ",
+    	"MEMORY  ",
+    	"PARALLEL",
+    	"CLEAN   "
+	}
+);
 
 } // End namespace Dune.
 

@@ -23,3 +23,10 @@ endforeach(_test ${TESTS})
 if(HAVE_MPI)
     add_dune_parmetis_flags(curvilineargmshtest)
 endif(HAVE_MPI)
+
+# Add boost
+if(Boost_FOUND)
+   target_link_libraries(curvilineargmshtest ${Boost_LIBRARIES})
+endif()
+
+

@@ -1,9 +1,13 @@
 /***************************************************************************
-                          octant.h  -  description
+                          curvilinearoctant.hh  -  description
                              -------------------
     begin                : Wed Feb 25 2004
     copyright            : (C) 2004 by Roman Geus
     email                : roman.geus@psi.ch
+
+    edit                 : Mon Dec 1 2014
+    author               : Aleksejs Fomins
+    action               : Conversion to Dune Standard
 ***************************************************************************/
 
 /***************************************************************************
@@ -15,121 +19,132 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef OCTANT_H
-#define OCTANT_H
+#ifndef DUNE_CURVILINEAROCTANT_HH
+#define DUNE_CURVILINEAROCTANT_HH
 
 #include <vector>
 #include <ostream>
-#include "vector3.h"
 
-namespace mesh {
+#include <dune/common/fvector.hh>
 
-/** 
- * An octant in a LooseOctree
- * @author Roman Geus
- */
 
-template <typename NodeType>
-class Octant {
+
+
+namespace Dune {
+
+
+template <class ct, int cdim, typename NodeType>
+class CurvilinearOctant {
 public:
-    /** Constructor for the root Octant
-     */
-    Octant(const Vector3& center, double length);
-    /** Constructor for non-root Octants
-     */
-    Octant(Octant* parent, int idx);
+
+	// Typedefs
+	// ***************************************************
+
+	typedef Dune::FieldVector<ct, cdim>   Vertex;
+
+
+
+	// Construction
+	// ***************************************************
+
+    /** Constructor for the root CurvilinearOctant */
+	CurvilinearOctant(const Vertex& center, double length) : parent_(0)
+	{
+	    // initialize all children to null.
+	    for (int i = 0; i < 8; i++)  { children_[i] = 0; }
+
+	    // set bounding box
+	    center_ = center;
+	    length_ = length;
+	}
+
+
+    /** Constructor for non-root Octants */
+	CurvilinearOctant(CurvilinearOctant* parent, int childindex) : parent_(parent)
+    {
+        // initialize all children to null.
+        for (int i = 0; i < 8; i ++)  { children_[i] = 0; }
+
+        // set bounding box
+        length_ = 0.5 * parent->length_;
+
+        for (int i = 0; i < 3; i++)
+        {
+        	// childindex is 3 booleans stuck together into an integer.
+        	// Each boolean for one of coordinates (x,y,z)
+        	// Determines which of the possible 8 sub-octants this CurvilinearOctant is.
+            if (childindex & (0x1 << i))  { center_[i] = parent->center_[i] + length_; }
+            else                          { center_[i] = parent->center_[i] - length_; }
+        }
+    }
+
+
     /** Destructor: deallocates children Octants
      */
-    ~Octant();
-    /** Return child octant index corresponding to "node_center"
-     */
-    int get_child_index_for_point(const Vector3& node_center);
-    /** Add node to this octant
-     */
-    void add_node(NodeType* node);
-    /** Dump octant info including ancestor info
-     */
-    void dump(std::ostream& str);
+    ~CurvilinearOctant()
+    {
+        for (int i = 0; i < 8; i ++)  { delete children_[i]; }
+        parent_ = 0;
+    }
 
-    /** center of octant, x-, y- and z-coordinates */
-    Vector3 _center;
-    /** half of the side length of the octant */
-    double _length;
+
+
+	// Implementation
+	// ***************************************************
+
+    /** Return child CurvilinearOctant index corresponding to "nodecenter_"
+     */
+    int childIndex(const Vertex& nodecenter_)
+    {
+        int rez = 0;
+        Vertex disp = nodecenter_ - center_;
+
+        if ( disp[0] > 0 )  { rez += 1; }  // x
+        if ( disp[1] > 0 )  { rez += 2; }  // y
+        if ( disp[2] > 0 )  { rez += 4; }  // z
+        return rez;
+    }
+
+
+    /** Add node to this CurvilinearOctant
+     */
+    void addNode(NodeType* node)  { node_.push_back(node); }
+
+
+    /** Dump CurvilinearOctant info including ancestor info
+     */
+    void dump(std::ostream& str)
+    {
+        CurvilinearOctant* CurvilinearOctant = this;
+
+        do {
+            str << "CurvilinearOctant(["
+                << CurvilinearOctant->center_[0] << ","
+                << CurvilinearOctant->center_[1] << ","
+                << CurvilinearOctant->center_[2] << ","
+                << "], " << CurvilinearOctant->length_ << ")\n";
+            CurvilinearOctant = CurvilinearOctant->parent_;
+        } while (CurvilinearOctant != 0);
+    }
+
+
+
+
+
+
+    /** center of CurvilinearOctant, x-, y- and z-coordinates */
+    Vertex center_;
+    /** half of the side length of the CurvilinearOctant */
+    double length_;
     /** Parent node */
-    Octant* _parent;
+    CurvilinearOctant* parent_;
     /** 8 child octants */
-    Octant* _children[8];
-    /** Nodes stored in the octant */
-    std::vector<NodeType *> _nodes;
+    CurvilinearOctant* children_[8];
+    /** Nodes stored in the CurvilinearOctant */
+    std::vector<NodeType *> node_;
 };
 
-template <typename NodeType>
-Octant<NodeType>::Octant(const Vector3& center, double length)
-    : _parent(0)
-{
-    // initialize all children to null.
-    for (int i = 0; i < 8; i ++)
-        _children[i] = 0;
-    // set bounding box
-    _center = center;
-    _length = length;
-}
 
-template <typename NodeType>
-Octant<NodeType>::Octant(Octant* parent, int idx)
-    : _parent(parent)
-{
-    // initialize all children to null.
-    for (int i = 0; i < 8; i ++)
-        _children[i] = 0;
-    // set bounding box
-    _length = 0.5 * parent->_length;
-    for (int i = 0; i < 3; i ++)
-        if (idx & (0x1 << i))
-            _center[i] = parent->_center[i] + _length;
-        else
-            _center[i] = parent->_center[i] - _length;
-}
-
-template <typename NodeType>
-Octant<NodeType>::~Octant() {
-    for (int i = 0; i < 8; i ++)
-        delete _children[i];
-    _parent = 0;  
-}
-
-template <typename NodeType>
-int Octant<NodeType>::get_child_index_for_point(const Vector3& point) {
-    int child_idx = 0;
-    Vector3 disp = point - _center;
-    if ( disp.x > 0 )
-        child_idx += 1;
-    if ( disp.y > 0 )
-        child_idx += 2;
-    if ( disp.z > 0 )
-        child_idx += 4;
-    return child_idx;
-}
-
-template <typename NodeType>
-void Octant<NodeType>::add_node(NodeType* node) {
-    _nodes.push_back(node);    
-}
-
-template <typename NodeType>
-void Octant<NodeType>::dump(std::ostream& str) {
-    Octant* octant = this;
-        
-    do {
-        str << "Octant([" 
-            << octant->_center.x << "," 
-            << octant->_center.y << "," 
-            << octant->_center.z << "," 
-            << "], " << octant->_length << ")\n";
-        octant = octant->_parent;
-    } while (octant != 0);
-}
-
-} // namespace mesh
+} // namespace Dune
 
 #endif

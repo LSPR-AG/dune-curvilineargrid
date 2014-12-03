@@ -49,7 +49,8 @@
 #include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 #include <dune/curvilineargeometry/curvilineargeometry.hh>
 
-//#include <dune/curvilineargrid/curvilineargridbase/curvilinearlooseoctree.hh>
+#include <dune/curvilineargrid/curvilineargridbase/curvilinearoctreenode.hh>
+#include <dune/curvilineargrid/curvilineargridbase/curvilinearlooseoctree.hh>
 
 
 /* ***************************************************************************
@@ -60,7 +61,7 @@
  *     - All elements and faces possess physicalTag - integer associated to their material property
  *     - InterProcessBoundaries automatically generate
  *     - GhostElements automatically communicated and generated (optional)
- *     - GlobalIndex automatically generated for edges and faces
+ *     - GlobalIndex automatically generated for edges, faces and elements
  *     - OCTree functionality allows to find element and its local coordinate corresponding to a given global coordinate
  *     - Supports non-uniformly p-refinemed meshes (not tested)
  *
@@ -71,6 +72,7 @@
  *  - [TODO] Does NOT support refinement - it is not possible to dynamically refine or coarsen the mesh at the moment
  *  - [TODO] Does NOT support hanging nodes - it is not possible to load non-uniform h-refined mesh at the moment
  *  - [TODO] Does NOT support overlapping elements at the moment
+ *  - [TODO] Does NOT support non-tetrahedral meshes. Generalization to arbitrary and mixed geometry meshes is possible but will be cumbersome
  *
  *
  *
@@ -126,6 +128,7 @@ struct CurvilinearGridStorage
   struct Face
   {
       int globalIndex;
+      int structuralType;
       int element1Index;
       int element2Index;
       int element1SubentityIndex;
@@ -247,6 +250,10 @@ public:
     typedef std::map<int, int> Index2IndexMap;
 
 
+    typedef Dune::CurvilinearOctreeNode<ct>                       NodeType;
+    typedef Dune::CurvilinearLooseOctree<ct, 3, NodeType>         CurvilinearLooseOctree;
+
+
 
 public: /* public methods */
 
@@ -274,7 +281,7 @@ public: /* public methods */
     /** Destructor */
     ~CurvilinearGridBase() {
         // ** delete octree **
-        // if (octree_)  { delete octree_; }
+        if (octree_)  { delete octree_; }
         //instance_ = 0;
     }
 
@@ -418,6 +425,7 @@ public:
                 // Store Vector (faceId -> associated element)
                 FaceStorage thisFaceAsSubentity;
                 thisFaceAsSubentity.globalIndex  = 0;                  // At this stage the globalId is not known yet
+                thisFaceAsSubentity.structuralType = CurvilinearGridFaceType::DomainBoundary;
                 thisFaceAsSubentity.element1Index = associatedElementIndex;
                 thisFaceAsSubentity.element2Index = -1;              // Boundary Segments do not have a 2nd neighbor
                 thisFaceAsSubentity.element1SubentityIndex = j;
@@ -438,17 +446,42 @@ public:
     /** Calls the subroutines for transforming the inserted data into a functional mesh.
      *  Note: It is expected, that all necessary data (vertices, elements and boundary segments) have been added before this function is called.
      * */
-    void generateMesh(int nVertexTotal, int nElementTotal) {
-        typedef FaceKey2FaceIdMap::iterator IterType;
 
-        // Store the total number of entities obtained from the reader
+    // 1) Generate all edges
+    // 2) Generate all faces - process boundary and internal (as domain boundary already inserted)
+    // 3) Generate process boundary corner set - from process boundary faces
+    // 4) Generate process boundary edge set  - from process boundary faces
+    // 5) Generate Global Indices
+    //	    - Communicate neighbor ranks for all process boundary corners
+    //      - Compute neighbor ranks for all edges from set intersection. Mark as owned if your rank is top
+    //      - Compute neighbor ranks for all faces from set intersection. Mark as owned if your rank is top
+    //      - [Nothing changes here] Enumerate owned
+    //      - Communicate non-owned. No such thing as complex vertex at this stage - just communicate to all other processes who own it
+    // 6) Generate Ghost Elements
+    // 7) Construct OCTree
+
+    void generateMesh(int nVertexTotal, int nElementTotal) {
+
+        // Temporary maps for Global Index construction
+        // ************************************************************
+    	typedef FaceKey2FaceIdMap::iterator IterType;
+
+        Index2IndexMap processBoundaryCornerMap;                            // (vertex global index -> processBoundaryCornerNeighborRank_ index)
+        EdgeKey2EdgeIdMap processBoundaryEdgeMap;                           // (EdgeKey             -> processBoundaryEdgeNeighborRank_ index)
+
+
+        // Construct missing parts of the mesh
+        // ************************************************************
+
     	nVertexTotal_ = nVertexTotal;
     	nElementTotal_ = nElementTotal;
 
-        // Construct missing parts of the mesh
         generateEdges();
         generateFaces();
 #if HAVE_MPI
+        generateProcessBoundaryCorners(processBoundaryCornerMap);
+        generateProcessBoundaryEdges(processBoundaryEdgeMap);
+
         generateProcessBoundaryNeighbors();
         if (withGhostElements_) { generateGhostElements(); }
         generateGlobalIndices();
@@ -463,20 +496,12 @@ public:
         for (int i = 0; i < face_.size(); i++)     { face_[i].globalIndex = i;     faceGlobal2LocalMap_[i] = i; }
         for (int i = 0; i < element_.size(); i++)  { element_[i].globalIndex = i;  elementGlobal2LocalMap_[i] = i; }
 #endif
-        //constructoctree_();
+        constructOctree();
 
 
         // Deletes all temporary memory
+        // ************************************************************
         edgemap_.clear();
-
-        internalFaceIndex_.reserve(internalInternalMap_.size());
-        domainBoundaryFaceIndex_.reserve(boundaryInternalMap_.size());
-        processBoundaryFaceIndex_.reserve(processInternalMap_.size());
-
-        for (IterType it = internalInternalMap_.begin(); it != internalInternalMap_.end();  it++) { internalFaceIndex_.push_back((*it).second); }
-        for (IterType it = boundaryInternalMap_.begin(); it != boundaryInternalMap_.end();  it++) { domainBoundaryFaceIndex_.push_back((*it).second); }
-        for (IterType it = processInternalMap_.begin();  it != processInternalMap_.end();   it++) { processBoundaryFaceIndex_.push_back((*it).second); }
-
         internalInternalMap_.clear();
         boundaryInternalMap_.clear();
         processInternalMap_.clear();
@@ -505,8 +530,49 @@ public:
     Vertex vertex(int localIndex) const { return point_[localIndex]; }
 
 
+    int facePhysicalTag(int localIndex) const { return face_[localIndex].physicalTag;}
+
+    int elementPhysicalTag(int localIndex) const { return element_[localIndex].physicalTag;}
+
+    int ghostElementPhysicalTag(int localIndex) const { return ghostElement_[localIndex].physicalTag;}
+
+    int faceStructuralType(int localIndex) const { return face_[localIndex].structuralType; }
+
+    /** \brief local index of the element that is neighbor to this face
+     *
+     * \param[in]    localIndex               local index of this face
+     * \param[in]    internalNeighborIndex    {0,1} - determines which of the two neighbors to address
+     *
+     * \return local index of the element that is neighbor to this face.
+     * NOTE: If the neighbor is a GHOST ELEMENT, the returned int will be for the GhostElementLocalIndex
+     * and not the ElementIndex
+     *
+     *
+     *
+     * Conventions of internalNeighborIndex for face types
+     * * For Domain Boundary there is only one neighbor
+     * * For Process Boundary 2nd neighbor is always the Ghost Element
+     * * For Internal Face there is no convention on order of the neighbors
+     * TODO: Check if this contradicts Dune convention in any way
+     *
+     *  */
+    int faceNeighbor(int localIndex, int internalNeighborIndex)
+    {
+    	int rez;
+
+    	switch(internalNeighborIndex)
+    	{
+    	case 0 : rez = face_[localIndex].element1Index;  break;
+    	case 1 : rez = face_[localIndex].element2Index;  break;
+    	default: DUNE_THROW(Dune::IOError, "CurvilinearGrid: faceNeighbor() unexpected neighbor index");  break;
+    	}
+
+    	return rez;
+    }
+
+
     /** Storage data related to this edge, except of explicit vertex coordinates
-     *  \param[in] localIndex            local vertex index (insertion index)
+     *  \param[in] localIndex            local edge index
      *
      *  Note: This data is stored only partially - vertex indices are extracted from associated element
      * */
@@ -520,7 +586,8 @@ public:
         thisEdge.physicalTag = -1;        // Note: Edges do not have a physical tag
 
         // Get the internal element vertex indices associated with this face as a subentity
-        std::vector<int> subentityVertexIndices = Dune::CurvilinearElementInterpolator<ct, 1, 3>::subentityInternalCoordinates(assocElement.geometryType, thisEdge.interpOrder, 2, edge_[localIndex].subentityIndex );
+        std::vector<int> subentityVertexIndices =
+        	Dune::CurvilinearGeometryHelper::subentityInternalCoordinateSet<ct, 3>(assocElement.geometryType, thisEdge.interpOrder, 2, edge_[localIndex].subentityIndex );
 
         // Calculate the localIndices's of vertices of this face by extracting them from the element vertex Ids
         for(int i = 0; i < subentityVertexIndices.size(); i++) { thisEdge.vertexIndexSet.push_back(assocElement.vertexIndexSet[subentityVertexIndices[i]]); }
@@ -531,7 +598,7 @@ public:
 
 
     /** Storage data related to this face, except of explicit vertex coordinates
-     *  \param[in] localIndex            local vertex index (insertion index)
+     *  \param[in] localIndex            local face index
      *
      *  Note: This data is stored only partially - vertex indices are extracted from associated element
      * */
@@ -545,7 +612,8 @@ public:
         thisFace.physicalTag = face_[localIndex].physicalTag;
 
         // Get the internal element vertex indices associated with this face as a subentity
-        std::vector<int> subentityVertexIndices = Dune::CurvilinearElementInterpolator<ct, 2, 3>::subentityInternalCoordinates(assocElement.geometryType, thisFace.interpOrder, 1, face_[localIndex].element1SubentityIndex);
+        std::vector<int> subentityVertexIndices =
+        	Dune::CurvilinearGeometryHelper::subentityInternalCoordinateSet<ct, 3>(assocElement.geometryType, thisFace.interpOrder, 1, face_[localIndex].element1SubentityIndex);
 
         // Calculate the localIndices's of vertices of this face by extracting them from the element vertex Ids
         for(int i = 0; i < subentityVertexIndices.size(); i++) { thisFace.vertexIndexSet.push_back(assocElement.vertexIndexSet[subentityVertexIndices[i]]); }
@@ -555,11 +623,17 @@ public:
 
 
     /** Storage data related to this element, except of explicit vertex coordinates
-     *  \param[in] localIndex            local vertex index (insertion index)
+     *  \param[in] localIndex            local element index
      *
      * */
     EntityStorage elementData(int localIndex) { return element_[localIndex]; }
 
+
+    /** Storage data related to this element, except of explicit vertex coordinates
+     *  \param[in] localIndex            local ghost element index
+     *
+     * */
+    EntityStorage ghostElementData(int localIndex) const { return ghostElement_[localIndex];}
 
     // Construct and retrieve geometry class associated to this edge
     EdgeGeometry edgeGeometry(int localIndex)
@@ -585,87 +659,77 @@ public:
     /** Return pointer to Octree or 0 if it is not constructed. */
     //LooseOctree<Tet>* getoctree_() const { return octree_; }
 
-
-    /** Compute center and extent (halved) of the bounding box of the whole mesh.
-     *  \param[in] center            output: coordinate of the center of the box
-     *  \param[in] extent            output: coordinate-displacement from the center
-     *  Note: This data is stored only partially - vertex indices are extracted from associated element
-     * */
-    void meshBoundingBox(Vertex & center, Vertex & extent) const
+    void processBoundingBox(Vertex & center, Vertex & extent) const
     {
-        Vertex min = point_[0];
-        Vertex max = min;
-
-        for (int i = 1; i < point_.size(); i ++) {
-            min[0] = std::min(min[0], point_[i][0]);
-            min[1] = std::min(min[1], point_[i][1]);
-            min[2] = std::min(min[2], point_[i][2]);
-
-            max[0] = std::max(max[0], point_[i][0]);
-            max[1] = std::max(max[1], point_[i][1]);
-            max[2] = std::max(max[2], point_[i][2]);
-        }
-        center = min + max;  center *= 0.5;
-        extent = max - min;  extent *= 0.5;
+    	center = boundingBoxCenter_;
+    	extent = boundingBoxExtent_;
     }
 
 
-    /** Return edge connecting node0 and node1. A runtime_error is
-     *  thrown if the edge does not exist.
-     */
+    /** Searches for elements containing this global coordinate
+     *
+     * \param[in]    globalC         the global coordinate of the point looked for
+     * \param[in]    containerIndex  returns all element indices in which the point was found.
+     * In principle there can be more than one if the point is close to the boundary between elements.
+     * \param[in]    localC          returns local coordinates associated with this point within all elements it is found in
+     *
+     * \returns      Whether the point found at all on this process. If not, return arrays should be empty
+     *
+     *
+     * Algorithm:
+     *
+     * 1) Check if this point is inside the bounding box
+     * 2) If yes, check if this point is inside OCTree
+     * 3) OCTree returns a list of candidate elements - those located in the lowest level octant the point is found in
+     * 4) Loop over candidate elements, use CurvilinearGeometry search functionality
+     * 5) If the point is found inside by CurvilinearGeometry, it also returns the associated local coordinate at no extra cost
+     * 6) All the elements in which the point is found, as well as the associated local coordinates are returned
+     *
+     * TODO: PBE file allows femaxx to count time. Use alternative in Dune?
+     * */
 
-    // FIXME: The maps will be deleted to save space. If the lookup functionality is not necessary it should just be deleted. Check which routines still use it
-    int lookupEdge(int node0, int node1) {
-        EdgeKey thisEdgeKey;
-        thisEdgeKey.node0 = node0;
-        thisEdgeKey.node1 = node1;
+    bool locateCoordinate(const Vertex & globalC, std::vector<int> & containerIndex, std::vector<Vertex> & localC) const {
 
-        if (thisEdgeKey.node0 > thisEdgeKey.node1)  { std::swap(thisEdgeKey.node0, thisEdgeKey.node1); }
+    	// If the point is not even in the process bounding box, then the coordinate is definitely not on this process
+    	if (isInsideProcessBoundingBoxGracious(globalC))
+    	{
+            assert(octree_);
 
-        EdgeKey2EdgeIdMap::iterator iter = edgemap_.find(thisEdgeKey);
-        if (iter == edgemap_.end())  { throw std::runtime_error("Accessed non-existing edge."); }
+            //pbe_start(132, "Octree traversal");
 
-        return (*iter).second;
-    }
+            // Get list of indices of elements which may contain the coordinate
+            // This corresponds to the elements at the lowest level of the OCTree
+            // Note that no internal element search is performed by the OCTree itself
+            int nNodeVisited = 0;
+            std::vector<int> elementIndices;
+            octree_->findNode(globalC, elementIndices, nNodeVisited, &isInsideProcessBoundingBoxGracious);
 
-    /** Return face connecting by node0, node1 and node2. A runtime_error is
-     *  thrown if the face does not exist.
-     */
-    int lookupFace(int node0, int node1, int node2){
-        FaceKey thisFaceKey;
-        thisFaceKey.node0 = node0;
-        thisFaceKey.node1 = node1;
-        thisFaceKey.node2 = node2;
 
-        // sort node ids in ascending order
-        if (thisFaceKey.node0 > thisFaceKey.node1)  { std::swap(thisFaceKey.node0, thisFaceKey.node1); }
-        if (thisFaceKey.node1 > thisFaceKey.node2)  { std::swap(thisFaceKey.node1, thisFaceKey.node2); }
-        if (thisFaceKey.node0 > thisFaceKey.node1)  { std::swap(thisFaceKey.node0, thisFaceKey.node1); }
 
-        // Check if the face is present in any of the 3 face maps, otherwise throw error
-        FaceKey2FaceIdMap::iterator iterInt = internalInternalMap_.find(thisFaceKey);
+            // Loop over candidate elements and search for local coordinate using internal Geometry mechanism
+            for (int i = 0; i < elementIndices.size(); i++) {
+            	ElementGeometry thisGeometry = elementGeometry(elementIndices[i]);
 
-        if (iterInt != internalInternalMap_.end()) { return (*iterInt).second; }
-        else
-        {
-            FaceKey2FaceIdMap::iterator iterProc = processInternalMap_.find(thisFaceKey);
-            if (iterProc != processInternalMap_.end()) { return (*iterProc).second; }
-            else
-            {
-                FaceKey2FaceIdMap::iterator iterBnd = boundaryInternalMap_.find(thisFaceKey);
-                if (iterBnd != processInternalMap_.end()) { return (*iterBnd).second; }
-                else { throw std::runtime_error("Accessed non-existing face."); }
+            	Vertex thisLocalC;
+            	bool isInside = thisGeometry.local( globalC, thisLocalC );
+
+            	// If the point is found inside the geometry, add the element index and the found local coordinate to the output
+                if (isInside)
+                {
+                	containerIndex.push_back(elementIndices[i]);
+                	localC.push_back(thisLocalC);
+                }
             }
-        }
+
+            // pbe_stop(132);
+            // rDebug("find_tets_by_point: nof_found=%d, nNodeVisited=%d", static_cast<int>(nodes.size()), nNodeVisited);
+
+            return (containerIndex.size() > 0);
+    	} else {
+    		return false;
+    	}
     }
 
-
-    /** Return true if p is in inside the mesh, i.e. inside at least one tet of the mesh. */
-    bool is_inside(const Vertex & p) const {
-        std::vector<int> containerIds;
-        find_tets_by_point(p, containerIds);
-        return containerIds.size() > 0;
-    }
 
     // Iterators over local indices of the mesh
     // NOTE: There are no iterators over entities because there is no entity object in the core mesh
@@ -709,19 +773,6 @@ protected:
         if (verbose_) { std::cout << "Process_" << rank_ << ": " << s << std::endl; }
     }
 
-    // Gets all sets local indices of a tetrahedron which correspond to faces
-    std::vector<std::vector<int> > internalFacesOfTetrahedron()
-    {
-        std::vector<std::vector<int> > faces (4, std::vector<int>());
-
-        faces[0] = {0, 1, 2};
-        faces[1] = {0, 1, 3};
-        faces[2] = {0, 2, 3};
-        faces[3] = {1, 2, 3};
-
-        return faces;
-    }
-
     // Get curved geometry of an entity
     // TODO: assert mydim == element geometry type dim
     template<int mydim>
@@ -758,6 +809,28 @@ protected:
         return corners;
     }
 
+    // Takes two sorted arrays with non-repeating entries
+    // Returns an array which only has entries found in both input arrays
+    std::vector<int> sortedSetIntersection(std::vector<int> A, std::vector<int> B)
+	{
+    	std::vector<int>  rez;
+
+    	int indA = 0;
+    	int indB = 0;
+
+    	while ((indA < A.size()) && (indB < B.size()))
+    	{
+    		      if (A[indA] < B[indB]) { indA++; }
+    		 else if (A[indA] > B[indB]) { indB++; }
+    		 else {
+    			 rez.push_back(A[indA]);
+    			 indA++;
+    			 indB++;
+    		 }
+    	}
+
+    	return rez;
+	}
 
 
     /* ***************************************************************************
@@ -867,7 +940,9 @@ protected:
                 // Store internal, domain and process boundaries separately for faster iterators
                 if (connectedFaceInfo.size() == 2)
                 {
-                    // Store Map (key -> processBoundaryFaceIndex), Vector (processBoundaryFaceIndex -> faceIndex)
+                	thisFace.structuralType = CurvilinearGridFaceType::ProcessBoundary;
+
+                	// Store Map (key -> processBoundaryFaceIndex), Vector (processBoundaryFaceIndex -> faceIndex)
                     processInternalMap_[(*iter).first] = processBoundaryFaceIndex_.size();
                     processBoundaryFaceIndex_.push_back(face_.size());
 
@@ -875,6 +950,8 @@ protected:
                 }
                 else
                 {
+                	thisFace.structuralType = CurvilinearGridFaceType::Internal;
+
                     // Store Map (key -> internalFaceIndex), Vector (internalFaceIndex -> faceIndex)
                     internalInternalMap_[(*iter).first] = internalFaceIndex_.size();
                     internalFaceIndex_.push_back(face_.size());
@@ -888,172 +965,80 @@ protected:
     }
 
 
-    /** Construct octree for locating tetrahedrons in mesh */
-    /*
-    void constructoctree_() {
-        rAssert(octree_ == 0);
+    // TODO: To make work with arbitrary geometries, must replace numbers, as well as make FaceKeys more abstract
+    void generateProcessBoundaryCorners(Index2IndexMap & processBoundaryCornerMap)
+    {
+    	// Construct the set of EdgeKeys corresponding to edges of processBoundaries
+    	// ********************************************************
+    	for (FaceKey2FaceIdMap::iterator faceIter = processInternalMap_.size(); faceIter != processInternalMap_.end(); faceIter++)
+    	{
+    		// Get global indices of the associated vertices from the map
+    		FaceKey thisFaceKey = (*faceIter).first;
 
-        // bounding box of whole mesh
-        Vector3 center, extent;
-        meshBoundingBox(center, extent);
+    		int thisVertexKey[3] = {thisFaceKey.node0, thisFaceKey.node1, thisFaceKey.node2};
 
-        // octree length is the largest component of extent
-        double length = extent.x;
-        if (extent.y > length)
-            length = extent.y;
-        if (extent.z > length)
-            length = extent.z;
-
-        // construct LooseOctree with large max depth
-        octree_ = new LooseOctree<Tet>(center, length, 100);
-
-        // loop over all tets and insert them in the octree
-        for (int t = 0; t < get_nof_tets(); t ++) {
-            octree_->add_node(get_tet(t));
-        }
-        int max_depth, nof_octants, nof_nodes;
-        double avg_node_depth;
-        octree_->get_statistics(max_depth, avg_node_depth, nof_octants, nof_nodes);
-        rInfo("Octree stats: max. depth=%d, #octants=%d, #nodes=%d, avg. #node per octant=%.2f, avg. node depth=%.2f",
-              max_depth, nof_octants, nof_nodes, static_cast<double>(nof_nodes)/nof_octants, avg_node_depth);
-
-    #if 0
-        // Vector3 p (0.000001, 0.000001, 0.000001);
-        // Vector3 p (0.000000, 0.000000, 0.000000);
-        // Vector3 p (1.00000071059, 0.500001458653, 0.106184447056);
-        Vector3 p (0.1, 0.0, 2.6);
-        std::vector<OctreeNode *> nodes;
-        int nof_visited;
-
-        cout << "Finding tets containing " << p << "\n\n";
-
-        tet_iterator tet_it;
-        cout << "Exhausive search yields (is_inside_bounding_box_gracious)\n";
-        for (tet_it = tet_begin(); tet_it != tet_end(); ++ tet_it) {
-            Tet* tet = *tet_it;
-            if (tet->is_inside_bounding_box_gracious(p)) {
-                std::cout << "inside tet " << tet->get_id() << "\n";
-                for (int i = 0; i < 4; i ++) {
-                    cout << "   " << tet->get_corner(i)->get_coord() << "\n";
-                }
-            }
-        }
-
-        cout << "Exhausive search yields (is_inside_bounding_box)\n";
-        for (tet_it = tet_begin(); tet_it != tet_end(); ++ tet_it) {
-            Tet* tet = *tet_it;
-            if (tet->is_inside_bounding_box(p)) {
-                std::cout << "inside tet " << tet->get_id() << "\n";
-                for (int i = 0; i < 4; i ++) {
-                    cout << "   " << tet->get_corner(i)->get_coord() << "\n";
-                }
-            }
-        }
-
-        cout << "Exhausive search yields (is_inside)\n";
-        for (tet_it = tet_begin(); tet_it != tet_end(); ++ tet_it) {
-            Tet* tet = *tet_it;
-            if (tet->is_inside(p)) {
-                std::cout << "inside tet " << tet->get_id() << "\n";
-                for (int i = 0; i < 4; i ++) {
-                    cout << "   " << tet->get_corner(i)->get_coord() << "\n";
-                }
-            }
-        }
-
-        cout << "\nOctree: is_inside_bounding_box\n";
-        nof_visited = 0; nodes.resize(0);
-        octree_->find_nodes_by_point(p, nodes, nof_visited,
-                                     (&OctreeNode::is_inside_bounding_box));
-        std::cout << "nof. nodes visited=" << nof_visited << "\n";
-        std::cout << "nof. nodes found=" << nodes.size() << "\n";
-        std::vector<OctreeNode *>::iterator it;
-        for (it = nodes.begin(); it != nodes.end(); it ++) {
-            Tet *tet = dynamic_cast<Tet*>(*it);
-            if (tet->is_inside(p)) {
-                std::cout << "inside tet " << tet->get_id() << "\n";
-                for (int i = 0; i < 4; i ++) {
-                    cout << "   " << tet->get_corner(i)->get_coord() << "\n";
-                }
-            }
-        }
-
-        cout << "\nOctree: is_inside_bounding_box_gracious\n";
-        nof_visited = 0; nodes.resize(0);
-        octree_->find_nodes_by_point(p, nodes, nof_visited,
-                                     (&OctreeNode::is_inside_bounding_box_gracious));
-        std::cout << "nof. nodes visited=" << nof_visited << "\n";
-        std::cout << "nof. nodes found=" << nodes.size() << "\n";
-        for (it = nodes.begin(); it != nodes.end(); it ++) {
-            Tet *tet = dynamic_cast<Tet*>(*it);
-            if (tet->is_inside(p)) {
-                std::cout << "inside tet " << tet->get_id() << "\n";
-                for (int i = 0; i < 4; i ++) {
-                    cout << "   " << tet->get_corner(i)->get_coord() << "\n";
-                }
-            }
-        }
-
-        cout << "\nOctree: Tet::is_inside\n";
-        nof_visited = 0; nodes.resize(0);
-        octree_->find_nodes_by_point(p, nodes, nof_visited,
-                                     (LooseOctree::filter)(&Tet::is_inside));
-        std::cout << "nof. nodes visited=" << nof_visited << "\n";
-        std::cout << "nof. nodes found=" << nodes.size() << "\n";
-        for (it = nodes.begin(); it != nodes.end(); it ++) {
-            Tet *tet = dynamic_cast<Tet*>(*it);
-            if (tet->is_inside(p)) {
-                std::cout << "inside tet " << tet->get_id() << "\n";
-                for (int i = 0; i < 4; i ++) {
-                    cout << "   " << tet->get_corner(i)->get_coord() << "\n";
-                }
-            }
-        }
-
-        cout << "\nOctree, find_one: Tet::is_inside\n";
-        nof_visited = 0;
-        // this is a dangerous typecast: it's only valid since we know all nodes in the
-        // octree are Tets.
-        OctreeNode* node = octree_->find_one_node_by_point(p, nof_visited, (LooseOctree::filter)(&Tet::is_inside));
-        std::cout << "nof. nodes visited=" << nof_visited << "\n";
-        if (node) {
-            std::cout << "nof. nodes found=" << 1 << "\n";
-            Vector4 p_simplex;
-            dynamic_cast<Tet *>(node)->cartesian_to_simplex(p, p_simplex);
-            cout << "is_inside(p) is " << dynamic_cast<Tet *>(node)->is_inside(p) << "\n";
-            std::cout << "inside tet " << dynamic_cast<Tet *>(node)->get_id() << "\n";
-            for (int i = 0; i < 4; i ++) {
-                cout << "   " << dynamic_cast<Tet*>(node)->get_corner(i)->get_coord() << "\n";
-            }
-            cout << "p_simplex=" << p_simplex << "\n";
-        }
-
-        {
-            Vector3 center, extent;
-            get_tet(6488)->elementBoundingBox(center, extent);
-            cout.precision(17);
-            cout << "\n\ncenter: " << center << "\nextent: " << extent << "\n";
-            center -= p;
-            center.x = fabs(center.x);
-            center.y = fabs(center.y);
-            center.z = fabs(center.z);
-            cout << "|c-p|: " << center
-                 << "\nextend - |c-p|:" << extent - center
-                 << "\nextend_ - |c-p|:" << extent*(1+1e-13) - center
-                 << "\nbool: " << (center <= extent) << "\n";
-            octree_->add_node(get_tet(6488))->dump(cout);
-            cout << "eps_mach=" << std::numeric_limits<double>::epsilon() << "\n";
-        }
-    #endif
+    		for (int i = 0; i < 3; i++)
+    		{
+    			// For each vertex, if it has not yet been added to the map, add it, mapping to a new entry
+    			// in the processBoundaryCornerNeighborRank_
+    			if (processBoundaryCornerMap.find(thisVertexKey[i]) == processBoundaryCornerMap.end())
+    			{
+    				processBoundaryCornerMap[thisVertexKey[i]] = processBoundaryCornerMap.size();
+    			}
+    		}
+    	}
     }
-    */
 
 
-#if HAVE_MPI
+    void generateProcessBoundaryEdges(EdgeKey2EdgeIdMap & processBoundaryEdgeMap)
+    {
+    	// Construct the set of process boundary corners - corners necessary to make process boundary faces on this process
+    	// ********************************************************
+    	for (FaceKey2FaceIdMap::iterator faceIter = processInternalMap_.size(); faceIter != processInternalMap_.end(); faceIter++)
+    	{
+    		// Get global indices of the associated vertices from the map
+    		FaceKey thisFaceKey = (*faceIter).first;
+    		EdgeKey thisEdgeKey[3];
 
-    // [TODO] Possibly inefficient implementation:
-    // 1) Excessive communication. Package sent to all can only be used by 1 other process
-    // 2) Imbalance bottleneck. All processes have to wait until the ones with biggest number of procBoundaries communicate
+    		thisEdgeKey[0].node0 = thisFaceKey.node0;  thisEdgeKey[0].node1 = thisFaceKey.node1;
+    		thisEdgeKey[1].node0 = thisFaceKey.node0;  thisEdgeKey[1].node1 = thisFaceKey.node2;
+    		thisEdgeKey[2].node0 = thisFaceKey.node1;  thisEdgeKey[2].node1 = thisFaceKey.node2;
+
+    		for (int i = 0; i < 3; i++)
+    		{
+    			// For each vertex, if it has not yet been added to the map, add it, mapping to a new entry
+    			// in the processBoundaryCornerNeighborRank_
+    			if (processBoundaryEdgeMap.find(thisEdgeKey[i]) == processBoundaryEdgeMap.end())
+    			{
+    				processBoundaryEdgeMap[thisEdgeKey[i]] = processBoundaryEdgeMap.size();
+    			}
+    		}
+    	}
+    }
+
+    /** \brief Communicates the ranks of processes neighboring the process boundaries
+     *
+     * Algorithm:
+     * 1) Communicate maxProcBoundarySize - the largest number of process boundaries per process
+     * 2) Loop that many times
+     * 3) Per every cycle of the loop package and send a Process Boundary FaceKey to all other processes
+     * 4) If this process has already sent all its faces, generate and send fake faces
+     * 5) From received non-fake faces, find faces which match ProcessBoundaries, and record sender's rank for each
+     *
+     * [TODO] Possibly inefficient implementation:
+     * 1) Excessive communication. Each ProcessBoundary is sent to all, but  can only be used by 1 other process
+     * 2) Imbalance bottleneck. All processes have to wait until the ones with biggest number of procBoundaries communicate
+     *
+     * [TODO] Faster algorithm
+     * 1) Loop over all process boundary vertices and send them to all, faking them if all already sent
+     * 2) On every vertex that you own, mark the ranks of processes who already own it into a map
+     * 3) Loop over own process boundaries, find which ones are shared by which process
+     * 3.1) For each vertex of face, set-intersect ranks associated with vertices.
+     *
+     * 1) May make sense to first communicate all process boundary vertex indices, such that everybody knows who their neighbors are,
+     * then send nothing to non-neighbors in MPI-Alltoall.
+     *
+     *
     void generateProcessBoundaryNeighbors()
     {
         Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
@@ -1102,46 +1087,77 @@ protected:
         }
     }
 
+    */
 
     // NOTE: Call after generating Ghost Elements
-    void generateGlobalIndices()
+    void generateGlobalIndices(
+    	Index2IndexMap & processBoundaryCornerMap,
+    	EdgeKey2EdgeIdMap & processBoundaryEdgeMap
+    )
     {
         Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
 
-        // 1) Get edges and faces on this process that are not owned by this process
+        // 1) Communicate process ranks associated with each process boundary corner
+        // Then compute that for edges and faces using set intersection
         // *************************************************************************
-        EdgeKey2EdgeIdMap edgesNonOwned;  globalComputeNonOwnedEdges(edgesNonOwned);
-        FaceKey2FaceIdMap facesNonOwned;  globalComputeNonOwnedFaces(facesNonOwned);
+        std::vector<std::vector<int> > processBoundaryCornerNeighborRank;   // List of ranks of all other processes sharing this vertex
+        std::vector<std::vector<int> > processBoundaryEdgeNeighborRank;     // List of ranks of all other processes sharing this edge
 
-        int edgesOwned = edge_.size() - edgesNonOwned.size();
-        int facesOwned = face_.size() - facesNonOwned.size();
+        globalCommunicateVertexNeighborRanks(processBoundaryCornerMap, processBoundaryCornerNeighborRank);
+        globalComputeEdgeNeighborRanks(processBoundaryCornerMap, processBoundaryEdgeMap, processBoundaryCornerNeighborRank, processBoundaryEdgeNeighborRank);
+        globalComputeFaceNeighborRank(processBoundaryCornerMap, processBoundaryCornerNeighborRank);
+
+        processBoundaryCornerMap.clear();
+        processBoundaryCornerNeighborRank.clear();
+
+        // 2) Get edges and faces on this process that are not owned by this process
+        // *************************************************************************
+        EdgeKey2EdgeIdMap edgeNonOwned;
+        FaceKey2FaceIdMap faceNonOwned;
+
+        // Edges
+        for (EdgeKey2EdgeIdMap::iterator edgeIter = processBoundaryEdgeMap.begin(); edgeIter != processBoundaryEdgeMap.end(); edgeIter++ )
+        {
+        	int edgeOwnerCandidateRank = processBoundaryCornerNeighborRank[(*edgeIter).second][0];
+        	if (edgeOwnerCandidateRank < rank_) { edgeNonOwned[(*edgeIter).first] = edgeOwnerCandidateRank; }
+        }
+
+        // Faces
+        for (FaceKey2FaceIdMap::iterator faceIter = processInternalMap_.begin(); faceIter != processInternalMap_.end(); faceIter++ )
+        {
+        	int faceOwnerCandidateRank = processBoundaryNeighborProcess_[(*faceIter).second];
+        	if (faceOwnerCandidateRank < rank_) { faceNonOwned[(*faceIter).first] = faceOwnerCandidateRank; }
+        }
+
+        int nEdgeOwned = edge_.size() - edgeNonOwned.size();
+        int nFaceOwned = face_.size() - faceNonOwned.size();
         int elementsOwned = element_.size();
 
 
-        // 2) Communicate number of edges and faces owned by each process to all
+        // 3) Communicate number of edges and faces owned by each process to all
         // *************************************************************************
         std::vector<int> edgesOnProcess(size_);      // owned edges [rank]
         std::vector<int> facesOnProcess(size_);      // owned faces [rank]
         std::vector<int> elementsOnProcess(size_);  // owned elements [rank]
 
-        collective_comm.allgather (&edgesOwned, 1, reinterpret_cast<int*> (edgesOnProcess.data()));
-        collective_comm.allgather (&facesOwned, 1, reinterpret_cast<int*> (facesOnProcess.data()));
+        collective_comm.allgather (&nEdgeOwned, 1, reinterpret_cast<int*> (edgesOnProcess.data()));
+        collective_comm.allgather (&nFaceOwned, 1, reinterpret_cast<int*> (facesOnProcess.data()));
         collective_comm.allgather (&elementsOwned, 1, reinterpret_cast<int*> (elementsOnProcess.data()));
 
         int edgesBeforeMe = 0;      // Sum(edgesOwned : rank < thisRank)
         int facesBeforeMe = 0;      // Sum(facesOwned : rank < thisRank)
         int elementsBeforeMe = 0;   // Sum(elementsOwned : rank < thisRank)
 
-        for (int i = 0; i < size_; i++)
+        for (int iProc = 0; iProc < size_; iProc++)
         {
-            nEdgeTotal_ += edgesOnProcess[i];
-            nFaceTotal_ += facesOnProcess[i];
+            nEdgeTotal_ += edgesOnProcess[iProc];
+            nFaceTotal_ += facesOnProcess[iProc];
 
-            if (i < rank_)
+            if (iProc < rank_)
             {
-                edgesBeforeMe += edgesOnProcess[i];
-                facesBeforeMe += facesOnProcess[i];
-                elementsBeforeMe += elementsOnProcess[i];
+                edgesBeforeMe += edgesOnProcess[iProc];
+                facesBeforeMe += facesOnProcess[iProc];
+                elementsBeforeMe += elementsOnProcess[iProc];
             }
         }
 
@@ -1161,82 +1177,91 @@ protected:
         for (FaceKey2FaceIdMap::iterator iter = processInternalMap_.begin(); iter != processInternalMap_.end(); iter++)
         {
             // This process owns this face if it is in the processInternalMap and if it is not in the non-owned face map
-            if (facesNonOwned.find((*iter).first) == facesNonOwned.end())  { face_[(*iter).second].globalIndex = iFaceGlobalId++; }
+            if (faceNonOwned.find((*iter).first) == faceNonOwned.end())  { face_[(*iter).second].globalIndex = iFaceGlobalId++; }
         }
 
         for (EdgeKey2EdgeIdMap::iterator iter = edgemap_.begin(); iter != edgemap_.end(); iter++)
         {
             // This process owns this edge if it is in the edgemap and if it is not in the non-owned edge map
-            if (edgesNonOwned.find((*iter).first) == edgesNonOwned.end())  { edge_[(*iter).second].globalIndex = iEdgeGlobalId++; }
+            if (edgeNonOwned.find((*iter).first) == edgeNonOwned.end())  { edge_[(*iter).second].globalIndex = iEdgeGlobalId++; }
         }
 
 
         // 4) Communicate missing edge and face global indices to their corresponding neighbors. Receive them and assign.
         // *************************************************************************
 
-        globalDistributeMissingFaceGlobalId();
-        globalDistributeMissingEdgeGlobalId(edgesNonOwned);
-
-
-        // 1) Faces
-        // 1.1) allgather - Communicate to all how many faces you own
-        // Note: You own a processFace only if your rank is smaller than that of its other neighbor
-        // 1.2) Sum up all face numbers owned by processes rank less than you, enumerate faces you own starting from this position
-        // 1.3) MPI_alltoallv - send the numbers you enumerated for each enumerated process face to its other neighbor
-        // 1.4) Use received numbers to enumerate process faces you don't own
-
-        // 2) Edges
-        // 2.1) Go over all edges of all process boundaries. If neighbor of that face has higher rank than you, mark edge as not owned
-        // Note: If two process faces that share this edge report different processes as neighbors, mark this edge as complicated edge
-        // 2.2) allgather - send to all how many complicated edges you own
-        // 2.3) allgather - send to all list of keys of all complicated edges.
-        // 2.4) for each complicated edge, figure out if you own it or not by checking if your rank is above everyone else who owns it
-        // 2.5) allgather - Communicate to all how many edges you own
-        // 2.6) Sum up all edge numbers owned by processes rank less than you, enumerate edges you own starting from this position
-        // 2.7) MPI_alltoallv - send the numbers you enumerated for each enumerated process edge to its other neighbor
-        // 2.8) allgather - send to all the globalIds of complicated edges you enumerated
-        // 2.9) Use this data to enumerate edges you don't own
+        globalDistributeMissingEdgeGlobalIndex(processBoundaryEdgeMap, processBoundaryEdgeNeighborRank);
+        globalDistributeMissingFaceGlobalIndex();
     }
 
 
     // 2) Communicate Ghost elements
-    // Requires processBoundaries to know neighboring process rank
-    // Requires existence of face global index
-    // TODO: Only supports tetrahedral ghost elements at the moment
-    // [FIXME] Check if everything makes sense in terms of self-to-self communication
-    // [FIXME] Check if there is balance between send and receive
+    //
+    //
+
+
+    /** Communicates the Ghost Elements
+     *
+     * Prerequisites:
+     * * Requires all processBoundaries to know neighboring process rank
+     * * Requires existence of face global index
+     *
+     * Aspects:
+     * * Ghost elements can have different interpolation order
+     *
+     * Algorithm:
+     * 1) Compute number of process boundaries shared with each process, as well as and the exact interpolation orders of Ghost Elements
+     * 2) MPI_alltoallv - communicate to each process a list of interpolation orders of the Ghost Elements it is going to receive
+     * 3) MPI_alltoallv - Package and send element globalIndex + elementPhysicalTag + all interpolatory Vertex global indices
+     * 4) Add all ghost elements to the mesh. Calculate which vertices are missing from which processes
+     * 5) MPI_alltoall - Communicates to each process the number of missing vertices out of the ones it had communicated.
+     * 5.1) Then communicate the globalIndices's of all missing vertices
+     * 5.2) Then communicate the vertex coordinates corresponding to received global indices
+     * 6) Distrubute vertex coordinates and add received coordinates to the mesh
+     *
+     *
+     * TODO: Only supports tetrahedral ghost elements at the moment
+     * [FIXME] Check if everything makes sense in terms of self-to-self communication
+     * [FIXME] Check if there is balance between send and receive
+     *
+     * */
     void generateGhostElements()
     {
 
-        // 1) Compute how many neighbors have with each process and the exact interpolation orders of Ghost Elements
+        // 1) Compute number of process boundaries shared with each process, as well as and the exact interpolation orders of Ghost Elements
         // *************************************************************************************
-        std::vector< std::vector<int> > thisProcessGhostElementIndices (size_, std::vector<int>() );
-        std::vector< std::vector<int> > thisProcessGhostFaceGlobalIndices (size_, std::vector<int>() );
+
+    	// For each other process stores the set of element indices local to this process. These elements will be Ghost Elements on the other processes
+    	std::vector< std::vector<int> > thisProcessGhostElementIndexSet (size_, std::vector<int>() );
+    	// For each process store the set of face global indices, to which the corresponding Ghost Elements are associated
+        std::vector< std::vector<int> > thisProcessGhostFaceGlobalIndexSet (size_, std::vector<int>() );
 
         for (int iPBFace = 0; iPBFace < processBoundaryFaceIndex_.size(); iPBFace++ )  {
             int thisFaceIndex = processBoundaryFaceIndex_[iPBFace];
+            int thisNeighborRank = processBoundaryNeighborProcess_[iPBFace];
 
             int thisGhostIndex = face_[thisFaceIndex].element1Index;
             int thisFaceGlobalIndex = face_[thisFaceIndex].globalIndex;
-            int thisNeighborRank = processBoundaryNeighborProcess_[iPBFace];
-            thisProcessGhostElementIndices[thisNeighborRank].push_back(thisGhostIndex);
-            thisProcessGhostFaceGlobalIndices[thisNeighborRank].push_back(thisFaceGlobalIndex);
+            thisProcessGhostElementIndexSet[thisNeighborRank].push_back(thisGhostIndex);
+            thisProcessGhostFaceGlobalIndexSet[thisNeighborRank].push_back(thisFaceGlobalIndex);
         }
 
 
         // 2) MPI_alltoallv - communicate to each process a list of interpolation orders of the ghost elements it is going to receive
         // *************************************************************************************
+
+        // For each other process stores the set of interpolation orders of Ghost Elements that process wishes to communicate to this process
         std::vector< std::vector<int> > neighborProcessGhostOrder (size_, std::vector<int>() );
-        ghostDistributeInterpolationOrders(thisProcessGhostElementIndices, neighborProcessGhostOrder);
+        ghostDistributeInterpolationOrders(thisProcessGhostElementIndexSet, neighborProcessGhostOrder);
 
 
         // 3) MPI_alltoallv - Package element globalIndex + elementPhysicalTag + all interpVertex globalIds
         // *************************************************************************************
         std::vector<int> packageGhostElementData;
-        ghostDistributeGhostElements(thisProcessGhostElementIndices, thisProcessGhostFaceGlobalIndices, neighborProcessGhostOrder, packageGhostElementData );
+        ghostDistributeGhostElements(thisProcessGhostElementIndexSet, thisProcessGhostFaceGlobalIndexSet, neighborProcessGhostOrder, packageGhostElementData );
 
-        thisProcessGhostElementIndices.clear();
-        thisProcessGhostFaceGlobalIndices.clear();
+        thisProcessGhostElementIndexSet.clear();
+        thisProcessGhostFaceGlobalIndexSet.clear();
 
 
         // 4) Add all ghost elements to the mesh. Calculate which vertices are missing from which processes
@@ -1263,145 +1288,252 @@ protected:
         ghostDistributeMissingVertexCoordinates (missingVertices, packageMissingVertexGlobalIndices, verticesRequested, verticesToSend);
     }
 
-#endif
+
+    /** Construct OCTree for locating tetrahedrons in mesh */
+
+    // TODO: Use standard logging message
+    // TODO: Original octree has diagnostics output under #if 0, can append at later stage
+    void constructOctree() {
+        rAssert(octree_ == 0);
+
+        // bounding box of whole mesh
+        Vertex center, extent;
+        processBoundingBox(center, extent);
+
+        // octree length is the largest component of extent
+        double length = extent[0];
+        if (extent[1] > length)  { length = extent[1]; }
+        if (extent[2] > length)  { length = extent[2]; }
+
+        // construct LooseOctree with large max depth
+        octree_ = new CurvilinearLooseOctree(center, length, 100);
+
+        // loop over all tets and insert them in the octree
+        for (int iElem = 0; iElem < element_.size(); iElem ++)
+        {
+        	NodeType thisNode(this, iElem);
+        	octree_->addNode(thisNode);
+        }
+        int maxDepth, nOctant, nNode;
+        double avgNodeDepth;
+        octree_->statistics(maxDepth, avgNodeDepth, nOctant, nNode);
+
+
+        std::stringstream outputString;
+
+        outputString << "Octree stats: max. depth=" << maxDepth;
+        outputString << ", #octants=" << nOctant;
+        outputString << ", #nodes=" << nNode;
+        outputString << ", avg. #node per octant=" << static_cast<double>(nNode)/nOctant;
+        outputString << ", avg. node depth=%.2f" << avgNodeDepth;
+
+        std::cout << outputString.str() << std::endl;
+    }
+
 
     /* ***************************************************************************
      * SubSection: Auxiliary methods of generateGlobalIndices()
      * ***************************************************************************/
 
-#if HAVE_MPI
-    // Compute all edges that you do not own
-    // Return pairs (edge local index -> owning process)
-    void globalComputeNonOwnedEdges(EdgeKey2EdgeIdMap & edgesNonOwned)
+
+    /** Communicate the process ranks of neighbor processes for all process boundary vertices
+     *
+     * Algorithm:
+	 * 1) collective_comm.max() - find the maximal number of process boundary corners per process
+	 * 2) Loop over maximal number of process boundary corners per process
+	 * 2.1) collective_comm.allgather() - communicate a global index of your process boundary corner to all other processes
+	 * 2.2) If all process boundary corners of this process have already been communicated, create and communicate fake indices (negative)
+	 *      This is necessary to keep the protocol going until the last process communicates all its corners
+	 * 2.3) From received vertices, select ones that are on this process, and mark the sender as the neighbor
+     *
+     * [TODO] Algorithm possibly inefficient. No ideas how to improve at the moment
+     * * Every process boundary corners is communicated to all processes, but can be used only by few
+     * * All processes have to wait until the process with the largest number of corners finishes communicating, since they could receive sth from it
+     *
+     * */
+
+    void globalCommunicateVertexNeighborRanks (
+    		const Index2IndexMap & processBoundaryCornerMap,
+    		std::vector<std::vector<int> > & processBoundaryCornerNeighborRank
+    )
     {
-        Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
+    	// 1) collective_comm.max() - find the maximal number of process boundary corners per process
+    	// ********************************************************
 
-        EdgeKey2EdgeIdMap             processBoundaryEdges;                // Edges that are shared by exactly 2 processes
-        EdgeKey2EdgeIdMap             processBoundaryComplicatedEdges;     // Edges that are shared by more than 2 processes
+    	Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
 
-        // Mark each process boundary edge as either simple or complicated
-        // For simple edges immediately mark them as owned or non-owned
-        // *************************************************************************
-        for(FaceKey2FaceIdMap::iterator iter = processInternalMap_.begin(); iter != processInternalMap_.end(); iter++)
+    	// Reserve memory for saving ranks associated to process boundary corners
+    	int thisProcessBoundarySize = processBoundaryCornerMap.size();
+    	processBoundaryCornerNeighborRank.reserve(thisProcessBoundarySize);
+
+    	int maxProcessBoundarySize = collective_comm.max(thisProcessBoundarySize);
+
+
+    	// 2) collective_comm.allgather() - communicate global index of your process boundary corner to all other processes
+    	// Repeat this process until every process has communicated all its corners
+    	// If you run out of corners, communicate fake corners
+    	// ********************************************************
+
+    	Index2IndexMap::iterator procCornerIter = processBoundaryCornerMap.begin();
+
+        for (int iCorner = 0; iCorner < maxProcessBoundarySize; iCorner++)
         {
-            FaceKey thisFace = (*iter).first;
-            int neighborRank = processBoundaryNeighborProcess_[(*iter).second];
+        	// If all process boundary corners have been sent start sending fake corners
+            int thisCornerInd = (iCorner < thisProcessBoundarySize) ? (*(procCornerIter++)).first : -1;
 
-            EdgeKey thisEdge[3];
-            thisEdge[0].node0 = thisFace.node0;  thisEdge[0].node1 = thisFace.node1;
-            thisEdge[1].node0 = thisFace.node0;  thisEdge[1].node1 = thisFace.node2;
-            thisEdge[2].node0 = thisFace.node1;  thisEdge[2].node1 = thisFace.node2;
+            // Communicate
+            std::vector<int> procCornerIndexSet (size_);
+            collective_comm.allgather(&thisCornerInd, 1, reinterpret_cast<int*> (procCornerIndexSet.data()) );
 
-            for (int i = 0; i < 3; i++)
+            // Loop over corners sent by other processes. If this corner present, note its sender rank
+            for (int iProc = 0; iProc < size_; iProc++)
             {
-                EdgeKey2EdgeIdMap::iterator tmpIter = processBoundaryEdges.find(thisEdge[i]);
-
-                // If this edge has not been visited, note its neighbor rank
-                // Otherwise, check if ranks match, if not, mark it as complicated
-                if (tmpIter == processBoundaryEdges.end()) { processBoundaryEdges[thisEdge[i]] = neighborRank; }
-                else
+                // Only consider non-fake corners sent by other processes
+                if ((iProc != rank_) && (procCornerIndexSet[iProc] >= 0))
                 {
-                    if ((*tmpIter).second != neighborRank)  {
-                        processBoundaryEdges.erase(tmpIter);
-                        processBoundaryComplicatedEdges[thisEdge[i]] = 1;
-                    }
-                    else if (neighborRank < rank_)  { edgesNonOwned[thisEdge[i]] = neighborRank; }
+                	// Attempt to find this corner global id among process boundary corners of this process
+                	Index2IndexMap::iterator tmpIter = processBoundaryCornerMap.find(procCornerIndexSet[iProc]);
+
+                    // If this corner is present, note its sender process
+                    if (tmpIter != processBoundaryCornerMap.end()) { processBoundaryCornerNeighborRank[(*tmpIter).second].push_back(iProc); }
                 }
             }
         }
 
-
-        // Communicate number of own complicated edges to all processes
-        // *************************************************************************
-        int nThisComplicatedEdges = processBoundaryComplicatedEdges.size();
-        int totalRecvKeys = 0;
-        std::vector<int> processComplicatedEdgeNumbers (size_);
-        std::vector<int> processComplicatedEdgeDispls (size_);
-        collective_comm.allgather(&nThisComplicatedEdges, 1, reinterpret_cast<int*> (processComplicatedEdgeNumbers.data()));
-
-        // Communicate complicate edge keys to all
-        // *************************************************************************
-        for (int i = 0; i < size_; i++)
+        // 3) Sort all neighbor rank sets, to accelerate set intersection algorithm in future
+        // ********************************************************
+        for (int i = 0; i < processBoundaryCornerNeighborRank.size(); i++)
         {
-            totalRecvKeys += processComplicatedEdgeNumbers[i];
-            processComplicatedEdgeDispls[i] = (i == 0) ? 0 : processComplicatedEdgeDispls[i - 1] + processComplicatedEdgeNumbers[i - 1];
-        }
-
-        std::vector<EdgeKey> packageProcessComplicatedEdgeKeysSend;
-        std::vector<EdgeKey> packageProcessComplicatedEdgeKeysRecv(totalRecvKeys);
-
-        for (EdgeKey2EdgeIdMap::iterator faceIter = processBoundaryComplicatedEdges.begin(); faceIter != processBoundaryComplicatedEdges.end(); faceIter++)
-        {
-        	packageProcessComplicatedEdgeKeysSend.push_back((*faceIter).first);
-        }
-
-        collective_comm.allgatherv(
-                packageProcessComplicatedEdgeKeysSend.data(),
-                processBoundaryComplicatedEdges.size(),
-                reinterpret_cast<EdgeKey*>(packageProcessComplicatedEdgeKeysRecv.data()),
-                processComplicatedEdgeNumbers.data(), processComplicatedEdgeDispls.data()
-                );
-
-
-        // Mark complicated edges as non-owned if they are on this process and also on a process with lower rank
-        // We only care about processes with lower rank when checking who owns the edge
-        // *************************************************************************
-        int iData = 0;
-        for (int i = 0; i < rank_; i++)
-        {
-            for (int j = 0; j < processComplicatedEdgeNumbers[i]; j++)
-            {
-                EdgeKey tmpEdgeKey = packageProcessComplicatedEdgeKeysRecv[iData++];
-                EdgeKey2EdgeIdMap::iterator tmpIter = processBoundaryComplicatedEdges.find(tmpEdgeKey);
-                if (tmpIter != processBoundaryComplicatedEdges.end())
-                {
-                    edgesNonOwned[tmpEdgeKey] = i;
-                    processBoundaryComplicatedEdges.erase(tmpIter);
-                }
-            }
+        	std::sort(processBoundaryCornerNeighborRank[i].begin(), processBoundaryCornerNeighborRank[i].end());
         }
     }
 
 
-    // Compute total number of faces
-    void globalComputeNonOwnedFaces(FaceKey2FaceIdMap & facesNonOwned)
+    /** Compute the process ranks of neighbor processes for all process boundary edges
+     *
+     * Algorithm:
+	 * 1) Loop over all edges in the edge map
+	 * 1.1) For each corner in the EdgeKey get associated neighbor ranks from provided vertex neighbor ranks
+     * 1.2) Perform intersection on the two sets
+     * 1.3) Following edge map write that intersection to the output array
+     *
+     * */
+    void globalComputeEdgeNeighborRanks(
+    		const Index2IndexMap & processBoundaryCornerMap,
+    		const EdgeKey2EdgeIdMap & processBoundaryEdgeMap,
+    		const std::vector<std::vector<int> > & processBoundaryCornerNeighborRank,
+    		std::vector<std::vector<int> > & processBoundaryEdgeNeighborRank)
     {
-        for (FaceKey2FaceIdMap::iterator iter = processInternalMap_.begin(); iter != processInternalMap_.end(); iter++)
-        {
-            int thisNeighborRank = processBoundaryNeighborProcess_[(*iter).second];
-            if (thisNeighborRank < rank_)  { facesNonOwned[(*iter).first] = thisNeighborRank; }
-        }
+    	for (EdgeKey2EdgeIdMap::iterator edgeIter = processBoundaryEdgeMap.begin(); edgeIter != processBoundaryEdgeMap.end(); edgeIter++ )
+    	{
+    		// Get corners of the edge
+    		EdgeKey thisEdgeKey = (*edgeIter).first;
+
+    		// Get neighbor processes associated with each corner
+    		std::vector<int> corner0neighborset = processBoundaryCornerNeighborRank[processBoundaryCornerMap[thisEdgeKey.node0]];
+    		std::vector<int> corner1neighborset = processBoundaryCornerNeighborRank[processBoundaryCornerMap[thisEdgeKey.node1]];
+
+    		// Find neighbors common to both edge corners
+    		std::vector<int> edgeneighborset = sortedSetIntersection(corner0neighborset, corner1neighborset);
+
+    		// Store the edge neighbor rank set
+    		edgeneighborset.swap(processBoundaryEdgeNeighborRank[(*edgeIter).second]);
+
+    		if (edgeneighborset.size() < 1) { DUNE_THROW(Dune::IOError, "CurvilinearGrid: Found no neighbor processes to an edge "); }
+    	}
     }
 
-    // Communicates all process boundary face global Id's to the neighbors if owned
-    void globalDistributeMissingFaceGlobalId()
+
+    /** Compute the process ranks of neighbor processes for all process boundary faces
+     *
+     *  Algorithm:
+     *  1) Loop over all process boundary faces in the face map
+	 *  1.1) For each face corner in the FaceKey get associated neighbor ranks from provided vertex neighbor ranks
+     *  1.2) Perform intersection on the three sets
+     *  1.3) Ideally the intersection should result in one single rank, which is this face's neighbor. Otherwise throw error
+     *
+     * */
+    void globalComputeFaceNeighborRank(
+    		const Index2IndexMap & processBoundaryCornerMap,
+    		const std::vector<std::vector<int> > & processBoundaryCornerNeighborRank)
+    {
+    	for (FaceKey2FaceIdMap::iterator faceIter = processInternalMap_.begin(); faceIter != processInternalMap_.end(); faceIter++ )
+    	{
+    		// Get corners of the edge
+    		FaceKey thisFaceKey = (*faceIter).first;
+
+    		// Get neighbor processes associated with each corner
+    		std::vector<int> corner0neighborset = processBoundaryCornerNeighborRank[processBoundaryCornerMap[thisFaceKey.node0]];
+    		std::vector<int> corner1neighborset = processBoundaryCornerNeighborRank[processBoundaryCornerMap[thisFaceKey.node1]];
+    		std::vector<int> corner2neighborset = processBoundaryCornerNeighborRank[processBoundaryCornerMap[thisFaceKey.node2]];
+
+    		// Find neighbors common to all 3 face corners. Need to intersect sets twice
+    		std::vector<int> faceneighborset;
+    		faceneighborset = sortedSetIntersection(corner0neighborset, corner1neighborset);
+    		faceneighborset = sortedSetIntersection(faceneighborset,    corner2neighborset);
+
+    		// Store the face neighbor rank. Face is only allowed to have exactly one neighbor
+    		processBoundaryNeighborProcess_[(*faceIter).second] = faceneighborset[0];
+
+    		if (faceneighborset.size() != 1) { DUNE_THROW(Dune::IOError, "CurvilinearGrid: Found wrong number of neighbor processes to a face"); }
+    	}
+    }
+
+
+    /** Communicates all process boundary face global Id's to the neighbors if owned
+     *
+     * Algorithm:
+     *
+     * 1) Loop over all process boundary faces, split faces on the ones to be sent and to be received
+     * 1.1) Assemble a global index array to send to each process
+     * 1.2) Note how many faces will be received from each process
+     * 2) Assemble one big send array from small arrays (FaceKey + globalIndex)
+     * 3) MPI_Alltoallv - communicate this array
+     * 4) Save global indices for non-owned faces. Find the exact face by using the communicated FaceKey
+     *
+     * Optimization Proposal:
+     * In principle communication of the FaceKey is not necessary. Instead, the natural FaceKey "<" operator
+     * can be used to sort all communicated faces, thus allowing the receiving process to "figure out" what are
+     * the faces sent to it by sorting its own faces.
+     * 1) Sort all process boundary faces wrt FaceKey
+     * 2) Fill arrays to send according to this sorted order
+     * 3) Make map for each process from rank & received face to local face index accoridng to the sorted FaceKey order
+     * 3) Communicate only globalIndices
+     * 4) Use constructed map to fill in received global Indices
+     *
+     * Will decrease the global communication at the expense of increasing local computation time
+     *
+     * */
+    void globalDistributeMissingFaceGlobalIndex()
     {
         typedef std::pair<FaceKey, int>  FaceInfo;
         std::vector< std::vector< FaceInfo > > facesToSend (size_);
 
         int totalRecvSize = 0;
+        int N_INTEGER_FACEINFO = 4;
         std::vector<int> sendbuf, sendcounts, sdispls;
         std::vector<int> recvbuf, recvcounts, rdispls;
 
         // 1) Loop over all process boundary faces, split faces on the ones to be sent and to be received
-        // ********************************************************************************************8
+        // ********************************************************************************************
         for (FaceKey2FaceIdMap::iterator iter = processInternalMap_.begin(); iter != processInternalMap_.end(); iter++)
         {
-            int localIndex = (*iter).second;
-            int neighborRank = processBoundaryNeighborProcess_[localIndex];
+            int localProcessBoundaryIndex = (*iter).second;
+            int localFaceIndex = processBoundaryFaceIndex_[localProcessBoundaryIndex];
+            int neighborRank = processBoundaryNeighborProcess_[localProcessBoundaryIndex];
 
             // If the neighbor of this face has lower rank, then add it to recv, else to send
-            if (neighborRank < rank_)  { recvcounts[neighborRank]++; }
+            if (neighborRank < rank_)  { recvcounts[neighborRank] += N_INTEGER_FACEINFO; }
             else
             {
-                int thisGlobalIndex = face_[localIndex].globalIndex;
-                facesToSend[neighborRank].push_back(FaceInfo ((*iter).first, thisGlobalIndex ));
+                int thisGlobalIndex = face_[localFaceIndex].globalIndex;
+                facesToSend[neighborRank].push_back(FaceInfo((*iter).first, thisGlobalIndex ));
             }
         }
 
 
         // 2) Fill in communication arrays
-        // ********************************************************************************************8
+        // ********************************************************************************************
         for (int i = 0; i < size_; i++)
         {
             sendcounts.push_back(facesToSend[i].size());
@@ -1420,7 +1552,7 @@ protected:
         }
 
         // 3) MPI_alltoall key + globalId
-        // ********************************************************************************************8
+        // ********************************************************************************************
         recvbuf.reserve(totalRecvSize);
         MPI_Comm comm = Dune::MPIHelper::getCommunicator();
         MPI_Alltoallv (sendbuf.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvbuf.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
@@ -1432,7 +1564,9 @@ protected:
         int iData = 0;
         for (int iProc = 0; iProc < size_; iProc++)
         {
-            for (int iFace = 0; iFace < recvcounts[iProc]; iFace++)
+        	int nThisFaceInfo = recvcounts[iProc] / N_INTEGER_FACEINFO;
+
+            for (int iFace = 0; iFace < nThisFaceInfo; iFace++)
             {
                 FaceKey thisKey;
                 int thisGlobalId = recvbuf[iData++];
@@ -1440,93 +1574,127 @@ protected:
                 thisKey.node1 = recvbuf[iData++];
                 thisKey.node2 = recvbuf[iData++];
 
-                int thislocalIndex = processInternalMap_[thisKey];
-                face_[thislocalIndex].globalIndex = thisGlobalId;
+                FaceKey2FaceIdMap::iterator faceIter = processInternalMap_.find(thisKey);
+
+                if (faceIter == processInternalMap_.end()) { DUNE_THROW(Dune::IOError, "CurvilinearGrid: Communicated FaceKey does not correspond to any face on this process "); }
+                else
+                {
+                	int localFaceIndex = processBoundaryFaceIndex_[(*faceIter).second];
+                	face_[localFaceIndex].globalIndex = thisGlobalId;
+                }
             }
         }
     }
 
 
-    // Communicate missing edge and face global indices to their corresponding neighbors. Receive them and assign.
-    // [FIXME] clear unnecessary arrays
-    void globalDistributeMissingEdgeGlobalId(EdgeKey2EdgeIdMap & edgesNonOwned)
+    /** Communicates all process boundary face global Id's to the neighbors if owned
+     *
+     * Algorithm:
+     *
+     * 1) Loop over all process boundary edges, split edges into ones to be sent and to be received
+     * 1.1) If this edge rank lower than all other neighbor ranks, note to send it to all neighbors,
+     *      Otherwise note which neighbor to receive it from
+     * 1.1) Assemble a global index array to send to each process
+     * 1.2) Note how many edges will be received from each process
+     * 2) Assemble one big send array from small arrays (EdgeKey + globalIndex)
+     * 3) MPI_Alltoallv - communicate this array
+     * 4) Save global indices for non-owned edges. Find the exact edge by using the communicated EdgeKey
+     *
+     * Optimization Proposal:
+     * Same as for FaceGlobalIndex algorithm
+     *
+     * */
+    void globalDistributeMissingEdgeGlobalIndex(
+            const EdgeKey2EdgeIdMap & processBoundaryEdgeMap,
+            const std::vector<std::vector<int> > & processBoundaryEdgeNeighborRank)
     {
-        // 1) MPI_alltoall - tell each process how many edges you want from it
-        // **************************************************************************
+        typedef std::pair<EdgeKey, int>  EdgeInfo;
+        std::vector< std::vector< EdgeInfo > > edgesToSend (size_);
 
-        MPI_Comm comm = Dune::MPIHelper::getCommunicator();
+        int totalRecvSize = 0;
+        int N_INTEGER_EDGEINFO = 3;
+        std::vector<int> sendbuf, sendcounts, sdispls;
+        std::vector<int> recvbuf, recvcounts, rdispls;
 
-        std::vector<int> edgeNumberRequested;
-        std::vector<int> edgeNumberToSend (size_);
-        std::vector< std::vector< EdgeKey > >  requestedKeys(size_);
+        // 1) Loop over all process boundary faces, split faces on the ones to be sent and to be received
+        // ********************************************************************************************
+        for (EdgeKey2EdgeIdMap::iterator iter = processBoundaryEdgeMap.begin(); iter != processBoundaryEdgeMap.end(); iter++)
+        {
+            EdgeKey thisEdgeKey = (*iter).first;
+        	int localProcessBoundaryIndex = (*iter).second;
+            int localEdgeIndex = edgemap_[thisEdgeKey];
+            int candidateOwnerRank = processBoundaryEdgeNeighborRank[localProcessBoundaryIndex][0];
 
-        for (EdgeKey2EdgeIdMap::iterator iter = edgesNonOwned.begin(); iter != edgesNonOwned.end(); iter++)  { requestedKeys[(*iter).second].push_back((*iter).first); }
-        for (int i = 0; i < size_; i++) { edgeNumberRequested.push_back(requestedKeys[i].size()); }
-
-        MPI_Alltoall(edgeNumberRequested.data(), 1, MPI_INT, reinterpret_cast<int*>(edgeNumberToSend.data()), 1, MPI_INT, comm);
-
-        // 2) MPI_alltoall - send each process the edge keys you want from it
-        // **************************************************************************
-        int totalRecvData = 0;
-        std::vector<int> packageEdgesRequested, sendcounts, sdispls;
-        std::vector<int> packageEdgesToSend,    recvcounts, rdispls;
-
-
-        for (int iProc = 0; iProc < size_; iProc++) {
-            totalRecvData += edgeNumberToSend[iProc];
-
-            for (int iKey = 0; iKey < requestedKeys[iProc].size(); iKey++)
+            // If the one of the neighbors of this edge has lower rank, then note one more received edge from that process
+            // else note to send it to all other neighbors
+            if (candidateOwnerRank < rank_)  { recvcounts[candidateOwnerRank] += N_INTEGER_EDGEINFO; }
+            else
             {
-                packageEdgesRequested.push_back(requestedKeys[iProc][iKey].node0);
-                packageEdgesRequested.push_back(requestedKeys[iProc][iKey].node1);
+            	int thisGlobalIndex = face_[localEdgeIndex].globalIndex;
+            	EdgeInfo thisEdgeInfo(thisEdgeKey, thisGlobalIndex);
 
-                sendcounts.push_back(2 * edgeNumberRequested[iProc]);
-                recvcounts.push_back(2 * edgeNumberToSend[iProc]);
-
-                sdispls.push_back((iProc == 0) ? 0 : sdispls[iProc-1] + sendcounts[iProc-1] );
-                rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + recvcounts[iProc-1] );
+            	for (int iNeighbor = 0; iNeighbor < processBoundaryEdgeNeighborRank[localProcessBoundaryIndex].size(); iNeighbor++)
+            	{
+            		int thisNeighborRank = processBoundaryEdgeNeighborRank[localProcessBoundaryIndex][iNeighbor];
+            		edgesToSend[thisNeighborRank].push_back(thisEdgeInfo);
+            	}
             }
         }
 
-        packageEdgesToSend.reserve(2 * totalRecvData);
-        MPI_Alltoallv (packageEdgesRequested.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(packageEdgesToSend.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
+
+        // 2) Fill in communication arrays
+        // ********************************************************************************************
+        for (int i = 0; i < size_; i++)
+        {
+            sendcounts.push_back(edgesToSend[i].size());
+            totalRecvSize += recvcounts[i];
+            sdispls.push_back((i == 0) ? 0 : sdispls[i-1] + sendcounts[i-1] );
+            rdispls.push_back((i == 0) ? 0 : rdispls[i-1] + recvcounts[i-1] );
+
+            for (int j = 0; j < edgesToSend[i].size(); j++)
+            {
+                sendbuf.push_back(edgesToSend[i][j].second);
+                sendbuf.push_back(edgesToSend[i][j].first.node0);
+                sendbuf.push_back(edgesToSend[i][j].first.node1);
+            }
+
+        }
+
+        // 3) MPI_alltoall key + globalId
+        // ********************************************************************************************
+        recvbuf.reserve(totalRecvSize);   // There are 3 integers per sent FaceInfo
+        MPI_Comm comm = Dune::MPIHelper::getCommunicator();
+        MPI_Alltoallv (sendbuf.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvbuf.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
 
 
-        // 3) MPI_alltoall - send each process the global indices of edges it wants from you in the received order
-        // **************************************************************************
-
-        std::vector<int> packageEdgeGlobalIndicesSend;
-        std::vector<int> packageEdgeGlobalIndicesRecv(totalRecvData);
-
-        // Package globalIndices of the edges requested by other processes
+        // 4) Mark all missing faces
+        // ********************************************************************************************8
+        // Note that recvcounts should be 0 for this rank, as it was assembled by only considering the neighbor ranks
         int iData = 0;
-           for (int iProc = 0; iProc < size_; iProc++) {
-            for (int iFace = 0; iFace < edgeNumberToSend[iProc]; iFace++)
+        for (int iProc = 0; iProc < size_; iProc++)
+        {
+        	int nThisEdgeInfo = recvcounts[iProc] / N_INTEGER_EDGEINFO;
+
+            for (int iEdge = 0; iEdge < nThisEdgeInfo; iEdge++)
             {
                 EdgeKey thisKey;
-                thisKey.node0 = packageEdgesToSend[iData++];
-                thisKey.node1 = packageEdgesToSend[iData++];
+                int thisGlobalId = recvbuf[iData++];
+                thisKey.node0 = recvbuf[iData++];
+                thisKey.node1 = recvbuf[iData++];
 
-                packageEdgeGlobalIndicesSend.push_back(edge_[edgemap_[thisKey]].globalIndex);
+                EdgeKey2EdgeIdMap::iterator edgeIter = edgemap_.find(thisKey);
+
+                if (edgeIter == edgemap_.end()) { DUNE_THROW(Dune::IOError, "CurvilinearGrid: Communicated EdgeKey does not correspond to any edge on this process "); }
+                else
+                {
+                	int localEdgeIndex = (*edgeIter).second;
+                	edge_[localEdgeIndex].globalIndex = thisGlobalId;
+                }
             }
-
-            sdispls.push_back((iProc == 0) ? 0 : sdispls[iProc-1] + edgeNumberToSend[iProc-1] );
-            rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + edgeNumberRequested[iProc-1] );
-           }
-
-           MPI_Alltoallv (packageEdgeGlobalIndicesSend.data(), edgeNumberToSend.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(packageEdgeGlobalIndicesRecv.data()), edgeNumberRequested.data(), rdispls.data(), MPI_INT, comm );
-
-
-        // 4) Mark all missing edges
-        // **************************************************************************
-        iData = 0;
-           for (int iProc = 0; iProc < size_; iProc++) {
-            for (int iFace = 0; iFace < requestedKeys[iProc].size(); iFace++)
-            {
-                edge_[edgemap_[requestedKeys[iProc][iFace]]].globalIndex = packageEdgeGlobalIndicesRecv[iData++];
-            }
-           }
+        }
     }
+
+
 #endif
 
 
@@ -1534,49 +1702,77 @@ protected:
      * SubSection: Auxiliary methods of generateGhostElements()
      * ***************************************************************************/
 
-#if HAVE_MPI
-    // MPI_alltoallv - communicate to each process a list of interpolation orders of the ghost elements it is going to receive
+
+    /** Communicate to each process a list of interpolation orders of the ghost elements it is going to receive
+     *
+     * Algorithm:
+     *
+     * 1) Put interpolation orders of elements of this process that will become Ghost Elements on other processes
+     *    into send array in the correct order
+     * 2) Communicate
+     * 3) Store interpolation orders of Ghost Elements that will be sent to this process from each other process
+     *
+     * Optimization Proposal:
+     * Same as for FaceGlobalIndex algorithm
+     *
+     * */
     void ghostDistributeInterpolationOrders(
-            std::vector< std::vector<int> > & thisProcessGhostElementIndices,
+            const std::vector< std::vector<int> > & thisProcessGhostElementIndexSet,
             std::vector< std::vector<int> > & neighborProcessGhostOrder
     )
     {
         std::vector<int> sendbuf, sendcounts, sdispls;
         std::vector<int> recvbuf, recvcounts, rdispls;
+
+        // We should receive the number interpolation orders equal to the number of process boundaries
         recvbuf.reserve(processBoundaryFaceIndex_.size());
 
-        for (int i = 0; i < thisProcessGhostElementIndices.size(); i++)
+        for (int iProc = 0; iProc < size_; iProc++)
         {
-            for (int j = 0; j < thisProcessGhostElementIndices[i].size(); j++) { sendbuf.push_back(element_[thisProcessGhostElementIndices[i][j]].interpOrder); }
-            sendcounts.push_back(thisProcessGhostElementIndices[i].size());
-            sdispls.push_back((i == 0) ? 0 : sdispls[i-1] + sendcounts[i-1] );
+            for (int iElem = 0; iElem < thisProcessGhostElementIndexSet[iProc].size(); iElem++) {
+            	sendbuf.push_back(element_[thisProcessGhostElementIndexSet[iProc][iElem]].interpOrder);
+            }
+            sendcounts.push_back(thisProcessGhostElementIndexSet[iProc].size());
+            sdispls.push_back((iProc == 0) ? 0 : sdispls[iProc-1] + sendcounts[iProc-1] );
 
             // For ghost elements we send/receive same amount to/from each processor
-            recvcounts.push_back(sendcounts[i]);
-            rdispls.push_back(sdispls[i]);
+            recvcounts.push_back(sendcounts[iProc]);
+            rdispls.push_back(sdispls[iProc]);
         }
 
         MPI_Comm comm = Dune::MPIHelper::getCommunicator();
         MPI_Alltoallv (sendbuf.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvbuf.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
 
 
+        // Parse the received data
+        // Note that with Ghost Elements, we receive from each neighbor process as many entities as we send to it
         int iData = 0;
-
-        for (int i = 0; i < thisProcessGhostElementIndices.size(); i++)
+        for (int iProc = 0; iProc < size_; iProc++)
         {
-            for (int j = 0; j < thisProcessGhostElementIndices[i].size(); j++)
+            for (int iElem = 0; iElem < thisProcessGhostElementIndexSet[iProc].size(); iElem++)
             {
-                neighborProcessGhostOrder[i].push_back(recvbuf[iData++]);
+                neighborProcessGhostOrder[iProc].push_back(recvbuf[iData++]);
             }
         }
     }
 
 
-    // MPI_alltoallv - Package element globalIndex + elementPhysicalTag + assocFaceGlobalIndex + all interpVertex globalIds
-    // TODO: If planning to use with non-tetrahedral meshes, need to pass element type as well
+    //
+
+
+    /** Communicate to all ghost element information except of the explicit vertex coordinates
+     * MPI_alltoallv - Package element globalIndex + elementPhysicalTag + assocFaceGlobalIndex + all interpVertex globalIds
+     *
+     * Optimization Proposal:
+     * It is possible not to send the associated face global index, and instead figure out the order of elements
+     * according to the order of associated FaceKeys. The gain however is very small
+     *
+     * TODO: If planning to use with non-tetrahedral meshes, need to pass element type as well
+     *
+     * */
     void ghostDistributeGhostElements(
-            std::vector< std::vector<int> > & thisProcessGhostElementIndices,
-            std::vector< std::vector<int> > & thisProcessGhostFaceGlobalIndices,
+            std::vector< std::vector<int> > & thisProcessGhostElementIndexSet,
+            std::vector< std::vector<int> > & thisProcessGhostFaceGlobalIndexSet,
             std::vector< std::vector<int> > & neighborProcessGhostOrder,
             std::vector<int> & recvbuf )
     {
@@ -1589,15 +1785,15 @@ protected:
         Dune::GeometryType meshGeometryType;
         meshGeometryType.makeTetrahedron();
 
-        for (int i = 0; i < thisProcessGhostElementIndices.size(); i++)
+        for (int i = 0; i < thisProcessGhostElementIndexSet.size(); i++)
         {
             int thisSendCounts = 0;
             int thisRecvCounts = 0;
 
-            for (int j = 0; j < thisProcessGhostElementIndices[i].size(); j++)
+            for (int j = 0; j < thisProcessGhostElementIndexSet[i].size(); j++)
             {
-                int ghostElementIndex = thisProcessGhostElementIndices[i][j];
-                int ghostElementFaceGlobalIndex = thisProcessGhostFaceGlobalIndices[i][j];
+                int ghostElementIndex = thisProcessGhostElementIndexSet[i][j];
+                int ghostElementFaceGlobalIndex = thisProcessGhostFaceGlobalIndexSet[i][j];
                 int thisDofNum = element_[ghostElementIndex].vertexIndexSet.size();
                 thisSendCounts += 3 + thisDofNum;
                 thisRecvCounts += 3 + Dune::CurvilinearGeometryHelper::dofPerOrder(meshGeometryType, neighborProcessGhostOrder[i][j]);
@@ -1608,7 +1804,7 @@ protected:
                 sendbuf.push_back(ghostElementFaceGlobalIndex);
                 for (int iDof = 0; iDof < thisDofNum; iDof++)
                 {
-                    sendbuf.push_back(point_[element_[thisProcessGhostElementIndices[i][j]].vertexIndexSet[iDof]].globalIndex);
+                    sendbuf.push_back(point_[element_[thisProcessGhostElementIndexSet[i][j]].vertexIndexSet[iDof]].globalIndex);
                 }
             }
 
@@ -1625,7 +1821,11 @@ protected:
     }
 
 
-    // Add received elements to the mesh
+    /** Add received elements to the mesh. For each vertex global index, find if coordinate is already present on this process
+     *  If not, mark this vertex as a missing vertex for further communication.
+     *
+     *
+     * */
     void ghostInsertGhostElements (
             std::vector< std::vector<int> > & neighborProcessGhostOrder,
             std::vector< int > & packageGhostElementData,
@@ -1636,14 +1836,14 @@ protected:
         Dune::GeometryType meshGeometryType;
         meshGeometryType.makeTetrahedron();
 
-        for (int i = 0; i < neighborProcessGhostOrder.size(); i++) {
+        for (int iProc = 0; iProc < neighborProcessGhostOrder.size(); iProc++) {
 
-            for (int j = 0; j < neighborProcessGhostOrder[i].size(); j++)
+            for (int iGhost = 0; iGhost < neighborProcessGhostOrder[iProc].size(); iGhost++)
             {
                 EntityStorage thisElement;
                 thisElement.geometryType = meshGeometryType;
                 thisElement.globalIndex = packageGhostElementData[iData++];
-                thisElement.interpOrder = neighborProcessGhostOrder[i][j];
+                thisElement.interpOrder = neighborProcessGhostOrder[iProc][iGhost];
                 thisElement.physicalTag = packageGhostElementData[iData++];
 
                 int associatedFaceGlobalIndex = packageGhostElementData[iData++];
@@ -1655,16 +1855,21 @@ protected:
                     Index2IndexMap::iterator vertexIter = vertexGlobal2LocalMap_.find(thisVertexGlobalIndex);
 
                     // If this vertex already exists, just reuse it. Otherwise, create new vertex, and later request its coordinate
-                    if (vertexIter != vertexGlobal2LocalMap_.end()) { thisElement.vertexIndexSet.push_back((*vertexIter).second); }
+                    if (vertexIter != vertexGlobal2LocalMap_.end()) {
+                    	int thisVerexLocalIndex = (*vertexIter).second;
+                    	thisElement.vertexIndexSet.push_back(thisVerexLocalIndex);
+                    }
                     else
                     {
-                        thisElement.vertexIndexSet.push_back(point_.size());
+                        // Create a new vertex with local index pointing to the end of current vertex array
+                    	thisElement.vertexIndexSet.push_back(point_.size());
 
+                    	// Insert the fake vertex into the mesh
                         Vertex fakeCoord;
                         insertVertex(fakeCoord, thisVertexGlobalIndex);
 
                         // Note that this vertex needs communicating
-                        missingVertices[i].insert(thisVertexGlobalIndex);
+                        missingVertices[iProc].insert(thisVertexGlobalIndex);
                     }
                 }
 
@@ -1676,8 +1881,13 @@ protected:
     }
 
 
-    // Communicates to each process the number of missing vertices out of the ones it had communicated
-    // Then communicate the globalId's of all missing vertices
+    //
+    //
+
+    /** Communicate to each process the number of missing vertices out of the ones it had provided with Ghost Elements
+     *  Then communicate the globalIndices of all missing vertices
+     *
+     * */
     void ghostDistributeMissingVertexGlobalIndices(
             std::vector<std::set<int> > & missingVertices,
             std::vector<int> & recvbuf,
@@ -1689,32 +1899,32 @@ protected:
         recvbuf.reserve(size_);
 
         // 4.1) MPI_alltoallv - tell each process the number of coordinates you want from it
-        for (int i = 0; i < missingVertices.size(); i++)  { sendbuf.push_back(missingVertices[i].size()); }
+        for (int iProc = 0; iProc < size_; iProc++)  { sendbuf.push_back(missingVertices[iProc].size()); }
 
         MPI_Comm comm = Dune::MPIHelper::getCommunicator();
         MPI_Alltoall(sendbuf.data(), 1, MPI_INT, reinterpret_cast<int*>(recvbuf.data()), 1, MPI_INT, comm);
 
 
-        // 4.2) MPI_alltoallv - tell each process the list of globalIds of coordinates you want from it
+        // 4.2) MPI_alltoallv - tell each process the list of global Indices of coordinates you want from it
         // Cleanup
         std::vector<int> sendcounts, sdispls, recvcounts, rdispls;
         sendbuf.clear();
         int totalRecvSize = 0;
-        int k = 0;
+        int iData = 0;
 
-        for (int i = 0; i < missingVertices.size(); i++)
+        for (int iProc = 0; iProc < size_; iProc++)
         {
-            int thisSendSize = missingVertices[i].size();
-            int thisRecvSize = recvbuf[k++];
+            int thisSendSize = missingVertices[iProc].size();
+            int thisRecvSize = recvbuf[iData++];
 
             recvcounts.push_back(thisRecvSize);
             sendcounts.push_back(thisSendSize);
             totalRecvSize += thisRecvSize;
 
-            for (std::set<int>::iterator mVertIter = missingVertices[i].begin(); mVertIter != missingVertices[i].end(); mVertIter++ )  { sendbuf.push_back(*mVertIter); }
+            for (std::set<int>::iterator mVertIter = missingVertices[iProc].begin(); mVertIter != missingVertices[iProc].end(); mVertIter++ )  { sendbuf.push_back(*mVertIter); }
 
-            sdispls.push_back((i == 0) ? 0 : sdispls[i-1] + sendcounts[i-1] );
-            rdispls.push_back((i == 0) ? 0 : rdispls[i-1] + recvcounts[i-1] );
+            sdispls.push_back((iProc == 0) ? 0 : sdispls[iProc-1] + sendcounts[iProc-1] );
+            rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + recvcounts[iProc-1] );
         }
 
         recvbuf.clear(); recvbuf.reserve(totalRecvSize);
@@ -1791,7 +2001,6 @@ protected:
             }
         }
     }
-#endif
 
 
 
@@ -1799,85 +2008,46 @@ protected:
      * Section: Methods of the mesh
      * ***************************************************************************/
 
-    // Checks if given point fits into the bounding box of a Tetrahedron
-    // FIXME: This method should be superseded by COM-CURVATURE-BOUND from CurvilinearGeometry
-    /*
-    bool is_inside_bounding_box_gracious(const Vertex & point) const {
+    /** Compute center and extent (halved) of the bounding box of the whole mesh.
+     *
+     * FIXME: Current implementation underestimates bounding box due to curvilinear effects.
+     * Suggested correction:
+     * 1) Min and max over all interpolation points [oh, this is already done]
+     * 2) Correction factor for Excess curvature
+     * 2.1) For example, compute average element linear size, and take half of that, and enlarge extent by it
+     *
+     * */
+    void computeProcessBoundingBox()
+    {
+    	Vertex min = point_[0];
+        Vertex max = min;
+
+        for (int i = 1; i < point_.size(); i ++) {
+            min[0] = std::min(min[0], point_[i][0]);
+            min[1] = std::min(min[1], point_[i][1]);
+            min[2] = std::min(min[2], point_[i][2]);
+
+            max[0] = std::max(max[0], point_[i][0]);
+            max[1] = std::max(max[1], point_[i][1]);
+            max[2] = std::max(max[2], point_[i][2]);
+        }
+        boundingBoxCenter_ = min + max;  boundingBoxCenter_ *= 0.5;
+        boundingBoxExtent_ = max - min;  boundingBoxExtent_ *= 0.5;
+    }
+
+    // Checks if given point fits into the bounding box of the mesh
+    bool isInsideProcessBoundingBoxGracious(const Vertex & point) const {
         const double grace_tolerance = 1e-13;
-        Vertex node_center, node_extent;
+        Vertex center, extent;
 
-        meshBoundingBox(node_center, node_extent);
-        node_center -= point;
-        node_center.x = fabs(node_center.x);
-        node_center.y = fabs(node_center.y);
-        node_center.z = fabs(node_center.z);
-        return node_center <= node_extent * (1.0 + grace_tolerance);
+        bool isInside = true;
+
+        isInside &= fabs(boundingBoxCenter_[0] - point[0]) <= boundingBoxExtent_[0] * (1.0 + grace_tolerance);
+        isInside &= fabs(boundingBoxCenter_[1] - point[1]) <= boundingBoxExtent_[1] * (1.0 + grace_tolerance);
+        isInside &= fabs(boundingBoxCenter_[2] - point[2]) <= boundingBoxExtent_[2] * (1.0 + grace_tolerance);
+
+        return isInside;
     }
-    */
-
-    // Gets a box in which this Tetrahedron fits
-    // FIXME: This method should be superseded by COM-CURVATURE-BOUND from CurvilinearGeometry
-    /*
-    void elementBoundingBox(Vertex center, Vertex extent) const {
-        Vertex min, max, coord;
-
-        min = get_corner(0)->get_coord();
-        max = min;
-        for (int i = 1; i < 4; i ++) {
-            coord = get_corner(i)->get_coord();
-            min.make_floor(coord);
-            max.make_ceil(coord);
-        }
-        center = max.mid_point(min);
-        extent = 0.5 * (max - min);
-    }
-    */
-
-    // Checks if a point is inside the element
-    // FIXME: This method should be superseded by isInside method from CurvilinearGeometry
-    /*
-    bool is_inside_gracious(int id, const Vertex & point) const {
-        const double grace_tolerance = 1e-14;
-        Vector4 simplex_coord;
-
-        cartesian_to_simplex(point, simplex_coord);
-        for (int i = 0; i < 4; i ++)
-            if (simplex_coord[i] < -grace_tolerance)
-                return false;
-        for (int i = 0; i < 4; i ++)
-            if (simplex_coord[i] > 1.0 + grace_tolerance)
-                return false;
-        return true;
-    }
-    */
-
-    /** Find all tets in mesh which contain the specified point p. The found
-        tets are returned in "tets". If p is outside the mesh an empty vector
-        is returned. If p is on a shared face/edge/point, "tets" may contain more
-        than one entry. */
-
-    // TODO: PBE file allows femaxx to count time. Use alternative in Dune?
-    /*
-    void find_tets_by_point(const Vertex p, std::vector<int>& tets) const {
-        assert(octree_);
-
-        //pbe_start(132, "Octree traversal");
-
-        // Get list of nodes (Tets) whose bounding box contain point p
-        std::vector<int> nodes;
-        int nof_visited = 0;
-        octree_->find_nodes_by_point(p, nodes, nof_visited, &is_inside_bounding_box_gracious);
-
-        // Create list of tets containing point p
-        tets.resize(0);
-        for (int i = 0; i < nodes.size(); i++) {
-            if (is_inside_gracious(nodes[i], p)) { tets.push_back(nodes[i]); }
-        }
-
-        // pbe_stop(132);
-        // rDebug("find_tets_by_point: nof_found=%d, nof_visited=%d", static_cast<int>(nodes.size()), nof_visited);
-    }
-    */
 
 
 private: // Private members
@@ -1885,6 +2055,10 @@ private: // Private members
     bool verbose_;
     bool withGhostElements_;
 
+
+    // Storage of process bounding box, since its computation is expensive
+    Vertex boundingBoxCenter_;
+    Vertex boundingBoxExtent_;
 
     // Storage necessary for user access and computation of globalIndex
     int nVertexTotal_;
@@ -1916,16 +2090,14 @@ private: // Private members
     // List of all ranks of processors neighboring processorBoundaries. Index the same as processBoundaryFaceIndex_.
     std::vector<int> processBoundaryNeighborProcess_;  // (processBoundaryFaceIndex_ -> neighbor rank)
 
-    // Temporary maps necessary to
+    // Temporary maps necessary to locate and communicate entities during grid base construction
     EdgeKey2EdgeIdMap edgemap_;                // (global edgeKey -> edge_ index)
     FaceKey2FaceIdMap internalInternalMap_;    // (global faceKey -> internalFaceIndex_)
     FaceKey2FaceIdMap boundaryInternalMap_;    // (global faceKey -> domainBoundaryFaceIndex_)
     FaceKey2FaceIdMap processInternalMap_;     // (global faceKey -> processBoundaryFaceIndex_)
 
-
     // Octree used to efficiently locate elements in which the points are located
-    //LooseOctree<Tet>* octree_;
-    int octree_;
+    CurvilinearLooseOctree* octree_;
     
     /** Pointer to single CurvilinearGridBase instance (Singleton) */
     //static CurvilinearGridBase* instance_ = 0;

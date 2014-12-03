@@ -42,7 +42,7 @@
 
 
 #include <dune/curvilineargrid/feedback/loggingmessage.hh>
-#include <dune/curvilineargrid/curvilineargrid/gridfactory.hh>
+#include <dune/curvilineargrid/curvilineargrid/curvilineargridfactory.hh>
 #include <dune/curvilineargrid/io/file/curvilinearvtkwriter.hh>
 
 #include <parmetis.h>
@@ -119,8 +119,8 @@ namespace Dune
     CurvilinearVTKWriter<dimWorld_> vtkCurvWriter_;
 
     // Logging Message Typedefs
-    const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
-    const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
+    static const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
+    static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
 
     // typedefs
     typedef Dune::FieldVector< double, dimWorld_ > GlobalVector;

@@ -34,6 +34,11 @@
 #include <dune/curvilineargeometry/interpolation/curvilinearelementinterpolator.hh>
 #include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 
+#include <dune/curvilineargrid/feedback/loggingmessage.hh>
+
+
+
+
 namespace Dune
 {
 
@@ -51,6 +56,8 @@ namespace Dune
     };
   };
   
+  const std::vector<std::string> VtkEntityStructuralTypeName {"Internal", "DomainBoundary", "ProcessBoundary", "Ghost", "Overlap", "Front", "Periodic"};
+
   
   
   template<int cdim>
@@ -78,15 +85,13 @@ namespace Dune
 
       typedef std::vector< IndexVector >       ElemGridEnumerate;
 
-      std::vector<GlobalVector> vtkPoint;
-      std::vector<IndexVector> vtkEdge;
-      std::vector<IndexVector> vtkTriangle;
+      // Logging Message Typedefs
+      static const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
+      static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
 
-      TagVector vtkEdgeTag;
-      TagVector vtkTriangleTag;
 
-      TagVector vtkEdgeStructuralType;
-      TagVector vtkTriangleStructuralType;
+      // Methods
+      // ***********************************************
 
       /** \brief Adds an edge which will be explicitly written to the file */
       void addDiscretizationEdge(IndexVector indices, int tag, int strType)
@@ -329,6 +334,7 @@ namespace Dune
               int thisElmStructuralType
               )
       {
+
     	  typedef FieldVector< double, mydim >      LocalVector;
 
     	  CurvilinearElementInterpolator<double, mydim, cdim> thisElementInt(thisElmType, elementNodeSet, thisElmOrder);
@@ -438,7 +444,14 @@ namespace Dune
 
   public:
 
-    CurvilinearVTKWriter () { }
+    CurvilinearVTKWriter (bool verbose, bool processVerbose, MPIHelper &mpihelper) :
+    	verbose_(verbose),
+    	processVerbose_(processVerbose),
+    	mpihelper_(mpihelper)
+    {
+    	rank_ = mpihelper_.rank();
+    	size_ = mpihelper_.size();
+    }
 
     /** \brief Takes curvilinear element, discretizes it into linear element, adds linear elements to the writer
      *
@@ -477,6 +490,23 @@ namespace Dune
     {
     	// 0.0 - no shrinking, 0.99 - very small element (must be < 1)
     	double shrinkMagnitude = explode ? 0.2 : 0.0;
+
+    	std::string log_message = "VTK_WRITER: Adding a curvilinear element Type=" + Dune::CurvilinearGeometryHelper::geometryName(thisElmType);
+    	log_message += " Order="               + std::to_string(thisElmOrder);
+    	log_message += " PhysicalTag="         + std::to_string(thisElmPhysTag);
+    	log_message += " StructuralType="      + Dune::VtkEntityStructuralTypeName[thisElmStructuralType];
+    	log_message += " nDiscretization="     + std::to_string(nDiscretizationPoints);
+    	log_message += " useInterpolation="    + std::to_string(interpolate);
+    	log_message += " explodeElements="     + std::to_string(explode);
+    	log_message += " explosionMagnitude="  + std::to_string(shrinkMagnitude);
+    	log_message += " writeVTK_edges="      + std::to_string(writeEdgeData);
+    	log_message += " writeVTK_triangles="  + std::to_string(writeTriangleData);
+
+
+
+
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_message);
+
 
     	if (thisElmType.isTriangle())
     	{
@@ -710,14 +740,37 @@ namespace Dune
     }
 
     // Writes a VTU file on all processes and a PVTU on Master Process
-    void writeParallelVTU(std::string filenameBody, int rank, int size)
+    void writeParallelVTU(std::string filenameBody)
     {
     	// Write a PVTU file on master process
-    	if (rank == 0) { writePVTU(filenameBody, size); }
+    	if (rank_ == 0) { writePVTU(filenameBody, size_); }
 
     	// Write a VTU file on all processes
-    	writeVTU(filenameBody  + "_process_" + std::to_string(rank) + ".vtu");
+    	writeVTU(filenameBody  + "_process_" + std::to_string(rank_) + ".vtu");
     }
+
+
+
+
+  private:
+    bool verbose_;
+    bool processVerbose_;
+
+    // MPI
+    MPIHelper &mpihelper_;
+    int rank_;
+    int size_;
+
+    std::vector<GlobalVector> vtkPoint;
+    std::vector<IndexVector> vtkEdge;
+    std::vector<IndexVector> vtkTriangle;
+
+    TagVector vtkEdgeTag;
+    TagVector vtkTriangleTag;
+
+    TagVector vtkEdgeStructuralType;
+    TagVector vtkTriangleStructuralType;
+
 
   };
 

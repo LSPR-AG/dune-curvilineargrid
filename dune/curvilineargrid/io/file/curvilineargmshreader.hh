@@ -71,52 +71,12 @@ namespace Dune
   class CurvilinearGmshReaderParser
   {
   protected:
-    // If to show debug output
-    bool verbose_;
 
-    // If to log using all processes or only master process
-    bool processVerbose_;
-
-    // If to save mesh to VTK format after reading
-    bool writeVtkFile_;
-
-    // Grid Factory
-    //Dune::GridFactory<GridType>& factory;
-    Dune::CurvilinearGridFactory<GridType> & factory;
 
     // static data
     static const int dim_ = GridType::dimension;
     static const int dimWorld_ = GridType::dimensionworld;
     static_assert( (dimWorld_ <= 3), "GmshReader requires dimWorld <= 3." );
-
-    // Reading file
-    std::string fileName;
-    char buf_[512];
-
-    // Boundary element indexing
-    bool insertBoundarySegment;
-    std::vector<int> boundaryElement2PhysicalEntityIndex;
-    std::vector<int> internalElement2PhysicalEntityIndex;
-
-    // Total data about the mesh
-    int nVertexTotal_ = 0;
-    int nElementTotal_ = 0;
-    int nInternalElementTotal_ = 0;
-    int nBoundaryElementTotal_ = 0;
-
-
-    // Parallel Implementation
-    MPIHelper &mpihelper_;
-    static const int MASTER_RANK = 0;
-    int rank_;
-    int size_;
-
-    // A map from GMSH -> Dune for indexing interpolatory points
-    std::vector< std::vector< int > > triangularInterpolatoryVertexGmsh2DuneMap;
-    std::vector< std::vector< int > > tetrahedralInterpolatoryVertexGmsh2DuneMap;
-
-    // Testing capabilities for writing to VTK.
-    CurvilinearVTKWriter<dimWorld_> vtkCurvWriter_;
 
     // Logging Message Typedefs
     static const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
@@ -130,6 +90,11 @@ namespace Dune
     typedef Dune::ReferenceElement< double, dim_-1 > SubReferenceElement;
     typedef Dune::ReferenceElements< double, dim_-1 > SubReferenceElements;
 
+
+
+
+    // Methods
+    // ***********************************************************************
 
     // Constructs a DUNE geometry type based on GMSH element index
     GeometryType gmshGeometryType(int gmshIndex)
@@ -1091,9 +1056,9 @@ namespace Dune
     	const int VTK_INTERNAL = Dune::VtkEntityStructuralType::Internal;
     	const int VTK_BOUNDARY = Dune::VtkEntityStructuralType::DomainBoundary;
 
-    	int VTK_DISCRETIZATION_POINTS = 6;    // Sampling frequency over curved element. min=2 is linear sampling
+    	int VTK_DISCRETIZATION_POINTS = 2;    // Sampling frequency over curved element. min=2 is linear sampling
     	bool VTK_INTERPOLATE = true;          // Whether to use lagrange interpolation or intrinsic interpolatory vertices
-    	bool VTK_EXPLODE = false;             // Whether to make gaps between all elements by scaling them away from center
+    	bool VTK_EXPLODE = true;              // Whether to make gaps between all elements by scaling them away from center
     	bool VTK_WRITE_EDGES = false;         // Whether to write volume discretization edges to file
     	bool VTK_WRITE_TRIANGLES = true;      // Whether to write surface discretization triangles to file
 
@@ -1135,8 +1100,10 @@ namespace Dune
     		factory(_factory),
     		verbose_(verbose),
     		processVerbose_(processVerbose),
+    		writeVtkFile_(true),
     		insertBoundarySegment(insertBoundarySegment),
-    		mpihelper_ (mpihelper)
+    		mpihelper_ (mpihelper),
+    		vtkCurvWriter_(verbose_, processVerbose_, mpihelper_)
     {
         // Initialize process parameters
         rank_=mpihelper.rank();
@@ -1163,6 +1130,8 @@ namespace Dune
     int & totalVertex()   { return nVertexTotal_; }
 
     int & totalElement()   { return nElementTotal_; }
+
+    int & totalInternalElement()   { return nInternalElementTotal_; }
 
     std::vector<int> & boundaryIdMap()   { return boundaryElement2PhysicalEntityIndex; }
 
@@ -1212,7 +1181,7 @@ namespace Dune
         for (int iVertex = 0; iVertex < nVertexTotal_; iVertex++ )
         {
         	fgets(buf_, 512, file );
-        	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, std::string(buf_));
+        	//Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, std::string(buf_));
         }
         fscanf(file, "%s\n", buf_);
         if (strcmp(buf_,"$EndNodes")!=0)  { DUNE_THROW(Dune::IOError, "expected $EndNodes"); }
@@ -1245,7 +1214,7 @@ namespace Dune
             // Ignore the rest of data on this line
             fgets(buf_, 512, file );
 
-            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, std::to_string(id) + " " + std::to_string(gmshElementIndex) + " " + std::string(buf_));
+            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, std::to_string(id) + " " + std::to_string(gmshElementIndex) );
 
             // A boundary segment is defined here as any element with dimension less than world dimension
             GeometryType elemType          = gmshGeometryType(gmshElementIndex);
@@ -1335,13 +1304,58 @@ namespace Dune
         if (writeVtkFile_)
         {
         	vtkCurvWriter_.writeVTK("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
-        	vtkCurvWriter_.writeParallelVTU("./curvreader_output", rank_, size_);
-            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__,  ">>> wrote test output to .vtk " );
+        	vtkCurvWriter_.writeParallelVTU("./curvreader_output");
+            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__,  "Curvilinear VTK Writer finished writing" );
         }
 
         // Close file
         fclose(file);
       }
+
+
+
+    // Variables
+    // *******************************************************************************
+
+  protected:
+    bool verbose_;         // If to show debug output
+    bool processVerbose_;  // If to log using all processes or only master process
+    bool writeVtkFile_;    // If to save mesh to VTK format after reading
+
+    // Parallel Implementation
+    MPIHelper &mpihelper_;
+    static const int MASTER_RANK = 0;
+    int rank_;
+    int size_;
+
+    // Grid Factory
+    //Dune::GridFactory<GridType>& factory;
+    Dune::CurvilinearGridFactory<GridType> & factory;
+
+    // Reading file
+    std::string fileName;
+    char buf_[512];
+
+    // Boundary element indexing
+    bool insertBoundarySegment;
+    std::vector<int> boundaryElement2PhysicalEntityIndex;
+    std::vector<int> internalElement2PhysicalEntityIndex;
+
+    // Total data about the mesh
+    int nVertexTotal_ = 0;
+    int nElementTotal_ = 0;
+    int nInternalElementTotal_ = 0;
+    int nBoundaryElementTotal_ = 0;
+
+    // A map from GMSH -> Dune for indexing interpolatory points
+    std::vector< std::vector< int > > triangularInterpolatoryVertexGmsh2DuneMap;
+    std::vector< std::vector< int > > tetrahedralInterpolatoryVertexGmsh2DuneMap;
+
+    // Testing capabilities for writing to VTK.
+    CurvilinearVTKWriter<dimWorld_> vtkCurvWriter_;
+
+
+
   };
 
 
@@ -1398,7 +1412,7 @@ namespace Dune
         internalElement2PhysicalEntityIndex.swap(parser.elementIndexMap());
 
         nVertexTotal = parser.totalVertex();
-        nElementTotal = parser.totalElement();
+        nElementTotal = parser.totalInternalElement();
     }
   };
 

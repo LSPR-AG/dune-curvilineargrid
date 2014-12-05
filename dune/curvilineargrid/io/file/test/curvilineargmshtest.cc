@@ -112,7 +112,7 @@ int main(int argc, char** argv)
 
 
     // Assemble the file name
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD5;
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD1;
 
 
     //! Define datatypes for grid mappers and  iterators to access all elements of a specific geometry type.
@@ -129,7 +129,7 @@ int main(int argc, char** argv)
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridFactory<SimplexGridType> factory(true, true, mpihelper);
+    Dune::CurvilinearGridFactory<SimplexGridType> factory(true, true, true, mpihelper);
 
 
     /** \brief open the GMSH formatted tetrahedral mesh file into a grid factory */

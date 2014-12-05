@@ -23,6 +23,8 @@
 
 #include <dune/common/fvector.hh>
 
+
+#include <dune/curvilineargrid/feedback/loggingmessage.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilinearoctant.hh>
 
 
@@ -50,6 +52,10 @@ public:
 	typedef Dune::FieldVector<ct, cdim>   Vertex;
 	typedef Dune::CurvilinearOctant<ct, cdim, NodeType> CurvilinearOctant;
 
+    // Logging Message Typedefs
+    static const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
+    static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
+
 
 	/** Filter function deciding whether a point is inside a an OctreeNode */
 	// FIXME: DO FUNCTOR DO NOT DO UGLY POINTER
@@ -68,11 +74,20 @@ public:
 
 public:
 
-
     /** Constructor: Initialise a CurvilinearLooseOctree living in a bounding box defined by
      * "center" and "length".
      */
-    CurvilinearLooseOctree(const Vertex& center, double length, int maxDepth) : maxDepth_(maxDepth)
+    CurvilinearLooseOctree(
+    		const Vertex& center,
+    		double length,
+    		int maxDepth,
+    		bool verbose,
+    		bool processVerbose,
+    		MPIHelper & mpihelper) :
+    			maxDepth_(maxDepth),
+    			verbose_(verbose),
+    			processVerbose_(processVerbose),
+    			mpihelper_(mpihelper)
 	{
     	root_ = new CurvilinearOctant(center, length);
 	}
@@ -94,11 +109,16 @@ public:
      */
     CurvilinearOctant* addNode(NodeType* thisNode, CurvilinearOctant* octant=0, int depth=0)
     {
+    	std::stringstream log_stream;
+    	log_stream << "CurvilinearLooseOctree: Adding a node ElementIndex=" << thisNode->elementIndex() <<  " Octant=" << octant << " Depth=" << depth;
+
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+
         // root is the default octant
         if (octant == 0)  { octant = root_; }
 
         Vertex extent, center;
-        thisNode->get_bounding_box(center, extent);
+        thisNode->elementBoundingBox(center, extent);
 
         // if the octant is twice as big as the node,
         // we will add it to a child.
@@ -136,7 +156,7 @@ public:
         default the search starts at the root node.
     */
     void findNode(const Vertex& coord,
-                             std::vector<NodeType *>& nodeVector,
+                             std::vector<int>& elementIndices,
                              int& nNodeVisited,
                              CurvilinearLooseOctree::filter filter,
                              CurvilinearOctant* octant=0)
@@ -156,7 +176,7 @@ public:
         NodePtrIterator it = octant->node_.begin();
         while (it != octant->node_.end()) {
             NodeType* thisNode = *it;
-            if ((thisNode->*filter)(coord))  { nodeVector.push_back(thisNode); }
+            if ((thisNode->*filter)(coord))  { elementIndices.push_back(thisNode->elementIndex()); }
             nNodeVisited++;
             it++;
         }
@@ -164,7 +184,7 @@ public:
         // descend to children
         for (int i = 0; i < 8; i ++)
         {
-            if (octant->children_[i])  { findNode(coord, nodeVector, nNodeVisited, filter, octant->children_[i]); }
+            if (octant->children_[i])  { findNode(coord, elementIndices, nNodeVisited, filter, octant->children_[i]); }
         }
 
 
@@ -179,7 +199,7 @@ public:
         the search starts at the root node. If no node was found, 0 is
         returned.
     */
-    NodeType* findSingleNode(const Vertex& coord,
+    int findSingleNode(const Vertex& coord,
                                        int& nNodeVisited,
                                        CurvilinearLooseOctree::filter filter,
                                        CurvilinearOctant* octant=0)
@@ -203,7 +223,7 @@ public:
             thisNode = *it;
             nNodeVisited ++;
             it ++;
-            if ((thisNode->*filter)(coord))  { return thisNode; }
+            if ((thisNode->*filter)(coord))  { return thisNode->elementIndex(); }
         }
         // descend to children
         for (int i = 0; i < 8; i ++) {
@@ -277,11 +297,11 @@ public:
 
         std::ofstream of;
         of.open(filename.c_str());
-        rAssert(of.is_open());
+        //rAssert(of.is_open());
 
         // VTK header
         of.precision(6);
-        of << scientific;
+        //of << scientific;
         of << "# vtk DataFile Version 2.0" << std::endl;
         of << "generated using VtkExport::export_eigenfields" << std::endl;
         of << "ASCII" << std::endl << std::endl;
@@ -392,8 +412,13 @@ protected:
 
 private:
 
-    CurvilinearOctant<ct, cdim, NodeType>* root_;    /** Root Octant */
-    int maxDepth_;                                   /** Maximum tree depth */
+    bool verbose_;
+    bool processVerbose_;
+
+    MPIHelper &mpihelper_;
+
+    CurvilinearOctant* root_;    /** Root Octant */
+    int maxDepth_;               /** Maximum tree depth */
 };
 
 

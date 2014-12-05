@@ -130,7 +130,7 @@ public:
             if (messageCat != Category::CLEAN)
             {
                 printedMessage << std::setw(20) << filename << ":" << std::setw(6) << linenumber;
-                printedMessage << " ::: process [" << rank << "]";
+                printedMessage << " ::: process[" << rank << "]";
 
                 printedMessage << " ::: " << phasestring << " ";
                 printedMessage << categorystring;

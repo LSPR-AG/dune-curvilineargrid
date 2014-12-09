@@ -9,7 +9,6 @@
 
 #include <dune/grid/common/grid.hh>
 #include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
-#include <dune/curvilineargrid/curvilineargrid/cornerstorage.hh>
 
 namespace Dune
 {

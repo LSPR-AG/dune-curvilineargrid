@@ -934,6 +934,8 @@ namespace Dune
                 elementNodeVector.push_back(vertexIndex2CoordinateMap[internalElementVector[i].elementDofSet_[iDof]]);
             }
 
+            //std::cout << "process_" << rank_ << " element=" << i << " globalVertexIndices=(" << vector2string(internalElementVector[i].elementDofSet_) << ")" << " localVertexIndices=(" << vector2string(localDofVector) << ")" << std::endl;
+
 
             // TESTING SECTION FOR TETRAHEDRA
             // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

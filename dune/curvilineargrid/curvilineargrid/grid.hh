@@ -7,85 +7,20 @@
 
 #include <dune/grid/common/grid.hh>
 
-#include <dune/curvilineargrid/curvilineargrid/backuprestore.hh>
 #include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
 #include <dune/curvilineargrid/curvilineargrid/datahandle.hh>
 #include <dune/curvilineargrid/curvilineargrid/gridfamily.hh>
-#include <dune/curvilineargrid/curvilineargrid/identity.hh>
-#include <dune/curvilineargrid/curvilineargrid/persistentcontainer.hh>
 
 namespace Dune
 {
 
-  // DefaultCoordFunction
-  // --------------------
 
-  template< class HostGrid >
-  class DefaultCoordFunction
-    : public IdenticalCoordFunction< typename HostGrid::ctype, HostGrid::dimensionworld >
-  {};
-
-
-
-  // CurvilinearGrid
-  // ------------
-
-  /** \class CurvilinearGrid
-   *  \brief grid wrapper replacing the geometries
-   *  \ingroup CurvGrid
-   *
-   *  CurvilinearGrid wraps another DUNE grid and replaces its geometry by the
-   *  generic geometries from dune-grid. These are linear (respectively
-   *  n-linear) DUNE geometries interpolating some given corners. These corners
-   *  are obtained by mapping the corners of the host grid's geometry (also
-   *  called host geometry) by a coordinate function.
-   *
-   *  An example of a coordinate function is given by the following code:
-   *  \code
-   *  class ExampleFunction
-   *  : public Dune :: AnalyticalCoordFunction< double, 2, 3, ExampleFunction >
-   *  {
-   *    typedef ExampleFunction This;
-   *    typedef Dune :: AnalyticalCoordFunction< double, 2, 3, This > Base;
-   *
-   *  public:
-   *    typedef Base :: DomainVector DomainVector;
-   *    typedef Base :: RangeVector RangeVector;
-   *
-   *    void evaluate ( const DomainVector &x, RangeVector &y ) const
-   *    {
-   *      y[ 0 ] = x[ 0 ];
-   *      y[ 1 ] = x[ 1 ];
-   *      y[ 2 ] = x[ 0 ] + x[ 1 ];
-   *    }
-   *  };
-   *  \endcode
-   *
-   *  \note A dune-fem Function can be used as a coordinate function.
-   *        The evaluation of discrete functions would be very expensive,
-   *        though.
-   *
-   *  \tparam HostGrid       DUNE grid to be wrapped (called host grid)
-   *  \tparam CoordFunction  coordinate function
-   *
-   *  \nosubgrouping
-   */
-  template< class HostGrid, class CoordFunction = DefaultCoordFunction< HostGrid >, class Allocator = std::allocator< void > >
-  class CurvilinearGrid
-  /** \cond */
-    : public GridDefaultImplementation
-      < HostGrid::dimension, CoordFunction::dimRange, typename HostGrid::ctype,
-          CurvGrid::GridFamily< HostGrid, CoordFunction, Allocator > >,
-      public CurvGrid::ExportParams< HostGrid, CoordFunction >,
-      public CurvGrid::BackupRestoreFacilities< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
+  template< class HostGrid, class Allocator = std::allocator< void > >
+  class CurvilinearGrid: public GridDefaultImplementation < HostGrid::dimension, HostGrid::dimensionworld,  typename HostGrid::ctype, CurvGrid::GridFamily< HostGrid, Allocator > >
       /** \endcond */
   {
-    typedef CurvilinearGrid< HostGrid, CoordFunction, Allocator > Grid;
-
-    typedef GridDefaultImplementation
-    < HostGrid::dimension, CoordFunction::dimRange, typename HostGrid::ctype,
-        CurvGrid::GridFamily< HostGrid, CoordFunction, Allocator > >
-    Base;
+    typedef CurvilinearGrid< HostGrid, Allocator > Grid;
+    typedef GridDefaultImplementation< HostGrid::dimension, HostGrid::dimensionworld, typename HostGrid::ctype, CurvGrid::GridFamily< HostGrid, Allocator > > Base;
 
     friend class CurvGrid::HierarchicIterator< const Grid >;
 
@@ -103,15 +38,9 @@ namespace Dune
     template< class, class > friend class CurvGrid::CommDataHandle;
 
   public:
-    /** \cond */
-    typedef CurvGrid::GridFamily< HostGrid, CoordFunction, Allocator > GridFamily;
-    /** \endcond */
 
-    /** \name Traits
-     *  \{ */
-
-    //! type of the grid traits
-    typedef typename GridFamily::Traits Traits;
+    typedef CurvGrid::GridFamily< HostGrid, Allocator > GridFamily;
+    typedef typename GridFamily::Traits Traits;                               //! type of the grid traits
 
     /** \brief traits structure containing types for a codimension
      *
@@ -128,11 +57,11 @@ namespace Dune
      *  \{ */
 
     //! iterator over the grid hierarchy
-    typedef typename Traits::HierarchicIterator HierarchicIterator;
+    typedef typename Traits::HierarchicIterator             HierarchicIterator;
     //! iterator over intersections with other entities on the leaf level
-    typedef typename Traits::LeafIntersectionIterator LeafIntersectionIterator;
+    typedef typename Traits::LeafIntersectionIterator       LeafIntersectionIterator;
     //! iterator over intersections with other entities on the same level
-    typedef typename Traits::LevelIntersectionIterator LevelIntersectionIterator;
+    typedef typename Traits::LevelIntersectionIterator      LevelIntersectionIterator;
 
     /** \} */
 
@@ -143,15 +72,13 @@ namespace Dune
     template< PartitionIteratorType pitype >
     struct Partition
     {
-      typedef typename GridFamily::Traits::template Partition< pitype >::LevelGridView
-      LevelGridView;
-      typedef typename GridFamily::Traits::template Partition< pitype >::LeafGridView
-      LeafGridView;
+      typedef typename GridFamily::Traits::template Partition< pitype >::LevelGridView    LevelGridView;
+      typedef typename GridFamily::Traits::template Partition< pitype >::LeafGridView     LeafGridView;
     };
 
     /** \brief View types for All_Partition */
-    typedef typename Partition< All_Partition >::LevelGridView LevelGridView;
-    typedef typename Partition< All_Partition >::LeafGridView LeafGridView;
+    typedef typename Partition< All_Partition >::LevelGridView     LevelGridView;
+    typedef typename Partition< All_Partition >::LeafGridView      LeafGridView;
 
     /** \} */
 
@@ -233,9 +160,8 @@ namespace Dune
      *  \param[in]  coordFunction  reference to the coordinate function
      *  \param[in]  allocator      storage allocator
      */
-    CurvilinearGrid ( HostGrid &hostGrid, CoordFunction &coordFunction, const Allocator &allocator = Allocator() )
+    CurvilinearGrid ( HostGrid &hostGrid, const Allocator &allocator = Allocator() )
       : hostGrid_( &hostGrid ),
-        coordFunction_( coordFunction ),
         removeHostGrid_( false ),
         levelIndexSets_( hostGrid_->maxLevel()+1, nullptr, allocator ),
         storageAllocator_( allocator )
@@ -250,9 +176,8 @@ namespace Dune
      *  \param[in]  coordFunction  pointer to the coordinate function
      *  \param[in]  allocator      storage allocator
      */
-    CurvilinearGrid ( HostGrid *hostGrid, CoordFunction *coordFunction, const Allocator &allocator = Allocator() )
+    CurvilinearGrid ( HostGrid *hostGrid, const Allocator &allocator = Allocator() )
       : hostGrid_( hostGrid ),
-        coordFunction_( *coordFunction ),
         removeHostGrid_( true ),
         levelIndexSets_( hostGrid_->maxLevel()+1, nullptr, allocator ),
         storageAllocator_( allocator )
@@ -264,15 +189,10 @@ namespace Dune
     {
       for( unsigned int i = 0; i < levelIndexSets_.size(); ++i )
       {
-        if( levelIndexSets_[ i ] )
-          delete( levelIndexSets_[ i ] );
+        if( levelIndexSets_[ i ] )  { delete( levelIndexSets_[ i ] ); }
       }
 
-      if( removeHostGrid_ )
-      {
-        delete &coordFunction_;
-        delete hostGrid_;
-      }
+      if( removeHostGrid_ )  { delete hostGrid_; }
     }
 
     /** \} */
@@ -428,39 +348,27 @@ namespace Dune
      *
      *  \param[in]  codim  codimension for with the information is desired
      */
-    int overlapSize ( int codim ) const
-    {
-      return leafGridView().overlapSize( codim );
-    }
+    int overlapSize ( int codim ) const  { return leafGridView().overlapSize( codim ); }
 
     /** \brief obtain size of ghost region for the leaf grid
      *
      *  \param[in]  codim  codimension for with the information is desired
      */
-    int ghostSize( int codim ) const
-    {
-      return leafGridView().ghostSize( codim );
-    }
+    int ghostSize( int codim ) const  { return leafGridView().ghostSize( codim ); }
 
     /** \brief obtain size of overlap region for a grid level
      *
      *  \param[in]  level  grid level (0, ..., maxLevel())
      *  \param[in]  codim  codimension (0, ..., dimension)
      */
-    int overlapSize ( int level, int codim ) const
-    {
-      return levelGridView( level ).overlapSize( codim );
-    }
+    int overlapSize ( int level, int codim ) const  { return levelGridView( level ).overlapSize( codim ); }
 
     /** \brief obtain size of ghost region for a grid level
      *
      *  \param[in]  level  grid level (0, ..., maxLevel())
      *  \param[in]  codim  codimension (0, ..., dimension)
      */
-    int ghostSize ( int level, int codim ) const
-    {
-      return levelGridView( level ).ghostSize( codim );
-    }
+    int ghostSize ( int level, int codim ) const  { return levelGridView( level ).ghostSize( codim ); }
 
     /** \brief communicate information on a grid level
      *
@@ -512,10 +420,7 @@ namespace Dune
      *  \note The CollectiveCommunication object returned is identical to the
      *        one returned by the host grid.
      */
-    const CollectiveCommunication &comm () const
-    {
-      return hostGrid().comm();
-    }
+    const CollectiveCommunication &comm () const  { return hostGrid().comm(); }
 
 #if 0
     // data handle interface different between geo and interface
@@ -612,20 +517,9 @@ namespace Dune
       return LeafGridView( ViewImp( *this, hostGrid().leafGridView() ) );
     }
 
-    /** \} */
-
-    /** \name Miscellaneous Methods
-     *  \{ */
-
-    const HostGrid &hostGrid () const
-    {
-      return *hostGrid_;
-    }
-
-    HostGrid &hostGrid ()
-    {
-      return *hostGrid_;
-    }
+    /** Return reference to HostGrid */
+    const HostGrid &hostGrid () const  { return *hostGrid_; }
+    HostGrid &hostGrid ()  { return *hostGrid_; }
 
     /** \brief update grid caches
      *
@@ -680,7 +574,6 @@ namespace Dune
 
   private:
     HostGrid *const hostGrid_;
-    CoordFunction &coordFunction_;
     bool removeHostGrid_;
     mutable std::vector< LevelIndexSet *, typename Allocator::template rebind< LevelIndexSet * >::other > levelIndexSets_;
     mutable LeafIndexSet leafIndexSet_;
@@ -694,9 +587,9 @@ namespace Dune
   // CurvilinearGrid::Codim
   // -------------------
 
-  template< class HostGrid, class CoordFunction, class Allocator >
+  template< class HostGrid, class Allocator >
   template< int codim >
-  struct CurvilinearGrid< HostGrid, CoordFunction, Allocator >::Codim
+  struct CurvilinearGrid< HostGrid, Allocator >::Codim
     : public Base::template Codim< codim >
   {
     /** \name Entity and Entity Pointer Types
@@ -747,12 +640,8 @@ namespace Dune
     template< PartitionIteratorType pitype >
     struct Partition
     {
-      typedef typename Traits::template Codim< codim >
-      ::template Partition< pitype >::LeafIterator
-      LeafIterator;
-      typedef typename Traits::template Codim< codim >
-      ::template Partition< pitype >::LevelIterator
-      LevelIterator;
+      typedef typename Traits::template Codim< codim > ::template Partition< pitype >::LeafIterator   LeafIterator;
+      typedef typename Traits::template Codim< codim > ::template Partition< pitype >::LevelIterator  LevelIterator;
     };
 
     /** \brief type of level iterator

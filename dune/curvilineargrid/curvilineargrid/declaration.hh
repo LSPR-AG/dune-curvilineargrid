@@ -6,7 +6,7 @@
 namespace Dune
 {
 
-  template< class HostGrid, class CoordFunction, class Allocator >
+  template< class HostGrid, class Allocator >
   class CurvilinearGrid;
 
 } // namespace Dune

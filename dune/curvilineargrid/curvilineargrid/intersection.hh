@@ -5,7 +5,6 @@
 
 #include <dune/curvilineargrid/curvilineargrid/declaration.hh>
 #include <dune/curvilineargrid/curvilineargrid/entitypointer.hh>
-#include <dune/curvilineargrid/curvilineargrid/cornerstorage.hh>
 
 namespace Dune
 {

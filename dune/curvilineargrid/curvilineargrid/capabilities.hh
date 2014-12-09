@@ -9,6 +9,7 @@
 
 #include <dune/grid/common/capabilities.hh>
 #include <dune/curvilineargrid/curvilineargrid/declaration.hh>
+#include <dune/geometry/genericgeometry/topologytypes.hh>
 
 namespace Dune
 {
@@ -22,128 +23,65 @@ namespace Dune
     // Capabilities from dune-grid
     // ---------------------------
 
-    template< class HostGrid, class CoordFunction, class Allocator >
-    struct hasSingleGeometryType< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
+  	// Note: At the moment curvilinear grid only capable of dealing with tetrahedral meshes
+    template< class HostGrid, class Allocator >
+    struct hasSingleGeometryType< CurvilinearGrid< HostGrid, Allocator > >
     {
-      static const bool v = hasSingleGeometryType< HostGrid > :: v;
-      static const unsigned int topologyId = hasSingleGeometryType< HostGrid > :: topologyId;
+        static const bool v = true;
+        static const unsigned int topologyId = GenericGeometry::SimplexTopology<3>::type::id;
     };
 
 
-    template< class HostGrid, class CoordFunction, class Allocator, int codim >
-    struct hasEntity< CurvilinearGrid< HostGrid, CoordFunction, Allocator >, codim >
+    template< class HostGrid, class Allocator, int codim >
+    struct hasEntity< CurvilinearGrid< HostGrid, Allocator >, codim >
     {
-      static const bool v = true;
+    	static const bool v = true;
     };
 
 
-    template< class HostGrid, class CoordFunction, class Allocator >
-    struct isParallel< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
+    template< class HostGrid, class Allocator >
+    struct isParallel< CurvilinearGrid< HostGrid, Allocator > >
     {
-      static const bool v = isParallel< HostGrid >::v;
+    	static const bool v = ???;
     };
 
 
-    template< class HostGrid, class CoordFunction, class Allocator, int codim >
-    struct canCommunicate< CurvilinearGrid< HostGrid, CoordFunction, Allocator >, codim >
+    // FIXME: Do I need to specialize this for all codimensions to avoid, say, 4D grid requests?
+    template< class HostGrid, class Allocator, int codim >
+    struct canCommunicate< CurvilinearGrid< HostGrid, Allocator >, codim >
     {
-      static const bool v = canCommunicate< HostGrid, codim >::v;
+    	static const bool v = true;
     };
 
 
-    template< class HostGrid, class CoordFunction, class Allocator >
-    struct hasBackupRestoreFacilities< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
+    template< class HostGrid, class Allocator >
+    struct hasBackupRestoreFacilities< CurvilinearGrid< HostGrid, Allocator > >
     {
-      static const bool v = hasBackupRestoreFacilities< HostGrid >::v;
+      static const bool v = false;
     };
 
-    template< class HostGrid, class CoordFunction, class Allocator >
-    struct isLevelwiseConforming< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
+    template< class HostGrid, class Allocator >
+    struct isLevelwiseConforming< CurvilinearGrid< HostGrid, Allocator > >
     {
       static const bool v = isLevelwiseConforming< HostGrid >::v;
     };
 
-    template< class HostGrid, class CoordFunction, class Allocator >
-    struct isLeafwiseConforming< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
+    template< class HostGrid, class Allocator >
+    struct isLeafwiseConforming< CurvilinearGrid< HostGrid, Allocator > >
     {
       static const bool v = isLeafwiseConforming< HostGrid >::v;
     };
 
-    template< class HostGrid, class CoordFunction, class Allocator >
-    struct threadSafe< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
+    template< class HostGrid, class Allocator >
+    struct threadSafe< CurvilinearGrid< HostGrid, Allocator > >
     {
       static const bool v = false;
     };
 
-    template< class HostGrid, class CoordFunction, class Allocator >
-    struct viewThreadSafe< CurvilinearGrid< HostGrid, CoordFunction, Allocator > >
+    template< class HostGrid, class Allocator >
+    struct viewThreadSafe< CurvilinearGrid< HostGrid, Allocator > >
     {
       static const bool v = false;
-    };
-
-
-
-
-    // hasHostEntity
-    // -------------
-
-    template< class Grid, int codim >
-    struct hasHostEntity;
-
-    template< class Grid, int codim >
-    struct hasHostEntity< const Grid, codim >
-    {
-      static const bool v = hasHostEntity< Grid, codim >::v;
-    };
-
-    template< class HostGrid, class CoordFunction, class Allocator, int codim >
-    struct hasHostEntity< CurvilinearGrid< HostGrid, CoordFunction, Allocator >, codim >
-    {
-      static const bool v = hasEntity< HostGrid, codim >::v;
-    };
-
-
-
-    // CodimCache
-    // ----------
-
-    template< class Grid >
-    class CodimCache
-    {
-      static const int dimension = Grid::dimension;
-
-      template< int codim >
-      struct BuildCache;
-
-      bool hasHostEntity_[ Grid::dimension + 1 ];
-
-      CodimCache ()
-      {
-        Dune::ForLoop< BuildCache, 0, dimension >::apply( hasHostEntity_ );
-      }
-
-      static CodimCache &instance ()
-      {
-        static CodimCache singleton;
-        return singleton;
-      }
-
-    public:
-      static bool hasHostEntity ( int codim )
-      {
-        assert( (codim >= 0) && (codim <= dimension) );
-        return instance().hasHostEntity_[ codim ];
-      }
-    };
-
-    template< class Grid >
-    template< int codim >
-    struct CodimCache< Grid >::BuildCache
-    {
-      static void apply ( bool (&hasHostEntity)[ dimension + 1 ] )
-      {
-        hasHostEntity[ codim ] = Capabilities::hasHostEntity< Grid, codim >::v;
-      }
     };
 
   } // namespace Capabilities

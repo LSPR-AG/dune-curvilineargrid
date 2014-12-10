@@ -112,7 +112,7 @@ int main(int argc, char** argv)
 
 
     // Assemble the file name
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD1;
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE2000_ORD3;
 
 
     //! Define datatypes for grid mappers and  iterators to access all elements of a specific geometry type.

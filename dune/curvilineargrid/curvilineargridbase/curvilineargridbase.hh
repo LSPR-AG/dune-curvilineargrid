@@ -77,18 +77,22 @@
  *  - [TODO] Does NOT support non-tetrahedral meshes. Generalization to arbitrary and mixed geometry meshes is possible but will be cumbersome
  *
  *
- *
- *
  * Development log
  *  - [FIXME] Global indices for vertices must start at 0. GMSH returns them at 1. Must edit GMSHReader to lower globalIndex of vertices and assoc elem/belem
+ *  - [FIXME] Constructor run check if all non-owned entities have been successfully enumerated at the end
  *
  *  - [FIXME] Need to add normal and outerNormal
  *  - [FIXME] Need to wrap for Dune
  *  - [FIXME] Need to match Dune's internal subentity id convention
  *  - [FIXME] When returning Ghost elements, must check if they are defined, and throw error if not
+ *  - [FIXME] Replace all DUNE_THROW output by the logging message output such that it can be read
  *
  * Usage:
  *  - [TODO] Disable all the vertex2string output for multiprocessor case - too much output
+ *
+ *
+ * Testing:
+ *  - [FIXME] Write test which checks consistency of all local and global indices
  *
  *  ***************************************************************************/
 

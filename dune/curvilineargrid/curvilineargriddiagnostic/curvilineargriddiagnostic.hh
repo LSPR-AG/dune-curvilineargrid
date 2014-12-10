@@ -57,13 +57,44 @@ template <class ct>
 class CurvilinearGridDiagnostic
 {
 private:
-	Dune::CurvilinearGridBase<ct> * gridbase_;
+	Dune::CurvilinearGridBase<ct> & gridbase_;
 
 public:
-	CurvilinearGridDiagnostic(Dune::CurvilinearGridBase<ct> & gridbase) : gridbase_(&gridbase)
+	CurvilinearGridDiagnostic(Dune::CurvilinearGridBase<ct> & gridbase) : gridbase_(gridbase)
 	{
 
 	}
+
+
+
+
+
+	// Tests
+	// *************************************************************8
+
+
+	// Writes the mesh to VTK, including the additional constructions made by the mesh generator
+	void vtkWriteMesh (
+		bool withDomainBoundaries,
+		bool withProcessBoundaries,
+		bool withGhostElements
+	) {}
+
+
+	// Computes the ratio of shortest vs longest edge for each element
+	std::vector<double> linearElementQuality() {}
+
+	std::vector<double> linearElementVolume() {}
+
+	std::vector<double> curvilinearElementVolume() {}
+
+	// Computes the ratio of curvilinear vs linear volume for each element
+	std::vector<double> curvilinearElementVolumeRatio() {}
+
+	double processBoundarySurfaceArea() {}
+
+	double domainBoundarySurfaceArea() {}
+
 
 };
 

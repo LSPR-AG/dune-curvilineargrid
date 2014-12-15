@@ -49,6 +49,8 @@
 #include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 #include <dune/curvilineargeometry/curvilineargeometry.hh>
 
+#include <dune/curvilineargrid/feedback/loggingmessage.hh>
+
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridstorage.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridconstructor.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilinearoctreenode.hh>
@@ -80,6 +82,7 @@
  * Development log
  *  - [FIXME] Global indices for vertices must start at 0. GMSH returns them at 1. Must edit GMSHReader to lower globalIndex of vertices and assoc elem/belem
  *  - [FIXME] Constructor run check if all non-owned entities have been successfully enumerated at the end
+ *  - [FIXME] Do Ghost elements require same properties as normal elements. For example, subentityByIndex?
  *
  *  - [FIXME] Need to add normal and outerNormal
  *  - [FIXME] Need to wrap for Dune
@@ -89,6 +92,9 @@
  *
  * Usage:
  *  - [TODO] Disable all the vertex2string output for multiprocessor case - too much output
+ *  - [TODO] Implement timing (and perhaps memory usage) for each of the construction operations
+ *  - [TODO] Implement memory in LoggingMessage as is done in Hades
+ *  - [TODO] Implement TimeSync logging message so processes do not comment on top of each other. Check Boost if already exists
  *
  *
  * Testing:
@@ -290,9 +296,9 @@ public:
     int nElement() const  { return gridstorage_.element_.size(); }
     int nGhost() const    { return gridstorage_.ghostElement_.size(); }
 
-    int nFaceInternal() const        { return gridstorage_.internalFaceIndex_.size(); }
-    int nFaceProcessBoundary() const { return gridstorage_.processBoundaryFaceIndex_.size(); }
-    int nFaceDomainBoundary() const  { return gridstorage_.domainBoundaryFaceIndex_.size(); }
+    int nFaceInternal() const        { return gridstorage_.faceInternalGlobal2LocalMap_.size(); }
+    int nFaceProcessBoundary() const { return gridstorage_.faceProcessBoundaryGlobal2LocalMap_.size(); }
+    int nFaceDomainBoundary() const  { return gridstorage_.faceDomainBoundaryGlobal2LocalMap_.size(); }
 
 
     /** Vertex coordinate
@@ -421,8 +427,8 @@ public:
      * */
     EntityStorage edgeData(int localIndex) const
     {
-    	EdgeStorage & thisEdgeData =    gridstorage_.edge_[localIndex];
-        EntityStorage & assocElement =  gridstorage_.element_[thisEdgeData.elementIndex];
+    	const EdgeStorage & thisEdgeData =    gridstorage_.edge_[localIndex];
+        const EntityStorage & assocElement =  gridstorage_.element_[thisEdgeData.elementIndex];
 
         EntityStorage thisEdge;
         thisEdge.geometryType.makeLine();
@@ -449,8 +455,8 @@ public:
      * */
     EntityStorage faceData(int localIndex) const
     {
-    	FaceStorage & thisFaceData = gridstorage_.face_[localIndex];
-        EntityStorage & assocElement = gridstorage_.element_[thisFaceData.element1Index];
+    	const FaceStorage & thisFaceData = gridstorage_.face_[localIndex];
+        const EntityStorage & assocElement = gridstorage_.element_[thisFaceData.element1Index];
 
         EntityStorage thisFace;
         thisFace.geometryType.makeTriangle();
@@ -482,29 +488,43 @@ public:
      * */
     EntityStorage ghostElementData(int localIndex) const { return gridstorage_.ghostElement_[localIndex];}
 
+
     // Construct and retrieve geometry class associated to this edge
     EdgeGeometry edgeGeometry(int localIndex) const
     {
-        EntityStorage edgeData = edgeData(localIndex);
-        return entityGeometry<1>(edgeData.geometryType, edgeData.vertexIndexSet, edgeData.interpOrder);
+        EntityStorage thisEdgeData = edgeData(localIndex);
+        return entityGeometry<1>(thisEdgeData.geometryType, thisEdgeData.vertexIndexSet, thisEdgeData.interpOrder);
     }
+
 
     // Construct and retrieve geometry class associated to this face
     FaceGeometry faceGeometry(int localIndex) const
     {
-        EntityStorage faceData = faceData(localIndex);
-        return entityGeometry<2>(faceData.geometryType, faceData.vertexIndexSet, faceData.interpOrder);
+        EntityStorage thisFaceData = faceData(localIndex);
+        return entityGeometry<2>(thisFaceData.geometryType, thisFaceData.vertexIndexSet, thisFaceData.interpOrder);
     }
 
-    // Construct and retrieve geometry class associated to this element
+
+    // Construct and retrieve geometry class associated to this element local index
     ElementGeometry elementGeometry(int localIndex) const
     {
         EntityStorage thisElementData = elementData(localIndex);
         return entityGeometry<3>(thisElementData.geometryType, thisElementData.vertexIndexSet, thisElementData.interpOrder);
     }
 
+
+    // Construct and retrieve geometry class associated to this ghost element local index
+    ElementGeometry ghostGeometry(int localIndex) const
+    {
+    	EntityStorage thisGhostData = ghostElementData(localIndex);
+    	return entityGeometry<3>(thisGhostData.geometryType, thisGhostData.vertexIndexSet, thisGhostData.interpOrder);
+    }
+
+
     /** Return pointer to Octree or 0 if it is not constructed. */
     const CurvilinearLooseOctree & octree() const { return *gridstorage_.octree_; }
+
+
 
     void processBoundingBox(Vertex & center, Vertex & extent) const
     {
@@ -579,23 +599,25 @@ public:
     // NOTE: There are no iterators over entities because there is no entity object in the core mesh
     // There will be generic entity in the wrapper because the wrapper will define an entity object
     IndexMapIterator elementIndexBegin()  { return gridstorage_.elementGlobal2LocalMap_.begin(); }
+    IndexMapIterator ghostIndexBegin()    { return gridstorage_.ghostGlobal2LocalMap_.begin(); }
     IndexMapIterator faceIndexBegin()     { return gridstorage_.faceGlobal2LocalMap_.begin(); }
     IndexMapIterator edgeIndexBegin()     { return gridstorage_.edgeGlobal2LocalMap_.begin(); }
     IndexMapIterator vertexIndexBegin()   { return gridstorage_.vertexGlobal2LocalMap_.begin(); }
 
     IndexMapIterator elementIndexEnd()  { return gridstorage_.elementGlobal2LocalMap_.end(); }
+    IndexMapIterator ghostIndexEnd()    { return gridstorage_.ghostGlobal2LocalMap_.end(); }
     IndexMapIterator faceIndexEnd()     { return gridstorage_.faceGlobal2LocalMap_.end(); }
     IndexMapIterator edgeIndexEnd()     { return gridstorage_.edgeGlobal2LocalMap_.end(); }
     IndexMapIterator vertexIndexEnd()   { return gridstorage_.vertexGlobal2LocalMap_.end(); }
 
     // This construction allows fast iteration over faces of different type
-    std::vector<int>::iterator faceInternalBegin()         { return gridstorage_.internalFaceIndex_.begin(); }
-    std::vector<int>::iterator faceDomainBoundaryBegin()   { return gridstorage_.domainBoundaryFaceIndex_.begin(); }
-    std::vector<int>::iterator faceProcessBoundaryBegin()  { return gridstorage_.processBoundaryFaceIndex_.begin(); }
+    IndexMapIterator faceInternalIndexBegin()         { return gridstorage_.faceInternalGlobal2LocalMap_.begin(); }
+    IndexMapIterator faceDomainBoundaryIndexBegin()   { return gridstorage_.faceDomainBoundaryGlobal2LocalMap_.begin(); }
+    IndexMapIterator faceProcessBoundaryIndexBegin()  { return gridstorage_.faceProcessBoundaryGlobal2LocalMap_.begin(); }
 
-    std::vector<int>::iterator faceInternalEnd()         { return gridstorage_.internalFaceIndex_.end(); }
-    std::vector<int>::iterator faceDomainBoundaryEnd()   { return gridstorage_.domainBoundaryFaceIndex_.end(); }
-    std::vector<int>::iterator faceProcessBoundaryEnd()  { return gridstorage_.processBoundaryFaceIndex_.end(); }
+    IndexMapIterator faceInternalIndexEnd()         { return gridstorage_.faceInternalGlobal2LocalMap_.end(); }
+    IndexMapIterator faceDomainBoundaryIndexEnd()   { return gridstorage_.faceDomainBoundaryGlobal2LocalMap_.end(); }
+    IndexMapIterator faceProcessBoundaryIndexEnd()  { return gridstorage_.faceProcessBoundaryGlobal2LocalMap_.end(); }
 
 
 

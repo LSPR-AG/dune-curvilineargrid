@@ -126,10 +126,17 @@ int main(int argc, char** argv)
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
     typedef Dune::CurvilinearFakeGrid<3,3,double>  SimplexGridType;
 
+    bool insertBoundarySegment = true;
+    bool withGhostElements = true;
+    bool verbose = true;
+    bool processVerbose = true;
+
+    bool writeReaderVTKFile = true;
+
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridFactory<SimplexGridType> factory(true, true, true, mpihelper);
+    Dune::CurvilinearGridFactory<SimplexGridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
 
 
     /** \brief open the GMSH formatted tetrahedral mesh file into a grid factory */
@@ -146,8 +153,10 @@ int main(int argc, char** argv)
                                                             elementIndex2PhysicalEntity,
                                                             nVertexTotal,
                                                             nElementTotal,
-                                                            true,
-                                                            true);
+                                                            verbose,
+                                                            processVerbose,
+                                                            writeReaderVTKFile,
+                                                            insertBoundarySegment);
 
     factory.createGrid(nVertexTotal, nElementTotal);
 

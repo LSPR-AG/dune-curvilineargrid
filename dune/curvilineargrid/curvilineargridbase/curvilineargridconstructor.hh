@@ -49,6 +49,8 @@
 #include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 #include <dune/curvilineargeometry/curvilineargeometry.hh>
 
+#include <dune/curvilineargrid/feedback/loggingmessage.hh>
+
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridstorage.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilinearoctreenode.hh>
@@ -268,10 +270,10 @@ public:
 
                 // Store domain and process boundaries separately for faster iterators
                 // Store Map (key -> domainBoundaryIndex), Vector (domainBoundaryIndex -> faceIndex)
-                int localDomainBoundaryIndex = gridstorage_.domainBoundaryFaceIndex_.size();
+                int localDomainBoundaryIndex = domainBoundaryFaceIndex_.size();
                 int localFaceIndex = gridstorage_.face_.size();
                 boundaryInternalMap_[thisKey] = localDomainBoundaryIndex;
-                gridstorage_.domainBoundaryFaceIndex_.push_back(localFaceIndex);
+                domainBoundaryFaceIndex_.push_back(localFaceIndex);
 
                 // Store Vector (faceId -> associated element)
                 FaceStorage thisFaceAsSubentity;
@@ -360,6 +362,9 @@ public:
             for (int i = 0; i < gridstorage_.face_.size();    i++)  { gridstorage_.face_[i].globalIndex = i;     gridstorage_.faceGlobal2LocalMap_[i] = i; }
             for (int i = 0; i < gridstorage_.element_.size(); i++)  { gridstorage_.element_[i].globalIndex = i;  gridstorage_.elementGlobal2LocalMap_[i] = i; }
 
+            for (int i = 0; i < internalFaceIndex_.size(); i++)        { int localIndex = internalFaceIndex_[i];        gridstorage_.faceInternalGlobal2LocalMap_[localIndex] = localIndex; }
+            for (int i = 0; i < domainBoundaryFaceIndex_.size(); i++)  { int localIndex = domainBoundaryFaceIndex_[i];  gridstorage_.faceDomainBoundaryGlobal2LocalMap_[localIndex] = localIndex; }
+
             gridstorage_.nEdgeTotal_ = gridstorage_.edge_.size();
             gridstorage_.nFaceTotal_ = gridstorage_.face_.size();
         }
@@ -373,6 +378,10 @@ public:
         internalInternalMap_.clear();
         boundaryInternalMap_.clear();
         processInternalMap_.clear();
+
+        internalFaceIndex_.clear();         // (self -> gridstorage_.face_ index)
+        domainBoundaryFaceIndex_.clear();   // (self -> gridstorage_.face_ index)
+        processBoundaryFaceIndex_.clear();  // (self -> gridstorage_.face_ index)
     }
 
 
@@ -629,7 +638,7 @@ protected:
                     log_stream << "CurvilinearGridConstructor: Adding FaceKey=(" << thisKey.node0 << ", " << thisKey.node1 << ", " << thisKey.node2 << ") attached to total of " << connectedFaceInfo.size() / 2 << " elements";
                     Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
                 } else {
-                	int localFaceIndex = gridstorage_.domainBoundaryFaceIndex_[(*faceIter).second];
+                	int localFaceIndex = domainBoundaryFaceIndex_[(*faceIter).second];
                 	gridstorage_.elementSubentityCodim2_[iElem][iFace] = localFaceIndex;
                 }
 
@@ -666,9 +675,9 @@ protected:
                 thisFace.structuralType = Dune::CurvilinearGridFaceType::ProcessBoundary;
 
                 // Store Map (key -> processBoundaryFaceIndex), Vector (processBoundaryFaceIndex -> faceIndex)
-                int localProcessBoundaryIndex = gridstorage_.processBoundaryFaceIndex_.size();
+                int localProcessBoundaryIndex = processBoundaryFaceIndex_.size();
                 processInternalMap_[(*iter).first] = localProcessBoundaryIndex;
-                gridstorage_.processBoundaryFaceIndex_.push_back(localFaceIndex);
+                processBoundaryFaceIndex_.push_back(localFaceIndex);
 
                 thisFace.element2Index = 0;    // Eventually this will be the Ghost Element Index
 
@@ -679,9 +688,9 @@ protected:
                 thisFace.structuralType = Dune::CurvilinearGridFaceType::Internal;
 
                 // Store Map (key -> internalFaceIndex), Vector (internalFaceIndex -> faceIndex)
-                int localInternalFaceIndex = gridstorage_.internalFaceIndex_.size();
+                int localInternalFaceIndex = internalFaceIndex_.size();
                 internalInternalMap_[(*iter).first] = localInternalFaceIndex;
-                gridstorage_.internalFaceIndex_.push_back(localFaceIndex);
+                internalFaceIndex_.push_back(localFaceIndex);
 
                 thisFace.element2Index = connectedFaceInfo[2];  // This is the 2nd neighbor of this internal face
 
@@ -840,20 +849,25 @@ protected:
         processBoundaryCornerMap_.clear();
         processBoundaryCornerNeighborRank_.clear();
 
-
         // 2) Get edges and faces on this process that are not owned by this process
         // *************************************************************************
         EdgeKey2EdgeIdMap edgeNonOwned;
         FaceKey2FaceIdMap faceNonOwned;
 
         // Edges
+
+        std::cout << "process_" << rank_ << "EdgeNum=" << processBoundaryEdgeMap_.size() << std::endl;
         for (EdgeMapIterator edgeIter = processBoundaryEdgeMap_.begin(); edgeIter != processBoundaryEdgeMap_.end(); edgeIter++ )
         {
+        	//std::cout << "process_" << rank_ << " -- edgePBIndex=" << (*edgeIter).second << std::endl;
+        	//std::cout << "process_" << rank_ << " -- nEdgeNeighbor=" << processBoundaryEdgeNeighborRank_[(*edgeIter).second].size() << std::endl;
+
             int edgeOwnerCandidateRank = processBoundaryEdgeNeighborRank_[(*edgeIter).second][0];
             if (edgeOwnerCandidateRank < rank_) { edgeNonOwned[(*edgeIter).first] = edgeOwnerCandidateRank; }
         }
 
         // Faces
+        std::cout << "Face" << std::endl;
         for (FaceMapIterator faceIter = processInternalMap_.begin(); faceIter != processInternalMap_.end(); faceIter++ )
         {
             int faceOwnerCandidateRank = gridstorage_.processBoundaryNeighborProcess_[(*faceIter).second];
@@ -903,17 +917,14 @@ protected:
         for (int i = 0; i < gridstorage_.element_.size(); i++)  { gridstorage_.element_[i].globalIndex = elementsBeforeMe + i; }
 
         // Faces that are not shared with other processes are automatically owned by this process
-        for (int i = 0; i < gridstorage_.internalFaceIndex_.size(); i++)        { gridstorage_.face_[gridstorage_.internalFaceIndex_[i]].globalIndex = iFaceGlobalId++; }
-        for (int i = 0; i < gridstorage_.domainBoundaryFaceIndex_.size(); i++)  { gridstorage_.face_[gridstorage_.domainBoundaryFaceIndex_[i]].globalIndex = iFaceGlobalId++; }
+        for (int i = 0; i < internalFaceIndex_.size(); i++)        { gridstorage_.face_[internalFaceIndex_[i]].globalIndex = iFaceGlobalId++; }
+        for (int i = 0; i < domainBoundaryFaceIndex_.size(); i++)  { gridstorage_.face_[domainBoundaryFaceIndex_[i]].globalIndex = iFaceGlobalId++; }
 
         // This process owns this face if it is in the processInternalMap and if it is not in the non-owned face map
         for (FaceMapIterator iter = processInternalMap_.begin(); iter != processInternalMap_.end(); iter++)
         {
             if (faceNonOwned.find((*iter).first) == faceNonOwned.end())  {
-            	int thisFaceLocalIndex = gridstorage_.processBoundaryFaceIndex_[(*iter).second];
-
-            	std::cout << "process_" << rank_ << " enumerates face localIndex=" << thisFaceLocalIndex << " with globalIndex=" << iFaceGlobalId << std::endl;
-
+            	int thisFaceLocalIndex = processBoundaryFaceIndex_[(*iter).second];
             	gridstorage_.face_[thisFaceLocalIndex].globalIndex = iFaceGlobalId++;
             }
         }
@@ -931,12 +942,33 @@ protected:
         globalDistributeMissingEdgeGlobalIndex();
         globalDistributeMissingFaceGlobalIndex();
 
+        processBoundaryEdgeMap_.clear();
+        processBoundaryEdgeNeighborRank_.clear();
+
 
         // 6) Fill in Global2Local maps
         // *************************************************************************
-        for (int iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)  { gridstorage_.edgeGlobal2LocalMap_[gridstorage_.edge_[iEdge].globalIndex] = iEdge; }
-        for (int iFace = 0; iFace < gridstorage_.face_.size(); iFace++)  { gridstorage_.faceGlobal2LocalMap_[gridstorage_.face_[iFace].globalIndex] = iFace; }
-        for (int iElem = 0; iElem < gridstorage_.face_.size(); iElem++)  { gridstorage_.elementGlobal2LocalMap_[gridstorage_.element_[iElem].globalIndex] = iElem; }
+        for (int iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)     { gridstorage_.edgeGlobal2LocalMap_[gridstorage_.edge_[iEdge].globalIndex] = iEdge; }
+        for (int iFace = 0; iFace < gridstorage_.face_.size(); iFace++)     { gridstorage_.faceGlobal2LocalMap_[gridstorage_.face_[iFace].globalIndex] = iFace; }
+        for (int iElem = 0; iElem < gridstorage_.element_.size(); iElem++)  { gridstorage_.elementGlobal2LocalMap_[gridstorage_.element_[iElem].globalIndex] = iElem; }
+
+        for (int iFace = 0; iFace < internalFaceIndex_.size(); iFace++)  {
+        	int thisFaceLocalIndex = internalFaceIndex_[iFace];
+        	int thisFaceGlobalIndex = gridstorage_.face_[thisFaceLocalIndex].globalIndex;
+        	gridstorage_.faceInternalGlobal2LocalMap_[thisFaceGlobalIndex] = thisFaceLocalIndex;
+        }
+
+        for (int iFace = 0; iFace < domainBoundaryFaceIndex_.size(); iFace++)  {
+        	int thisFaceLocalIndex = domainBoundaryFaceIndex_[iFace];
+        	int thisFaceGlobalIndex = gridstorage_.face_[thisFaceLocalIndex].globalIndex;
+        	gridstorage_.faceDomainBoundaryGlobal2LocalMap_[thisFaceGlobalIndex] = thisFaceLocalIndex;
+        }
+
+        for (int iFace = 0; iFace < processBoundaryFaceIndex_.size(); iFace++)  {
+        	int thisFaceLocalIndex = processBoundaryFaceIndex_[iFace];
+        	int thisFaceGlobalIndex = gridstorage_.face_[thisFaceLocalIndex].globalIndex;
+        	gridstorage_.faceProcessBoundaryGlobal2LocalMap_[thisFaceGlobalIndex] = thisFaceLocalIndex;
+        }
 
 
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished Constructing Global Indices");
@@ -979,16 +1011,14 @@ protected:
 
         // 1) Compute number of process boundaries shared with each process, as well as and the exact interpolation orders of Ghost Elements
         // *************************************************************************************
-        for (int iPBFace = 0; iPBFace < gridstorage_.processBoundaryFaceIndex_.size(); iPBFace++ )  {
-            int thisFaceIndex = gridstorage_.processBoundaryFaceIndex_[iPBFace];
+        for (int iPBFace = 0; iPBFace < processBoundaryFaceIndex_.size(); iPBFace++ )  {
+            int thisFaceIndex = processBoundaryFaceIndex_[iPBFace];
             int thisNeighborRank = gridstorage_.processBoundaryNeighborProcess_[iPBFace];
 
             int thisGhostGlobalIndex = gridstorage_.face_[thisFaceIndex].element1Index;
             int thisFaceGlobalIndex = gridstorage_.face_[thisFaceIndex].globalIndex;
             thisProcessGhostElementGlobalIndexSet_[thisNeighborRank].push_back(thisGhostGlobalIndex);
             thisProcessGhostFaceGlobalIndexSet_[thisNeighborRank].push_back(thisFaceGlobalIndex);
-
-            std::cout << "process_" << rank_ << "iPBFace=" << iPBFace <<" ghostIndex=" << thisGhostGlobalIndex << " faceLocalIndex=" << thisFaceIndex << " faceGlobalIndex=" << thisFaceGlobalIndex << std::endl;
         }
 
         std::vector<int> processNeighborSize;
@@ -1032,6 +1062,12 @@ protected:
         // 6) Distrubute vertex coordinates and add received coordinates to the mesh
         // *************************************************************************************
         ghostCommunicateMissingVertexCoordinates (missingVertices, packageMissingVertexGlobalIndices, verticesRequested, verticesToSend);
+
+        // Cleanup
+        thisProcessGhostElementGlobalIndexSet_.clear();
+        thisProcessGhostFaceGlobalIndexSet_.clear();
+        neighborProcessGhostInterpOrder_.clear();
+
 
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished Generating Ghost Elements");
     }
@@ -1116,7 +1152,7 @@ protected:
 
     void globalCommunicateVertexNeighborRanks ()
     {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started communicating process boundary neighbors");
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started communicating corner process boundary neighbors");
 
         // 1) collective_comm.max() - find the maximal number of process boundary corners per process
         // ********************************************************
@@ -1169,15 +1205,15 @@ protected:
 
 
         // Testing output
-        std::stringstream log_stream;
-        log_stream << "CurvilinearGridConstructor: -- Process boundary corner";
-        for (IndexMapIterator cornerIter = processBoundaryCornerMap_.begin(); cornerIter != processBoundaryCornerMap_.end(); cornerIter++)
-        {
-        	log_stream << " GlobalIndex=" << (*cornerIter).first;
-        	log_stream << " has Neighbors=(" << vector2string(processBoundaryCornerNeighborRank_[(*cornerIter).second]) << ")";
-        }
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished process boundary neighbors");
+        //std::stringstream log_stream;
+        //log_stream << "CurvilinearGridConstructor: -- Process boundary corner";
+        //for (IndexMapIterator cornerIter = processBoundaryCornerMap_.begin(); cornerIter != processBoundaryCornerMap_.end(); cornerIter++)
+        // {
+        //	log_stream << " GlobalIndex=" << (*cornerIter).first;
+        //	log_stream << " has Neighbors=(" << vector2string(processBoundaryCornerNeighborRank_[(*cornerIter).second]) << ")";
+        //}
+        //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished corner process boundary neighbors");
     }
 
 
@@ -1195,7 +1231,9 @@ protected:
     	MPI_Comm comm = Dune::MPIHelper::getCommunicator();
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started computing edge process boundary neighbors");
 
-    	neighborProcessComplicatedEdgePBLocalIndex_.resize(size_);
+
+        // For each process stores the set of edge indices local to this process, which are shared between more than two processes in total
+        std::vector<std::vector< std::pair<int, EdgeKey> > > neighborProcessComplicatedEdgePBLocalIndex(size_);
 
     	// 1) Compute neighbor ranks for each process boundary edge by intersecting neighbor ranks of its corners
     	// *************************************************************************************************************
@@ -1228,9 +1266,10 @@ protected:
             	// Add a complicated edge for further verification
             	// Store only after verification
                 int thisProcessBoundaryEdgeLocalIndex = (*edgeIter).second;
+
                 std::pair<int, EdgeKey> thisPBFaceData(thisProcessBoundaryEdgeLocalIndex, thisEdgeKey);
                 for (int iEdge = 0; iEdge < edgeneighborset.size(); iEdge++)  {
-                	neighborProcessComplicatedEdgePBLocalIndex_[edgeneighborset[iEdge]].push_back(thisPBFaceData);
+                	neighborProcessComplicatedEdgePBLocalIndex[edgeneighborset[iEdge]].push_back(thisPBFaceData);
                 }
             } else
             {
@@ -1244,8 +1283,10 @@ protected:
         // *************************************************************************************************************
         std::vector<int> processNComplicatedEdgeRequested(size_);
         std::vector<int> processNComplicatedEdgeToSend(size_);
-        for (int iProc = 0; iProc < size_; iProc++)  { processNComplicatedEdgeRequested[iProc] = neighborProcessComplicatedEdgePBLocalIndex_[iProc].size(); }
+        for (int iProc = 0; iProc < size_; iProc++)  { processNComplicatedEdgeRequested[iProc] = neighborProcessComplicatedEdgePBLocalIndex[iProc].size(); }
         MPI_Alltoall(processNComplicatedEdgeRequested.data(), 1, MPI_INT, reinterpret_cast<int*>(processNComplicatedEdgeToSend.data()), 1, MPI_INT, comm);
+
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Total complicated edges per process =(" + vector2string(processNComplicatedEdgeRequested) + ")");
 
 
         // 3) Communicate to each process the shared complicated edge EdgeKeys
@@ -1258,7 +1299,7 @@ protected:
         {
         	for (int iEdge = 0; iEdge < processNComplicatedEdgeRequested[iProc]; iEdge++)
         	{
-        		EdgeKey thisEdgeKey = neighborProcessComplicatedEdgePBLocalIndex_[iProc][iEdge].second;
+        		EdgeKey thisEdgeKey = neighborProcessComplicatedEdgePBLocalIndex[iProc][iEdge].second;
         		processEdgeKeyRequested.push_back(thisEdgeKey.node0);
         		processEdgeKeyRequested.push_back(thisEdgeKey.node1);
         	}
@@ -1273,6 +1314,7 @@ protected:
 
         processEdgeKeyToSend.resize(thisCommSize);
         MPI_Alltoallv (processEdgeKeyRequested.data(), processNComplicatedEdgeRequested.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processEdgeKeyToSend.data()), processNComplicatedEdgeToSend.data(), rdispls.data(), MPI_INT, comm );
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated complicated edge EdgeKeys");
 
 
         // 4) Communicate to each process whether requested edges exist on this process
@@ -1280,14 +1322,16 @@ protected:
 
         // Note: now we communicate 1 int for every edge key requested, so send and recv switch places and are divided by 2
 
-        std::vector<int> processEdgeExistToSend;                        rdispls.clear();
-        std::vector<int> processEdgeExistRequested(thisCommSize / 2);   sdispls.clear();
+        thisCommSize = 0;
+        std::vector<int> processEdgeExistToSend;      rdispls.clear();
+        std::vector<int> processEdgeExistRequested;   sdispls.clear();
 
         int iData = 0;
         for (int iProc = 0; iProc < size_; iProc++)
         {
         	processNComplicatedEdgeRequested[iProc] /= 2;
         	processNComplicatedEdgeToSend[iProc] /= 2;
+        	thisCommSize += processNComplicatedEdgeRequested[iProc];
 
         	for (int iEdge = 0; iEdge < processNComplicatedEdgeToSend[iProc]; iEdge++)
         	{
@@ -1295,14 +1339,17 @@ protected:
         		thisEdgeKey.node0 = processEdgeKeyToSend[iData++];
         		thisEdgeKey.node1 = processEdgeKeyToSend[iData++];
 
-        		bool isReal = (processBoundaryEdgeMap_.find(thisEdgeKey) == processBoundaryEdgeMap_.end());
+        		bool isReal = (processBoundaryEdgeMap_.find(thisEdgeKey) != processBoundaryEdgeMap_.end());
         		processEdgeExistToSend.push_back( isReal ? 1 : 0 );
         	}
 
             sdispls.push_back((iProc == 0) ? 0 : sdispls[iProc-1] + processNComplicatedEdgeToSend[iProc-1] );
             rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + processNComplicatedEdgeRequested[iProc-1] );
         }
+
+        processEdgeExistRequested.resize(thisCommSize, 0);
         MPI_Alltoallv (processEdgeExistToSend.data(), processNComplicatedEdgeToSend.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processEdgeExistRequested.data()), processNComplicatedEdgeRequested.data(), rdispls.data(), MPI_INT, comm );
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated if requested EdgeKeys correspond to real edges");
 
 
         // 5) Fill in correct neighbors for complicated edges
@@ -1312,16 +1359,15 @@ protected:
         {
         	for (int iEdge = 0; iEdge < processNComplicatedEdgeRequested[iProc]; iEdge++)
         	{
-        		if (processEdgeExistRequested[iData++] == 1)
-        		{
-        			int thisEdgePBLocalIndex = neighborProcessComplicatedEdgePBLocalIndex_[iProc][iEdge].first;
-        			processBoundaryEdgeNeighborRank_[thisEdgePBLocalIndex].push_back(iProc);
-        		}
+        		bool isReal = (processEdgeExistRequested[iData++] == 1);
+        		int thisEdgePBLocalIndex = neighborProcessComplicatedEdgePBLocalIndex[iProc][iEdge].first;
+        		if (isReal)  { processBoundaryEdgeNeighborRank_[thisEdgePBLocalIndex].push_back(iProc); }
+
+        		std::stringstream log_stream;
+        		log_stream << " complicated edge PBIndex=" << thisEdgePBLocalIndex << " marked as real=" << isReal << " by process " << iProc;
+        		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
         	}
         }
-
-
-
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished computing edge process boundary neighbors");
     }
 
@@ -1337,9 +1383,12 @@ protected:
      * */
     void globalComputeFaceNeighborRank()
     {
+    	MPI_Comm comm = Dune::MPIHelper::getCommunicator();
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started computing face process boundary neighbors");
 
-    	neighborProcessComplicatedFacePBLocalIndex_.resize(size_);
+
+        // For each process stores the set of face indices local to this process, which are shared between more than two processes in total
+        std::vector<std::vector< std::pair<int, FaceKey> > > neighborProcessComplicatedFacePBLocalIndex(size_);
 
         for (FaceMapIterator faceIter = processInternalMap_.begin(); faceIter != processInternalMap_.end(); faceIter++ )
         {
@@ -1378,7 +1427,7 @@ protected:
                 std::pair<int, FaceKey> thisPBFaceData(thisProcessBoundaryFaceLocalIndex, thisFaceKey);
                 for (int iFace = 0; iFace < nFaceNeighbor; iFace++)
                 {
-                  	neighborProcessComplicatedFacePBLocalIndex_[faceneighborset[iFace]].push_back(thisPBFaceData);
+                  	neighborProcessComplicatedFacePBLocalIndex[faceneighborset[iFace]].push_back(thisPBFaceData);
                 }
             } else
             {
@@ -1392,8 +1441,9 @@ protected:
         // *************************************************************************************************************
         std::vector<int> processNComplicatedFaceRequested(size_);
         std::vector<int> processNComplicatedFaceToSend(size_);
-        for (int iProc = 0; iProc < size_; iProc++)  { processNComplicatedFaceRequested[iProc] = neighborProcessComplicatedFacePBLocalIndex_[iProc].size(); }
+        for (int iProc = 0; iProc < size_; iProc++)  { processNComplicatedFaceRequested[iProc] = neighborProcessComplicatedFacePBLocalIndex[iProc].size(); }
         MPI_Alltoall(processNComplicatedFaceRequested.data(), 1, MPI_INT, reinterpret_cast<int*>(processNComplicatedFaceToSend.data()), 1, MPI_INT, comm);
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Total complicated faces per process =(" + vector2string(processNComplicatedFaceToSend) + ")");
 
 
         // 3) Communicate to each process the shared complicated face FaceKeys
@@ -1406,7 +1456,7 @@ protected:
         {
         	for (int iFace = 0; iFace < processNComplicatedFaceRequested[iProc]; iFace++)
         	{
-        		FaceKey thisFaceKey = neighborProcessComplicatedFacePBLocalIndex_[iProc][iFace].second;
+        		FaceKey thisFaceKey = neighborProcessComplicatedFacePBLocalIndex[iProc][iFace].second;
         		processFaceKeyRequested.push_back(thisFaceKey.node0);
         		processFaceKeyRequested.push_back(thisFaceKey.node1);
         		processFaceKeyRequested.push_back(thisFaceKey.node2);
@@ -1422,6 +1472,7 @@ protected:
 
         processFaceKeyToSend.resize(thisCommSize);
         MPI_Alltoallv (processFaceKeyRequested.data(), processNComplicatedFaceRequested.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processFaceKeyToSend.data()), processNComplicatedFaceToSend.data(), rdispls.data(), MPI_INT, comm );
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated complicated face FaceKeys");
 
 
         // 4) Communicate to each process whether requested faces exist on this process
@@ -1435,8 +1486,8 @@ protected:
         int iData = 0;
         for (int iProc = 0; iProc < size_; iProc++)
         {
-        	processNComplicatedFaceRequested[iProc] /= 2;
-        	processNComplicatedFaceToSend[iProc] /= 2;
+        	processNComplicatedFaceRequested[iProc] /= 3;
+        	processNComplicatedFaceToSend[iProc] /= 3;
 
         	for (int iFace = 0; iFace < processNComplicatedFaceToSend[iProc]; iFace++)
         	{
@@ -1445,7 +1496,7 @@ protected:
         		thisFaceKey.node1 = processFaceKeyToSend[iData++];
         		thisFaceKey.node2 = processFaceKeyToSend[iData++];
 
-        		bool isReal = (processInternalMap_.find(thisFaceKey) == processInternalMap_.end());
+        		bool isReal = (processInternalMap_.find(thisFaceKey) != processInternalMap_.end());
         		processFaceExistToSend.push_back( isReal ? 1 : 0 );
         	}
 
@@ -1453,6 +1504,7 @@ protected:
             rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + processNComplicatedFaceRequested[iProc-1] );
         }
         MPI_Alltoallv (processFaceExistToSend.data(), processNComplicatedFaceToSend.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processFaceExistRequested.data()), processNComplicatedFaceRequested.data(), rdispls.data(), MPI_INT, comm );
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated if requested FaceKeys correspond to real faces");
 
 
         // 5) Fill in correct neighbors for complicated faces
@@ -1462,10 +1514,15 @@ protected:
         {
         	for (int iFace = 0; iFace < processNComplicatedFaceRequested[iProc]; iFace++)
         	{
-        		if (processFaceExistRequested[iData++] == 1)
-        		{
-        			int thisFacePBLocalIndex = neighborProcessComplicatedFacePBLocalIndex_[iProc][iFace].first;
+        		bool isReal = (processFaceExistRequested[iData++] == 1);
+        		int thisFacePBLocalIndex = neighborProcessComplicatedFacePBLocalIndex[iProc][iFace].first;
 
+        		std::stringstream log_stream;
+        		log_stream << " complicated edge PBIndex=" << thisFacePBLocalIndex << " marked as real=" << isReal << " by process " << iProc;
+        		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+
+        		if (isReal)
+        		{
         			// If the face neighbor has already been assigned, that means that it is still neighbors more than two processes, which is impossible
         			if (gridstorage_.processBoundaryNeighborProcess_[thisFacePBLocalIndex] != -1)
         			{
@@ -1527,7 +1584,7 @@ protected:
         for (FaceMapIterator iter = processInternalMap_.begin(); iter != processInternalMap_.end(); iter++)
         {
             int localProcessBoundaryIndex = (*iter).second;
-            int localFaceIndex = gridstorage_.processBoundaryFaceIndex_[localProcessBoundaryIndex];
+            int localFaceIndex = processBoundaryFaceIndex_[localProcessBoundaryIndex];
             int neighborRank = gridstorage_.processBoundaryNeighborProcess_[localProcessBoundaryIndex];
 
             // If the neighbor of this face has lower rank, then add it to recv, else to send
@@ -1593,7 +1650,7 @@ protected:
                 if (faceIter == processInternalMap_.end()) { DUNE_THROW(Dune::IOError, "CurvilinearGrid: Communicated FaceKey does not correspond to any face on this process "); }
                 else
                 {
-                    int localFaceIndex = gridstorage_.processBoundaryFaceIndex_[(*faceIter).second];
+                    int localFaceIndex = processBoundaryFaceIndex_[(*faceIter).second];
                     gridstorage_.face_[localFaceIndex].globalIndex = thisGlobalId;
                 }
             }
@@ -1761,7 +1818,7 @@ protected:
         std::vector<int> recvbuf, recvcounts, rdispls;
 
         // We should receive the number interpolation orders equal to the number of process boundaries
-        recvbuf.resize(gridstorage_.processBoundaryFaceIndex_.size(), 0);
+        recvbuf.resize(processBoundaryFaceIndex_.size(), 0);
 
         for (int iProc = 0; iProc < size_; iProc++)
         {
@@ -1837,7 +1894,7 @@ protected:
                 sendPackageGhostElementData.push_back(ghostElementFaceGlobalIndex);
                 for (int iDof = 0; iDof < thisDofNum; iDof++)
                 {
-                    int localVertexIndex = gridstorage_.element_[thisProcessGhostElementGlobalIndexSet_[iProc][iElem]].vertexIndexSet[iDof];
+                    int localVertexIndex = gridstorage_.element_[ghostElementIndex].vertexIndexSet[iDof];
                 	sendPackageGhostElementData.push_back(gridstorage_.point_[localVertexIndex].globalIndex);
                 }
             }
@@ -1861,6 +1918,9 @@ protected:
     /** Add received elements to the mesh. For each vertex global index, find if coordinate is already present on this process
      *  If not, mark this vertex as a missing vertex for further communication.
      *
+     *  1) Add all data on this ghost element to ghost element array
+     *  2) Map global ghost element index to local ghost element array index
+     *  3) Add local ghost element index as a neighbor to corresponding process boundary face
      *
      * */
     void ghostInsertGhostElements (
@@ -1925,6 +1985,7 @@ protected:
                 int localFaceIndex = (*faceIndexIter).second;
                 int localGhostIndex = gridstorage_.ghostElement_.size();
                 gridstorage_.face_[localFaceIndex].element2Index = localGhostIndex;
+                gridstorage_.ghostGlobal2LocalMap_[thisElement.globalIndex] = localGhostIndex;
                 gridstorage_.ghostElement_.push_back(thisElement);
             }
         }
@@ -2066,22 +2127,23 @@ private: // Private members
     bool processVerbose_;
     bool withGhostElements_;
 
+    // List of localIndices of all faces of different structural types. Speeds up iterators
+    std::vector<int> internalFaceIndex_;         // (self -> gridstorage_.face_ index)
+    std::vector<int> domainBoundaryFaceIndex_;   // (self -> gridstorage_.face_ index)
+    std::vector<int> processBoundaryFaceIndex_;  // (self -> gridstorage_.face_ index)
+
     // Temporary maps necessary to locate and communicate entities during grid base construction
     EdgeKey2EdgeIdMap edgemap_;                  // (global edgeKey -> edge_ index)
     FaceKey2FaceIdMap internalInternalMap_;      // (global faceKey -> internalFaceIndex_)
     FaceKey2FaceIdMap boundaryInternalMap_;      // (global faceKey -> domainBoundaryFaceIndex_)
     FaceKey2FaceIdMap processInternalMap_;       // (global faceKey -> processBoundaryFaceIndex_)
 
+
     std::vector<std::vector<int> > processBoundaryCornerNeighborRank_;   // List of ranks of all other processes sharing this corner
     std::vector<std::vector<int> > processBoundaryEdgeNeighborRank_;     // List of ranks of all other processes sharing this edge
     Index2IndexMap    processBoundaryCornerMap_;  // (vertex global index -> processBoundaryCornerNeighborRank_ index)
     EdgeKey2EdgeIdMap processBoundaryEdgeMap_;    // (EdgeKey             -> processBoundaryEdgeNeighborRank_ index)
 
-
-    // For each process stores the set of edge indices local to this process, which are shared between more than two processes in total
-    std::vector<std::vector< std::pair<int, EdgeKey> > > neighborProcessComplicatedEdgePBLocalIndex_;
-    // For each process stores the set of face indices local to this process, which are shared between more than two processes in total
-    std::vector<std::vector< std::pair<int, FaceKey> > > neighborProcessComplicatedFacePBLocalIndex_;
 
     // Stores the set of element indices local to this process, for each other process. These elements will be Ghost Elements on the other processes
     std::vector< std::vector<int> > thisProcessGhostElementGlobalIndexSet_;

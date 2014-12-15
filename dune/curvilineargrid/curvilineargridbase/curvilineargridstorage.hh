@@ -208,19 +208,19 @@ public:
     std::vector<FaceStorage> face_;
 
     // Storage of local subentity indices for element
-    std::vector< std::vector<int> > elementSubentityCodim1_;   // (element_ index -> edge_ index vector)
-    std::vector< std::vector<int> > elementSubentityCodim2_;   // (element_ index -> face_ index vector)
+    std::vector< std::vector<int> > elementSubentityCodim1_;   // (element_ index -> vector<edge_ index> )
+    std::vector< std::vector<int> > elementSubentityCodim2_;   // (element_ index -> vector<face_ index> )
 
     // Maps from global to local indices
     Index2IndexMap vertexGlobal2LocalMap_;
     Index2IndexMap edgeGlobal2LocalMap_;
     Index2IndexMap faceGlobal2LocalMap_;
     Index2IndexMap elementGlobal2LocalMap_;
+    Index2IndexMap ghostGlobal2LocalMap_;
 
-    // List of localIndices of all faces of different structural types. Speeds up iterators
-    std::vector<int> internalFaceIndex_;         // (self -> face_ index)
-    std::vector<int> domainBoundaryFaceIndex_;   // (self -> face_ index)
-    std::vector<int> processBoundaryFaceIndex_;  // (self -> face_ index)
+    Index2IndexMap faceInternalGlobal2LocalMap_;
+    Index2IndexMap faceDomainBoundaryGlobal2LocalMap_;
+    Index2IndexMap faceProcessBoundaryGlobal2LocalMap_;
 
     // List of all ranks of processors neighboring processorBoundaries. Index the same as processBoundaryFaceIndex_.
     std::vector<int> processBoundaryNeighborProcess_;  // (processBoundaryFaceIndex_ -> neighbor rank)

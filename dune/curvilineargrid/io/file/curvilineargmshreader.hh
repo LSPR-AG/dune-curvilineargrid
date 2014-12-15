@@ -1097,12 +1097,13 @@ namespace Dune
     	Dune::CurvilinearGridFactory<GridType> & _factory,
     	bool verbose,
     	bool processVerbose,
-    	bool insertBoundarySegment
-    	,MPIHelper &mpihelper) :
+    	bool insertBoundarySegment,
+    	bool writeVtkFile,
+    	MPIHelper &mpihelper) :
     		factory(_factory),
     		verbose_(verbose),
     		processVerbose_(processVerbose),
-    		writeVtkFile_(true),
+    		writeVtkFile_(writeVtkFile),
     		insertBoundarySegment(insertBoundarySegment),
     		mpihelper_ (mpihelper),
     		vtkCurvWriter_(verbose_, processVerbose_, mpihelper_)
@@ -1403,11 +1404,13 @@ namespace Dune
                       int & nVertexTotal,
                       int & nElementTotal,
                       bool verbose,
+                      bool processVerbose,
+                      bool writeVTKFile,
                       bool insertBoundarySegment=true
                      )
     {
         // create parse object
-        CurvilinearGmshReaderParser<Grid> parser(factory,verbose, true, insertBoundarySegment, mpihelper);
+        CurvilinearGmshReaderParser<Grid> parser(factory,verbose, processVerbose, insertBoundarySegment, writeVTKFile, mpihelper);
         parser.read(fileName);
 
         boundaryElement2PhysicalEntityIndex.swap(parser.boundaryIdMap());

@@ -500,7 +500,7 @@ protected:
 		if (rank_ == MASTER_PROCESS)
 		{
 			filestr << "<" << title << ">";
-			for (int i = 0; i < data.size(); i++) { filestr << dataTotal[i] << " ";  }
+			for (int i = 0; i < dataTotal.size(); i++) { filestr << dataTotal[i] << " ";  }
 			filestr << "</" << title << ">" << std::endl;
 		}
 	}

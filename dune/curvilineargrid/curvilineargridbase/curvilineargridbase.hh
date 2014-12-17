@@ -78,7 +78,6 @@
  *  - [TODO] Does NOT support overlapping elements at the moment
  *  - [TODO] Does NOT support non-tetrahedral meshes. Generalization to arbitrary and mixed geometry meshes is possible but will be cumbersome
  *
- *
  * Development log
  *  - [FIXME] Global indices for vertices must start at 0. GMSH returns them at 1. Must edit GMSHReader to lower globalIndex of vertices and assoc elem/belem
  *  - [FIXME] Constructor run check if all non-owned entities have been successfully enumerated at the end
@@ -99,6 +98,20 @@
  *
  * Testing:
  *  - [FIXME] Write test which checks consistency of all local and global indices
+ *
+ *
+ * Optimization of CurvilinearVTKWriter:
+ *    - Problem: Output too many vertices, many vertices are used several times. However, want to keep functionality to insert
+ *               elements completely unrelated to the mesh if necessary
+ *  - [TODO] Insert element together with both coordinates and their global indices. If global index already mapped, compare coordinates and throw errors if difference is significant
+ *  - [TODO] In writer all vertices have their own local index, however, there are 3 types of them
+ *      - [TODO] Elements inserted with vertices without specifying their global indices, then these vertices only possess local index
+ *      - [TODO] Elements inserted with specifying global indices, then local index  and  global2local map
+ *      - [TODO] Discretization vertices. A further optimization stage is to store vertices based on their ParentKey+DiscretizationKey
+ *              - Example for the key: Have 3 maps: 2point, 3point and 4point
+ *              - The key is 2,3 or 4 vertices + 2,3 or 4 fractions of each point used for interpolation as seen from the sorted key orientation
+ *              - So for each element, calculate fractions, if some of them are 0, then reduce to lower key. This way no vertex will be stored twice
+ *
  *
  *  ***************************************************************************/
 

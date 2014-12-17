@@ -205,6 +205,8 @@ public:
 				int                      order             = thisGeometry.order();
 				std::vector<GridVertex>  point             = thisGeometry.vertexSet();
 
+				Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: WritingVTK Ghost Vertices=(" + vector2string(point) + ")");
+
 		    	vtkCurvWriter.addCurvilinearElement(
 		    			gt,
 		    			point,

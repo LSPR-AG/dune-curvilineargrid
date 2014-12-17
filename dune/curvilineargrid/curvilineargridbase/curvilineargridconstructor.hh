@@ -171,6 +171,7 @@ public:
     void insertElement(Dune::GeometryType gt, int globalId, const std::vector<int> & vertexIndexSet, int order, int physicalTag)
     {
         if (!gt.isTetrahedron() || (vertexIndexSet.size() != Dune::CurvilinearGeometryHelper::dofPerOrder(gt, order)))  {
+        	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: insertElement() unexpected element type or number of interpolatory points");
             DUNE_THROW(Dune::IOError, "CurvilinearGrid: insertElement() unexpected element type or number of interpolatory points");
         }
 
@@ -212,6 +213,7 @@ public:
     void insertBoundarySegment(Dune::GeometryType gt, int globalId, int associatedElementIndex, const std::vector<int> & vertexIndexSet, int order, int physicalTag)
     {
         if (!gt.isTriangle() || (vertexIndexSet.size() != Dune::CurvilinearGeometryHelper::dofPerOrder(gt, order)))  {
+        	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: insertBoundarySegment() unexpected number of interpolatory points");
             DUNE_THROW(Dune::IOError, "CurvilinearGridConstructor: insertBoundarySegment() unexpected number of interpolatory points");
         }
 
@@ -247,6 +249,7 @@ public:
         while (!found_face)
         {
             if (j == nFacePerTetrahedron)  {
+            	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: insertBoundarySegment() did not find the face in the associated element");
                 DUNE_THROW(Dune::IOError, "CurvilinearGrid: insertBoundarySegment() did not find the face in the associated element");
             }
 
@@ -849,6 +852,8 @@ protected:
         processBoundaryCornerMap_.clear();
         processBoundaryCornerNeighborRank_.clear();
 
+        std::cout << "process_" << rank_ << "smile :)" << std::endl;
+
         // 2) Get edges and faces on this process that are not owned by this process
         // *************************************************************************
         EdgeKey2EdgeIdMap edgeNonOwned;
@@ -1031,7 +1036,7 @@ protected:
 
         // 4) Add all ghost elements to the mesh. Calculate which vertices are missing from which processes
         // *************************************************************************************
-        std::vector<std::set<int> > missingVertices (size_, std::set<int>());
+        std::vector<std::vector<int> > missingVertices (size_, std::vector<int>());
         ghostInsertGhostElements(packageGhostElementData, missingVertices);
 
         neighborProcessGhostInterpOrder_.clear();
@@ -1043,17 +1048,30 @@ protected:
         // Then communicate the globalId's of all missing vertices
         // *************************************************************************************
         std::vector<int> packageMissingVertexGlobalIndices;
-        std::vector<int> verticesRequested;
-        std::vector<int> verticesToSend;
+        std::vector<int> verticesRequestedByThis;
+        std::vector<int> verticesToSendByThis;
 
-        ghostCommunicateMissingVertexGlobalIndices(missingVertices, packageMissingVertexGlobalIndices, verticesRequested, verticesToSend);
+        ghostCommunicateMissingVertexGlobalIndices(missingVertices, packageMissingVertexGlobalIndices, verticesRequestedByThis, verticesToSendByThis);
 
 
         // 6) Distrubute vertex coordinates and add received coordinates to the mesh
+        // Note that verticesRequestedByThis and verticesToSendByThis arrays are in the reversed order: this time we send as much as we have received before, and receive as much as we have sent before
         // *************************************************************************************
-        ghostCommunicateMissingVertexCoordinates (missingVertices, packageMissingVertexGlobalIndices, verticesRequested, verticesToSend);
+        ghostCommunicateMissingVertexCoordinates (missingVertices, packageMissingVertexGlobalIndices, verticesToSendByThis, verticesRequestedByThis);
 
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished Generating Ghost Elements");
+
+
+
+
+
+
+        // ConsistencyDump
+		std::stringstream log_str;
+		log_str << "Consistency Dump nVertex=" << gridstorage_.point_.size() << " with mapsize=" << gridstorage_.vertexGlobal2LocalMap_.size() << std::endl;
+		for (int i = 0; i < gridstorage_.point_.size(); i++)  { log_str << "  -- localIndex=" << i << " globalIndex=" << gridstorage_.point_[i].globalIndex << " coord=(" << gridstorage_.point_[i].coord << ")" << std::endl;  }
+
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_str.str());
     }
 
 
@@ -1378,6 +1396,7 @@ protected:
         {
             // Get corners of the face
             FaceKey thisFaceKey = (*faceIter).first;
+            int thisProcessBoundaryFaceLocalIndex = (*faceIter).second;
 
             // Get neighbor processes associated with each corner
             std::vector<int> corner0neighborset = processBoundaryCornerNeighborRank_[processBoundaryCornerMap_[thisFaceKey.node0]];
@@ -1391,10 +1410,12 @@ protected:
 
             std::stringstream log_stream;
             log_stream << "CurvilinearGridConstructor: --";
-            log_stream << "Neighbors[0]=(" << vector2string(corner0neighborset) << ")";
-            log_stream << " Neighbors[1]=(" << vector2string(corner1neighborset) << ")";
-            log_stream << " Neighbors[2]=(" << vector2string(corner2neighborset) << ")";
-            log_stream << " Intersection=" << vector2string(faceneighborset);
+            log_stream << "localPBFaceIndex=" << thisProcessBoundaryFaceLocalIndex;
+            log_stream << " FaceKey=(" << thisFaceKey.node0 << "," << thisFaceKey.node1 << "," << thisFaceKey.node2 << ")";
+            //log_stream << "Neighbors[0]=(" << vector2string(corner0neighborset) << ")";
+            //log_stream << " Neighbors[1]=(" << vector2string(corner1neighborset) << ")";
+            //log_stream << " Neighbors[2]=(" << vector2string(corner2neighborset) << ")";
+            log_stream << " Intersection=(" << vector2string(faceneighborset) << ")";
             Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
 
             int nFaceNeighbor = faceneighborset.size();
@@ -1407,7 +1428,6 @@ protected:
             {
               	// Add a complicated face for further verification
               	// Store only after verification
-                int thisProcessBoundaryFaceLocalIndex = (*faceIter).second;
                 std::pair<int, FaceKey> thisPBFaceData(thisProcessBoundaryFaceLocalIndex, thisFaceKey);
                 for (int iFace = 0; iFace < nFaceNeighbor; iFace++)
                 {
@@ -1420,6 +1440,20 @@ protected:
             }
         }
 
+        // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        if (neighborProcessComplicatedFacePBLocalIndex[2].size() > 0) {
+        	std::stringstream tmplog;
+        	tmplog << "XMMMMMMM: " << neighborProcessComplicatedFacePBLocalIndex[2][0].first;
+        	tmplog << " (" << neighborProcessComplicatedFacePBLocalIndex[2][0].second.node0;
+        	tmplog << ","  << neighborProcessComplicatedFacePBLocalIndex[2][0].second.node1;
+        	tmplog << ","  << neighborProcessComplicatedFacePBLocalIndex[2][0].second.node2 << ")";
+
+        	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, tmplog.str());
+        }
+        // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
         // 2) Communicate to each process the number of complicated faces shared with it
         // *************************************************************************************************************
@@ -1427,7 +1461,7 @@ protected:
         std::vector<int> processNComplicatedFaceToSend(size_);
         for (int iProc = 0; iProc < size_; iProc++)  { processNComplicatedFaceRequested[iProc] = neighborProcessComplicatedFacePBLocalIndex[iProc].size(); }
         MPI_Alltoall(processNComplicatedFaceRequested.data(), 1, MPI_INT, reinterpret_cast<int*>(processNComplicatedFaceToSend.data()), 1, MPI_INT, comm);
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Total complicated faces per process =(" + vector2string(processNComplicatedFaceToSend) + ")");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Complicated faces per process sent=( " + vector2string(processNComplicatedFaceRequested) + ") received =(" + vector2string(processNComplicatedFaceToSend) + ")");
 
 
         // 3) Communicate to each process the shared complicated face FaceKeys
@@ -1457,6 +1491,8 @@ protected:
         processFaceKeyToSend.resize(thisCommSize);
         MPI_Alltoallv (processFaceKeyRequested.data(), processNComplicatedFaceRequested.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processFaceKeyToSend.data()), processNComplicatedFaceToSend.data(), rdispls.data(), MPI_INT, comm );
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated complicated face FaceKeys");
+
+        std::cout << "process_" << rank_ << "stage 3) sendcounts=" << vector2string(processNComplicatedFaceRequested) << " recvcounts=" << vector2string(processNComplicatedFaceToSend) <<" send=" << vector2string(processFaceKeyRequested) << " recv=" << vector2string(processFaceKeyToSend) << std::endl;
 
 
         // 4) Communicate to each process whether requested faces exist on this process
@@ -1488,7 +1524,9 @@ protected:
             rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + processNComplicatedFaceRequested[iProc-1] );
         }
         MPI_Alltoallv (processFaceExistToSend.data(), processNComplicatedFaceToSend.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processFaceExistRequested.data()), processNComplicatedFaceRequested.data(), rdispls.data(), MPI_INT, comm );
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated if requested FaceKeys correspond to real faces");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated correspondence of requested FaceKeys correspond to real faces");
+
+        std::cout << "process_" << rank_ << "stage 4) sendcounts=" << vector2string(processNComplicatedFaceToSend) << " recvcounts=" << vector2string(processNComplicatedFaceRequested) <<" send=" << vector2string(processFaceExistToSend) << " recv=" << vector2string(processFaceExistRequested) << std::endl;
 
 
         // 5) Fill in correct neighbors for complicated faces
@@ -1500,9 +1538,12 @@ protected:
         	{
         		bool isReal = (processFaceExistRequested[iData++] == 1);
         		int thisFacePBLocalIndex = neighborProcessComplicatedFacePBLocalIndex[iProc][iFace].first;
+        		FaceKey thisFaceKey = neighborProcessComplicatedFacePBLocalIndex[iProc][iFace].second;
 
         		std::stringstream log_stream;
-        		log_stream << " complicated edge PBIndex=" << thisFacePBLocalIndex << " marked as real=" << isReal << " by process " << iProc;
+        		log_stream << " complicated face PBIndex=" << thisFacePBLocalIndex;
+        		log_stream << " FaceKey=(" << thisFaceKey.node0 << "," << thisFaceKey.node1 << "," << thisFaceKey.node2 << ")";
+        		log_stream << " marked as real=" << isReal << " by process " << iProc;
         		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
 
         		if (isReal)
@@ -1631,7 +1672,10 @@ protected:
 
                 FaceMapIterator faceIter = processInternalMap_.find(thisKey);
 
-                if (faceIter == processInternalMap_.end()) { DUNE_THROW(Dune::IOError, "CurvilinearGrid: Communicated FaceKey does not correspond to any face on this process "); }
+                if (faceIter == processInternalMap_.end()) {
+                	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated FaceKey does not correspond to any face on this process");
+                	DUNE_THROW(Dune::IOError, "CurvilinearGrid: Communicated FaceKey does not correspond to any face on this process ");
+                }
                 else
                 {
                     int localFaceIndex = processBoundaryFaceIndex_[(*faceIter).second];
@@ -1684,8 +1728,8 @@ protected:
 
             EdgeMapIterator thisEdgeMapIter = edgemap_.find(thisEdgeKey);
             if (thisEdgeMapIter == edgemap_.end()) {
-            	std::cout << ":((" << std::endl;
             	//std::cout << "process_" << rank_ << "ThisEdgeKey=(" << thisEdgeKey.node0 << "," << thisEdgeKey.node1 << ")" << std::endl;
+            	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Process boundary edge not found among all edges");
             	DUNE_THROW(Dune::IOError, "CurvilinearGrid: Process boundary edge not found among all edges");
             }
 
@@ -1763,7 +1807,7 @@ protected:
                 EdgeMapIterator edgeIter = edgemap_.find(thisKey);
 
                 if (edgeIter == edgemap_.end()) {
-                	std::cout << " 0_o" << std::endl;
+                	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated EdgeKey does not correspond to any edge on this process");
                 	DUNE_THROW(Dune::IOError, "CurvilinearGrid: Communicated EdgeKey does not correspond to any edge on this process "); }
                 else
                 {
@@ -1882,7 +1926,7 @@ protected:
         int iData = 0;
         for (int iProc = 0; iProc < size_; iProc++)
         {
-        	std::cout << "preliminaries of proc_" << iProc << " of " << nGhostPerProcessReceive[iProc] << std::endl;
+        	//std::cout << "preliminaries of proc_" << iProc << " of " << nGhostPerProcessReceive[iProc] << std::endl;
 
             for (int iElem = 0; iElem < nGhostPerProcessReceive[iProc]; iElem++)
             {
@@ -1946,7 +1990,7 @@ protected:
                 }
             }
 
-            std::cout << "communication to proc_" << iProc << " of " << neighborProcessGhostInterpOrder_[iProc].size() << std::endl;
+            //std::cout << "communication to proc_" << iProc << " of " << neighborProcessGhostInterpOrder_[iProc].size() << std::endl;
 
             // Assemble the array to receive
             // *****************************************************************
@@ -1970,7 +2014,7 @@ protected:
 
         recvPackageGhostElementData.resize(totalRecvSize, 0);
 
-        std::cout << "CommRequest: send="<< vector2string(sendPackageGhostElementData) << " recvsize=" << totalRecvSize << std::endl;
+        //std::cout << "CommRequest: send="<< vector2string(sendPackageGhostElementData) << " recvsize=" << totalRecvSize << std::endl;
 
         MPI_Comm comm = Dune::MPIHelper::getCommunicator();
         MPI_Alltoallv (sendPackageGhostElementData.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvPackageGhostElementData.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
@@ -1987,7 +2031,7 @@ protected:
      * */
     void ghostInsertGhostElements (
             std::vector< int > & packageGhostElementData,
-            std::vector<std::set<int> > & missingVertices
+            std::vector<std::vector<int> > & missingVertices
     )
     {
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Inserting communicated ghost elements");
@@ -1998,6 +2042,8 @@ protected:
 
         for (int iProc = 0; iProc < size_; iProc++)
         {
+        	std::set<int> missingVerticesFromThisProcess;
+
             for (int iGhost = 0; iGhost < neighborProcessGhostInterpOrder_[iProc].size(); iGhost++)
             {
                 EntityStorage thisElement;
@@ -2040,9 +2086,10 @@ protected:
                         insertVertex(fakeCoord, thisVertexGlobalIndex);
 
                         // Note that this vertex needs communicating
-                        missingVertices[iProc].insert(thisVertexGlobalIndex);
+                        missingVerticesFromThisProcess.insert(thisVertexGlobalIndex);
                     }
                 }
+
 
                 // Create the ghost element
                 int localGhostIndex = gridstorage_.ghostElement_.size();
@@ -2055,12 +2102,19 @@ protected:
                 {
                     IndexMapIterator faceIndexIter = gridstorage_.faceProcessBoundaryGlobal2LocalMap_.find(associatedFaceGlobalIndex[iFace]);
                     if (faceIndexIter == gridstorage_.faceProcessBoundaryGlobal2LocalMap_.end())  {
+                    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Received Ghost process boundary face not found among faces of this process");
                     	DUNE_THROW(Dune::IOError, "CurvilinearGridConstructor: Received Ghost process boundary face not found among faces of this process");
                     }
 
                     int localFaceIndex = (*faceIndexIter).second;
                     gridstorage_.face_[localFaceIndex].element2Index = localGhostIndex;
                 }
+            }
+
+            // Rewrite missing vertices from a set to an array, such that the iteration order of elements is always the same
+            for (std::set<int>::iterator tmpIter = missingVerticesFromThisProcess.begin(); tmpIter != missingVerticesFromThisProcess.end(); tmpIter++)
+            {
+            	missingVertices[iProc].push_back(*tmpIter);
             }
         }
     }
@@ -2071,63 +2125,62 @@ protected:
      *
      * */
     void ghostCommunicateMissingVertexGlobalIndices(
-            std::vector<std::set<int> > & missingVertices,
-            std::vector<int> & recvbuf,
-            std::vector<int> & verticesRequested,
-            std::vector<int> & verticesToSend
+            std::vector<std::vector<int> > & missingVertices,
+            std::vector<int> & packageMissingVertexGlobalIndices,
+            std::vector<int> & verticesRequestedByThis,
+            std::vector<int> & verticesToSendByThis
     )
     {
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicating ghost element missing vertex indices");
 
-        std::vector<int> sendbuf;
-        recvbuf.resize(size_, 0);
+        std::vector<int> nVertexRequested, nVertexToSend(size_);
 
         // 4.1) MPI_alltoallv - tell each process the number of coordinates you want from it
-        for (int iProc = 0; iProc < size_; iProc++)  { sendbuf.push_back(missingVertices[iProc].size()); }
+        for (int iProc = 0; iProc < size_; iProc++)  { nVertexRequested.push_back(missingVertices[iProc].size()); }
 
         MPI_Comm comm = Dune::MPIHelper::getCommunicator();
-        MPI_Alltoall(sendbuf.data(), 1, MPI_INT, reinterpret_cast<int*>(recvbuf.data()), 1, MPI_INT, comm);
+        MPI_Alltoall(nVertexRequested.data(), 1, MPI_INT, reinterpret_cast<int*>(nVertexToSend.data()), 1, MPI_INT, comm);
 
 
         // 4.2) MPI_alltoallv - tell each process the list of global Indices of coordinates you want from it
         // Cleanup
         std::vector<int> sendcounts, sdispls, recvcounts, rdispls;
-        sendbuf.clear();
+        std::vector<int> missingVertexGlobalIndexRequested;
         int totalRecvSize = 0;
         int iData = 0;
 
         for (int iProc = 0; iProc < size_; iProc++)
         {
             int thisSendSize = missingVertices[iProc].size();
-            int thisRecvSize = recvbuf[iData++];
+            int thisRecvSize = nVertexToSend[iData++];
 
             recvcounts.push_back(thisRecvSize);
             sendcounts.push_back(thisSendSize);
             totalRecvSize += thisRecvSize;
 
-            for (std::set<int>::iterator mVertIter = missingVertices[iProc].begin(); mVertIter != missingVertices[iProc].end(); mVertIter++ )  { sendbuf.push_back(*mVertIter); }
+            for (int iVert = 0; iVert < thisSendSize; iVert++)  { missingVertexGlobalIndexRequested.push_back(missingVertices[iProc][iVert]); }
 
             sdispls.push_back((iProc == 0) ? 0 : sdispls[iProc-1] + sendcounts[iProc-1] );
             rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + recvcounts[iProc-1] );
         }
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Missing vertex numbers sendcounts=(" + vector2string(sendcounts) + ") recvcounts=(" + vector2string(recvcounts) + ")" );
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Missing vertex numbers= " + vector2string(missingVertexGlobalIndexRequested) + " sendcounts=(" + vector2string(sendcounts) + ") recvcounts=(" + vector2string(recvcounts) + ")" );
 
-        recvbuf.clear(); recvbuf.resize(totalRecvSize, 0);
-        MPI_Alltoallv (sendbuf.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvbuf.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
+        packageMissingVertexGlobalIndices.resize(totalRecvSize, 0);
+        MPI_Alltoallv (missingVertexGlobalIndexRequested.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(packageMissingVertexGlobalIndices.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
 
         // We will require the information about requested and sent vertices when we communicate the coordinates
-        verticesRequested.swap(sendcounts);
-        verticesToSend.swap(recvcounts);
+        verticesRequestedByThis.swap(sendcounts);
+        verticesToSendByThis.swap(recvcounts);
     }
 
 
     // Distrubute vertex coordinates and add received coordinates to the mesh
     void ghostCommunicateMissingVertexCoordinates (
-            std::vector<std::set<int> > & missingVertices,
+            std::vector<std::vector<int> > & missingVertices,
             std::vector<int> & packageMissingVertexGlobalIndices,
-            std::vector<int> & verticesRequested,
-            std::vector<int> & verticesToReceive
+            std::vector<int> & verticesToSendByThis,
+            std::vector<int> & verticesToReceiveByThis
     )
     {
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicating ghost element missing vertex coordinates");
@@ -2140,13 +2193,13 @@ protected:
         int iData = 0;
         int totalRecvSize = 0;
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: verticesToReceive=(" + vector2string(verticesToReceive) + ") verticesRequestedPerProcess=(" + vector2string(verticesRequested) + ")" + " missingGlobalIndicesPackage=(" + vector2string(packageMissingVertexGlobalIndices) + ")" );
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: verticesToSend=(" + vector2string(verticesToSendByThis) + ") vertices to receive=(" + vector2string(verticesToReceiveByThis) + ")" + " missingGlobalIndicesPackage=(" + vector2string(packageMissingVertexGlobalIndices) + ")" );
 
 
         for (int i = 0; i < size_; i++)
         {
             // Go through all vertices requested from this process. Package coordinates
-            for (int j = 0; j < verticesRequested[i]; j++)
+            for (int j = 0; j < verticesToSendByThis[i]; j++)
             {
                 int thisVertexGlobalIndex = packageMissingVertexGlobalIndices[iData++];
                 int thisVertexLocalIndex = gridstorage_.vertexGlobal2LocalMap_[thisVertexGlobalIndex];
@@ -2154,12 +2207,14 @@ protected:
                 Vertex p = gridstorage_.point_[thisVertexLocalIndex].coord;
 
                 for (int iDim = 0; iDim < 3; iDim++)  { sendbuf.push_back(p[iDim]); }
+
+                //std::cout << "process_" << rank_ << " sending to process " << i << " a requested vertex " << thisVertexGlobalIndex << " with coord " << p << std::endl;
             }
 
             // We communicate (coord = 3 doubles) for each sent/received vertex
             // We now receive the amount we sent before, and send the amount we received before
-            int thisSendSize = 3 * verticesRequested[i];
-            int thisRecvSize = 3 * verticesToReceive[i];
+            int thisSendSize = 3 * verticesToSendByThis[i];
+            int thisRecvSize = 3 * verticesToReceiveByThis[i];
 
             sendcounts[i] = thisSendSize;
             recvcounts[i] = thisRecvSize;
@@ -2177,18 +2232,21 @@ protected:
         // Assign coordinates to all missing vertices
         iData = 0;
 
-        for (int i = 0; i < missingVertices.size(); i++)
+        for (int iProc = 0; iProc < size_; iProc++)
         {
-            for (std::set<int>::iterator mVertIter = missingVertices[i].begin(); mVertIter != missingVertices[i].end(); mVertIter++ )
+        	for (int iVert = 0; iVert < missingVertices[iProc].size(); iVert++)
             {
                 Vertex thisCoord;
                 thisCoord[0] = recvbuf[iData++];
                 thisCoord[1] = recvbuf[iData++];
                 thisCoord[2] = recvbuf[iData++];
 
-                int thisVertexGlobalIndex = *mVertIter;
+                int thisVertexGlobalIndex = missingVertices[iProc][iVert];
                 int thisVertexLocalIndex = gridstorage_.vertexGlobal2LocalMap_[thisVertexGlobalIndex];
                 gridstorage_.point_[thisVertexLocalIndex].coord = thisCoord;
+
+
+                //std::cout << "process_" << rank_ << " receiving requested vertex " << thisVertexGlobalIndex << " with coord " << thisCoord << std::endl;
             }
         }
     }

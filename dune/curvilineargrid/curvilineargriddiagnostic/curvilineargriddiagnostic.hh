@@ -101,6 +101,7 @@ public:
 
 	// Runs analytic tests that collect statistics on the elements and the faces of the mesh
 	// Statistics is communicated to MASTER_PROCESS, which writes it to a file
+	// [TODO] When calculating total volume, calculate it separately for all tags and provide tags
 	void runAnalyticTest(std::string filename)
 	{
 		 std::ofstream diagnosticFile;
@@ -170,20 +171,20 @@ public:
 				Dune::GeometryType       gt                = thisGeometry.type();
 				int                      order             = thisGeometry.order();
 				std::vector<GridVertex>  point             = thisGeometry.vertexSet();
+				std::vector<int>         tags  { physicalTag, VTK_INTERNAL, rank_ };
 
 				Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "writing element");
 
 		    	vtkCurvWriter.addCurvilinearElement(
 		    			gt,
 		    			point,
+		    			tags,
 		    			order,
-		    			physicalTag,
 		    			nDiscretizationPoints,
 		    			interpolate,
 		    			explode,
 		    			VTK_WRITE_EDGES,
-		    			VTK_WRITE_TRIANGLES,
-		    			VTK_INTERNAL);
+		    			VTK_WRITE_TRIANGLES);
 			}
 		}
 
@@ -204,20 +205,20 @@ public:
 				Dune::GeometryType       gt                = thisGeometry.type();
 				int                      order             = thisGeometry.order();
 				std::vector<GridVertex>  point             = thisGeometry.vertexSet();
+				std::vector<int>         tags  { physicalTag, VTK_GHOST, rank_ };
 
 				Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: WritingVTK Ghost Vertices=(" + vector2string(point) + ")");
 
 		    	vtkCurvWriter.addCurvilinearElement(
 		    			gt,
 		    			point,
+		    			tags,
 		    			order,
-		    			physicalTag,
 		    			nDiscretizationPoints,
 		    			interpolate,
 		    			explode,
 		    			VTK_WRITE_EDGES,
-		    			VTK_WRITE_TRIANGLES,
-		    			VTK_GHOST);
+		    			VTK_WRITE_TRIANGLES);
 			}
 		}
 
@@ -239,18 +240,18 @@ public:
 				Dune::GeometryType       gt                = thisGeometry.type();
 				int                      order             = thisGeometry.order();
 				std::vector<GridVertex>  point             = thisGeometry.vertexSet();
+				std::vector<int>         tags  { physicalTag, VTK_DOMAIN_BOUNDARY, rank_ };
 
 		    	vtkCurvWriter.addCurvilinearElement(
 		    			gt,
 		    			point,
+		    			tags,
 		    			order,
-		    			physicalTag,
 		    			nDiscretizationPoints,
 		    			interpolate,
 		    			explode,
 		    			VTK_WRITE_EDGES,
-		    			VTK_WRITE_TRIANGLES,
-		    			VTK_DOMAIN_BOUNDARY);
+		    			VTK_WRITE_TRIANGLES);
 			}
 		}
 
@@ -272,18 +273,18 @@ public:
 				Dune::GeometryType       gt                = thisGeometry.type();
 				int                      order             = thisGeometry.order();
 				std::vector<GridVertex>  point             = thisGeometry.vertexSet();
+				std::vector<int>         tags  { physicalTag, VTK_PROCESS_BOUNDARY, rank_ };
 
 		    	vtkCurvWriter.addCurvilinearElement(
 		    			gt,
 		    			point,
+		    			tags,
 		    			order,
-		    			physicalTag,
 		    			nDiscretizationPoints,
 		    			interpolate,
 		    			explode,
 		    			VTK_WRITE_EDGES,
-		    			VTK_WRITE_TRIANGLES,
-		    			VTK_PROCESS_BOUNDARY);
+		    			VTK_WRITE_TRIANGLES);
 			}
 		}
 

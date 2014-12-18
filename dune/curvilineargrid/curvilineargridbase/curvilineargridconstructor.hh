@@ -1500,8 +1500,8 @@ protected:
 
         // Note: now we communicate 1 int for every face key requested, so send and recv switch places and are divided by 3
 
-        std::vector<int> processFaceExistToSend;                        rdispls.clear();
-        std::vector<int> processFaceExistRequested(thisCommSize / 3);   sdispls.clear();
+        std::vector<int> processFaceExistToSend;                                          rdispls.clear();
+        std::vector<int> processFaceExistRequested(processFaceKeyRequested.size() / 3);   sdispls.clear();
 
         int iData = 0;
         for (int iProc = 0; iProc < size_; iProc++)

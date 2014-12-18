@@ -1053,7 +1053,7 @@ namespace Dune
      *  \param[in]  isBoundary                Whether this is an internal or a boundary element
      *
      */
-    void addElementToVTK(const GeometryType & elemType, const std::vector<GlobalVector> & elementNodeVector, const int elemOrder, const int physicalTag, const bool isBoundary)
+    void addElementToVTK(const GeometryType & elemType, const std::vector<GlobalVector> & elemNodeVector, const int elemOrder, const int physicalTag, const bool isBoundary)
     {
     	const int VTK_INTERNAL = Dune::VtkEntityStructuralType::Internal;
     	const int VTK_BOUNDARY = Dune::VtkEntityStructuralType::DomainBoundary;
@@ -1068,17 +1068,18 @@ namespace Dune
     	// Different elements will have different structural tags
     	int VTK_ELEMENT_STRUCTURAL_TYPE = isBoundary ? VTK_BOUNDARY : VTK_INTERNAL;
 
+    	std::vector<int> elemTags  { physicalTag, VTK_ELEMENT_STRUCTURAL_TYPE, rank_ };
+
     	vtkCurvWriter_.addCurvilinearElement(
     			elemType,
-    			elementNodeVector,
+    			elemNodeVector,
+    			elemTags,
     			elemOrder,
-    			physicalTag,
     			VTK_DISCRETIZATION_POINTS,
     			VTK_INTERPOLATE,
     			VTK_EXPLODE,
     			VTK_WRITE_EDGES,
-    			VTK_WRITE_TRIANGLES,
-    			VTK_ELEMENT_STRUCTURAL_TYPE);
+    			VTK_WRITE_TRIANGLES);
     }
 
     // Converts an arbitrary vector into string by sticking all of the entries together

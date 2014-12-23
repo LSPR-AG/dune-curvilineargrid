@@ -21,39 +21,27 @@ namespace Dune
     // IndexSet
     // --------
 
-    template< class Grid, class HostIndexSet >
+    template<class Grid>
     class IndexSet
-      : public Dune::IndexSet< Grid, IndexSet< Grid, HostIndexSet >, typename HostIndexSet::IndexType >
+      : public Dune::IndexSet< Grid, IndexSet< Grid> >
     {
-      typedef IndexSet< Grid, HostIndexSet > This;
-      typedef Dune::IndexSet< Grid, This, typename HostIndexSet::IndexType > Base;
+      typedef IndexSet< Grid > This;
+      typedef Dune::IndexSet< Grid, This > Base;
+
+      typedef typename Dune::CurvilinearGridBase      CurvilinearGridBase;
 
       typedef typename remove_const< Grid >::type::Traits Traits;
-
-      typedef typename Traits::HostGrid HostGrid;
 
     public:
       static const int dimension = Traits::dimension;
 
       typedef typename Base::IndexType IndexType;
 
-      IndexSet ()
-        : hostIndexSet_( 0 )
-      {}
+      IndexSet ()  { }
 
-      explicit IndexSet ( const HostIndexSet &hostIndexSet )
-        : hostIndexSet_( &hostIndexSet )
-      {}
+      IndexSet ( const This &other )  { }
 
-      IndexSet ( const This &other )
-        : hostIndexSet_( other.hostIndexSet_ )
-      {}
-
-      const This &operator= ( const This &other )
-      {
-        hostIndexSet_ = other.hostIndexSet_;
-        return *this;
-      }
+      const This &operator= ( const This &other )  { return *this; }
 
       using Base::index;
       using Base::subIndex;
@@ -72,12 +60,20 @@ namespace Dune
 
       IndexType size ( GeometryType type ) const
       {
-        return hostIndexSet().size( type );
+    	  if (!type.isSimplex()) { return 0; }
+    	  return size(dimension - type.dim());
       }
 
-      int size ( int codim ) const
+      IndexType size ( int codim ) const
       {
-        return hostIndexSet().size( codim );
+    	  switch(codim)
+    	  {
+    	  case 0  :   return gridbase_.nElement();  break;
+    	  case 1  :   return gridbase_.nFace();     break;
+    	  case 2  :   return gridbase_.nEdge();     break;
+    	  case 3  :   return gridbase_.nVertex();   break;
+    	  }
+    	  return 0;
       }
 
       template< class Entity >
@@ -100,7 +96,7 @@ namespace Dune
         return *hostIndexSet_;
       }
 
-      const HostIndexSet *hostIndexSet_;
+      CurvilinearGridBase & gridbase_;
     };
 
   } // namespace CurvGrid

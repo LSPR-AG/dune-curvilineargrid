@@ -9,6 +9,11 @@
  * - Writes mesh to a factory
  * - [optional] Writes the output to VTK file using Curvilinear VTK Writer
  * 
+ *
+ * Notifications:
+ *   - GMSH provides GlobalIndex for all vertices, however, this index starts at 1. It is therefore lowered to 0 for all vertices and dependent entities
+ *
+ *
  *******************************************************************/
 
 
@@ -56,7 +61,7 @@ namespace Dune
   // Stores all info associated with an element, except explicit vertex coordinates
   struct GmshElementData
   {
-      int elementId_;
+      int elementIndex_;
       int gmshIndex_;
       int physicalEntityTag_;
       int elementTag_;
@@ -93,7 +98,7 @@ namespace Dune
 
 
 
-    // Methods
+    // GMSH Convention Methods
     // ***********************************************************************
 
     // Constructs a DUNE geometry type based on GMSH element index
@@ -135,9 +140,9 @@ namespace Dune
         if (gmshIndex == 93) { return 4; }
 
         // Array copy-pasted from GMSH Brute-Force because it does not seem to have any pattern :)
-        const int elemOrder[32]          = {-1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 3, 3, 4, 4, 5, 5, 3, 4, 5, 3, 4, 5};
+        const int elemOrder[32]          = {1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 3, 3, 4, 4, 5, 5, 3, 4, 5, 3, 4, 5};
 
-        return elemOrder[gmshIndex];
+        return elemOrder[gmsh2DuneIndex(gmshIndex)];
     }
 
     bool gmshElementIsIncomplete(int gmshIndex)
@@ -146,9 +151,9 @@ namespace Dune
         if ((gmshIndex == 92) || (gmshIndex == 93)) { return 0; }
 
         // Array copy-pasted from GMSH Brute-Force because it does not seem to have any pattern :)
-        const bool elemIncomplete[32]          = {-1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0};
+        const bool elemIncomplete[32]          = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0};
 
-        return elemIncomplete[gmshIndex];
+        return elemIncomplete[gmsh2DuneIndex(gmshIndex)];
     }
 
     // Returns the number of degrees of freedom of the element given its GMSH_index
@@ -156,23 +161,23 @@ namespace Dune
     int gmshElementDofNumber(int gmshIndex)
     {
         // Array copy-pasted from GMSH Brute-Force because it does not seem to have any pattern :)
-        const int nDofs[32]              = {-1, 2, 3, 4, 4, 8, 6, 5, 3, 6, 9, 10, 27, 18, 14, 1, 8, 20, 15, 13, 9, 10, 12, 15, 15, 21, 4, 5, 6, 20, 35, 56};
+        const int nDofs[32]              = {2, 3, 4, 4, 8, 6, 5, 3, 6, 9, 10, 27, 18, 14, 1, 8, 20, 15, 13, 9, 10, 12, 15, 15, 21, 4, 5, 6, 20, 35, 56};
 
-        return nDofs[gmshIndex];
+        return nDofs[gmsh2DuneIndex(gmshIndex)];
     }
 
     // Returns the total number of DoF associated with all subentities of a given dimension for this element, subtracting the ones that come from the corners
     int gmshElementSubentityExtraDim(int gmshIndex, int dim)
     {
-        const int nDofsExtraEdge[32] = {-1, 0, 0, 0, 0, 0, 0, 0, 1, 3, 4, 6, 12, 9, 8, 0, 4, 12, 9, 8, 6, 6, 9, 9, 12, 12, 2, 3, 4, 12, 18, 24};
-        const int nDofsExtraFace[32] = {-1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 6, 3, 1, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 6, 0, 0, 0, 4, 12, 24};
-        const int nDofsExtraElem[32] = {-1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4};
+        const int nDofsExtraEdge[32] = {0, 0, 0, 0, 0, 0, 0, 1, 3, 4, 6, 12, 9, 8, 0, 4, 12, 9, 8, 6, 6, 9, 9, 12, 12, 2, 3, 4, 12, 18, 24};
+        const int nDofsExtraFace[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 6, 3, 1, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 6, 0, 0, 0, 4, 12, 24};
+        const int nDofsExtraElem[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4};
 
         switch(dim)
         {
-        case 1: return nDofsExtraEdge[gmshIndex];  break;
-        case 2: return nDofsExtraFace[gmshIndex];  break;
-        case 3: return nDofsExtraElem[gmshIndex];  break;
+        case 1: return nDofsExtraEdge[gmsh2DuneIndex(gmshIndex)];  break;
+        case 2: return nDofsExtraFace[gmsh2DuneIndex(gmshIndex)];  break;
+        case 3: return nDofsExtraElem[gmsh2DuneIndex(gmshIndex)];  break;
         }
 
         return -1;
@@ -200,7 +205,14 @@ namespace Dune
         }
     }
 
+    // In GMSH the global vertex index starts at 1, in Dune it starts at 0, therefore correction
+    int  gmsh2DuneIndex (int gmshIndex) { return gmshIndex - 1; }
 
+
+
+
+    // Auxiliary Methods
+    // ***********************************************************************
 
     // Testing if the current element type can be handled by DUNE
     bool checkElementAllowed(int gmshIndex)
@@ -369,7 +381,7 @@ namespace Dune
     	 // Combine element globalId's with processes to which these elements go
     	 std::vector<ETP> elementToProcess;
     	 for (int i = 0; i < baseElementVector.size(); i++) {
-    		 elementToProcess.push_back(std::make_pair(baseElementVector[i].elementId_, part[i]));
+    		 elementToProcess.push_back(std::make_pair(baseElementVector[i].elementIndex_, part[i]));
     	 }
     	 // Sort according to increasing process order
     	 struct comparator {
@@ -439,6 +451,15 @@ namespace Dune
      }
 
 
+
+
+
+
+
+     // Auxiliary Parser Methods
+     // ***********************************************************************
+
+
     /** \brief Reads vertices into a map, given a set of indices of vertices that should be read
      *
      *  \param[in]  file                           file pointer to read from
@@ -465,16 +486,17 @@ namespace Dune
         GlobalVector x;
 
         // Iterator starts from 1 because GMSH numbers vertices [1,n]
-        for( int i = 1; i <= nVertexTotal_; ++i )
+        for( int i = 0; i < nVertexTotal_; ++i )
         {
             // If this vertex does not belong to this process, just skip it
             if (vertexIndexSet.count(i) == 0)  { fgets(buf_, 512, file ); }
             else
             {
                 fscanf(file, "%d ", &id);
+                int vertexIndex = gmsh2DuneIndex(id);
                 std::string tmp_out;
 
-                if( id != i )  { DUNE_THROW( Dune::IOError, "Expected id " << i << "(got id " << id << "." ); }
+                if( vertexIndex != i )  { DUNE_THROW( Dune::IOError, "Expected id " << i << ", got id " << vertexIndex << "." ); }
                 for (int d = 0; d < dimWorld_; d++) {
                     double tmp_coord;
                     fscanf(file, "%lg", &tmp_coord);
@@ -511,12 +533,15 @@ namespace Dune
     GmshElementData readElementSpec(FILE* file)
     {
         int nTag;
+        int elementId;
         GmshElementData thisElement;
 
-        fscanf(file, "%d %d %d ", &thisElement.elementId_, &thisElement.gmshIndex_, &nTag);
+        fscanf(file, "%d %d %d ", &elementId, &thisElement.gmshIndex_, &nTag);
+        thisElement.elementIndex_ = gmsh2DuneIndex(elementId);
 
-        std::string log_string =  "    * element " + std::to_string(thisElement.elementId_) + " has " + std::to_string(nTag) + " tags";
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
+        std::stringstream log_string;
+        log_string << "    * element " << thisElement.elementIndex_ << " has " << nTag << " tags";
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string.str());
 
         /** \brief Reading tags
          *
@@ -568,7 +593,7 @@ namespace Dune
 
         // Reading element info - tag information and vertex global indices
         // *************************************************************
-        for (int i = 1; i <= nElementTotal_; i++)
+        for (int i = 0; i < nElementTotal_; i++)
         {
             // Read the first part of the element info
             GmshElementData thisElement = readElementSpec(file);
@@ -585,7 +610,7 @@ namespace Dune
                 // Testing if the current element type can be handled by DUNE
                 // *****************************************************************
                 checkElementAllowed(thisElement.gmshIndex_);
-                std::string log_string = "    * element " + std::to_string(thisElement.elementId_) + " can be treated by Dune grid ";
+                std::string log_string = "    * element " + std::to_string(thisElement.elementIndex_) + " can be treated by Dune grid ";
                 Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
                 // Obtain all necessary info not to use gmshElementIndex in the following steps
@@ -618,7 +643,7 @@ namespace Dune
 
 
         //std::cout << "Process " << rank_ << ": elements before partition: ";
-        //for (int i = 0; i < baseElementVector.size(); i++) { std::cout << baseElementVector[i].elementId_ << " "; }
+        //for (int i = 0; i < baseElementVector.size(); i++) { std::cout << baseElementVector[i].elementIndex_ << " "; }
         //std::cout << std::endl;
 
 #if HAVE_MPI
@@ -637,7 +662,7 @@ namespace Dune
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " elements after partition: " + vector2string(test2));
 #else
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "No MPI found! Running sequential case without partitioning");
-    	for (int i = 0; i < baseElementVector.size(); i++) { thisProcessElementIndexSet.insert(baseElementVector[i].elementId_); }
+    	for (int i = 0; i < baseElementVector.size(); i++) { thisProcessElementIndexSet.insert(baseElementVector[i].elementIndex_); }
 #endif
         // Finish reading file
         // *************************************************************
@@ -673,7 +698,7 @@ namespace Dune
     	std::string log_string;
 
         // Reading element info - tag information and vertex global indices
-        for (int i = 1; i <= nElementTotal_; i++)
+        for (int i = 0; i < nElementTotal_; i++)
         {
             // Read the first part of the element info
             GmshElementData thisElement = readElementSpec(file);
@@ -685,13 +710,13 @@ namespace Dune
 
             // Check if this element belongs on this process
             // Note: There is no need to check if the element is a boundary segment, because
-            if (thisProcessElementIndexSet.count(thisElement.elementId_) == 0) { fgets(buf_, 512, file ); }
+            if (thisProcessElementIndexSet.count(thisElement.elementIndex_) == 0) { fgets(buf_, 512, file ); }
             else
             {
                 // Testing if the current element type can be handled by DUNE
                 // *****************************************************************
                 checkElementAllowed(thisElement.gmshIndex_);
-                log_string = "    * element " + std::to_string(thisElement.elementId_) + " can be treated by Dune grid ";
+                log_string = "    * element " + std::to_string(thisElement.elementIndex_) + " can be treated by Dune grid ";
                 Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
                 // Obtain all necessary info not to use gmshElementIndex in the following steps
@@ -706,15 +731,16 @@ namespace Dune
                 for (int iDof = 0; iDof < thisElmDofNo; iDof++) {
                     int tmpVertexGlobalId;
                     fscanf(file, "%d", &tmpVertexGlobalId);
+                    int tmpVertexGlobalIndex = gmsh2DuneIndex(tmpVertexGlobalId);
 
-                    log_string = "  --- have read DoF " + std::to_string(tmpVertexGlobalId);
-                    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
+;
+                    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "  --- have read DoF " + std::to_string(tmpVertexGlobalIndex));
 
-                    thisElement.elementDofSet_.push_back(tmpVertexGlobalId);
+                    thisElement.elementDofSet_.push_back(tmpVertexGlobalIndex);
 
                     // Insert all used global vertex indexes into set
                     // Note: set ignores request to add an already existing element
-                    vertexIndexSet.insert(tmpVertexGlobalId);
+                    vertexIndexSet.insert(tmpVertexGlobalIndex);
                 }
                 fscanf(file, "\n");
 
@@ -801,7 +827,7 @@ namespace Dune
         int iSelectElem = 0;
 
         // Reading element info - tag information and vertex global indices
-        for (int i = 1; i <= nElementTotal_; i++)
+        for (int i = 0; i < nElementTotal_; i++)
         {
             // Read the first part of the element info
             GmshElementData thisElement = readElementSpec(file);
@@ -832,11 +858,11 @@ namespace Dune
                 for (int iDof = 0; iDof < thisElmDofNo; iDof++) {
                     int tmpVertexGlobalId;
                     fscanf(file, "%d", &tmpVertexGlobalId);
+                    int tmpVertexGlobalIndex = gmsh2DuneIndex(tmpVertexGlobalId);
 
-                    log_string = "  --- have read DoF " + std::to_string(tmpVertexGlobalId);
-                    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
+                    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "  --- have read DoF " + std::to_string(tmpVertexGlobalIndex));
 
-                    thisElement.elementDofSet_.push_back(tmpVertexGlobalId);
+                    thisElement.elementDofSet_.push_back(tmpVertexGlobalIndex);
                 }
                 fscanf(file, "\n");
 
@@ -954,7 +980,7 @@ namespace Dune
 
             internalElement2PhysicalEntityIndex.push_back(internalElementVector[i].physicalEntityTag_);
             // Insert element to factory
-            factory.insertElement(elemType, internalElementVector[i].elementId_, localDofVector, elemOrder, internalElementVector[i].physicalEntityTag_);
+            factory.insertElement(elemType, internalElementVector[i].elementIndex_, localDofVector, elemOrder, internalElementVector[i].physicalEntityTag_);
 
 
             if (!insertBoundarySegment) {
@@ -1032,7 +1058,7 @@ namespace Dune
             // Adding boundarySegment to factory
             if (insertBoundarySegment)
             {
-                factory.insertBoundarySegment(boundaryType, boundaryElementVector[i].elementId_, localDofVector, boundaryOrder, linkedElementLocalIndexSet[i][0], boundaryElementVector[i].physicalEntityTag_);
+                factory.insertBoundarySegment(boundaryType, boundaryElementVector[i].elementIndex_, localDofVector, boundaryOrder, linkedElementLocalIndexSet[i][0], boundaryElementVector[i].physicalEntityTag_);
 
                 // Adding physical tag
                 boundaryElement2PhysicalEntityIndex.push_back(boundaryElementVector[i].physicalEntityTag_);
@@ -1214,11 +1240,12 @@ namespace Dune
         {
             int id, gmshElementIndex;
             fscanf(file, "%d %d ", &id, &gmshElementIndex);
+            int elementIndex = gmsh2DuneIndex(id);
 
             // Ignore the rest of data on this line
             fgets(buf_, 512, file );
 
-            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, std::to_string(id) + " " + std::to_string(gmshElementIndex) );
+            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, std::to_string(elementIndex) + " " + std::to_string(gmshElementIndex) );
 
             // A boundary segment is defined here as any element with dimension less than world dimension
             GeometryType elemType          = gmshGeometryType(gmshElementIndex);

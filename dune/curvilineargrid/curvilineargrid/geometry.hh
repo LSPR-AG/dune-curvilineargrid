@@ -7,9 +7,8 @@
 #include <dune/common/typetraits.hh>
 
 #include <dune/geometry/referenceelements.hh>
-#include <dune/geometry/polynomial/polynomial.hh>
-#include <dune/geometry/polynomialinterpolation/curvilinearelementinterpolator.hh>
-#include <dune/geometry/lagrangegeometry.hh>
+#include <dune/curvilineargeometry/interpolation/polynomial.hh>
+#include <dune/curvilineargeometry/curvilineargeometry.hh>
 
 #include <dune/grid/common/capabilities.hh>
 
@@ -112,22 +111,17 @@ namespace Dune
       // Local returns false if the point is not inside the element. In this case local coordinate is not defined and localC is meaningless
       bool local ( const GlobalCoordinate &globalC, LocalCoordinate & localC ) const { return mapping_->local(globalC, localC); }
 
-      // Normals
-      GlobalCoordinate normal(const LocalCoordinate &local ) const { return mapping_->normal(local); }
-      GlobalCoordinate subentityNormal(int subentityNo, const SubLocalCoordinate &local ) const { return mapping_->subentityNormal(subentityNo, local); }
-
-
       // Integration Elements
-      ctype integrationElement ( const LocalCoordinate &local ) const { return mapping_->integrationElement( local ); }
-      Polynomial JacobianDeterminantAnalytical() const { return mapping_->JacobianDeterminantAnalytical(); }
-      PolynomialVector NormalIntegrationElementAnalytical() const { return mapping_->NormalIntegrationElementAnalytical(); }
-      Polynomial IntegrationElementSquaredAnalytical() const { return mapping_->IntegrationElementSquaredAnalytical(); }
+      ctype integrationElement ( const LocalCoordinate &local )  const { return mapping_->integrationElement( local ); }
+      Polynomial JacobianDeterminantAnalytical()                 const { return mapping_->JacobianDeterminantAnalytical(); }
+      PolynomialVector NormalIntegrationElementAnalytical()      const { return mapping_->NormalIntegrationElementAnalytical(); }
+      Polynomial IntegrationElementSquaredAnalytical()           const { return mapping_->IntegrationElementSquaredAnalytical(); }
 
       // Explicit integrals
       ctype integrateScalar(const Polynomial & P, double tolerance) const { return mapping_->integrateScalar(P, tolerance); }
       template <typename Functor>
       ctype integrateNumerical(const Functor & f, double tolerance) const { return mapping_->integrateNumerical(f, tolerance); }
-      ctype integrateAnalyticalDot(const PolynomialVector & PVec) const { return mapping_->integrateAnalyticalDot(PVec); }
+      ctype integrateAnalyticalDot(const PolynomialVector & PVec)   const { return mapping_->integrateAnalyticalDot(PVec); }
       ctype volume () const { return mapping_->volume(); }
 
       JacobianTransposed jacobianTransposed ( const LocalCoordinate &local ) const { return mapping_->jacobianTransposed( local ); }

@@ -58,32 +58,32 @@
 namespace Dune {
 
 // Forward-declaration of GridBase because the modules include each other
-template <class ct>
+template <class ct, int cdim>
 class CurvilinearGridBase;
 
 
 /** \brief Wraps CurvilinearGridBase element with functions necessary for CurvilinearOctree    */
 
-template <class ct>
+template <class ct, int cdim>
 class CurvilinearOctreeNode {
 public:
 
     /* public types */
-    typedef Dune::FieldVector<ct, 3>               Vertex;
+    typedef Dune::FieldVector<ct, cdim>            Vertex;
     typedef std::vector<Vertex>                    VertexVector;
 
 
 
-    typedef Dune::CurvilinearGridBase<ct>          Base;
-    typedef typename Base::EntityStorage           EntityStorage;
-    typedef typename Base::ElementGeometry         ElementGeometry;
+    typedef Dune::CurvilinearGridBase<ct, cdim>    GridBase;
+    typedef typename GridBase::EntityStorage           EntityStorage;
+    typedef typename GridBase::ElementGeometry         ElementGeometry;
 
 
 
 public: /* public methods */
 
-    CurvilinearOctreeNode(const Base & grid, int elementIndex) :
-    	grid_(grid),
+    CurvilinearOctreeNode(const GridBase & grid, int elementIndex) :
+    	gridbase_(grid),
     	elementIndex_(elementIndex)
 	{
     	// Calculate it once since it will be asked for multiple times
@@ -91,7 +91,7 @@ public: /* public methods */
 	}
 
     // Note: This operation is expensive - do not use too frequently
-    ElementGeometry elementGeometry() { return grid_.elementGeometry(elementIndex_); }
+    ElementGeometry elementGeometry() { return gridbase_.entityGeometry<0>(elementIndex_); }
 
     // Gets a box in which this Tetrahedron fits
     void elementBoundingBox(Vertex & center, Vertex & extent) const {
@@ -170,7 +170,7 @@ private:
 
 private: // Private members
 
-    const Base & grid_;
+    const GridBase & gridbase_;
 
     int elementIndex_;
 

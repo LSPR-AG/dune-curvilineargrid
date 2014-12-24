@@ -95,13 +95,13 @@ public:
     typedef typename GridStorageType::EdgeKey                   EdgeKey;
     typedef typename GridStorageType::FaceKey                   FaceKey;
 
-    typedef typename GridStorageType::EdgeKey2EdgeIndexMap      EdgeKey2EdgeIndexMap;
-    typedef typename GridStorageType::FaceKey2FaceIndexMap      FaceKey2FaceIndexMap;
-    typedef typename GridStorageType::Index2IndexMap            Index2IndexMap;
-
+    typedef std::map<EdgeKey, LocalIndexType>                   EdgeKey2EdgeIndexMap;
+    typedef std::map<FaceKey, LocalIndexType>                   FaceKey2FaceIndexMap;
     typedef typename EdgeKey2EdgeIndexMap::iterator             EdgeMapIterator;
     typedef typename FaceKey2FaceIndexMap::iterator             FaceMapIterator;
-    typedef typename Index2IndexMap::iterator                   IndexMapIterator;
+
+    typedef typename GridStorageType::Index2IndexMap            Index2IndexMap;
+    typedef typename GridStorageType::IndexMapIterator          IndexMapIterator;
 
 	typedef typename GridStorageType::NodeType                  NodeType;
     typedef typename GridStorageType::CurvilinearLooseOctree    CurvilinearLooseOctree;
@@ -196,6 +196,7 @@ public:
 
         thisElement.geometryType = gt;
         thisElement.globalIndex = 0;        // At this stage globalIndex is not known yet
+        thisElement.structuralType = GridStorageType::EntityStructuralType::InternalElement;
         thisElement.interpOrder = order;
         thisElement.physicalTag = physicalTag;
         thisElement.vertexIndexSet = vertexIndexSet;
@@ -302,6 +303,7 @@ public:
 
                 // Store Vector (faceId -> associated element)
                 FaceStorage thisFaceAsSubentity;
+                thisFaceAsSubentity.geometryType = gt;
                 thisFaceAsSubentity.globalIndex  = 0;                  // At this stage the globalId is not known yet
                 thisFaceAsSubentity.structuralType = DBFaceType;
                 thisFaceAsSubentity.element1Index = associatedElementIndex;
@@ -385,7 +387,7 @@ public:
             withGhostElements_ = false;
             for (int i = 0; i < gridstorage_.edge_.size();    i++)  { gridstorage_.edge_[i].globalIndex = i;     gridstorage_.edgeGlobal2LocalMap_[i] = i; }
             for (int i = 0; i < gridstorage_.face_.size();    i++)  { gridstorage_.face_[i].globalIndex = i;     gridstorage_.faceGlobal2LocalMap_[i] = i; }
-            for (int i = 0; i < gridstorage_.element_.size(); i++)  { gridstorage_.element_[i].globalIndex = i;  gridstorage_.elementGlobal2LocalMap_[i] = i; }
+            for (int i = 0; i < gridstorage_.element_.size(); i++)  { gridstorage_.element_[i].globalIndex = i;  gridstorage_.elementGlobal2LocalMap_[i] = i;  gridstorage_.internalElementGlobal2LocalMap_[i] = i; }
 
             for (FaceMapIterator faceIter = internalFaceKey2LocalIndexMap_.begin(); faceIter != internalFaceKey2LocalIndexMap_.end(); faceIter++)              { LocalIndexType localIndex = (*faceIter).second;        gridstorage_.faceInternalGlobal2LocalMap_[localIndex] = localIndex; }
             for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)  { LocalIndexType localIndex = (*faceIter).second;        gridstorage_.faceDomainBoundaryGlobal2LocalMap_[localIndex] = localIndex; }
@@ -567,6 +569,7 @@ protected:
                     // Note: Edges do not have physical tag at all so we do not even store it
                     EdgeStorage thisEdge;
                     thisEdge.globalIndex = 0;        // GlobalId for edge determined later using global communication
+                    thisEdge.structuralType = GridStorageType::EntityStructuralType::InternalEdge;   // For process boundaries will be redefined later
                     thisEdge.elementIndex = iElem;
                     thisEdge.subentityIndex = iEdge;
 
@@ -678,11 +681,15 @@ protected:
             // Store the face local index as element subentity
             gridstorage_.elementSubentityCodim2_[connectedFaceInfo[0]][connectedFaceInfo[1]] = localFaceIndex;
 
-            // Add face to the mesh
+            // Recover parental information for this face
             thisFace.globalIndex = 0;       // GlobalId is defined at a later stage
             thisFace.element1Index = connectedFaceInfo[0];
             thisFace.element1SubentityIndex = connectedFaceInfo[1];
             thisFace.physicalTag = -1;    // At the moment physicalTag of an internal face is not defined as it could be inbetween two different elements
+
+            // Find the geometry type of the face from its parent face
+            Dune::GeometryType parentGeometry = gridstorage_.element_[thisFace.element1Index].geometryType;
+            thisFace.geometryType = Dune::ReferenceElements<ct, cdim>::general(parentGeometry).type(thisFace.element1SubentityIndex, 1);
 
 
             std::stringstream log_stream;
@@ -707,7 +714,7 @@ protected:
                 log_stream << " StructuralType=internal";
             }
 
-
+            // Add face to the mesh
             Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
             gridstorage_.face_.push_back(thisFace);
         }
@@ -782,10 +789,16 @@ protected:
 
             for (int i = 0; i < 3; i++)
             {
+            	EdgeMapIterator edgeIter = processBoundaryEdgeMap_.find(thisEdgeKey[i]);
+
                 // For each vertex, if it has not yet been added to the map, add it, mapping to a new entry
                 // in the processBoundaryCornerNeighborRank_
-                if (processBoundaryEdgeMap_.find(thisEdgeKey[i]) == processBoundaryEdgeMap_.end())
+                if (edgeIter == processBoundaryEdgeMap_.end())
                 {
+                	// Change the structural type of this edge to ProcessBoundary
+                	LocalIndexType thisEdgeLocalIndex = edgeKey2LocalIndexMap_[(*edgeIter).first];
+                	gridstorage_.edge_[thisEdgeLocalIndex].structuralType = GridStorageType::EntityStructuralType::ProcessBoundaryEdge;
+
                 	// DO NOT combine these two lines into one - then the map returns the size after insertion which is +1 to expected
                     LocalIndexType processBoundaryEdgeIndex = processBoundaryEdgeMap_.size();
                     processBoundaryEdgeMap_[thisEdgeKey[i]]  = processBoundaryEdgeIndex;
@@ -804,16 +817,17 @@ protected:
      * 1) Communicate process ranks associated with each process boundary corner
      * 1.1) As a result, for each process boundary corner, each process knows a set ranks of all other processes that share it
      * 1.2) Set of ranks of processes sharing process boundary edges and faces can be computed by set intersecting ranks of corresponding corners
-     * 2) Find ownership of each edge and face. A shared entity is owned by the process with lowest rank
-     * 3) Communicate number of edges and faces owned by each process to all
-     * 4) Locally enumerate all edges, faces and elements owned by this process. That is, to assign them a global index
-     * 4.1) Global index for edges starts at nVertexTotal+nEdgesOwnedBeforeMe.
-     * 4.2) Global index for faces starts at nVertexTotal+nEdgeTotal+nFacesOwnedBeforeMe.
-     * 4.3) Global index for elements starts at nVertexTotal+nEdgesTotal+nFacesTotal+nElementsOwnedBeforeMe. Note that each process owns all its elements since they are not shared.
-     * 5) Communicate missing edge and face globalIndices
-     * 5.1) By analyzing entity neighbors, each process can compute how many how many global indices it needs to send and to receive to each other process
-     * 5.2) Each process sends to each neighbor the shared entity global indices enumerated by this process and receives those enumerated by the neighbor process
-     * 6) Fill in Global2Local maps. They are required for user functionality and for construction of GhostElements
+     * 2) Mark correct structural type for all complicated edges - those shared by multiple processes
+     * 3) Find ownership of each edge and face. A shared entity is owned by the process with lowest rank
+     * 4) Communicate number of edges and faces owned by each process to all
+     * 5) Locally enumerate all edges, faces and elements owned by this process. That is, to assign them a global index
+     * 5.1) Global index for edges starts at nVertexTotal+nEdgesOwnedBeforeMe.
+     * 5.2) Global index for faces starts at nVertexTotal+nEdgeTotal+nFacesOwnedBeforeMe.
+     * 5.3) Global index for elements starts at nVertexTotal+nEdgesTotal+nFacesTotal+nElementsOwnedBeforeMe. Note that each process owns all its elements since they are not shared.
+     * 6) Communicate missing edge and face globalIndices
+     * 6.1) By analyzing entity neighbors, each process can compute how many how many global indices it needs to send and to receive to each other process
+     * 6.2) Each process sends to each neighbor the shared entity global indices enumerated by this process and receives those enumerated by the neighbor process
+     * 7) Fill in Global2Local maps. They are required for user functionality and for construction of GhostElements
      *
      * [FIXME] Algorithm Misses a case:
      * Description: It is realistic that process possesses all vertices of an entity and does not possess the entity itself. Mostly due to concavities.
@@ -858,9 +872,21 @@ protected:
         processBoundaryCornerMap_.clear();
         processBoundaryCornerNeighborRank_.clear();
 
-        std::cout << "process_" << rank_ << "smile :)" << std::endl;
 
-        // 2) Get edges and faces on this process that are not owned by this process
+        // 2) Mark correct structural type for all complicated edges
+        // *************************************************************************
+        for (EdgeMapIterator edgeIter = processBoundaryEdgeMap_.begin(); edgeIter != processBoundaryEdgeMap_.end(); edgeIter++ )
+        {
+        	int nNeighbors = processBoundaryEdgeNeighborRank_[(*edgeIter).second].size();
+        	if (nNeighbors > 1)  // Complicated edge is the one shared by more than 2 processes
+        	{
+        		LocalIndexType thisEdgeLocalIndex = edgeKey2LocalIndexMap_[(*edgeIter).first];
+        		gridstorage_.edge_[thisEdgeLocalIndex].structuralType = GridStorageType::EntityStructuralType::ComplexBoundaryEdge;
+        	}
+        }
+
+
+        // 3) Get edges and faces on this process that are not owned by this process
         // *************************************************************************
         EdgeKey2EdgeIndexMap edgeNonOwned;
         FaceKey2FaceIndexMap faceNonOwned;
@@ -887,7 +913,7 @@ protected:
         int elementsOwned = gridstorage_.element_.size();
 
 
-        // 3) Communicate number of edges and faces owned by each process to all
+        // 4) Communicate number of edges and faces owned by each process to all
         // *************************************************************************
         std::vector<int> edgesOnProcess(size_);      // owned edges [rank]
         std::vector<int> facesOnProcess(size_);      // owned faces [rank]
@@ -915,7 +941,7 @@ protected:
         }
 
 
-        // 4) Enumerate all edges, faces and elements that you own
+        // 5) Enumerate all edges, faces and elements that you own
         // *************************************************************************
 
         GlobalIndexType iEdgeGlobalId = edgesBeforeMe;
@@ -944,7 +970,7 @@ protected:
         }
 
 
-        // 5) Communicate missing edge and face global indices to their corresponding neighbors. Receive them and assign.
+        // 6) Communicate missing edge and face global indices to their corresponding neighbors. Receive them and assign.
         // *************************************************************************
 
         globalDistributeMissingEdgeGlobalIndex();
@@ -954,11 +980,15 @@ protected:
         processBoundaryEdgeNeighborRank_.clear();
 
 
-        // 6) Fill in Global2Local maps
+        // 7) Fill in Global2Local maps
         // *************************************************************************
         for (int iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)     { gridstorage_.edgeGlobal2LocalMap_[gridstorage_.edge_[iEdge].globalIndex] = iEdge; }
         for (int iFace = 0; iFace < gridstorage_.face_.size(); iFace++)     { gridstorage_.faceGlobal2LocalMap_[gridstorage_.face_[iFace].globalIndex] = iFace; }
-        for (int iElem = 0; iElem < gridstorage_.element_.size(); iElem++)  { gridstorage_.elementGlobal2LocalMap_[gridstorage_.element_[iElem].globalIndex] = iElem; }
+        for (int iElem = 0; iElem < gridstorage_.element_.size(); iElem++)  {
+        	GlobalIndexType thisGlobalIndex = gridstorage_.element_[iElem].globalIndex;
+        	gridstorage_.elementGlobal2LocalMap_[thisGlobalIndex] = iElem;
+        	gridstorage_.internalElementGlobal2LocalMap_[thisGlobalIndex] = iElem;
+        }
 
         for (FaceMapIterator faceIter = internalFaceKey2LocalIndexMap_.begin(); faceIter != internalFaceKey2LocalIndexMap_.end(); faceIter++)
         {
@@ -1011,7 +1041,6 @@ protected:
      *
      *
      * TODO: Only supports tetrahedral ghost elements at the moment
-     * [FIXME] Communicate Ghost only once if shared by multiple faces
      *
      * */
     void generateGhostElements()
@@ -2050,6 +2079,7 @@ protected:
                 EntityStorage thisElement;
                 thisElement.geometryType = meshGeometryType;
                 thisElement.globalIndex = packageGhostElementData[iData++];
+                thisElement.structuralType = GridStorageType::EntityStructuralType::GhostElement;
                 thisElement.interpOrder = neighborProcessGhostInterpOrder_[iProc][iGhost];
                 thisElement.physicalTag = packageGhostElementData[iData++];
 
@@ -2093,9 +2123,11 @@ protected:
 
 
                 // Create the ghost element
-                LocalIndexType localGhostIndex = gridstorage_.ghostElement_.size();
-                gridstorage_.ghostGlobal2LocalMap_[thisElement.globalIndex] = localGhostIndex;
-                gridstorage_.ghostElement_.push_back(thisElement);
+                // Mark it both in all-element map and in the ghost element map
+                LocalIndexType thisElementLocalIndex = gridstorage_.element_.size();
+                gridstorage_.ghostElementGlobal2LocalMap_[thisElement.globalIndex] = thisElementLocalIndex;
+                gridstorage_.elementGlobal2LocalMap_[thisElement.globalIndex] = thisElementLocalIndex;
+                gridstorage_.element_.push_back(thisElement);
 
 
                 // Associate all relevant faces with this ghost element
@@ -2108,7 +2140,7 @@ protected:
                     }
 
                     LocalIndexType localFaceIndex = (*faceIndexIter).second;
-                    gridstorage_.face_[localFaceIndex].element2Index = localGhostIndex;
+                    gridstorage_.face_[localFaceIndex].element2Index = thisElementLocalIndex;
                 }
             }
 

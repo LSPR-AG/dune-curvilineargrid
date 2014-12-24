@@ -163,6 +163,7 @@ public:
 	struct EdgeStorage
 	{
 		GlobalIndexType    globalIndex;
+		StructuralType     structuralType;
 		LocalIndexType     elementIndex;
 		InternalIndexType  subentityIndex;
 	};
@@ -172,6 +173,7 @@ public:
 	// Note: element2Index is an internal element index only for internal faces, it is a ghost element index for process boundaries, and it is -1 for domain boundaries.
 	struct FaceStorage
 	{
+		Dune::GeometryType geometryType;
 		GlobalIndexType   globalIndex;
 		StructuralType    structuralType;
 		LocalIndexType    element1Index;
@@ -184,6 +186,7 @@ public:
 	{
 		Dune::GeometryType geometryType;
 		GlobalIndexType globalIndex;
+		StructuralType structuralType;
 		std::vector<LocalIndexType> vertexIndexSet;
 		InterpolatoryOrderType interpOrder;
 		PhysicalTagType physicalTag;
@@ -198,16 +201,13 @@ public:
     typedef typename CurvilinearEntityMapKey::EdgeKey   EdgeKey;
     typedef typename CurvilinearEntityMapKey::FaceKey   FaceKey;
 
-    typedef std::map<EdgeKey, LocalIndexType>           EdgeKey2EdgeIndexMap;
-    typedef std::map<FaceKey, LocalIndexType>           FaceKey2FaceIndexMap;
-
     typedef std::map<GlobalIndexType, LocalIndexType>   Index2IndexMap;
     typedef typename Index2IndexMap::iterator           IndexMapIterator;
 
     typedef Dune::CurvilinearOctreeNode<ct, cdim>                 NodeType;
     typedef Dune::CurvilinearLooseOctree<ct, cdim, NodeType>      CurvilinearLooseOctree;
 
-    typedef std::pair<GlobalIndexType, StructuralType> IdType;
+    typedef std::pair<GlobalIndexType, StructuralType>  IdType;
 
 
     template <int codim>
@@ -235,22 +235,25 @@ public:
 
     // Stores all necessary data about edges, faces and elements
     // Minimalism - edges and faces do not store interpolatory vertex ids, but refer to an element subentity
-    std::vector<EntityStorage> element_;
-    std::vector<EntityStorage> ghostElement_;
     std::vector<EdgeStorage> edge_;
     std::vector<FaceStorage> face_;
+    std::vector<EntityStorage> element_;
 
     // Storage of local subentity indices for element
     std::vector< std::vector<LocalIndexType> > elementSubentityCodim1_;   // (element_ index -> vector<edge_ index> )
     std::vector< std::vector<LocalIndexType> > elementSubentityCodim2_;   // (element_ index -> vector<face_ index> )
 
-    // Maps from global to local indices
+    // Maps from global to local indices - all entities of given codim, regardless of structural type
     Index2IndexMap vertexGlobal2LocalMap_;
     Index2IndexMap edgeGlobal2LocalMap_;
     Index2IndexMap faceGlobal2LocalMap_;
     Index2IndexMap elementGlobal2LocalMap_;
-    Index2IndexMap ghostGlobal2LocalMap_;
 
+    // Structural type maps for elements
+    Index2IndexMap internalElementGlobal2LocalMap_;
+    Index2IndexMap ghostElementGlobal2LocalMap_;
+
+    // Structural type maps for faces
     Index2IndexMap faceInternalGlobal2LocalMap_;
     Index2IndexMap faceDomainBoundaryGlobal2LocalMap_;
     Index2IndexMap faceProcessBoundaryGlobal2LocalMap_;

@@ -91,7 +91,7 @@ public: /* public methods */
 	}
 
     // Note: This operation is expensive - do not use too frequently
-    ElementGeometry elementGeometry() { return gridbase_.entityGeometry<0>(elementIndex_); }
+    ElementGeometry elementGeometry() { return gridbase_.template entityGeometry<0>(elementIndex_); }
 
     // Gets a box in which this Tetrahedron fits
     void elementBoundingBox(Vertex & center, Vertex & extent) const {

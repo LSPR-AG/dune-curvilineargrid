@@ -24,7 +24,7 @@
 #include <dune/common/fvector.hh>
 
 
-#include <dune/curvilineargrid/feedback/loggingmessage.hh>
+#include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilinearoctant.hh>
 
 

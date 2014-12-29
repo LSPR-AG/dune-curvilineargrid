@@ -19,7 +19,7 @@
 #include <dune/grid/common/mcmgmapper.hh>
 
 #include <dune/curvilineargrid/io/file/curvilineargmshreader.hh>
-#include <dune/curvilineargrid/curvilineargriddiagnostic/curvilineargriddiagnostic.hh>
+#include <dune/curvilineargrid/utility/curvilineargriddiagnostic.hh>
 
 
 

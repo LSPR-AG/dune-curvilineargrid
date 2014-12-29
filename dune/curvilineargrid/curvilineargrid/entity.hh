@@ -41,8 +41,69 @@ namespace Dune
   namespace CurvGrid
   {
 
-  template<int cd, int dim, class GridImp, template<int,int,class> class EntityImp>
-  class Entity
+
+
+  template<int cd, int dim, class GridImp>
+  class EntityBase
+  {
+  public:
+	  typedef typename remove_const< GridImp >::type::Traits Traits;
+
+	  typedef typename Traits::ctype ctype;						//! coordinate type of the grid
+
+
+
+
+	  typedef Dune::CurvilinearGridBase<ctype, dim>         GridBaseType;
+
+  public:
+		/** \name Construction, Initialization and Destruction
+		*  \{ */
+
+	  EntityBase (
+		int localEntityIndex,
+	    int structType,
+	    GridBaseType & gridbase)
+	  	  : localEntityIndex_(localEntityIndex), gridbase_(gridbase)
+		{ }
+
+
+	  //! Copy constructor from an existing entity.
+	  EntityBase(const EntityBase& other) { }
+
+	  /** \} */
+
+	  //! Copy assignment operator from an existing entity.
+	  EntityBase& operator=(const EntityBase& other)  { }
+
+	  //! Move assignment operator from an existing entity.
+	  Entity& operator=(Entity&& other)
+	  {
+		  realEntity = std::move(other.realEntity);
+		  return *this;
+	  }
+
+	  //! Move constructor from an existing entity.
+	  EntityBase(EntityBase&& other) : realEntity(std::move(other.realEntity))
+	  {}
+
+
+	  /** \brief compare two entities */
+	  bool equals ( const EntityBase &other) const  { }
+
+  protected:
+	    int localEntityIndex_;
+	    GridBaseType & gridbase_;
+  };
+
+
+
+
+
+
+
+  template<int cd, int dim, class GridImp>
+  class Entity : EntityBase<cd, dim, GridImp>
   {
 	    typedef typename remove_const< GridImp >::type::Traits Traits;
 
@@ -66,45 +127,21 @@ namespace Dune
 	    typedef typename Traits::template Codim< codimension >::EntitySeed EntitySeed;			//! type of corresponding entity seed
 	    typedef typename Traits::template Codim< codim >::GeometryImpl GeometryImpl;
 
+	    typedef EntityBase<cd, dim, GridImp>                  Base;
 
+	    typedef Dune::CurvilinearGridBase<ctype, dim>         GridBaseType;
 	    typedef Dune::CurvilinearGridStorage::IdType          IdType;
+
+
+	    using Base::localEntityIndex_;
+	    using Base::gridbase_;
 
   public:
 
-		/** \name Construction, Initialization and Destruction
-		*  \{ */
-
-	    Entity (
-	    	int localEntityIndex,
-	    	int structType,
-	    	Dune::CurvilinearGridBase<ctype> & gridbase)
-  	  	  	  : localEntityIndex_(localEntityIndex), structType_(structType), gridbase_(gridbase)
-		{ }
-
-
-		//! Copy constructor from an existing entity.
-		Entity(const Entity& other) { }
-
-		/** \} */
-
-		//! Copy assignment operator from an existing entity.
-		Entity& operator=(const Entity& other)  { }
-
-		//! Move assignment operator from an existing entity.
-		Entity& operator=(Entity&& other)
-		{
-			realEntity = std::move(other.realEntity);
-			return *this;
-		}
-
-		//! Move constructor from an existing entity.
-		Entity(Entity&& other) : realEntity(std::move(other.realEntity))
-		{}
-
-
-		/** \brief compare two entities */
-		bool equals ( const EntityBase &other) const  { }
-
+	    Entity (int localEntityIndex,
+	    		GridBaseType & gridbase)
+	  	  : Base(localEntityIndex, gridbase)
+	    {}
 
 	    /** \name Methods Shared by Entities of All Codimensions
 	    *  \{ */
@@ -117,13 +154,15 @@ namespace Dune
 
 	    /** \brief obtain the partition type of this entity */
 	    PartitionType partitionType () const  {
-	    	switch (structType_)
+	    	StructuralType stype = gridbase_.entityStructuralType<cd>(localEntityIndex_);
+
+	    	switch (stype)
 	    	{
-	    	case Dune::CurvilinearGridStorage::EntityStructuralType::DomainBoundary   : return PartitionType::BorderEntity;
-	    	case Dune::CurvilinearGridStorage::EntityStructuralType::ProcessBoundary  : return PartitionType::BorderEntity;
-	    	case Dune::CurvilinearGridStorage::EntityStructuralType::InternalFace     : return PartitionType::InteriorEntity;
-	    	case Dune::CurvilinearGridStorage::EntityStructuralType::InternalElement  : return PartitionType::InteriorEntity;
-	    	case Dune::CurvilinearGridStorage::EntityStructuralType::GhostElement     : return PartitionType::GhostEntity;
+	    	case Dune::CurvilinearGridStorage::EntityStructuralType::DomainBoundaryFace   : return PartitionType::BorderEntity;
+	    	case Dune::CurvilinearGridStorage::EntityStructuralType::ProcessBoundaryFace  : return PartitionType::BorderEntity;
+	    	case Dune::CurvilinearGridStorage::EntityStructuralType::InternalFace         : return PartitionType::InteriorEntity;
+	    	case Dune::CurvilinearGridStorage::EntityStructuralType::InternalElement      : return PartitionType::InteriorEntity;
+	    	case Dune::CurvilinearGridStorage::EntityStructuralType::GhostElement         : return PartitionType::GhostEntity;
 	    	default : return 0;
 	    	}
 	    }
@@ -152,23 +191,7 @@ namespace Dune
 
 
 	    /** \brief obtain the entity's id from a host IdSet */
-	    IdType id () const  { }
-
-
-
-
-
-
-
-
-
-  private:
-     int localEntityIndex_;
-     int structType_;
-     Dune::CurvilinearGridBase<ctype> & gridbase_;
-
-
-
+	    IdType id () const  { return gridbase_.globalId<cd>(localEntityIndex_); }
 
   };
 
@@ -177,9 +200,10 @@ namespace Dune
 
 
 
-  template<int dim, class GridImp, template<int,int,class> class EntityImp>
-  class Entity <0,dim,GridImp,EntityImp>
+  template<int dim, class GridImp>
+  class Entity <0,dim,GridImp>
   {
+	  typedef typename remove_const< GridImp >::type::Traits Traits;
 
   public:
 	  typedef typename remove_const< Grid >::type::Traits Traits;
@@ -193,13 +217,6 @@ namespace Dune
 	  /** \brief The geometry type of this entity when the geometry is expressed embedded in the father element. */
 	  typedef typename Traits::template Codim< 0 >::LocalGeometry LocalGeometry;
 
-	  /** \brief EntityPointer types of the different codimensions */
-	  template <int cd>
-	  struct Codim
-	  {
-		  typedef typename GridImp::template Codim<cd>::Entity Entity;
-	  };
-
 	  /** \brief The HierarchicIterator type*/
 	  typedef typename Traits::HierarchicIterator HierarchicIterator;
 
@@ -211,13 +228,30 @@ namespace Dune
 	  static const int dimensionworld = dim;	//! dimension of the world
 	  /** \} */
 
+	  typedef typename Traits::ctype ctype;						//! coordinate type of the grid
+	  typedef Dune::CurvilinearGridBase<ctype, dim>         GridBaseType;
+
+	  typedef EntityBase<0, dim, GridImp>                  Base;
+
+	  using Base::localEntityIndex_;
+	  using Base::gridbase_;
+
+
+	  typedef typename GridBaseType::GlobalIndexType           GlobalIndexType;
+	  typedef typename GridBaseType::LocalIndexType            LocalIndexType;
+	  typedef typename GridBaseType::InternalIndexType         InternalIndexType;
+	  typedef typename GridBaseType::StructuralType            StructuralType;
+	  typedef typename GridBaseType::PhysicalTagType           PhysicalTagType;
+	  typedef typename GridBaseType::InterpolatoryOrderType    InterpolatoryOrderType;
+
 
   public:
 
 
-      Entity ()  {}
-
-
+      Entity (int localEntityIndex,
+    		  GridBaseType & gridbase)
+  	  	  : Base(localEntityIndex, gridbase)
+      {}
 
 
    /**\brief Number of subentities with codimension <tt>codim</tt>.
@@ -227,7 +261,7 @@ namespace Dune
      */
     unsigned int subEntities(unsigned int codim) const
     {
-      return realEntity.subEntities(codim);
+      return Dune::ReferenceElements<double, dim>::general().size(0, codim, codim);
     }
 
     /** \brief Obtain a pointer to a subentity
@@ -244,7 +278,8 @@ namespace Dune
     typename Codim< codim >::Entity
     subEntity ( int i ) const
     {
-      return realEntity.template subEntity< codim >( i );
+    	int subentityLocalIndex = gridbase_.subentityIndex(localEntityIndex_, 0, codim, i);
+    	return Entity<dim - codim, dim, GridImp>(subentityLocalIndex, gridbase_);
     }
 
 
@@ -257,29 +292,28 @@ namespace Dune
              or implemented in general.
              For some grids it might be available, though.
      */
-    Entity father () const
+    Entity<0, dim, GridImp> father () const
     {
-      return realEntity.father();
+    	DUNE_THROW(NotImplemented, "CurvilinearGrid-Element: method father() not implemented, since there is no refinement");
+    	return *this;
     }
 
     /**\brief Return true if entity has a father entity which can be accessed
        using the father() method.
      */
-    bool hasFather () const
-    {
-      return realEntity.hasFather();
-    }
+    bool hasFather () const  { return false; }
 
     //! Returns true if the entity is contained in the leaf grid
-    bool isLeaf () const
-    {
-      return realEntity.isLeaf();
-    }
+    // NOTE: All elements are leafs since there is no refinement
+    bool isLeaf () const  { return true; }
 
     /** @brief Returns true if element is of regular type in red/green type refinement.
        In bisection or hanging node refinement this is always true.
      */
-    bool isRegular() const { return realEntity.isRegular(); }
+    bool isRegular() const {
+    	DUNE_THROW(NotImplemented, "CurvilinearGrid-Element: method isRegular() not implemented, since there is no refinement");
+    	return false;
+    }
 
     /** \brief Provides information how this element has been subdivided from its
      *         father element.
@@ -306,7 +340,10 @@ namespace Dune
      *  \note The returned geometry object is guaranteed to remain valid until the
      *        grid is modified (or deleted).
      */
-    LocalGeometry geometryInFather () const { return realEntity.geometryInFather(); }
+    LocalGeometry geometryInFather () const {
+    	DUNE_THROW(NotImplemented, "CurvilinearGrid-Element: method geometryInFather() not implemented, since there is no refinement");
+    	return gridbase_.entityGeometry<0>(localEntityIndex_);
+    }
 
     /**\brief Inter-level access to elements that resulted from (recursive)
        subdivision of this element.
@@ -321,7 +358,7 @@ namespace Dune
      */
     HierarchicIterator hbegin (int maxLevel) const
     {
-      return realEntity.hbegin(maxLevel);
+    	//[FIXME] Add iterator link when implemented
     }
 
     /** \brief Returns iterator to one past the last son element
@@ -333,22 +370,36 @@ namespace Dune
      */
     HierarchicIterator hend (int maxLevel) const
     {
-      return realEntity.hend(maxLevel);
+    	//[FIXME] Add iterator link when implemented
     }
 
     /**\brief Returns true, if the entity has been created during the last call to adapt()
      */
-    bool isNew () const { return realEntity.isNew(); }
+    bool isNew () const { return true; }
 
     /**\brief Returns true, if entity might disappear during the next call to adapt().
      * If the method returns false, the entity is guaranteed to still be present after
      * adaptation.
      */
-    bool mightVanish () const { return realEntity.mightVanish(); }
+    bool mightVanish () const { return false; }
 
     /**\brief Returns true, if entity has intersections with boundary
      */
-    bool hasBoundaryIntersections () const { return realEntity.hasBoundaryIntersections(); }
+    bool hasBoundaryIntersections () const
+    {
+    	for (InternalIndexType i = 0; i < 4; i++)
+    	{
+    		LocalIndexType thisFaceIndex = gridbase_.subentityIndex(localEntityIndex_, 0, 1, i);
+    		StructuralType thisStructType = entityStructuralType<1>(thisFaceIndex);
+
+    		if (
+    		  (thisStructType != Dune::CurvilinearGridStorage::EntityStructuralType::InternalFace) ||
+    		  (thisStructType != Dune::CurvilinearGridStorage::EntityStructuralType::InternalBoundaryFace)
+    		)  { return true; }
+    	}
+
+    	return false;
+    }
 
 
   };

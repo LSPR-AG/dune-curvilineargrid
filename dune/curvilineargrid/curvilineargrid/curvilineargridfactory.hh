@@ -40,7 +40,7 @@
 //#include <dune/alugrid/3d/gridfactory.hh>
 //#include <dune/alugrid/3d/gridfactory.cc>
 
-#include <dune/curvilineargrid/feedback/loggingmessage.hh>
+#include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
 
 

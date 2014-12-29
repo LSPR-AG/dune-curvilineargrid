@@ -84,8 +84,10 @@ public:
 
 
     // Entity Key Structures
-	//   Wraps the map keys necessary to construct Id for entities with minimal memory usage
     // ******************************************************************
+
+	// Unique GlobalId for entities when they still do not possess GlobalIndex
+	// Relies on vertices having GlobalIndex from the start, provided by mesh generator
 	struct CurvilinearEntityMapKey
 	{
 	    // This is a minimal info necessary to recognize an edge among all processes
@@ -149,7 +151,18 @@ public:
 	    };
 	};
 
+	// Unique GlobalId for entities that possess GlobalIndex
+	struct IdType
+	{
+		std::pair<StructuralType, GlobalIndexType>  id_;
 
+		 bool operator== ( const IdType & other) { return ((id_.first == other.id_.first) && (id_.second == other.id_.second)); }
+		 bool operator!= ( const IdType & other) { return !(*this == other);  }
+		 bool operator<  ( const IdType & other) { return (id_.first == other.id_.first) ? (id_.second < other.id_.second) : (id_.first < other.id_.first); }
+
+		 //template< class C, class T >
+		 //std::basic_ostream< C, T > &operator<< ( std::basic_ostream< C, T > &, const Id & );
+	};
 
 
     // Entity Storage Structures
@@ -206,9 +219,6 @@ public:
 
     typedef Dune::CurvilinearOctreeNode<ct, cdim>                 NodeType;
     typedef Dune::CurvilinearLooseOctree<ct, cdim, NodeType>      CurvilinearLooseOctree;
-
-    typedef std::pair<GlobalIndexType, StructuralType>  IdType;
-
 
     template <int codim>
     struct Codim

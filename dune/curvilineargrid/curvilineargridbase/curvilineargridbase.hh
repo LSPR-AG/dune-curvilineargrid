@@ -49,7 +49,7 @@
 #include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 #include <dune/curvilineargeometry/curvilineargeometry.hh>
 
-#include <dune/curvilineargrid/feedback/loggingmessage.hh>
+#include <dune/curvilineargrid/common/loggingmessage.hh>
 
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridstorage.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridconstructor.hh>
@@ -79,9 +79,10 @@
  *  - [TODO] Does NOT support non-tetrahedral meshes. Generalization to arbitrary and mixed geometry meshes is possible but will be cumbersome
  *
  * Development log
+ *  - [TODO]  Consider making GridConstructor a pointer and deleting it at the end of construction phase.
  *  - [FIXME] Convert all code to unsigned ints wherever the number is definitely non-negative
- *  - [FIXME] Constructor run check if all non-owned entities have been successfully enumerated at the end
  *  - [FIXME] Do Ghost elements require same properties as normal elements. For example, subentityByIndex?
+ *  - [FIXME] Implement ostream operator << for IdType.
  *
  *  - [FIXME] Need to add normal and outerNormal
  *  - [FIXME] Need to wrap for Dune
@@ -98,6 +99,7 @@
  *
  * Testing:
  *  - [FIXME] Write test which checks consistency of all local and global indices
+ *  - [FIXME] Constructor run check if all non-owned entities have been successfully enumerated at the end
  *
  *
  * Additional Functionality - Extended Physical Tags
@@ -170,6 +172,7 @@ public:
 
     typedef typename GridStorageType::EdgeKey                EdgeKey;
     typedef typename GridStorageType::FaceKey                FaceKey;
+    typedef typename GridStorageType::IdType                 IdType;
 
     typedef typename GridStorageType::Index2IndexMap            Index2IndexMap;
     typedef typename GridStorageType::IndexMapIterator          IndexMapIterator;
@@ -369,7 +372,7 @@ public:
 
     /** Get total number of entities of specific type on this process  */
     template<int codim>
-    int nEntity(int structtype) const
+    int nEntity(StructuralType structtype) const
     {
     	switch(codim)
     	{
@@ -398,7 +401,7 @@ public:
 
     /** Get the GeometryType of entities on this process  */
     template<int codim>
-    int entityGeometryType(LocalIndexType localIndex) const
+    Dune::GeometryType entityGeometryType(LocalIndexType localIndex) const
     {
     	switch(codim)
     	{
@@ -413,7 +416,7 @@ public:
     /** Get physical tag based on codimension  */
     /** Get total number of entities in a mesh  */
     template<int codim>
-    int physicalTag(LocalIndexType localIndex) const
+    PhysicalTagType physicalTag(LocalIndexType localIndex) const
     {
     	switch(codim)
     	{
@@ -425,6 +428,43 @@ public:
     }
 
 
+    template<int codim>
+    GlobalIndexType entityGlobalIndex(LocalIndexType localIndex)
+    {
+    	switch(codim)
+    	{
+    	case 3 : return gridstorage_.point_[localIndex].globalIndex;    break;
+    	case 2 : return gridstorage_.edge_[localIndex].globalIndex;     break;
+    	case 1 : return gridstorage_.face_[localIndex].globalIndex;     break;
+    	case 0 : return gridstorage_.element_[localIndex].globalIndex;  break;
+    	}
+    }
+
+
+    template<int codim>
+    IdType globalId(LocalIndexType localIndex)
+    {
+    	IdType thisId;
+    	thisId.id_ = std::pair<StructuralType, GlobalIndexType>(
+    			entityStructuralType<codim>(localIndex),
+    			entityGlobalIndex<codim>(localIndex) );
+    	return thisId;
+    }
+
+
+    /** Get vertex global coordinate */
+    template<int codim>
+    StructuralType entityStructuralType(LocalIndexType localIndex) const
+    {
+    	switch(codim)
+    	{
+    	case 3 : return Dune::CurvilinearGridStorage<ct,cdim>::EntityStructuralType::Vertex;  break;
+    	case 2 : return gridstorage_.edge_[localIndex].structuralType;                        break;
+    	case 1 : return gridstorage_.face_[localIndex].structuralType;                        break;
+    	case 0 : return gridstorage_.element_[localIndex].structuralType;                     break;
+    	default : DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected subentity codimension");  break;
+    	}
+    }
 
 
     /** Returns the local index of a subentity of a given entity
@@ -533,10 +573,6 @@ public:
 
         return rez;
     }
-
-
-    /** Get vertex global coordinate */
-    StructuralType faceStructuralType(LocalIndexType localIndex) const        { return gridstorage_.face_[localIndex].structuralType; }
 
 
     /** Vertex coordinate

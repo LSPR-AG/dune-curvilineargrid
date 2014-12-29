@@ -46,7 +46,7 @@
 #include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 
 
-#include <dune/curvilineargrid/feedback/loggingmessage.hh>
+#include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/curvilineargrid/curvilineargridfactory.hh>
 #include <dune/curvilineargrid/io/file/curvilinearvtkwriter.hh>
 

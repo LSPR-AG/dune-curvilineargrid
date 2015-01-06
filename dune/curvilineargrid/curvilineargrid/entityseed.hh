@@ -25,10 +25,10 @@ namespace Dune
     // EntitySeed (real)
     // -----------------
 
-    template< int codim, class Grd >
-    class EntitySeed< codim, Grd, false >
+    template< int codim, class GridType >
+    class EntitySeed< codim, GridType, false >
     {
-      typedef typename remove_const< Grd >::type::Traits Traits;
+      typedef typename remove_const< GridType >::type::Traits Traits;
 
     public:
       static const int codimension = codim;
@@ -69,10 +69,10 @@ namespace Dune
     // EntitySeed (fake)
     // -----------------
 
-    template< int codim, class Grd >
-    class EntitySeed< codim, Grd, true >
+    template< int codim, class GridType >
+    class EntitySeed< codim, GridType, true >
     {
-      typedef typename remove_const< Grd >::type::Traits Traits;
+      typedef typename remove_const< GridType >::type::Traits Traits;
 
     public:
       static const int codimension = codim;

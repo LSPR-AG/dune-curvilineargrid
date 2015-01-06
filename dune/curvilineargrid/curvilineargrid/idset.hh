@@ -5,6 +5,8 @@
 
 #include <dune/grid/common/indexidset.hh>
 
+#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
+
 namespace Dune
 {
 
@@ -14,42 +16,32 @@ namespace Dune
     // IdSet
     // -----
 
-    template< class Grid, class HostIdSet >
+    template< class Grid >
     class IdSet
-      : public Dune::IdSet< Grid, IdSet< Grid, HostIdSet >, typename HostIdSet::IdType >
+      : public Dune::IdSet< Grid, IdSet< Grid >, typename Dune::CurvilinearGridBase::IdType >
     {
-      typedef IdSet< Grid, HostIdSet > This;
-      typedef Dune::IdSet< Grid, This, typename HostIdSet::IdType > Base;
+
+      typedef IdSet< Grid > This;
+      typedef Dune::IdSet< Grid, This, typename Dune::CurvilinearGridBase::IdType > Base;
 
       typedef typename remove_const< Grid >::type::Traits Traits;
 
     public:
-      typedef typename HostIdSet::IdType IdType;
+      typedef Dune::CurvilinearGridBase::IdType  IdType;
+
 
       using Base::subId;
 
-      IdSet ()
-        : hostIdSet_( 0 )
-      {}
+      IdSet ()  { }
 
-      explicit IdSet ( const HostIdSet &hostIdSet )
-        : hostIdSet_( &hostIdSet )
-      {}
+      IdSet ( const This &other )  { }
 
-      IdSet ( const This &other )
-        : hostIdSet_( other.hostIdSet_ )
-      {}
-
-      const This &operator= ( const This &other )
-      {
-        hostIdSet_ = other.hostIdSet_;
-        return *this;
-      }
+      const This &operator= ( const This &other )  { return *this; }
 
       template< int codim >
       IdType id ( const typename Traits::template Codim< codim >::Entity &entity ) const
       {
-        return Grid::getRealImplementation( entity ).id( hostIdSet() );
+        return Grid::getRealImplementation( entity ).id();
       }
 
       template< class Entity >
@@ -60,19 +52,9 @@ namespace Dune
 
       IdType subId ( const typename Traits::template Codim< 0 >::Entity &entity, int i, unsigned int codim ) const
       {
-        return hostIdSet().subId( Grid::template getHostEntity< 0 >( entity ), i, codim );
+        return Grid::getRealImplementation( entity ).subId(i, codim);
       }
 
-      operator bool () const { return bool( hostIdSet_ ); }
-
-    private:
-      const HostIdSet &hostIdSet () const
-      {
-        assert( *this );
-        return *hostIdSet_;
-      }
-
-      const HostIdSet *hostIdSet_;
     };
 
   } // namespace CurvGrid

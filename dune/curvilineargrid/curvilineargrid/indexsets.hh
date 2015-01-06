@@ -46,55 +46,66 @@ namespace Dune
       using Base::index;
       using Base::subIndex;
 
-      template< int cc >
-      IndexType index ( const typename Traits::template Codim< cc >::Entity &entity ) const
+      template< int codim >
+      IndexType index ( const typename Traits::template Codim< codim >::Entity &entity ) const
       {
-        return Grid::getRealImplementation( entity ).index( hostIndexSet() );
+        return Grid::getRealImplementation( entity ).index();
       }
 
-      template< int cc >
-      IndexType subIndex ( const typename Traits::template Codim< cc >::Entity &entity, int i, unsigned int codim ) const
+      template< int codim >
+      IndexType subIndex ( const typename Traits::template Codim< codim >::Entity &entity, int i, unsigned int codim ) const
       {
-        return Grid::getRealImplementation( entity ).subIndex( hostIndexSet(), i, codim );
+        return Grid::getRealImplementation( entity ).subIndex( i, codim );
       }
+
 
       IndexType size ( GeometryType type ) const
       {
     	  if (!type.isSimplex()) { return 0; }
-    	  return size(dimension - type.dim());
+    	  else
+    	  {
+    		  return size(dimension - type.dim());
+    	  }
       }
+
 
       IndexType size ( int codim ) const
       {
     	  switch(codim)
     	  {
-    	  case 0  :   return gridbase_.nElement();  break;
-    	  case 1  :   return gridbase_.nFace();     break;
-    	  case 2  :   return gridbase_.nEdge();     break;
-    	  case 3  :   return gridbase_.nVertex();   break;
+    	  case 0  :   return gridbase_.nEntity(0);  break;
+    	  case 1  :   return gridbase_.nEntity(1);  break;
+    	  case 2  :   return gridbase_.nEntity(2);  break;
+    	  case 3  :   return gridbase_.nEntity(3);  break;
     	  }
     	  return 0;
       }
 
-      template< class Entity >
-      bool contains ( const Entity &entity ) const
+      template< int codim >
+      bool contains ( const typename Traits::template Codim< codim >::Entity &entity ) const
       {
-        return Grid::getRealImplementation( entity ).isContained( hostIndexSet() );
+    	  int localIndex = entity.localIndex();
+    	  int globalIndex;
+
+    	  return gridbase_.findEntityGlobalIndex<codim>(localIndex, globalIndex);
       }
 
       const std::vector< GeometryType > &geomTypes ( int codim ) const
       {
-        return hostIndexSet().geomTypes( codim );
-      }
+    	  std::vector<GeometryType>  rez;
 
-      operator bool () const { return bool( hostIndexSet_ ); }
+    	  switch (codim)
+    	  {
+    	  case 0 :  rez.push_back( Dune::GeometryType ( Dune::GenericGeometry::SimplexTopology<3>::type::id, 3) );  break;
+    	  case 1 :  rez.push_back( Dune::GeometryType ( Dune::GenericGeometry::SimplexTopology<2>::type::id, 2) );  break;
+    	  case 2 :  rez.push_back( Dune::GeometryType ( Dune::GenericGeometry::SimplexTopology<1>::type::id, 1) );  break;
+    	  case 3 :  rez.push_back( Dune::GeometryType ( Dune::GenericGeometry::SimplexTopology<0>::type::id, 0) );  break;
+    	  }
+
+    	  return rez;
+      }
 
     private:
-      const HostIndexSet &hostIndexSet () const
-      {
-        assert( *this );
-        return *hostIndexSet_;
-      }
 
       CurvilinearGridBase & gridbase_;
     };

@@ -7,11 +7,10 @@
 #include <dune/common/typetraits.hh>
 
 #include <dune/geometry/dimension.hh>
+#include <dune/geometry/referenceelements.hh>
 
-#include "grid.hh"
-#include "entitypointer.hh"
-#include "rangegenerators.hh"
-
+#include <dune/grid/common/grid.hh>
+#include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
 
 
 
@@ -43,7 +42,7 @@ namespace Dune
 
 
 
-  template<int cd, int dim, class GridImp>
+  template<int codim, int dim, class GridImp>
   class EntityBase
   {
   public:
@@ -102,8 +101,8 @@ namespace Dune
 
 
 
-  template<int cd, int dim, class GridImp>
-  class Entity : EntityBase<cd, dim, GridImp>
+  template<int codim, int dim, class GridImp>
+  class Entity : EntityBase<codim, dim, GridImp>
   {
 	    typedef typename remove_const< GridImp >::type::Traits Traits;
 
@@ -111,7 +110,7 @@ namespace Dune
 	    /** \name Attributes
 	     *  \{ */
 
-	    static const int codimension = cd;				//! codimensioon of the entity
+	    static const int codimension = codim;				//! codimensioon of the entity
 	    static const int dimension = Traits::dimension;			//! dimension of the grid
 	    static const int mydimension = dimension - codimension;		//! dimension of the entity
 	    static const int dimensionworld = Traits::dimensionworld;		//! dimension of the world
@@ -125,9 +124,9 @@ namespace Dune
 	    /** \} */
 
 	    typedef typename Traits::template Codim< codimension >::EntitySeed EntitySeed;			//! type of corresponding entity seed
-	    typedef typename Traits::template Codim< codim >::GeometryImpl GeometryImpl;
+	    typedef typename Traits::template Codim< codimension >::GeometryImpl GeometryImpl;
 
-	    typedef EntityBase<cd, dim, GridImp>                  Base;
+	    typedef EntityBase<codim, dim, GridImp>                  Base;
 
 	    typedef Dune::CurvilinearGridBase<ctype, dim>         GridBaseType;
 	    typedef Dune::CurvilinearGridStorage::IdType          IdType;
@@ -138,8 +137,7 @@ namespace Dune
 
   public:
 
-	    Entity (int localEntityIndex,
-	    		GridBaseType & gridbase)
+	    Entity (int localEntityIndex, GridBaseType & gridbase)
 	  	  : Base(localEntityIndex, gridbase)
 	    {}
 
@@ -147,14 +145,14 @@ namespace Dune
 	    *  \{ */
 
 	    /** \brief Return the name of the reference element. The type can be used to access the Dune::ReferenceElement. */
-	    GeometryType type () const { return gridbase_.entityGeometryType<cd>(localEntityIndex_); }
+	    GeometryType type () const { return gridbase_.entityGeometryType(codim, localEntityIndex_); }
 
 	    /** \brief  Returns the (refinement) level of this entity */
-	    int level () const { return gridbase_.entityLevel<cd>(localEntityIndex_); }
+	    int level () const { return gridbase_.entityLevel(codim, localEntityIndex_); }
 
 	    /** \brief obtain the partition type of this entity */
 	    PartitionType partitionType () const  {
-	    	StructuralType stype = gridbase_.entityStructuralType<cd>(localEntityIndex_);
+	    	StructuralType stype = gridbase_.entityStructuralType(codim, localEntityIndex_);
 
 	    	switch (stype)
 	    	{
@@ -169,21 +167,23 @@ namespace Dune
 
 
 	    /** \brief obtain geometric realization of the entity */
-	    Geometry geometry () const { return gridbase_.entityGeometry<cd>(localEntityIndex_); }
+	    Geometry geometry () const { return gridbase_.entityGeometry<codim>(localEntityIndex_); }
 
 	    /** \brief Return the entity seed which contains sufficient information to generate the entity again and uses as little memory as possible */
 	    EntitySeed seed () const  {  }
 
 	    /** \} */
 
+	    /** \brief Additional method guaranteed to return local entity index as specified in CurvilinearGridBase */
+	    int localIndex () const  { return localEntityIndex_; }
 
-	    /** \brief obtain the entity's index from a host IndexSet */
+	    /** \brief obtain the entity's index */
 	    int index () const  { return localEntityIndex_; }
 
 	    /** \brief obtain the index of a subentity from a host IndexSet
 	     *
 	     *  \param[in]  i         number of the subentity
-	     *  \param[in]  cd        codimension of the subentity
+	     *  \param[in]  codim        codimension of the subentity
 	     */
 	    int subIndex (int internalIndex, unsigned int subcodim ) const  {
 	    	return gridbase_.subentityIndex(localEntityIndex_, codimension, subcodim, internalIndex);
@@ -191,8 +191,14 @@ namespace Dune
 
 
 	    /** \brief obtain the entity's id from a host IdSet */
-	    IdType id () const  { return gridbase_.globalId<cd>(localEntityIndex_); }
+	    IdType id () const  { return gridbase_.globalId(codim, localEntityIndex_); }
 
+
+	    IdType subId ( int internalIndex, unsigned int subcodim ) const
+	    {
+	    	int subentityLocalIndex = subIndex(internalIndex, subcodim);
+	    	return gridbase_.globalId(subcodim, subentityLocalIndex);
+	    }
   };
 
 
@@ -259,9 +265,9 @@ namespace Dune
      * Strictly speaking this method is redundant, because the same information can be obtained
      * from the corresponding reference element. It is here for efficiency reasons only.
      */
-    unsigned int subEntities(unsigned int codim) const
+    unsigned int subEntities(unsigned int subcodim) const
     {
-      return Dune::ReferenceElements<double, dim>::general().size(0, codim, codim);
+      return Dune::ReferenceElements<double, dim>::general().size(0, subcodim, subcodim);
     }
 
     /** \brief Obtain a pointer to a subentity
@@ -274,12 +280,12 @@ namespace Dune
      *
      *  \note The subentities are numbered 0, ..., count< codim >-1
      */
-    template< int codim >
-    typename Codim< codim >::Entity
+    template< int subcodim >
+    typename Codim< subcodim >::Entity
     subEntity ( int i ) const
     {
-    	int subentityLocalIndex = gridbase_.subentityIndex(localEntityIndex_, 0, codim, i);
-    	return Entity<dim - codim, dim, GridImp>(subentityLocalIndex, gridbase_);
+    	int subentityLocalIndex = gridbase_.subentityIndex(localEntityIndex_, 0, subcodim, i);
+    	return Entity<dim - subcodim, dim, GridImp>(subentityLocalIndex, gridbase_);
     }
 
 

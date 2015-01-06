@@ -178,13 +178,13 @@ public:
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Elements");
 		if (withElements)
 		{
-			GridIndexMapIterator elemIterB =  gridbase_.template entityIndexBegin<0>();
-			GridIndexMapIterator elemIterE =  gridbase_.template entityIndexEnd<0>();
+			GridIndexMapIterator elemIterB =  gridbase_.template entityIndexBegin(0);
+			GridIndexMapIterator elemIterE =  gridbase_.template entityIndexEnd(0);
 
 			for (GridIndexMapIterator elemIter = elemIterB;  elemIter != elemIterE;  elemIter++)
 			{
 				LocalIndexType           elementLocalIndex = (*elemIter).second;
-				PhysicalTagType          physicalTag       = gridbase_.template physicalTag<0>(elementLocalIndex);
+				PhysicalTagType          physicalTag       = gridbase_.template physicalTag(0, elementLocalIndex);
 				GridElementGeometry      thisGeometry      = gridbase_.template entityGeometry<0>(elementLocalIndex);
 				Dune::GeometryType       gt                = thisGeometry.type();
 				InterpolatoryOrderType   order             = thisGeometry.order();
@@ -212,13 +212,13 @@ public:
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Ghost Elements");
 		if (withGhostElements)
 		{
-			GridIndexMapIterator ghostIterB =  gridbase_.template entityIndexBegin<0>(GhostElementType);
-			GridIndexMapIterator ghostIterE =  gridbase_.template entityIndexEnd<0>(GhostElementType);
+			GridIndexMapIterator ghostIterB =  gridbase_.template entityIndexBegin(0, GhostElementType);
+			GridIndexMapIterator ghostIterE =  gridbase_.template entityIndexEnd(0, GhostElementType);
 
 			for (GridIndexMapIterator ghostIter = ghostIterB;  ghostIter != ghostIterE;  ghostIter++)
 			{
 				LocalIndexType           ghostLocalIndex   = (*ghostIter).second;
-				PhysicalTagType          physicalTag       = gridbase_.template physicalTag<0>(ghostLocalIndex);
+				PhysicalTagType          physicalTag       = gridbase_.template physicalTag(0, ghostLocalIndex);
 				GridElementGeometry      thisGeometry      = gridbase_.template entityGeometry<0>(ghostLocalIndex);
 				Dune::GeometryType       gt                = thisGeometry.type();
 				InterpolatoryOrderType   order             = thisGeometry.order();
@@ -247,13 +247,13 @@ public:
 		if (withDomainBoundaries)
 		{
 			// Add DomainBoundaries to VTK
-			GridIndexMapIterator faceIterB =  gridbase_.template entityIndexBegin<1>(DBFaceType);
-			GridIndexMapIterator faceIterE =  gridbase_.template entityIndexEnd<1>(DBFaceType);
+			GridIndexMapIterator faceIterB =  gridbase_.template entityIndexBegin(1, DBFaceType);
+			GridIndexMapIterator faceIterE =  gridbase_.template entityIndexEnd(1, DBFaceType);
 
 			for (GridIndexMapIterator faceIter = faceIterB;  faceIter != faceIterE;  faceIter++)
 			{
 				LocalIndexType           faceLocalIndex    = (*faceIter).second;
-				PhysicalTagType          physicalTag       = gridbase_.template physicalTag<1>(faceLocalIndex);
+				PhysicalTagType          physicalTag       = gridbase_.template physicalTag(1, faceLocalIndex);
 				GridFaceGeometry         thisGeometry      = gridbase_.template entityGeometry<1>(faceLocalIndex);
 				Dune::GeometryType       gt                = thisGeometry.type();
 				InterpolatoryOrderType   order             = thisGeometry.order();
@@ -280,13 +280,13 @@ public:
 		if (withProcessBoundaries)
 		{
 			// Add DomainBoundaries to VTK
-			GridIndexMapIterator faceIterB =  gridbase_.template entityIndexBegin<1>(PBFaceType);
-			GridIndexMapIterator faceIterE =  gridbase_.template entityIndexEnd<1>(PBFaceType);
+			GridIndexMapIterator faceIterB =  gridbase_.template entityIndexBegin(1, PBFaceType);
+			GridIndexMapIterator faceIterE =  gridbase_.template entityIndexEnd(1, PBFaceType);
 
 			for (GridIndexMapIterator faceIter = faceIterB;  faceIter != faceIterE;  faceIter++)
 			{
 				LocalIndexType           faceLocalIndex    = (*faceIter).second;
-				PhysicalTagType          physicalTag       = gridbase_.template physicalTag<1>(faceLocalIndex);
+				PhysicalTagType          physicalTag       = gridbase_.template physicalTag(1, faceLocalIndex);
 				GridFaceGeometry         thisGeometry      = gridbase_.template entityGeometry<1>(faceLocalIndex);
 				Dune::GeometryType       gt                = thisGeometry.type();
 				InterpolatoryOrderType   order             = thisGeometry.order();
@@ -336,15 +336,15 @@ protected:
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Started collecting mesh statistics");
 
 
-		rez[0].push_back(gridbase_.template nEntity<0>(InternalElementType));
-		rez[1].push_back(gridbase_.template nEntity<1>(DBFaceType));
-		rez[2].push_back(gridbase_.template nEntity<1>(PBFaceType));
+		rez[0].push_back(gridbase_.template nEntity(0, InternalElementType));
+		rez[1].push_back(gridbase_.template nEntity(1, DBFaceType));
+		rez[2].push_back(gridbase_.template nEntity(1, PBFaceType));
 
 		// 1) Collect statistics related to the elements of the mesh
 		// ***********************************************************************8
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting element statistics");
-		GridIndexMapIterator elemIterB = gridbase_.template entityIndexBegin<0>();
-		GridIndexMapIterator elemIterE = gridbase_.template entityIndexEnd<0>();
+		GridIndexMapIterator elemIterB = gridbase_.template entityIndexBegin(0);
+		GridIndexMapIterator elemIterE = gridbase_.template entityIndexEnd(0);
 
 
 
@@ -394,8 +394,8 @@ protected:
 		// ***********************************************************************
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Process Boundary statistics");
 		rez[12].push_back(0.0);  // processBoundarySurfaceArea
-		GridIndexMapIterator pbIterB = gridbase_.template entityIndexBegin<1>(PBFaceType);
-		GridIndexMapIterator pbIterE = gridbase_.template entityIndexEnd<1>(PBFaceType);
+		GridIndexMapIterator pbIterB = gridbase_.template entityIndexBegin(1, PBFaceType);
+		GridIndexMapIterator pbIterE = gridbase_.template entityIndexEnd(1, PBFaceType);
 
 		for (GridIndexMapIterator pbIter = pbIterB;  pbIter != pbIterE;  pbIter++)
 		{
@@ -412,8 +412,8 @@ protected:
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Domain Boundary Statistics");
 
 		rez[13].push_back(0.0);  // domainBoundarySurfaceArea
-		GridIndexMapIterator dbIterB = gridbase_.template entityIndexBegin<1>(DBFaceType);
-		GridIndexMapIterator dbIterE = gridbase_.template entityIndexEnd<1>(DBFaceType);
+		GridIndexMapIterator dbIterB = gridbase_.template entityIndexBegin(1, DBFaceType);
+		GridIndexMapIterator dbIterE = gridbase_.template entityIndexEnd(1, DBFaceType);
 
 		for (GridIndexMapIterator dbIter = dbIterB;  dbIter != dbIterE;  dbIter++)
 		{

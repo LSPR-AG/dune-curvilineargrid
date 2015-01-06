@@ -308,19 +308,19 @@ public:
         // Diagnostics output
         std::stringstream log_stream;
         log_stream << "CurvilinearGridBase: Constructed Mesh ";
-        log_stream << " nVertexPerMesh="             << nEntityTotal<3>();
-        log_stream << " nEdgePerMesh="               << nEntityTotal<2>();
-        log_stream << " nFacePerMesh="               << nEntityTotal<1>();
-        log_stream << " nElementPerMesh="            << nEntityTotal<0>();
-        log_stream << " nVertex="                    << nEntity<3>();
-        log_stream << " nEdge="                      << nEntity<2>();
-        log_stream << " nFace="                      << nEntity<1>();
-        log_stream << " nElement="                   << nEntity<0>();
-        log_stream << " nInternalElement="           << nEntity<0>(InternalElementType);
-        log_stream << " nGhostElement="              << nEntity<0>(GhostElementType);
-        log_stream << " nFaceDomainBoundary="        << nEntity<1>(DBFaceType);
-        log_stream << " nFaceProcessBoundary="       << nEntity<1>(PBFaceType);
-        log_stream << " nFaceInternal="              << nEntity<1>(InternalFaceType);
+        log_stream << " nVertexPerMesh="             << nEntityTotal(3);
+        log_stream << " nEdgePerMesh="               << nEntityTotal(2);
+        log_stream << " nFacePerMesh="               << nEntityTotal(1);
+        log_stream << " nElementPerMesh="            << nEntityTotal(0);
+        log_stream << " nVertex="                    << nEntity(3);
+        log_stream << " nEdge="                      << nEntity(2);
+        log_stream << " nFace="                      << nEntity(1);
+        log_stream << " nElement="                   << nEntity(0);
+        log_stream << " nInternalElement="           << nEntity(0, InternalElementType);
+        log_stream << " nGhostElement="              << nEntity(0, GhostElementType);
+        log_stream << " nFaceDomainBoundary="        << nEntity(1, DBFaceType);
+        log_stream << " nFaceProcessBoundary="       << nEntity(1, PBFaceType);
+        log_stream << " nFaceInternal="              << nEntity(1, InternalFaceType);
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
     }
 
@@ -333,7 +333,7 @@ public:
      * \note that there is no refinement functionality implemented at the moment
      ****************************************************************************/
 
-    template<int codim> int entityLevel(LocalIndexType localIndex)  const { return 0; }
+    int entityLevel(int codim, LocalIndexType localIndex)  const { return 0; }
 
 
 
@@ -343,8 +343,7 @@ public:
      * ***************************************************************************/
 
     /** Get total number of entities in a mesh  */
-    template <int codim>
-    int nEntityTotal() const
+    int nEntityTotal(int codim) const
     {
     	switch(codim)
     	{
@@ -352,13 +351,13 @@ public:
     	case 2 : return gridstorage_.nEdgeTotal_;     break;
     	case 1 : return gridstorage_.nFaceTotal_;     break;
     	case 0 : return gridstorage_.nElementTotal_;  break;
+    	default : DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codimension");  break;
     	}
     }
 
 
     /** Get total number of entities on this process  */
-    template<int codim>
-    int nEntity() const
+    int nEntity(int codim) const
     {
     	switch(codim)
     	{
@@ -366,13 +365,13 @@ public:
     	case 2 : return gridstorage_.edge_.size();     break;
     	case 1 : return gridstorage_.face_.size();     break;
     	case 0 : return gridstorage_.element_.size();  break;
+    	default : DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codimension");  break;
     	}
     }
 
 
     /** Get total number of entities of specific type on this process  */
-    template<int codim>
-    int nEntity(StructuralType structtype) const
+    int nEntity(int codim, StructuralType structtype) const
     {
     	switch(codim)
     	{
@@ -400,8 +399,7 @@ public:
 
 
     /** Get the GeometryType of entities on this process  */
-    template<int codim>
-    Dune::GeometryType entityGeometryType(LocalIndexType localIndex) const
+    Dune::GeometryType entityGeometryType(int codim, LocalIndexType localIndex) const
     {
     	switch(codim)
     	{
@@ -415,8 +413,7 @@ public:
 
     /** Get physical tag based on codimension  */
     /** Get total number of entities in a mesh  */
-    template<int codim>
-    PhysicalTagType physicalTag(LocalIndexType localIndex) const
+    PhysicalTagType physicalTag(int codim, LocalIndexType localIndex) const
     {
     	switch(codim)
     	{
@@ -428,33 +425,55 @@ public:
     }
 
 
-    template<int codim>
-    GlobalIndexType entityGlobalIndex(LocalIndexType localIndex)
+    /** Finds global index using local index and codimension of entity. Returns false if requested local index does not correspond to an entity on this process  */
+    bool findEntityGlobalIndex(int codim, LocalIndexType localIndex, GlobalIndexType & globalIndex)
     {
+    	if (localIndex < 0)  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Received negative index");  }
+
     	switch(codim)
     	{
-    	case 3 : return gridstorage_.point_[localIndex].globalIndex;    break;
-    	case 2 : return gridstorage_.edge_[localIndex].globalIndex;     break;
-    	case 1 : return gridstorage_.face_[localIndex].globalIndex;     break;
-    	case 0 : return gridstorage_.element_[localIndex].globalIndex;  break;
+    	case 3 : if (localIndex >= gridstorage_.point_.size())    { return false; }  else { globalIndex = gridstorage_.point_[localIndex].globalIndex; }    break;
+    	case 2 : if (localIndex >= gridstorage_.edge_.size())     { return false; }  else { globalIndex = gridstorage_.edge_[localIndex].globalIndex; }     break;
+    	case 1 : if (localIndex >= gridstorage_.face_.size())     { return false; }  else { globalIndex = gridstorage_.face_[localIndex].globalIndex; }     break;
+    	case 0 : if (localIndex >= gridstorage_.element_.size())  { return false; }  else { globalIndex = gridstorage_.element_[localIndex].globalIndex; }  break;
     	}
+    	return true;
     }
 
 
-    template<int codim>
-    IdType globalId(LocalIndexType localIndex)
+    /** Finds local index using global index and codimension of entity. Returns false if requested global index does not correspond to an entity on this process  */
+    bool findEntityLocalIndex(int codim, GlobalIndexType globalIndex, LocalIndexType & localIndex)
+    {
+    	if (globalIndex < 0)  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Received negative index");  }
+
+    	bool exist;
+    	IndexMapIterator tmpIter;
+
+    	switch(codim)
+    	{
+    	case 3 : tmpIter = gridstorage_.vertexGlobal2LocalMap_.find(globalIndex);   exist = tmpIter == gridstorage_.vertexGlobal2LocalMap_.end();   break;
+    	case 2 : tmpIter = gridstorage_.edgeGlobal2LocalMap_.find(globalIndex);     exist = tmpIter == gridstorage_.edgeGlobal2LocalMap_.end();     break;
+    	case 1 : tmpIter = gridstorage_.faceGlobal2LocalMap_.find(globalIndex);     exist = tmpIter == gridstorage_.faceGlobal2LocalMap_.end();     break;
+    	case 0 : tmpIter = gridstorage_.elementGlobal2LocalMap_.find(globalIndex);  exist = tmpIter == gridstorage_.elementGlobal2LocalMap_.end();  break;
+    	}
+
+    	if (exist)  { localIndex = (*tmpIter).second; }
+    	return exist;
+    }
+
+
+    IdType globalId(int codim, LocalIndexType localIndex)
     {
     	IdType thisId;
     	thisId.id_ = std::pair<StructuralType, GlobalIndexType>(
-    			entityStructuralType<codim>(localIndex),
-    			entityGlobalIndex<codim>(localIndex) );
+    			entityStructuralType(codim, localIndex),
+    			entityGlobalIndex(codim, localIndex) );
     	return thisId;
     }
 
 
     /** Get vertex global coordinate */
-    template<int codim>
-    StructuralType entityStructuralType(LocalIndexType localIndex) const
+    StructuralType entityStructuralType(int codim, LocalIndexType localIndex) const
     {
     	switch(codim)
     	{
@@ -586,8 +605,7 @@ public:
      *
      *  Note: This data is stored only partially - vertex indices are extracted from associated element
      * */
-    template<int codim>
-    EntityStorage entityData(LocalIndexType localIndex) const
+    EntityStorage entityData(int codim, LocalIndexType localIndex) const
     {
     	switch (codim)
     	{
@@ -614,7 +632,7 @@ public:
     typename GridStorageType::template Codim<codim>::EntityGeometry
     entityGeometry(LocalIndexType localIndex) const
     {
-    	return entityGeometryConstructor<codim>(entityData<codim>(localIndex));
+    	return entityGeometryConstructor<codim>(entityData(codim, localIndex));
     }
 
 
@@ -701,7 +719,7 @@ public:
     // Iterators over local indices of the mesh
     // NOTE: There are no iterators over entities because there is no entity object in the core mesh
     // There will be generic entity in the wrapper because the wrapper will define an entity object
-    template <int codim> IndexMapIterator entityIndexBegin()
+    IndexMapIterator entityIndexBegin(int codim)
     {
     	switch (codim)
     	{
@@ -712,7 +730,7 @@ public:
     	}
     }
 
-    template <int codim> IndexMapIterator entityIndexEnd()
+    IndexMapIterator entityIndexEnd(int codim)
     {
     	switch (codim)
     	{
@@ -724,7 +742,7 @@ public:
     }
 
     // This construction allows fast iteration over entities of specific structural type
-    template <int codim> IndexMapIterator entityIndexBegin(int structtype)
+    IndexMapIterator entityIndexBegin(int codim, int structtype)
     {
     	switch (codim)
     	{
@@ -750,7 +768,7 @@ public:
     	}
     }
 
-    template <int codim> IndexMapIterator entityIndexEnd(int structtype)
+    IndexMapIterator entityIndexEnd(int codim, int structtype)
     {
     	switch (codim)
     	{
@@ -794,6 +812,33 @@ protected:
     {
     	if ((gridstage_ == Stage::GRID_OPERATION) && (expectedStage == Stage::GRID_CONSTRUCTION)) { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Attempted to insert entities into grid after construction"); }
     }
+
+
+    int structuralType2Dim(StructuralType stype)
+    {
+    	switch(stype)
+    	{
+    	case GridStorageType::EntityStructuralType::Vertex                  :  return 0;  break;
+
+    	case GridStorageType::EntityStructuralType::InternalEdge            :  return 1;  break;
+    	case GridStorageType::EntityStructuralType::ProcessBoundaryEdge     :  return 1;  break;
+    	case GridStorageType::EntityStructuralType::DomainBoundaryEdge      :  return 1;  break;
+    	case GridStorageType::EntityStructuralType::InternalBoundaryEdge    :  return 1;  break;
+    	case GridStorageType::EntityStructuralType::ComplexBoundaryEdge     :  return 1;  break;
+
+    	case GridStorageType::EntityStructuralType::InternalFace            :  return 2;  break;
+    	case GridStorageType::EntityStructuralType::GhostFace               :  return 2;  break;
+    	case GridStorageType::EntityStructuralType::DomainBoundaryFace      :  return 2;  break;
+    	case GridStorageType::EntityStructuralType::ProcessBoundaryFace     :  return 2;  break;
+    	case GridStorageType::EntityStructuralType::InternalBoundaryFace    :  return 2;  break;
+
+    	case GridStorageType::EntityStructuralType::InternalElement         :  return 3;  break;
+    	case GridStorageType::EntityStructuralType::GhostElement            :  return 3;  break;
+
+    	default: DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected structural type");  break;
+    	}
+    }
+
 
 
     EntityStorage edgeData(LocalIndexType localIndex) const

@@ -24,62 +24,62 @@ namespace Dune
     // ---------------------------
 
   	// Note: At the moment curvilinear grid only capable of dealing with tetrahedral meshes
-    template< class HostGrid, class Allocator >
-    struct hasSingleGeometryType< CurvilinearGrid< HostGrid, Allocator > >
+    template< int dim, int dimworld>
+    struct hasSingleGeometryType< CurvilinearGrid< dim , dimworld> >
     {
         static const bool v = true;
         static const unsigned int topologyId = GenericGeometry::SimplexTopology<3>::type::id;
     };
 
 
-    template< class HostGrid, class Allocator, int codim >
-    struct hasEntity< CurvilinearGrid< HostGrid, Allocator >, codim >
+    template< int dim, int dimworld, int codim >
+    struct hasEntity< CurvilinearGrid< dim , dimworld>, codim >
     {
     	static const bool v = true;
     };
 
 
-    template< class HostGrid, class Allocator >
-    struct isParallel< CurvilinearGrid< HostGrid, Allocator > >
+    template< int dim, int dimworld>
+    struct isParallel< CurvilinearGrid< dim , dimworld> >
     {
-    	static const bool v = ???;
+    	static const bool v = true;
     };
 
 
     // FIXME: Do I need to specialize this for all codimensions to avoid, say, 4D grid requests?
-    template< class HostGrid, class Allocator, int codim >
-    struct canCommunicate< CurvilinearGrid< HostGrid, Allocator >, codim >
+    template< int dim, int dimworld, int codim >
+    struct canCommunicate< CurvilinearGrid< dim , dimworld>, codim >
     {
     	static const bool v = true;
     };
 
 
-    template< class HostGrid, class Allocator >
-    struct hasBackupRestoreFacilities< CurvilinearGrid< HostGrid, Allocator > >
+    template< int dim, int dimworld>
+    struct hasBackupRestoreFacilities< CurvilinearGrid< dim , dimworld> >
     {
       static const bool v = false;
     };
 
-    template< class HostGrid, class Allocator >
-    struct isLevelwiseConforming< CurvilinearGrid< HostGrid, Allocator > >
-    {
-      static const bool v = isLevelwiseConforming< HostGrid >::v;
-    };
-
-    template< class HostGrid, class Allocator >
-    struct isLeafwiseConforming< CurvilinearGrid< HostGrid, Allocator > >
-    {
-      static const bool v = isLeafwiseConforming< HostGrid >::v;
-    };
-
-    template< class HostGrid, class Allocator >
-    struct threadSafe< CurvilinearGrid< HostGrid, Allocator > >
+    template< int dim, int dimworld>
+    struct isLevelwiseConforming< CurvilinearGrid< dim , dimworld> >
     {
       static const bool v = false;
     };
 
-    template< class HostGrid, class Allocator >
-    struct viewThreadSafe< CurvilinearGrid< HostGrid, Allocator > >
+    template< int dim, int dimworld>
+    struct isLeafwiseConforming< CurvilinearGrid< dim , dimworld> >
+    {
+      static const bool v = false;
+    };
+
+    template< int dim, int dimworld>
+    struct threadSafe< CurvilinearGrid< dim , dimworld> >
+    {
+      static const bool v = false;
+    };
+
+    template< int dim, int dimworld>
+    struct viewThreadSafe< CurvilinearGrid< dim , dimworld> >
     {
       static const bool v = false;
     };

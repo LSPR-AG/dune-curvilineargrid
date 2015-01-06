@@ -6,8 +6,11 @@
 namespace Dune
 {
 
-  template< class HostGrid, class Allocator >
+  //template< int dim, int dimworld, class Comm = MPI_Comm>
+  template< int dim, int dimworld>
   class CurvilinearGrid;
+
+
 
 } // namespace Dune
 

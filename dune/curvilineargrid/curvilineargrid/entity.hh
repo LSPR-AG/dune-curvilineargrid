@@ -52,8 +52,9 @@ namespace Dune
 
 
 
-
+  protected:
 	  typedef Dune::CurvilinearGridBase<ctype, dim>         GridBaseType;
+	  typedef typename GridBaseType::IndexMapIterator       IndexMapIterator;
 
   public:
 		/** \name Construction, Initialization and Destruction
@@ -61,10 +62,16 @@ namespace Dune
 
 	  EntityBase (
 		int localEntityIndex,
-	    int structType,
-	    GridBaseType & gridbase)
-	  	  : localEntityIndex_(localEntityIndex), gridbase_(gridbase)
-		{ }
+		int structtype,
+	    GridBaseType & gridbase,
+	    GridImp & grid
+	    )
+	  	  : gridbaseIndexIterator_(gridbase.entityIndexIterator(codim, structtype, localEntityIndex)),
+
+	  	    structtype_(structtype),
+	  	    gridbase_(gridbase),
+	  	    grid_(grid)
+	  { }
 
 
 	  //! Copy constructor from an existing entity.
@@ -76,7 +83,7 @@ namespace Dune
 	  EntityBase& operator=(const EntityBase& other)  { }
 
 	  //! Move assignment operator from an existing entity.
-	  Entity& operator=(Entity&& other)
+	  EntityBase& operator=(EntityBase&& other)
 	  {
 		  realEntity = std::move(other.realEntity);
 		  return *this;
@@ -90,9 +97,17 @@ namespace Dune
 	  /** \brief compare two entities */
 	  bool equals ( const EntityBase &other) const  { }
 
+
+	  /** \brief moves to the next entity within the base storage. Additional functionality used by iterators */
+	  void next()  { gridbaseIndexIterator_++; }
+
+	  GridImp & grid()  { return grid_; }
+
   protected:
-	    int localEntityIndex_;
+	    IndexMapIterator gridbaseIndexIterator_;
+	    int structtype_;
 	    GridBaseType & gridbase_;
+	    GridImp & grid_;
   };
 
 

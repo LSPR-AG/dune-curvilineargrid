@@ -8,39 +8,40 @@
 #include <dune/grid/common/grid.hh>
 
 #include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
-#include <dune/curvilineargrid/curvilineargrid/datahandle.hh>
+#include <dune/grid/common/datahandleif.hh>
 #include <dune/curvilineargrid/curvilineargrid/gridfamily.hh>
 
 namespace Dune
 {
 
 
-  template< class HostGrid, class Allocator = std::allocator< void > >
-  class CurvilinearGrid: public GridDefaultImplementation < HostGrid::dimension, HostGrid::dimensionworld,  typename HostGrid::ctype, CurvGrid::GridFamily< HostGrid, Allocator > >
+  template <int dim, int dimworld, class ct>
+  class CurvilinearGrid: public GridDefaultImplementation < dim, dimworld, ct, CurvGrid::GridFamily< dim, dimworld, ct > >
       /** \endcond */
   {
-    typedef CurvilinearGrid< HostGrid, Allocator > Grid;
-    typedef GridDefaultImplementation< HostGrid::dimension, HostGrid::dimensionworld, typename HostGrid::ctype, CurvGrid::GridFamily< HostGrid, Allocator > > Base;
+    typedef CurvilinearGrid<dim, dimworld, ct> Grid;
+    typedef GridDefaultImplementation < dim, dimworld, ct, CurvGrid::GridFamily< dim, dimworld, ct > > Base;
 
     friend class CurvGrid::HierarchicIterator< const Grid >;
 
     template< int, class, bool > friend class CurvGrid::EntityBase;
     template< class, bool > friend class CurvGrid::EntityPointer;
-    template< int, class > friend class CurvGrid::EntityProxy;
     template< int, int, class > friend class CurvGrid::Geometry;
     template< class, class, class, PartitionIteratorType > friend class CurvGrid::GridView;
     template< class, class > friend class CurvGrid::Intersection;
     template< class, class > friend class CurvGrid::IntersectionIterator;
     template< class, class > friend class CurvGrid::IdSet;
     template< class, class > friend class CurvGrid::IndexSet;
-    template< class > friend struct HostGridAccess;
-
-    template< class, class > friend class CurvGrid::CommDataHandle;
 
   public:
 
-    typedef CurvGrid::GridFamily< HostGrid, Allocator > GridFamily;
+    typedef CurvGrid::GridFamily< dim, dimworld, ct > GridFamily;
     typedef typename GridFamily::Traits Traits;                               //! type of the grid traits
+
+    // Curvilinear Grid Implementation
+    typedef Dune::CurvilinearGridBase<ct, dimworld> CurvGridBase;
+
+
 
     /** \brief traits structure containing types for a codimension
      *
@@ -160,39 +161,21 @@ namespace Dune
      *  \param[in]  coordFunction  reference to the coordinate function
      *  \param[in]  allocator      storage allocator
      */
-    CurvilinearGrid ( HostGrid &hostGrid, const Allocator &allocator = Allocator() )
-      : hostGrid_( &hostGrid ),
-        removeHostGrid_( false ),
-        levelIndexSets_( hostGrid_->maxLevel()+1, nullptr, allocator ),
-        storageAllocator_( allocator )
+    CurvilinearGrid ( const CurvGridBase & gridbase  )
+      : gridbase_(gridbase)
+          // [FIXME] Must initialize levelIndexSets_
     {}
 
-    /** \brief constructor
-     *
-     *  The grid takes ownership of the pointers to host grid and coordinate
-     *  function. They will be deleted when the grid is destroyed.
-     *
-     *  \param[in]  hostGrid       pointer to the grid to wrap
-     *  \param[in]  coordFunction  pointer to the coordinate function
-     *  \param[in]  allocator      storage allocator
-     */
-    CurvilinearGrid ( HostGrid *hostGrid, const Allocator &allocator = Allocator() )
-      : hostGrid_( hostGrid ),
-        removeHostGrid_( true ),
-        levelIndexSets_( hostGrid_->maxLevel()+1, nullptr, allocator ),
-        storageAllocator_( allocator )
-    {}
 
-    /** \brief destructor
-     */
+    /** \brief destructor */
     ~CurvilinearGrid ()
     {
-      for( unsigned int i = 0; i < levelIndexSets_.size(); ++i )
-      {
-        if( levelIndexSets_[ i ] )  { delete( levelIndexSets_[ i ] ); }
-      }
+        for( unsigned int i = 0; i < levelIndexSets_.size(); ++i )
+        {
+        	if( levelIndexSets_[ i ] )  { delete( levelIndexSets_[ i ] ); }
+        }
 
-      if( removeHostGrid_ )  { delete hostGrid_; }
+        if( removeHostGrid_ )  { delete hostGrid_; }
     }
 
     /** \} */
@@ -207,10 +190,8 @@ namespace Dune
      *
      *  \returns maximal grid level
      */
-    int maxLevel () const
-    {
-      return hostGrid().maxLevel();
-    }
+    int maxLevel () const  { return 0; }
+
 
     /** \brief obtain number of entites on a level
      *
@@ -224,6 +205,7 @@ namespace Dune
     {
       return levelGridView( level ).size( codim );
     }
+
 
     /** \brief obtain number of leaf entities
      *
@@ -264,81 +246,85 @@ namespace Dune
      */
     size_t numBoundarySegments () const
     {
-      return hostGrid().numBoundarySegments( );
+    	return gridbase_.nEntity(1, Dune::CurvilinearGridStorage<ct,dimworld>::EntityStructuralType::InternalBoundaryFace);
     }
     /** \} */
 
     const GlobalIdSet &globalIdSet () const
     {
-      if( !globalIdSet_ )
-        globalIdSet_ = GlobalIdSet( hostGrid().globalIdSet() );
-      assert( globalIdSet_ );
-      return globalIdSet_;
+        if( !globalIdSet_ )  { globalIdSet_ = GlobalIdSet(); }
+        assert( globalIdSet_ );
+        return globalIdSet_;
     }
 
     const LocalIdSet &localIdSet () const
     {
-      if( !localIdSet_ )
-        localIdSet_ = LocalIdSet( hostGrid().localIdSet() );
-      assert( localIdSet_ );
-      return localIdSet_;
+        if( !localIdSet_ )  { localIdSet_ = LocalIdSet(); }
+        assert( localIdSet_ );
+        return localIdSet_;
     }
 
     const LevelIndexSet &levelIndexSet ( int level ) const
     {
-      assert( levelIndexSets_.size() == (size_t)(maxLevel()+1) );
-      if( (level < 0) || (level > maxLevel()) )
-      {
-        DUNE_THROW( GridError, "LevelIndexSet for nonexisting level " << level
-                                                                      << " requested." );
-      }
+        assert( levelIndexSets_.size() == (size_t)(maxLevel()+1) );
+        if( (level < 0) || (level > maxLevel()) )
+        {
+          DUNE_THROW( GridError, "LevelIndexSet for nonexisting level " << level << " requested." );
+        }
 
-      LevelIndexSet *&levelIndexSet = levelIndexSets_[ level ];
-      if( !levelIndexSet )
-        levelIndexSet = new LevelIndexSet( hostGrid().levelIndexSet( level ) );
-      assert( levelIndexSet );
-      return *levelIndexSet;
+        LevelIndexSet *&levelIndexSet = levelIndexSets_[ level ];
+        if( !levelIndexSet )  { levelIndexSet = new LevelIndexSet( level ); }
+        assert( levelIndexSet );
+        return *levelIndexSet;
     }
 
     const LeafIndexSet &leafIndexSet () const
     {
-      if( !leafIndexSet_ )
-        leafIndexSet_ = LeafIndexSet( hostGrid().leafIndexSet() );
+      if( !leafIndexSet_ )  { leafIndexSet_ = LeafIndexSet( ); }
       assert( leafIndexSet_ );
       return leafIndexSet_;
     }
 
+    // [TODO] Not Implemented yet
     void globalRefine ( int refCount )
     {
-      hostGrid().globalRefine( refCount );
-      update();
+    	//DUNE_THROW( NotImplemented, "Refinement not implemented in CurvGrid at the moment" );
+    	std::cout << "::: globalRefine() called but refinement has not been implemented" << std::endl;
     }
 
     bool mark ( int refCount, const typename Codim< 0 >::Entity &entity )
     {
-      return hostGrid().mark( refCount, getHostEntity< 0 >( entity ) );
+    	//DUNE_THROW( NotImplemented, "Refinement not implemented in CurvGrid at the moment" );
+    	std::cout << "::: mark() called but refinement has not been implemented" << std::endl;
+    	return false;
     }
 
     int getMark ( const typename Codim< 0 >::Entity &entity ) const
     {
-      return hostGrid().getMark( getHostEntity< 0 >( entity ) );
+    	//DUNE_THROW( NotImplemented, "Refinement not implemented in CurvGrid at the moment" );
+    	std::cout << "::: getMark() called but refinement has not been implemented" << std::endl;
+    	return 0;
     }
 
     bool preAdapt ()
     {
-      return hostGrid().preAdapt();
+    	//DUNE_THROW( NotImplemented, "Refinement not implemented in CurvGrid at the moment" );
+    	std::cout << "::: preAdapt() called but refinement has not been implemented" << std::endl;
+    	return false;
     }
 
     bool adapt ()
     {
-      bool ret = hostGrid().adapt();
-      update();
-      return ret;
+    	//DUNE_THROW( NotImplemented, "Refinement not implemented in CurvGrid at the moment" );
+    	std::cout << "::: adapt() called but refinement has not been implemented" << std::endl;
+    	return false;
     }
 
     void postAdapt ()
     {
-      hostGrid().postAdapt();
+    	//DUNE_THROW( NotImplemented, "Refinement not implemented in CurvGrid at the moment" );
+    	std::cout << "::: postAdapt() called but refinement has not been implemented" << std::endl;
+    	return false;
     }
 
     /** \name Parallel Data Distribution and Communication Methods
@@ -348,27 +334,31 @@ namespace Dune
      *
      *  \param[in]  codim  codimension for with the information is desired
      */
-    int overlapSize ( int codim ) const  { return leafGridView().overlapSize( codim ); }
+    int overlapSize ( int codim ) const  { return 0; }
 
     /** \brief obtain size of ghost region for the leaf grid
      *
      *  \param[in]  codim  codimension for with the information is desired
      */
-    int ghostSize( int codim ) const  { return leafGridView().ghostSize( codim ); }
+    int ghostSize( int codim ) const  { return (codim == 0) ? gridbase_.nEntity(codim, Dune::CurvilinearGridStorage<ct, dimworld>::EntityStructuralType::GhostElement) : 0; }
 
     /** \brief obtain size of overlap region for a grid level
      *
      *  \param[in]  level  grid level (0, ..., maxLevel())
      *  \param[in]  codim  codimension (0, ..., dimension)
+     *
+     *  \note There is only one level at the moment
      */
-    int overlapSize ( int level, int codim ) const  { return levelGridView( level ).overlapSize( codim ); }
+    int overlapSize ( int level, int codim ) const  { return overlapSize (codim); }
 
     /** \brief obtain size of ghost region for a grid level
      *
      *  \param[in]  level  grid level (0, ..., maxLevel())
      *  \param[in]  codim  codimension (0, ..., dimension)
+     *
+     *  \note There is only one level at the moment
      */
-    int ghostSize ( int level, int codim ) const  { return levelGridView( level ).ghostSize( codim ); }
+    int ghostSize ( int level, int codim ) const  { return ghostSize(codim);  }
 
     /** \brief communicate information on a grid level
      *
@@ -420,9 +410,9 @@ namespace Dune
      *  \note The CollectiveCommunication object returned is identical to the
      *        one returned by the host grid.
      */
-    const CollectiveCommunication &comm () const  { return hostGrid().comm(); }
+    const CollectiveCommunication &comm () const  { return mpihelper_.getCollectiveCommunication(); }
 
-#if 0
+
     // data handle interface different between geo and interface
 
     /** \brief rebalance the load each process has to handle
@@ -436,10 +426,9 @@ namespace Dune
      */
     bool loadBalance ()
     {
-      const bool gridChanged= hostGrid().loadBalance();
-      if( gridChanged )
-        update();
-      return gridChanged;
+    	//DUNE_THROW( NotImplemented, "Refinement not implemented in CurvGrid at the moment" );
+    	std::cout << "::: loadBalance() called but refinement has not been implemented. CurvGrid gets balanced only at initialization" << std::endl;
+    	return false;
     }
 
     /** \brief rebalance the load each process has to handle
@@ -460,16 +449,11 @@ namespace Dune
     template< class DataHandle, class Data >
     bool loadBalance ( CommDataHandleIF< DataHandle, Data > &datahandle )
     {
-      typedef CommDataHandleIF< DataHandle, Data > DataHandleIF;
-      typedef CurvGrid :: CommDataHandle< Grid, DataHandleIF > WrappedDataHandle;
-
-      WrappedDataHandle wrappedDataHandle( *this, datahandle );
-      const bool gridChanged = hostGrid().loadBalance( wrappedDataHandle );
-      if( gridChanged )
-        update();
-      return gridChanged;
+    	//DUNE_THROW( NotImplemented, "Refinement not implemented in CurvGrid at the moment" );
+    	std::cout << "::: loadBalance() called but refinement has not been implemented. CurvGrid gets balanced only at initialization" << std::endl;
+    	return false;
     }
-#endif
+
 
     /** \brief obtain EntityPointer from EntitySeed. */
     template< class EntitySeed >
@@ -517,69 +501,22 @@ namespace Dune
       return LeafGridView( ViewImp( *this, hostGrid().leafGridView() ) );
     }
 
-    /** Return reference to HostGrid */
-    const HostGrid &hostGrid () const  { return *hostGrid_; }
-    HostGrid &hostGrid ()  { return *hostGrid_; }
-
-    /** \brief update grid caches
-     *
-     *  This method has to be called whenever the underlying host grid changes.
-     *
-     *  \note If you adapt the host grid through this geometry grid's
-     *        adaptation or load balancing methods, update is automatically
-     *        called.
-     */
-    void update ()
-    {
-      // adapt the coordinate function
-      CurvGrid::AdaptCoordFunction< typename CoordFunction::Interface >::adapt( coordFunction_ );
-
-      const int newNumLevels = maxLevel()+1;
-      const int oldNumLevels = levelIndexSets_.size();
-
-      for( int i = newNumLevels; i < oldNumLevels; ++i )
-      {
-        if( levelIndexSets_[ i ] )
-          delete levelIndexSets_[ i ];
-      }
-      levelIndexSets_.resize( newNumLevels, nullptr );
-    }
 
     /** \} */
 
-    using Base::getRealImplementation;
 
-  protected:
-    const CoordFunction &coordFunction () const
-    {
-      return coordFunction_;
-    }
+    const CurvGridBase & curvGridBase()  { return gridbase_; }
 
-    template< int codim >
-    static const typename HostGrid::template Codim< codim >::Entity &
-    getHostEntity( const typename Codim< codim >::Entity &entity )
-    {
-      return getRealImplementation( entity ).hostEntity();
-    }
 
-    void *allocateStorage ( std::size_t size ) const
-    {
-      return storageAllocator_.allocate( size );
-    }
-
-    void deallocateStorage ( void *p, std::size_t size ) const
-    {
-      storageAllocator_.deallocate( (char *)p, size );
-    }
 
   private:
-    HostGrid *const hostGrid_;
-    bool removeHostGrid_;
+    mutable CurvGridBase & gridbase_;
+    mutable MPIHelper & mpihelper_;
+
     mutable std::vector< LevelIndexSet *, typename Allocator::template rebind< LevelIndexSet * >::other > levelIndexSets_;
     mutable LeafIndexSet leafIndexSet_;
     mutable GlobalIdSet globalIdSet_;
     mutable LocalIdSet localIdSet_;
-    mutable typename Allocator::template rebind< char >::other storageAllocator_;
   };
 
 
@@ -587,9 +524,9 @@ namespace Dune
   // CurvilinearGrid::Codim
   // -------------------
 
-  template< class HostGrid, class Allocator >
+  template<int dim, int dimworld, class ct>
   template< int codim >
-  struct CurvilinearGrid< HostGrid, Allocator >::Codim
+  struct CurvilinearGrid< dim, dimworld, ct>::Codim
     : public Base::template Codim< codim >
   {
     /** \name Entity and Entity Pointer Types

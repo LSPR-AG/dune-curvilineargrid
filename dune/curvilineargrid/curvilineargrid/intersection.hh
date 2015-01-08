@@ -15,7 +15,7 @@ namespace Dune
     // Intersection
     // ------------
 
-    template< class Grid, class HostIntersection >
+    template< class Grid >
     class Intersection
     {
       typedef typename HostIntersection::Geometry HostGeometry;

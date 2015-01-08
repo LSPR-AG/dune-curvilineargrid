@@ -176,6 +176,8 @@ public:
 
     typedef typename GridStorageType::Index2IndexMap            Index2IndexMap;
     typedef typename GridStorageType::IndexMapIterator          IndexMapIterator;
+    typedef typename GridStorageType::LocalIndexSet             LocalIndexSet;
+    typedef typename GridStorageType::IndexSetIterator          IndexSetIterator;
 
     typedef typename GridStorageType::NodeType                  NodeType;
     typedef typename GridStorageType::CurvilinearLooseOctree    CurvilinearLooseOctree;
@@ -184,15 +186,21 @@ public:
 
 
     // Logging Message Typedefs
-    static const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
+    static const unsigned int LOG_PHASE_DEV      = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
     static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
 
-    static const unsigned int DBFaceType       = GridStorageType::EntityStructuralType::DomainBoundaryFace;
-    static const unsigned int PBFaceType       = GridStorageType::EntityStructuralType::ProcessBoundaryFace;
-    static const unsigned int InternalFaceType = GridStorageType::EntityStructuralType::InternalBoundaryFace;
+    // Codimensions of entity types for better code readability
+    static const int   VERTEX_CODIM   = GridStorageType::VERTEX_CODIM;
+    static const int   EDGE_CODIM     = GridStorageType::EDGE_CODIM;
+    static const int   FACE_CODIM     = GridStorageType::FACE_CODIM;
+    static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
-    static const unsigned int InternalElementType = GridStorageType::EntityStructuralType::InternalElement;
-    static const unsigned int GhostElementType    = GridStorageType::EntityStructuralType::GhostElement;
+    // Partition type shorthands
+    static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
+    static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
+    static const unsigned int ComplexBoundaryType  = GridStorageType::PartitionType::ComplexBoundary;
+    static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
+    static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
 
 
 
@@ -316,11 +324,11 @@ public:
         log_stream << " nEdge="                      << nEntity(2);
         log_stream << " nFace="                      << nEntity(1);
         log_stream << " nElement="                   << nEntity(0);
-        log_stream << " nInternalElement="           << nEntity(0, InternalElementType);
-        log_stream << " nGhostElement="              << nEntity(0, GhostElementType);
-        log_stream << " nFaceDomainBoundary="        << nEntity(1, DBFaceType);
-        log_stream << " nFaceProcessBoundary="       << nEntity(1, PBFaceType);
-        log_stream << " nFaceInternal="              << nEntity(1, InternalFaceType);
+        log_stream << " nInternalElement="           << nEntity(0, InternalType);
+        log_stream << " nGhostElement="              << nEntity(0, GhostType);
+        log_stream << " nFaceDomainBoundary="        << nEntity(1, DomainBoundaryType);
+        log_stream << " nFaceProcessBoundary="       << nEntity(1, ProcessBoundaryType);
+        log_stream << " nFaceInternal="              << nEntity(1, InternalType);
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
     }
 
@@ -343,59 +351,16 @@ public:
      * ***************************************************************************/
 
     /** Get total number of entities in a mesh  */
-    int nEntityTotal(int codim) const
-    {
-    	switch(codim)
-    	{
-    	case 3 : return gridstorage_.nVertexTotal_;   break;
-    	case 2 : return gridstorage_.nEdgeTotal_;     break;
-    	case 1 : return gridstorage_.nFaceTotal_;     break;
-    	case 0 : return gridstorage_.nElementTotal_;  break;
-    	default : DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codimension");  break;
-    	}
-    }
+    int nEntityTotal(int codim) const  { gridstorage_.nEntityTotal_[codim]; }
 
 
     /** Get total number of entities on this process  */
-    int nEntity(int codim) const
-    {
-    	switch(codim)
-    	{
-    	case 3 : return gridstorage_.point_.size();    break;
-    	case 2 : return gridstorage_.edge_.size();     break;
-    	case 1 : return gridstorage_.face_.size();     break;
-    	case 0 : return gridstorage_.element_.size();  break;
-    	default : DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codimension");  break;
-    	}
-    }
+    // [FIXME] Do we expect to count GhostElements towards this?
+    int nEntity(int codim) const  { return gridstorage_.entityIndexMap_[codim].size(); }
 
 
     /** Get total number of entities of specific type on this process  */
-    int nEntity(int codim, StructuralType structtype) const
-    {
-    	switch(codim)
-    	{
-    	case 3 : return gridstorage_.point_.size();    break;
-    	case 2 : return gridstorage_.edge_.size();     break;
-    	case 1 :
-    	{
-        	switch(structtype)
-        	{
-        	case DBFaceType        : return gridstorage_.faceInternalGlobal2LocalMap_.size();         break;
-        	case PBFaceType        : return gridstorage_.faceProcessBoundaryGlobal2LocalMap_.size();  break;
-        	case InternalFaceType  : return gridstorage_.faceDomainBoundaryGlobal2LocalMap_.size();   break;
-        	}
-    	} break;
-    	case 0 :
-    	{
-    		switch(structtype)
-    		{
-        	case InternalElementType   : return gridstorage_.internalElementGlobal2LocalMap_.size();   break;
-        	case GhostElementType      : return gridstorage_.ghostElementGlobal2LocalMap_.size();      break;
-    		}
-    	} break;
-    	}
-    }
+    int nEntity(int codim, StructuralType structtype) const  { entityIndexSetSelect(codim, structtype).size(); }
 
 
     /** Get the GeometryType of entities on this process  */
@@ -405,14 +370,13 @@ public:
     	{
     	case 3 : return Dune::GeometryType(Dune::GenericGeometry::SimplexTopology<0>::type::id, 0);   break;
     	case 2 : return Dune::GeometryType(Dune::GenericGeometry::SimplexTopology<1>::type::id, 1);   break;
-    	case 1 : return Dune::GeometryType(Dune::GenericGeometry::SimplexTopology<2>::type::id, 2);   break;
+    	case 1 : return gridstorage_.face_[localIndex].geometryType;                                  break;
     	case 0 : return gridstorage_.element_[localIndex].geometryType;                               break;
     	}
     }
 
 
     /** Get physical tag based on codimension  */
-    /** Get total number of entities in a mesh  */
     PhysicalTagType physicalTag(int codim, LocalIndexType localIndex) const
     {
     	switch(codim)
@@ -446,28 +410,19 @@ public:
     {
     	if (globalIndex < 0)  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Received negative index");  }
 
-    	bool exist;
-    	IndexMapIterator tmpIter;
-
-    	switch(codim)
-    	{
-    	case 3 : tmpIter = gridstorage_.vertexGlobal2LocalMap_.find(globalIndex);   exist = tmpIter == gridstorage_.vertexGlobal2LocalMap_.end();   break;
-    	case 2 : tmpIter = gridstorage_.edgeGlobal2LocalMap_.find(globalIndex);     exist = tmpIter == gridstorage_.edgeGlobal2LocalMap_.end();     break;
-    	case 1 : tmpIter = gridstorage_.faceGlobal2LocalMap_.find(globalIndex);     exist = tmpIter == gridstorage_.faceGlobal2LocalMap_.end();     break;
-    	case 0 : tmpIter = gridstorage_.elementGlobal2LocalMap_.find(globalIndex);  exist = tmpIter == gridstorage_.elementGlobal2LocalMap_.end();  break;
-    	}
-
-    	if (exist)  { localIndex = (*tmpIter).second; }
-    	return exist;
+    	IndexMapIterator tmpIter = gridstorage_.entityIndexMap_[codim].find(globalIndex);
+    	if (tmpIter != gridstorage_.entityIndexMap_[codim].end())  { localIndex = *tmpIter;  return true; }
+    	else  { return false; }
     }
 
 
     IdType globalId(int codim, LocalIndexType localIndex)
     {
+    	GlobalIndexType globalIndex;
+    	if (! findEntityGlobalIndex(codim, localIndex, globalIndex))  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: requested local index does not point to an entity");  }
+
     	IdType thisId;
-    	thisId.id_ = std::pair<StructuralType, GlobalIndexType>(
-    			entityStructuralType(codim, localIndex),
-    			entityGlobalIndex(codim, localIndex) );
+    	thisId.id_ = std::pair<StructuralType, GlobalIndexType>( entityStructuralType(codim, localIndex),  globalIndex );
     	return thisId;
     }
 
@@ -477,7 +432,7 @@ public:
     {
     	switch(codim)
     	{
-    	case 3 : return Dune::CurvilinearGridStorage<ct,cdim>::EntityStructuralType::Vertex;  break;
+    	case 3 : return gridstorage_.point_[localIndex].structuralType;                       break;
     	case 2 : return gridstorage_.edge_[localIndex].structuralType;                        break;
     	case 1 : return gridstorage_.face_[localIndex].structuralType;                        break;
     	case 0 : return gridstorage_.element_[localIndex].structuralType;                     break;
@@ -503,7 +458,7 @@ public:
      *  Curvilinear interpolation vertices will not be accessible by this method
      *
      * */
-    LocalIndexType subentityIndex (LocalIndexType entityIndex, int codim, int subcodim, InternalIndexType subentityInternalIndex)
+    LocalIndexType subentityLocalIndex (LocalIndexType entityIndex, int codim, int subcodim, InternalIndexType subentityInternalIndex)
     {
     	// Stage 1) Find this subentity as an element subentity
     	// **************************************************************************
@@ -609,13 +564,14 @@ public:
     {
     	switch (codim)
     	{
+    	case 3 : return pointData(localIndex);     break;
     	case 2 : return edgeData(localIndex);      break;
     	case 1 : return faceData(localIndex);      break;
     	case 0 : return elementData(localIndex);   break;
     	default:
     	{
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Requested unexpected codim for entity data ");
-    	}
+    	} break;
 
     	}
     }
@@ -719,80 +675,34 @@ public:
     // Iterators over local indices of the mesh
     // NOTE: There are no iterators over entities because there is no entity object in the core mesh
     // There will be generic entity in the wrapper because the wrapper will define an entity object
-    IndexMapIterator entityIndexBegin(int codim)
+
+    // Iterator based on local index of the entity
+    IndexMapIterator entityIndexIterator(int codim, LocalIndexType localIndex)
     {
-    	switch (codim)
-    	{
-    	case 3  : return gridstorage_.vertexGlobal2LocalMap_.begin();   break;
-    	case 2  : return gridstorage_.edgeGlobal2LocalMap_.begin();     break;
-    	case 1  : return gridstorage_.faceGlobal2LocalMap_.begin();     break;
-    	case 0  : return gridstorage_.elementGlobal2LocalMap_.begin();  break;
-    	}
+    	GlobalIndexType globalIndex;
+    	if (! findEntityGlobalIndex(codim, localIndex, globalIndex))  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: requested local index does not point to an entity");  }
+
+    	return entityMapSelect(codim).find(globalIndex);
     }
 
-    IndexMapIterator entityIndexEnd(int codim)
+    IndexMapIterator entityIndexIterator(int codim, StructuralType structtype, LocalIndexType localIndex)
     {
-    	switch (codim)
-    	{
-    	case 3  : return gridstorage_.vertexGlobal2LocalMap_.end();   break;
-    	case 2  : return gridstorage_.edgeGlobal2LocalMap_.end();     break;
-    	case 1  : return gridstorage_.faceGlobal2LocalMap_.end();     break;
-    	case 0  : return gridstorage_.elementGlobal2LocalMap_.end();  break;
-    	}
+    	GlobalIndexType globalIndex;
+    	if (! findEntityGlobalIndex(codim, localIndex, globalIndex))  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: requested local index does not point to an entity");  }
+
+    	return entityMapSelect(codim, structtype).find(globalIndex);
     }
 
+    // Iterators over all entities of a given codimension
+    IndexMapIterator entityIndexBegin(int codim)  { return entityMapSelect(codim).begin(); }
+
+    IndexMapIterator entityIndexEnd(int codim)    { return entityMapSelect(codim).end(); }
+
+    // Iterators over specific entities of a given codimension
     // This construction allows fast iteration over entities of specific structural type
-    IndexMapIterator entityIndexBegin(int codim, int structtype)
-    {
-    	switch (codim)
-    	{
-    	case 3  : return gridstorage_.vertexGlobal2LocalMap_.begin();   break;
-    	case 2  : return gridstorage_.edgeGlobal2LocalMap_.begin();     break;
-    	case 1  :
-    	{
-        	switch (structtype)
-        	{
-        	case DBFaceType        : return gridstorage_.faceDomainBoundaryGlobal2LocalMap_.begin();   break;
-        	case PBFaceType        : return gridstorage_.faceProcessBoundaryGlobal2LocalMap_.begin();  break;
-        	case InternalFaceType  : return gridstorage_.faceInternalGlobal2LocalMap_.begin();         break;
-        	}
-    	}break;
-    	case 0  :
-    	{
-        	switch (structtype)
-        	{
-        	case InternalElementType   : return gridstorage_.internalElementGlobal2LocalMap_.begin();   break;
-    		case GhostElementType      : return gridstorage_.ghostElementGlobal2LocalMap_.begin();      break;
-        	}
-    	} break;
-    	}
-    }
+    IndexMapIterator entityIndexBegin(int codim, StructuralType structtype)  { return entityMapSelect(codim, structtype).begin(); }
 
-    IndexMapIterator entityIndexEnd(int codim, int structtype)
-    {
-    	switch (codim)
-    	{
-    	case 3  : return gridstorage_.vertexGlobal2LocalMap_.end();   break;
-    	case 2  : return gridstorage_.edgeGlobal2LocalMap_.end();     break;
-    	case 1  :
-    	{
-        	switch (structtype)
-        	{
-        	case DBFaceType        : return gridstorage_.faceDomainBoundaryGlobal2LocalMap_.end();   break;
-        	case PBFaceType        : return gridstorage_.faceProcessBoundaryGlobal2LocalMap_.end();  break;
-        	case InternalFaceType  : return gridstorage_.faceInternalGlobal2LocalMap_.end();         break;
-        	}
-    	}break;
-    	case 0  :
-    	{
-        	switch (structtype)
-        	{
-        	case InternalElementType   : return gridstorage_.internalElementGlobal2LocalMap_.end();   break;
-    		case GhostElementType      : return gridstorage_.ghostElementGlobal2LocalMap_.end();      break;
-        	}
-    	} break;
-    	}
-    }
+    IndexMapIterator entityIndexEnd(int codim, StructuralType structtype)    { return entityMapSelect(codim, structtype).end(); }
 
 
 
@@ -814,32 +724,60 @@ protected:
     }
 
 
-    int structuralType2Dim(StructuralType stype)
+    // Checks if entities of a given codim are allowed to be of a given structural type
+    // If not throws an error
+    void assertValidCodimStructuralType(int codim, StructuralType structtype)
     {
-    	switch(stype)
+    	bool fail = false;
+
+    	fail |= (structtype == GridStorageType::PartitionType::FrontBoundary);    // Not Implemented
+    	fail |= (structtype == GridStorageType::PartitionType::Overlap);          // Not Implemented
+    	fail |= (structtype == GridStorageType::PartitionType::InternalBoundary); // Not Implemented
+    	fail |= ((codim != EDGE_CODIM)&&(structtype == GridStorageType::PartitionType::ComplexBoundary));   // ComplexBoundary type allowed only for edges
+
+    	if (codim == 0)
     	{
-    	case GridStorageType::EntityStructuralType::Vertex                  :  return 0;  break;
+    		// Elements are not allowed to be boundaries
+    		fail |= ((structtype == GridStorageType::PartitionType::ProcessBoundary));
+    		fail |= ((structtype == GridStorageType::PartitionType::DomainBoundary));
+    	}
 
-    	case GridStorageType::EntityStructuralType::InternalEdge            :  return 1;  break;
-    	case GridStorageType::EntityStructuralType::ProcessBoundaryEdge     :  return 1;  break;
-    	case GridStorageType::EntityStructuralType::DomainBoundaryEdge      :  return 1;  break;
-    	case GridStorageType::EntityStructuralType::InternalBoundaryEdge    :  return 1;  break;
-    	case GridStorageType::EntityStructuralType::ComplexBoundaryEdge     :  return 1;  break;
+    	if (fail)  {
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridBase: Unexpected codim-structtype pair");
+    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codim-structtype pair");
+    	}
 
-    	case GridStorageType::EntityStructuralType::InternalFace            :  return 2;  break;
-    	case GridStorageType::EntityStructuralType::GhostFace               :  return 2;  break;
-    	case GridStorageType::EntityStructuralType::DomainBoundaryFace      :  return 2;  break;
-    	case GridStorageType::EntityStructuralType::ProcessBoundaryFace     :  return 2;  break;
-    	case GridStorageType::EntityStructuralType::InternalBoundaryFace    :  return 2;  break;
+    }
 
-    	case GridStorageType::EntityStructuralType::InternalElement         :  return 3;  break;
-    	case GridStorageType::EntityStructuralType::GhostElement            :  return 3;  break;
+    // Returns a link to the set of all local indices of entities of a given codimension and specific structural type
+    LocalIndexSet & entityIndexSetSelect(int codim, StructuralType structtype)
+    {
+    	assertValidCodimStructuralType(codim, structtype);
 
-    	default: DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected structural type");  break;
+    	switch(structtype)
+    	{
+    	case InternalType          : return gridstorage_.entityInternalIndexSet_[codim];          break;
+    	case DomainBoundaryType    : return gridstorage_.entityDomainBoundaryIndexSet_[codim];    break;
+    	case ProcessBoundaryType   : return gridstorage_.entityProcessBoundaryIndexSet_[codim];   break;
+    	case ComplexBoundaryType   : return gridstorage_.entityProcessBoundaryIndexSet_[codim];   break;
+    	case GhostType             : return gridstorage_.entityGhostIndexSet_[codim];             break;
     	}
     }
 
+    EntityStorage pointData(LocalIndexType localIndex) const
+    {
+    	const VertexStorage & thisPointData =  gridstorage_.point_[localIndex];
 
+        EntityStorage thisPoint;
+        thisPoint.geometryType.makeVertex();
+        thisPoint.globalIndex     = thisPointData.globalIndex;
+        thisPoint.structuralType  = thisPointData.structuralType;
+        thisPoint.interpOrder     = 0;                    // Note: Points do not have an interpolation order
+        thisPoint.physicalTag     = -1;                   // Note: Points do not have a physical tag
+        thisPoint.vertexIndexSet.push_back(localIndex);   // Note: Point has only one vertex, and its index is the point index
+
+        return thisPoint;
+    }
 
     EntityStorage edgeData(LocalIndexType localIndex) const
     {
@@ -848,10 +786,10 @@ protected:
 
         EntityStorage thisEdge;
         thisEdge.geometryType.makeLine();
-        thisEdge.globalIndex = thisEdgeData.globalIndex;
-        thisEdge.structuralType = GridStorageType::EntityStructuralType::InternalEdge;
-        thisEdge.interpOrder = assocElement.interpOrder;
-        thisEdge.physicalTag = -1;        // Note: Edges do not have a physical tag
+        thisEdge.globalIndex     = thisEdgeData.globalIndex;
+        thisEdge.structuralType  = thisEdgeData.structuralType;
+        thisEdge.interpOrder     = assocElement.interpOrder;
+        thisEdge.physicalTag     = -1;        // Note: Edges do not have a physical tag
 
         // Get the internal element vertex indices associated with this face as a subentity
         std::vector<InternalIndexType> subentityVertexIndices =
@@ -861,7 +799,6 @@ protected:
         for(int i = 0; i < subentityVertexIndices.size(); i++) { thisEdge.vertexIndexSet.push_back(assocElement.vertexIndexSet[subentityVertexIndices[i]]); }
 
         return thisEdge;
-
     }
 
     EntityStorage faceData(LocalIndexType localIndex) const
@@ -871,9 +808,10 @@ protected:
 
         EntityStorage thisFace;
         thisFace.geometryType.makeTriangle();
-        thisFace.globalIndex = thisFaceData.globalIndex;
-        thisFace.interpOrder = assocElement.interpOrder;
-        thisFace.physicalTag = thisFaceData.physicalTag;
+        thisFace.globalIndex     = thisFaceData.globalIndex;
+        thisFace.structuralType  = thisFaceData.structuralType;
+        thisFace.interpOrder     = assocElement.interpOrder;
+        thisFace.physicalTag     = thisFaceData.physicalTag;
 
         // Get the internal element vertex indices associated with this face as a subentity
         std::vector<InternalIndexType> subentityVertexIndices =

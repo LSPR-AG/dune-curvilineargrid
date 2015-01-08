@@ -56,29 +56,17 @@ public:
 
     // Entity Definition Structures
     // ******************************************************************
-	struct EntityStructuralType
+	struct PartitionType
 	{
-		// Enumerates the structural type of faces of the mesh
 		enum {
-			Vertex = 0,                   // Any vertex
-
-			InternalEdge = 1,             // An edge not on the process boundary
-			ProcessBoundaryEdge = 2,      // Edge on the process boundary that has exactly 1 neighbor processes.
-			DomainBoundaryEdge = 3,       // [ONLY 2D] Edge on the process boundary that has 0 neighbor processes.
-			InternalBoundaryEdge = 4,     // [ONLY 2D] Internal edge marked by user as part of internal surface.
-			ComplexBoundaryEdge = 5,      // An edge shared by more than 2 processes
-
-			InternalFace = 6,             // Face not on the process boundary
-			GhostFace = 7,                // [ONLY 2D] Face owned by other process, but connected through ProcessBoundaryEdge
-			DomainBoundaryFace = 8,       // Process boundary face that has exactly 0 neighbors
-			ProcessBoundaryFace = 9,      // Process boundary face that has exactly 1 neighbor
-			InternalBoundaryFace = 10,    // Internal face marked by user as part of internal surface.
-
-			InternalElement = 11,         // Any element owned by this process
-			GhostElement = 12,            // Element owned by other process, but connected through ProcessBoundaryEdge
-
-			Overlap = 13,                 // Internal Dune Magic (Just in case)
-			Front = 14                    // Internal Dune Magic (Just in case)
+			Internal           = 1,   // Entity that is not on the process boundary
+			ProcessBoundary    = 2,   // Boundary entity shared by more than one process
+			DomainBoundary     = 3,   // Boundary entity that is not a process boundary [codim > 0]
+			InternalBoundary   = 4,   // Artificial user-defined boundary that is not the process boundary [Not Implemented]
+			ComplexBoundary    = 5,   // Boundary entity shared by more than two processes [only edges]
+			FrontBoundary      = 6,   // Faces of Overlap partition [Not Implemented]
+			Ghost              = 7,   // Entities stored on this process but not owned by it [all codim]
+			Overlap            = 8,   // Dune-Magic [Not Implemented]
 		};
 	};
 
@@ -169,8 +157,9 @@ public:
     // ******************************************************************
 	struct VertexStorage
 	{
-		GlobalIndexType globalIndex;
-    	Dune::FieldVector<ct, cdim> coord;
+		GlobalIndexType               globalIndex;
+		StructuralType                structuralType;
+    	Dune::FieldVector<ct, cdim>   coord;
 	};
 
 	struct EdgeStorage
@@ -217,6 +206,9 @@ public:
     typedef std::map<GlobalIndexType, LocalIndexType>   Index2IndexMap;
     typedef typename Index2IndexMap::iterator           IndexMapIterator;
 
+    typedef std::set<LocalIndexType>                    LocalIndexSet;
+    typedef typename LocalIndexSet::iterator            IndexSetIterator;
+
     typedef Dune::CurvilinearOctreeNode<ct, cdim>                 NodeType;
     typedef Dune::CurvilinearLooseOctree<ct, cdim, NodeType>      CurvilinearLooseOctree;
 
@@ -227,6 +219,14 @@ public:
     };
 
 
+    // Codimensions of entity types for better code readability
+    static const int   VERTEX_CODIM   = 3;
+    static const int   EDGE_CODIM     = 2;
+    static const int   FACE_CODIM     = 1;
+    static const int   ELEMENT_CODIM  = 0;
+
+
+
     // Curvilinear Grid Storage Variables
     // ******************************************************************
 
@@ -235,10 +235,7 @@ public:
     Vertex boundingBoxExtent_;
 
     // Storage necessary for user access and computation of globalIndex
-    int nVertexTotal_;
-    int nEdgeTotal_;
-    int nFaceTotal_;
-    int nElementTotal_;
+    int nEntityTotal_[4];
 
     // Stores vertex coordinates and globalIds
     std::vector<VertexStorage> point_;
@@ -250,23 +247,25 @@ public:
     std::vector<EntityStorage> element_;
 
     // Storage of local subentity indices for element
-    std::vector< std::vector<LocalIndexType> > elementSubentityCodim1_;   // (element_ index -> vector<edge_ index> )
-    std::vector< std::vector<LocalIndexType> > elementSubentityCodim2_;   // (element_ index -> vector<face_ index> )
+    std::vector< std::vector<LocalIndexType> > elementSubentityCodim2_;   // (element_ index -> vector{edge_ index} )
+    std::vector< std::vector<LocalIndexType> > elementSubentityCodim1_;   // (element_ index -> vector{face_ index} )
+
 
     // Maps from global to local indices - all entities of given codim, regardless of structural type
-    Index2IndexMap vertexGlobal2LocalMap_;
-    Index2IndexMap edgeGlobal2LocalMap_;
-    Index2IndexMap faceGlobal2LocalMap_;
-    Index2IndexMap elementGlobal2LocalMap_;
+    Index2IndexMap entityIndexMap_[4];
 
-    // Structural type maps for elements
-    Index2IndexMap internalElementGlobal2LocalMap_;
-    Index2IndexMap ghostElementGlobal2LocalMap_;
+    // Index sets for entities of a specific structural type
+    // Used to iterate over the grid entities
+    LocalIndexSet  entityAllIndexSet_[4];
+    LocalIndexSet  entityInternalIndexSet_[4];
+    LocalIndexSet  entityProcessBoundaryIndexSet_[4];
+    LocalIndexSet  entityDomainBoundaryIndexSet_[4];
+    LocalIndexSet  entityComplexBoundaryIndexSet_[4];   // Technically allowed only for edges
+    LocalIndexSet  entityGhostIndexSet_[4];
 
-    // Structural type maps for faces
-    Index2IndexMap faceInternalGlobal2LocalMap_;
-    Index2IndexMap faceDomainBoundaryGlobal2LocalMap_;
-    Index2IndexMap faceProcessBoundaryGlobal2LocalMap_;
+    // Two additional composite sets to represent Dune-specific composite partition types
+    LocalIndexSet  entityDuneInteriorIndexSet_[4];         // In Dune interior entities are (internal + domain boundaries)
+    LocalIndexSet  entityDuneInteriorBorderIndexSet_[4];   // In Dune interior border entities are (internal + domain + process boundaries)
 
     // List of all ranks of processors neighboring processorBoundaries.
     std::map<LocalIndexType, int> processBoundaryNeighborProcess_;  // (face_ index -> neighbor rank)
@@ -278,10 +277,7 @@ public:
     // Constructor and Destructor
     // ******************************************************************
     CurvilinearGridStorage () :
-    	nVertexTotal_(0),
-    	nEdgeTotal_(0),
-    	nFaceTotal_(0),
-    	nElementTotal_(0),
+    	nEntityTotal_ {0, 0, 0, 0},
     	octree_(0)
     {
 

@@ -30,20 +30,17 @@ namespace Dune
     // GridFamily
     // ----------
 
-    template< class HG, class Allocator >
+    template <int dim, int dimworld, class ct>
     struct GridFamily
     {
       struct Traits
       {
-        typedef CurvilinearGrid< HG, Allocator > Grid;
+        typedef CurvilinearGrid< dim, dimworld, ct> Grid;
 
-        typedef HG HostGrid;
+        typedef typename ct ctype;
 
-        typedef typename HostGrid::ctype ctype;
-
-        static const int dimension = HostGrid::dimension;
-        static const int dimensionworld = HostGrid::dimensionworld;
-
+        static const int dimension       = dim;
+        static const int dimensionworld  = dimworld;
 
         typedef CurvGrid::Intersection< const Grid, typename HostGrid::LeafIntersection >    BaseLeafIntersection;
         typedef CurvGrid::Intersection< const Grid, typename HostGrid::LevelIntersection >   BaseLevelIntersection;
@@ -63,7 +60,7 @@ namespace Dune
         struct Codim
         {
           typedef Dune::CurvGrid::Geometry< dimension-codim, dimensionworld, const Grid > GeometryImpl;
-          typedef Dune::Geometry< dimension-codim, dimensionworld, const Grid, Dune::CurvGrid::Geometry > Geometry;
+          typedef Dune::Geometry< dimension-codim, dimensionworld, const Grid, GeometryImpl > Geometry;
           typedef typename HostGrid::template Codim< codim >::LocalGeometry LocalGeometry;
 
           typedef CurvGrid::EntityPointerTraits< codim, const Grid >     EntityPointerTraits;
@@ -93,7 +90,7 @@ namespace Dune
         typedef CurvGrid::IdSet< const Grid, typename HostGrid::Traits::GlobalIdSet >  GlobalIdSet;
         typedef CurvGrid::IdSet< const Grid, typename HostGrid::Traits::LocalIdSet >   LocalIdSet;
 
-        typedef typename HostGrid::Traits::CollectiveCommunication CollectiveCommunication;
+        typedef typename Dune::CollectiveCommunication<MPI_Comm> CollectiveCommunication;
 
         template< PartitionIteratorType pitype >
         struct Partition

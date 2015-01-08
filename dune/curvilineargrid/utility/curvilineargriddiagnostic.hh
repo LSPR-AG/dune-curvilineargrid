@@ -82,15 +82,14 @@ private:
 	typedef typename GridStorageType::template Codim<0>::EntityGeometry     GridElementGeometry;
 
     // Logging Message Typedefs
-    static const unsigned int LOG_PHASE_DEV      = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
-    static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
-    static const unsigned int LOG_CATEGORY_ERROR = Dune::LoggingMessage::Category::ERROR;
+    static const unsigned int LOG_PHASE_DEV       = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
+    static const unsigned int LOG_CATEGORY_DEBUG  = Dune::LoggingMessage::Category::DEBUG;
+    static const unsigned int LOG_CATEGORY_ERROR  = Dune::LoggingMessage::Category::ERROR;
 
-    static const unsigned int DBFaceType       = GridStorageType::EntityStructuralType::DomainBoundaryFace;
-    static const unsigned int PBFaceType       = GridStorageType::EntityStructuralType::ProcessBoundaryFace;
-    static const unsigned int InternalFaceType = GridStorageType::EntityStructuralType::InternalBoundaryFace;
-    static const unsigned int InternalElementType = GridStorageType::EntityStructuralType::InternalElement;
-    static const unsigned int GhostElementType    = GridStorageType::EntityStructuralType::GhostElement;
+    static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
+    static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
+    static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
+    static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
 
 
 	const int VTK_INTERNAL          = Dune::VtkEntityStructuralType::Internal;
@@ -212,8 +211,8 @@ public:
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Ghost Elements");
 		if (withGhostElements)
 		{
-			GridIndexMapIterator ghostIterB =  gridbase_.template entityIndexBegin(0, GhostElementType);
-			GridIndexMapIterator ghostIterE =  gridbase_.template entityIndexEnd(0, GhostElementType);
+			GridIndexMapIterator ghostIterB =  gridbase_.template entityIndexBegin(0, GhostType);
+			GridIndexMapIterator ghostIterE =  gridbase_.template entityIndexEnd(0, GhostType);
 
 			for (GridIndexMapIterator ghostIter = ghostIterB;  ghostIter != ghostIterE;  ghostIter++)
 			{
@@ -247,8 +246,8 @@ public:
 		if (withDomainBoundaries)
 		{
 			// Add DomainBoundaries to VTK
-			GridIndexMapIterator faceIterB =  gridbase_.template entityIndexBegin(1, DBFaceType);
-			GridIndexMapIterator faceIterE =  gridbase_.template entityIndexEnd(1, DBFaceType);
+			GridIndexMapIterator faceIterB =  gridbase_.template entityIndexBegin(1, DomainBoundaryType);
+			GridIndexMapIterator faceIterE =  gridbase_.template entityIndexEnd(1, DomainBoundaryType);
 
 			for (GridIndexMapIterator faceIter = faceIterB;  faceIter != faceIterE;  faceIter++)
 			{
@@ -280,8 +279,8 @@ public:
 		if (withProcessBoundaries)
 		{
 			// Add DomainBoundaries to VTK
-			GridIndexMapIterator faceIterB =  gridbase_.template entityIndexBegin(1, PBFaceType);
-			GridIndexMapIterator faceIterE =  gridbase_.template entityIndexEnd(1, PBFaceType);
+			GridIndexMapIterator faceIterB =  gridbase_.template entityIndexBegin(1, ProcessBoundaryType);
+			GridIndexMapIterator faceIterE =  gridbase_.template entityIndexEnd(1, ProcessBoundaryType);
 
 			for (GridIndexMapIterator faceIter = faceIterB;  faceIter != faceIterE;  faceIter++)
 			{
@@ -336,9 +335,9 @@ protected:
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Started collecting mesh statistics");
 
 
-		rez[0].push_back(gridbase_.template nEntity(0, InternalElementType));
-		rez[1].push_back(gridbase_.template nEntity(1, DBFaceType));
-		rez[2].push_back(gridbase_.template nEntity(1, PBFaceType));
+		rez[0].push_back(gridbase_.template nEntity(0, InternalType));
+		rez[1].push_back(gridbase_.template nEntity(1, DomainBoundaryType));
+		rez[2].push_back(gridbase_.template nEntity(1, ProcessBoundaryType));
 
 		// 1) Collect statistics related to the elements of the mesh
 		// ***********************************************************************8
@@ -394,8 +393,8 @@ protected:
 		// ***********************************************************************
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Process Boundary statistics");
 		rez[12].push_back(0.0);  // processBoundarySurfaceArea
-		GridIndexMapIterator pbIterB = gridbase_.template entityIndexBegin(1, PBFaceType);
-		GridIndexMapIterator pbIterE = gridbase_.template entityIndexEnd(1, PBFaceType);
+		GridIndexMapIterator pbIterB = gridbase_.template entityIndexBegin(1, ProcessBoundaryType);
+		GridIndexMapIterator pbIterE = gridbase_.template entityIndexEnd(1, ProcessBoundaryType);
 
 		for (GridIndexMapIterator pbIter = pbIterB;  pbIter != pbIterE;  pbIter++)
 		{
@@ -412,8 +411,8 @@ protected:
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Domain Boundary Statistics");
 
 		rez[13].push_back(0.0);  // domainBoundarySurfaceArea
-		GridIndexMapIterator dbIterB = gridbase_.template entityIndexBegin(1, DBFaceType);
-		GridIndexMapIterator dbIterE = gridbase_.template entityIndexEnd(1, DBFaceType);
+		GridIndexMapIterator dbIterB = gridbase_.template entityIndexBegin(1, DomainBoundaryType);
+		GridIndexMapIterator dbIterE = gridbase_.template entityIndexEnd(1, DomainBoundaryType);
 
 		for (GridIndexMapIterator dbIter = dbIterB;  dbIter != dbIterE;  dbIter++)
 		{

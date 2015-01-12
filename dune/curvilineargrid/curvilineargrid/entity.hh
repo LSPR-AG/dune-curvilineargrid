@@ -50,28 +50,30 @@ namespace Dune
 
 	  typedef typename Traits::ctype ctype;						//! coordinate type of the grid
 
-
-
   protected:
+	  typedef typename Traits::template Codim< codim >::EntitySeed EntitySeed;			//! type of corresponding entity seed
+
+	  typedef Dune::CurvilinearGridStorage<ctype, dim>      GridStorageType;
 	  typedef Dune::CurvilinearGridBase<ctype, dim>         GridBaseType;
-	  typedef typename GridBaseType::IndexMapIterator       IndexMapIterator;
+
+	  typedef typename GridStorageType::StructuralType      StructuralType;
+
+	  typedef typename GridBaseType::IndexSetIterator       IndexSetIterator;
 
   public:
 		/** \name Construction, Initialization and Destruction
 		*  \{ */
 
 	  EntityBase (
-		int localEntityIndex,
-		int structtype,
+	    IndexSetIterator & iter,
 	    GridBaseType & gridbase,
 	    GridImp & grid
 	    )
-	  	  : gridbaseIndexIterator_(gridbase.entityIndexIterator(codim, structtype, localEntityIndex)),
-
-	  	    structtype_(structtype),
+	  	  :
+	  		gridbaseIndexIterator_(iter),
 	  	    gridbase_(gridbase),
 	  	    grid_(grid)
-	  { }
+	  {  }
 
 
 	  //! Copy constructor from an existing entity.
@@ -97,6 +99,9 @@ namespace Dune
 	  /** \brief compare two entities */
 	  bool equals ( const EntityBase &other) const  { }
 
+	  /** \brief Return the entity seed which contains sufficient information to generate the entity again and uses as little memory as possible */
+	  EntitySeed seed () const  { return EntitySeed(*gridbaseIndexIterator_, pitype_, gridbase_); }
+
 
 	  /** \brief moves to the next entity within the base storage. Additional functionality used by iterators */
 	  void next()  { gridbaseIndexIterator_++; }
@@ -104,8 +109,7 @@ namespace Dune
 	  GridImp & grid()  { return grid_; }
 
   protected:
-	    IndexMapIterator gridbaseIndexIterator_;
-	    int structtype_;
+	    IndexSetIterator gridbaseIndexIterator_;
 	    GridBaseType & gridbase_;
 	    GridImp & grid_;
   };
@@ -138,16 +142,15 @@ namespace Dune
 	    typedef typename Traits::template Codim< codimension >::Geometry Geometry;	//! type of corresponding geometry
 	    /** \} */
 
-	    typedef typename Traits::template Codim< codimension >::EntitySeed EntitySeed;			//! type of corresponding entity seed
 	    typedef typename Traits::template Codim< codimension >::GeometryImpl GeometryImpl;
 
 	    typedef EntityBase<codim, dim, GridImp>                  Base;
 
+	    typedef Dune::CurvilinearGridStorage<ctype, dim>      GridBaseStorage;
 	    typedef Dune::CurvilinearGridBase<ctype, dim>         GridBaseType;
 	    typedef Dune::CurvilinearGridStorage::IdType          IdType;
 
-
-	    using Base::localEntityIndex_;
+	    using Base::gridbaseIndexIterator_;
 	    using Base::gridbase_;
 
   public:
@@ -160,40 +163,37 @@ namespace Dune
 	    *  \{ */
 
 	    /** \brief Return the name of the reference element. The type can be used to access the Dune::ReferenceElement. */
-	    GeometryType type () const { return gridbase_.entityGeometryType(codim, localEntityIndex_); }
+	    GeometryType type () const { return gridbase_.entityGeometryType(codim, *gridbaseIndexIterator_); }
 
 	    /** \brief  Returns the (refinement) level of this entity */
-	    int level () const { return gridbase_.entityLevel(codim, localEntityIndex_); }
+	    int level () const { return gridbase_.entityLevel(codim, *gridbaseIndexIterator_); }
 
 	    /** \brief obtain the partition type of this entity */
 	    PartitionType partitionType () const  {
-	    	StructuralType stype = gridbase_.entityStructuralType(codim, localEntityIndex_);
+	    	StructuralType stype = gridbase_.entityStructuralType(codim, *gridbaseIndexIterator_);
 
 	    	switch (stype)
 	    	{
-	    	case Dune::CurvilinearGridStorage::EntityStructuralType::DomainBoundaryFace   : return PartitionType::BorderEntity;
-	    	case Dune::CurvilinearGridStorage::EntityStructuralType::ProcessBoundaryFace  : return PartitionType::BorderEntity;
-	    	case Dune::CurvilinearGridStorage::EntityStructuralType::InternalFace         : return PartitionType::InteriorEntity;
-	    	case Dune::CurvilinearGridStorage::EntityStructuralType::InternalElement      : return PartitionType::InteriorEntity;
-	    	case Dune::CurvilinearGridStorage::EntityStructuralType::GhostElement         : return PartitionType::GhostEntity;
+	    	case GridBaseStorage::PartitionType::Internal          : return PartitionType::InteriorEntity;
+	    	case GridBaseStorage::PartitionType::DomainBoundary    : return PartitionType::InteriorEntity;
+	    	case GridBaseStorage::PartitionType::ProcessBoundary   : return PartitionType::BorderEntity;
+	    	case GridBaseStorage::PartitionType::ComplexBoundary   : return PartitionType::BorderEntity;
+	    	case GridBaseStorage::PartitionType::Ghost             : return PartitionType::GhostEntity;
 	    	default : return 0;
 	    	}
 	    }
 
 
 	    /** \brief obtain geometric realization of the entity */
-	    Geometry geometry () const { return gridbase_.entityGeometry<codim>(localEntityIndex_); }
-
-	    /** \brief Return the entity seed which contains sufficient information to generate the entity again and uses as little memory as possible */
-	    EntitySeed seed () const  {  }
+	    Geometry geometry () const { return gridbase_.entityGeometry<codim>(*gridbaseIndexIterator_); }
 
 	    /** \} */
 
 	    /** \brief Additional method guaranteed to return local entity index as specified in CurvilinearGridBase */
-	    int localIndex () const  { return localEntityIndex_; }
+	    int localIndex () const  { return *gridbaseIndexIterator_; }
 
 	    /** \brief obtain the entity's index */
-	    int index () const  { return localEntityIndex_; }
+	    int index () const  { return *gridbaseIndexIterator_; }
 
 	    /** \brief obtain the index of a subentity from a host IndexSet
 	     *
@@ -201,12 +201,12 @@ namespace Dune
 	     *  \param[in]  codim        codimension of the subentity
 	     */
 	    int subIndex (int internalIndex, unsigned int subcodim ) const  {
-	    	return gridbase_.subentityIndex(localEntityIndex_, codimension, subcodim, internalIndex);
+	    	return gridbase_.subentityIndex(*gridbaseIndexIterator_, codimension, subcodim, internalIndex);
 	    }
 
 
 	    /** \brief obtain the entity's id from a host IdSet */
-	    IdType id () const  { return gridbase_.globalId(codim, localEntityIndex_); }
+	    IdType id () const  { return gridbase_.globalId(codim, *gridbaseIndexIterator_); }
 
 
 	    IdType subId ( int internalIndex, unsigned int subcodim ) const
@@ -250,11 +250,13 @@ namespace Dune
 	  /** \} */
 
 	  typedef typename Traits::ctype ctype;						//! coordinate type of the grid
+
+	  typedef Dune::CurvilinearGridStorage<ctype, dim>      GridBaseStorage;
 	  typedef Dune::CurvilinearGridBase<ctype, dim>         GridBaseType;
 
 	  typedef EntityBase<0, dim, GridImp>                  Base;
 
-	  using Base::localEntityIndex_;
+	  using Base::gridbaseIndexIterator_;
 	  using Base::gridbase_;
 
 
@@ -299,7 +301,7 @@ namespace Dune
     typename Codim< subcodim >::Entity
     subEntity ( int i ) const
     {
-    	int subentityLocalIndex = gridbase_.subentityIndex(localEntityIndex_, 0, subcodim, i);
+    	int subentityLocalIndex = gridbase_.subentityIndex(*gridbaseIndexIterator_, 0, subcodim, i);
     	return Entity<dim - subcodim, dim, GridImp>(subentityLocalIndex, gridbase_);
     }
 
@@ -363,7 +365,7 @@ namespace Dune
      */
     LocalGeometry geometryInFather () const {
     	DUNE_THROW(NotImplemented, "CurvilinearGrid-Element: method geometryInFather() not implemented, since there is no refinement");
-    	return gridbase_.entityGeometry<0>(localEntityIndex_);
+    	return gridbase_.entityGeometry<0>(*gridbaseIndexIterator_);
     }
 
     /**\brief Inter-level access to elements that resulted from (recursive)
@@ -410,12 +412,12 @@ namespace Dune
     {
     	for (InternalIndexType i = 0; i < 4; i++)
     	{
-    		LocalIndexType thisFaceIndex = gridbase_.subentityIndex(localEntityIndex_, 0, 1, i);
+    		LocalIndexType thisFaceIndex = gridbase_.subentityIndex(*gridbaseIndexIterator_, 0, 1, i);
     		StructuralType thisStructType = entityStructuralType<1>(thisFaceIndex);
 
     		if (
-    		  (thisStructType != Dune::CurvilinearGridStorage::EntityStructuralType::InternalFace) ||
-    		  (thisStructType != Dune::CurvilinearGridStorage::EntityStructuralType::InternalBoundaryFace)
+    		  (thisStructType == GridBaseStorage::PartitionType::ProcessBoundary) ||
+    		  (thisStructType == GridBaseStorage::PartitionType::ComplexBoundary)
     		)  { return true; }
     	}
 

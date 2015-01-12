@@ -340,7 +340,7 @@ namespace Dune
      *
      *  \param[in]  codim  codimension for with the information is desired
      */
-    int ghostSize( int codim ) const  { return (codim == 0) ? gridbase_.nEntity(codim, Dune::CurvilinearGridStorage<ct, dimworld>::EntityStructuralType::GhostElement) : 0; }
+    int ghostSize( int codim ) const  { return gridbase_.nEntity(codim, Dune::CurvilinearGridStorage<ct, dimworld>::EntityStructuralType::GhostElement); }
 
     /** \brief obtain size of overlap region for a grid level
      *

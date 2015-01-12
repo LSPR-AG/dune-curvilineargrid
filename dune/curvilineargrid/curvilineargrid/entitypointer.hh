@@ -27,7 +27,7 @@ namespace Dune
     class EntityPointer
     {
     	typedef typename Grid::Traits Traits;
-    	typedef EntityPointer< codim, Grid > This;
+    	typedef EntityPointer< codim, pitype, Grid > This;
 
     public:
         static const int dimension   = Traits::dimension;
@@ -41,8 +41,8 @@ namespace Dune
 
     public:
 
-        EntityPointer ( const EntitySeed &seed, const Grid & grid )
-          : entity_(seed.localIndex(), seed.gridBase(), grid )
+        EntityPointer ( IndexSetIterator & iter, GridBaseType & gridbase, const Grid & grid )
+          : entity_(iter, gridbase, grid)
         {}
 
         explicit EntityPointer ( const EntityImpl &entity )

@@ -45,6 +45,8 @@
 #include <dune/geometry/type.hh>
 #include <dune/geometry/referenceelements.hh>
 
+#include <dune/grid/common/gridenums.hh>
+
 #include <dune/curvilineargeometry/interpolation/curvilinearelementinterpolator.hh>
 #include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 #include <dune/curvilineargeometry/curvilineargeometry.hh>
@@ -343,7 +345,8 @@ public:
 
     int entityLevel(int codim, LocalIndexType localIndex)  const { return 0; }
 
-
+    // Checks if the grid is located on a single process
+    bool isSerial () { return size_ == 1; }
 
 
     /* ***************************************************************************
@@ -411,10 +414,18 @@ public:
     	if (globalIndex < 0)  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Received negative index");  }
 
     	IndexMapIterator tmpIter = gridstorage_.entityIndexMap_[codim].find(globalIndex);
-    	if (tmpIter != gridstorage_.entityIndexMap_[codim].end())  { localIndex = *tmpIter;  return true; }
+    	if (tmpIter != gridstorage_.entityIndexMap_[codim].end())  { localIndex = (*tmpIter).second;  return true; }
     	else  { return false; }
     }
 
+    /** Checks if the entity with specified codim and local index exists, and if it has the specified structtype  */
+    bool verifyEntity(int codim, LocalIndexType localIndex, StructuralType structtype)
+    {
+    	LocalIndexSet & thisSet = entityIndexSetSelect(codim, structtype);
+
+    	if (thisSet.find(localIndex) == thisSet.end())  { return false; }
+    	else  { return true; }
+    }
 
     IdType globalId(int codim, LocalIndexType localIndex)
     {
@@ -577,25 +588,11 @@ public:
     }
 
 
-    /** Storage data related to this element, except of explicit vertex coordinates
-     *  \param[in] localIndex            local ghost element index
-     *
-     * */
-    EntityStorage ghostElementData(LocalIndexType localIndex) const { return gridstorage_.ghostElement_[localIndex];}
-
-
     template<int codim>
     typename GridStorageType::template Codim<codim>::EntityGeometry
     entityGeometry(LocalIndexType localIndex) const
     {
     	return entityGeometryConstructor<codim>(entityData(codim, localIndex));
-    }
-
-
-    // Construct and retrieve geometry class associated to this ghost element local index
-    ElementGeometry ghostGeometry(LocalIndexType localIndex) const
-    {
-    	return entityGeometryConstructor<0>(ghostElementData(localIndex));
     }
 
 
@@ -677,56 +674,49 @@ public:
     // There will be generic entity in the wrapper because the wrapper will define an entity object
 
     // Iterator based on local index of the entity
-    IndexMapIterator entityIndexIterator(int codim, LocalIndexType localIndex)
+    // Iterator all entities of a given codimension
+    IndexSetIterator entityIndexIterator(int codim, LocalIndexType localIndex)
     {
-    	GlobalIndexType globalIndex;
-    	if (! findEntityGlobalIndex(codim, localIndex, globalIndex))  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: requested local index does not point to an entity");  }
-
-    	return entityMapSelect(codim).find(globalIndex);
+    	return gridstorage_.entityAllIndexSet_[codim].find(localIndex);
     }
 
-    IndexMapIterator entityIndexIterator(int codim, StructuralType structtype, LocalIndexType localIndex)
+    // Iterator for entities of a given codimension and structural type only
+    IndexSetIterator entityIndexIterator(int codim, StructuralType structtype, LocalIndexType localIndex)
     {
-    	GlobalIndexType globalIndex;
-    	if (! findEntityGlobalIndex(codim, localIndex, globalIndex))  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: requested local index does not point to an entity");  }
-
-    	return entityMapSelect(codim, structtype).find(globalIndex);
+    	return entityIndexSetSelect(codim, structtype).find(localIndex);
     }
+
+    // Iterator for entities of a given codimension and Dune partition type only
+    IndexSetIterator entityIndexDuneIterator(int codim, Dune::PartitionIteratorType pitype, LocalIndexType localIndex)
+    {
+    	return entityIndexSetDuneSelect(codim, pitype).find(localIndex);
+    }
+
 
     // Iterators over all entities of a given codimension
-    IndexMapIterator entityIndexBegin(int codim)  { return entityMapSelect(codim).begin(); }
+    IndexSetIterator entityIndexBegin(int codim)  { return gridstorage_.entityAllIndexSet_[codim].begin(); }
 
-    IndexMapIterator entityIndexEnd(int codim)    { return entityMapSelect(codim).end(); }
+    IndexSetIterator entityIndexEnd(int codim)    { return gridstorage_.entityAllIndexSet_[codim].end(); }
 
     // Iterators over specific entities of a given codimension
     // This construction allows fast iteration over entities of specific structural type
-    IndexMapIterator entityIndexBegin(int codim, StructuralType structtype)  { return entityMapSelect(codim, structtype).begin(); }
+    IndexSetIterator entityIndexBegin(int codim, StructuralType structtype)  { return entityIndexSetSelect(codim, structtype).begin(); }
 
-    IndexMapIterator entityIndexEnd(int codim, StructuralType structtype)    { return entityMapSelect(codim, structtype).end(); }
-
-
+    IndexSetIterator entityIndexEnd(int codim, StructuralType structtype)    { return entityIndexSetSelect(codim, structtype).end(); }
 
 
-    /** Return pointer to single CurvilinearGridBase instance. */
-    //static CurvilinearGridBase* get_instance() { return instance_; }
+    IndexSetIterator entityDuneIndexBegin(int codim, Dune::PartitionIteratorType pitype)  { return entityIndexSetDuneSelect(codim, pitype).begin(); }
 
-
-protected:
+    IndexSetIterator entityDuneIndexEnd(int codim, Dune::PartitionIteratorType pitype)    { return entityIndexSetDuneSelect(codim, pitype).end(); }
 
 
     /* ***************************************************************************
-     * Section: Auxiliary Methods
+     * Section: Public Auxiliary Methods
      * ***************************************************************************/
-
-    void assertStage(int expectedStage)
-    {
-    	if ((gridstage_ == Stage::GRID_OPERATION) && (expectedStage == Stage::GRID_CONSTRUCTION)) { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Attempted to insert entities into grid after construction"); }
-    }
-
 
     // Checks if entities of a given codim are allowed to be of a given structural type
     // If not throws an error
-    void assertValidCodimStructuralType(int codim, StructuralType structtype)
+    static void assertValidCodimStructuralType(int codim, StructuralType structtype)
     {
     	bool fail = false;
 
@@ -746,7 +736,18 @@ protected:
     		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridBase: Unexpected codim-structtype pair");
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codim-structtype pair");
     	}
+    }
 
+protected:
+
+
+    /* ***************************************************************************
+     * Section: Auxiliary Methods
+     * ***************************************************************************/
+
+    void assertStage(int expectedStage)
+    {
+    	if ((gridstage_ == Stage::GRID_OPERATION) && (expectedStage == Stage::GRID_CONSTRUCTION)) { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Attempted to insert entities into grid after construction"); }
     }
 
     // Returns a link to the set of all local indices of entities of a given codimension and specific structural type
@@ -761,6 +762,24 @@ protected:
     	case ProcessBoundaryType   : return gridstorage_.entityProcessBoundaryIndexSet_[codim];   break;
     	case ComplexBoundaryType   : return gridstorage_.entityProcessBoundaryIndexSet_[codim];   break;
     	case GhostType             : return gridstorage_.entityGhostIndexSet_[codim];             break;
+    	}
+    }
+
+    // Returns a link to the set of all local indices of entities of a given codimension, based on Dune-convention partition type
+    LocalIndexSet & entityIndexSetDuneSelect(int codim, Dune::PartitionIteratorType pitype)
+    {
+    	const int DuneIPartition   = Dune::PartitionIteratorType::Interior_Partition;
+    	const int DuneIBPartition  = Dune::PartitionIteratorType::InteriorBorder_Partition;
+    	const int DuneGPartition   = Dune::PartitionIteratorType::Ghost_Partition;
+    	const int DuneAllPartition = Dune::PartitionIteratorType::All_Partition;
+
+    	switch(pitype)
+    	{
+    	case DuneIPartition     : return gridstorage_.entityDuneInteriorIndexSet_[codim];          break;
+    	case DuneIBPartition    : return gridstorage_.entityDuneInteriorBorderIndexSet_[codim];    break;
+    	case DuneGPartition     : return gridstorage_.entityGhostIndexSet_[codim];                 break;
+    	case DuneAllPartition   : return gridstorage_.entityAllIndexSet_[codim];                   break;
+    	default: DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected dune-pitype");         break;
     	}
     }
 

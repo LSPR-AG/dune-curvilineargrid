@@ -119,7 +119,8 @@ public:
     static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
     static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
     static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
-    static const unsigned int GhostType         = GridStorageType::PartitionType::Ghost;
+    static const unsigned int ComplexBoundaryType  = GridStorageType::PartitionType::ComplexBoundary;
+    static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
 
     // Logging Message Typedefs
     static const unsigned int LOG_PHASE_DEV       = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
@@ -1066,38 +1067,30 @@ protected:
 
         // 7) Fill in Global2Local maps
         // *************************************************************************
-        for (int iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)     { gridstorage_.entityIndexMap_[EDGE_CODIM][gridstorage_.edge_[iEdge].globalIndex] = iEdge; }
-        for (int iFace = 0; iFace < gridstorage_.face_.size(); iFace++)     { gridstorage_.entityIndexMap_[FACE_CODIM][gridstorage_.face_[iFace].globalIndex] = iFace; }
-        for (int iElem = 0; iElem < gridstorage_.element_.size(); iElem++)  {
-        	GlobalIndexType thisGlobalIndex = gridstorage_.element_[iElem].globalIndex;
-        	gridstorage_.entityIndexMap_[ELEMENT_CODIM][thisGlobalIndex] = iElem;
-        	gridstorage_.entityInternalIndexSet_[ELEMENT_CODIM].insert(iElem);
-        }
-
-        for (FaceMapIterator faceIter = internalFaceKey2LocalIndexMap_.begin(); faceIter != internalFaceKey2LocalIndexMap_.end(); faceIter++)
+        for (LocalIndexType iVertex = 0; iVertex < gridstorage_.point_.size(); iVertex++)
         {
-        	LocalIndexType thisFaceLocalIndex   = (*faceIter).second;
-        	GlobalIndexType thisFaceGlobalIndex = gridstorage_.face_[thisFaceLocalIndex].globalIndex;
-        	gridstorage_.entityInternalIndexSet_[FACE_CODIM].insert(thisFaceLocalIndex);
+        	globalPartitionIteratorFill(VERTEX_CODIM, iVertex, gridstorage_.point_[iVertex].structuralType);
         }
 
-        for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
+        for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)
         {
-        	LocalIndexType thisFaceLocalIndex   = (*faceIter).second;
-        	GlobalIndexType thisFaceGlobalIndex = gridstorage_.face_[thisFaceLocalIndex].globalIndex;
-        	gridstorage_.entityDomainBoundaryIndexSet_[FACE_CODIM].insert(thisFaceLocalIndex);
+        	gridstorage_.entityIndexMap_[EDGE_CODIM][gridstorage_.edge_[iEdge].globalIndex] = iEdge;
+        	globalPartitionIteratorFill(EDGE_CODIM, iEdge, gridstorage_.edge_[iEdge].structuralType);
         }
 
-        for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
+        for (LocalIndexType iFace = 0; iFace < gridstorage_.face_.size(); iFace++)
         {
-        	LocalIndexType thisFaceLocalIndex   = (*faceIter).second;
-        	GlobalIndexType thisFaceGlobalIndex = gridstorage_.face_[thisFaceLocalIndex].globalIndex;
-        	gridstorage_.entityProcessBoundaryIndexSet_[FACE_CODIM].insert(thisFaceLocalIndex);
+        	gridstorage_.entityIndexMap_[FACE_CODIM][gridstorage_.face_[iFace].globalIndex] = iFace;
+        	globalPartitionIteratorFill(FACE_CODIM, iFace, gridstorage_.face_[iFace].structuralType);
         }
 
+        for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)
+        {
+        	gridstorage_.entityIndexMap_[ELEMENT_CODIM][gridstorage_.element_[iElem].globalIndex] = iElem;
+        	globalPartitionIteratorFill(ELEMENT_CODIM, iElem, gridstorage_.element_[iElem].structuralType);
+        }
 
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished Constructing Global Indices");
-
     }
 
 
@@ -1932,6 +1925,51 @@ protected:
 
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished distributing missing edge GlobalIndices");
     }
+
+
+    // Fill all LocalIndexSets necessary to iterate over the grid
+    void globalPartitionIteratorFill (int codim, LocalIndexType localIndex, StructuralType structtype)
+    {
+    	// Check if the entity is of a valid type
+    	gridbase_.assertValidCodimStructuralType(codim, structtype);
+
+    	// All-set includes entities of all structural types
+        gridstorage_.entityAllIndexSet_[codim].insert(localIndex);
+
+    	switch (structtype)
+    	{
+    	case InternalType          :
+    	{
+    		gridstorage_.entityInternalIndexSet_[codim].insert(localIndex);
+    		gridstorage_.entityDuneInteriorIndexSet_[codim].insert(localIndex);
+    		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
+    	} break;
+    	case ProcessBoundaryType   :
+    	{
+    		gridstorage_.entityProcessBoundaryIndexSet_[codim].insert(localIndex);
+    		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
+    	} break;
+    	case DomainBoundaryType    :
+    	{
+    		gridstorage_.entityDomainBoundaryIndexSet_[codim].insert(localIndex);
+    		gridstorage_.entityDuneInteriorIndexSet_[codim].insert(localIndex);
+    		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
+    		break;
+    	}
+    	case ComplexBoundaryType   :   // ComplexBoundary is also a ProcessBoundary
+    	{
+    		gridstorage_.entityComplexBoundaryIndexSet_[codim].insert(localIndex);
+    		gridstorage_.entityProcessBoundaryIndexSet_[codim].insert(localIndex);
+    		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
+    	} break;
+    	case GhostType             :
+    	{
+    		gridstorage_.entityGhostIndexSet_[codim].insert(localIndex);
+    	} break;
+
+    	}
+    }
+
 
 
     /* ***************************************************************************

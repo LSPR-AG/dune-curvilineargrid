@@ -28,8 +28,8 @@ namespace Dune
         typedef typename Base::EntitySeed EntitySeed;
 
     public:
-        LeafIterator ( const EntitySeed & seed, const Grid &grid)
-         : Base( seed, grid)
+        LeafIterator (IndexSetIterator & iter, GridBaseType & gridbase, const Grid &grid)
+         : Base( iter, gridbase, grid)
         {}
 
         void increment ()
@@ -51,8 +51,8 @@ namespace Dune
         typedef typename Base::EntitySeed EntitySeed;
 
     public:
-        LevelIterator ( const EntitySeed & seed, const Grid &grid)
-         : Base( seed, grid)
+        LevelIterator (IndexSetIterator & iter, GridBaseType & gridbase, const Grid &grid)
+    	  : Base( iter, gridbase, grid)
         {}
 
         void increment ()
@@ -76,8 +76,8 @@ namespace Dune
     	typedef typename Base::EntitySeed EntitySeed;
 
     public:
-      HierarchicIterator ( const EntitySeed & seed, const Grid &grid)
-       : Base( seed, grid)
+      HierarchicIterator (IndexSetIterator & iter, GridBaseType & gridbase, const Grid &grid)
+    	: Base( iter, gridbase, grid)
       {}
 
       void increment ()

@@ -20,58 +20,6 @@ namespace Dune
   namespace CurvGrid
   {
 
-    // Internal Forward Declarations
-    // -----------------------------
-
-    template< class Grid, PartitionIteratorType pitype >
-    class GridView;
-
-
-
-    // GridViewTraits
-    // --------------
-
-    template< class Grid, PartitionIteratorType pitype >
-    class GridViewTraits
-    {
-      friend class GridView< Grid, pitype >;
-
-    public:
-      typedef GridView< Grid, pitype > GridViewImp;
-
-      typedef CurvGrid::IndexSet< const Grid > IndexSet;
-
-      typedef Dune::Intersection< const Grid, CurvGrid::Intersection< const Grid > > Intersection;
-
-      typedef Dune::IntersectionIterator < const Grid, CurvGrid::IntersectionIterator< const Grid>, CurvGrid::Intersection< const Grid> >
-      IntersectionIterator;
-
-      typedef typename Dune::CollectiveCommunication<MPI_Comm> CollectiveCommunication;
-
-      template< int codim >
-      struct Codim
-      {
-        typedef CurvGrid::IteratorTraits< codim, pitype, const Grid > IteratorTraits;
-        typedef Dune::EntityIterator< codim, const Grid, CurvGrid::Iterator< IteratorTraits > > Iterator;
-
-        typedef typename Grid::Traits::template Codim< codim >::Entity Entity;
-        typedef typename Grid::Traits::template Codim< codim >::EntityPointer EntityPointer;
-
-        typedef typename Grid::template Codim< codim >::Geometry Geometry;
-        typedef typename Grid::template Codim< codim >::LocalGeometry LocalGeometry;
-
-        template< PartitionIteratorType pit >
-        struct Partition
-        {
-          typedef CurvGrid::IteratorTraits< codim, pit, const Grid > IteratorTraits;
-          typedef Dune::EntityIterator< codim, const Grid, CurvGrid::Iterator< IteratorTraits > > Iterator;
-        };
-      };
-
-      static const bool conforming = true;
-    };
-
-
 
     // GridView
     // --------
@@ -79,29 +27,16 @@ namespace Dune
     template< class Grid, PartitionIteratorType pitype >
     class GridView
     {
-      typedef GridView< Grid, pitype > This;
+    	typedef Dune::CurvilinearGridBase<ct, dim>       GridBaseType;
+    	typedef typename GridBaseType::IndexSetIterator  IndexSetIterator;
 
     public:
-      typedef GridViewTraits< Grid, pitype > Traits;
-
-      typedef typename Traits::Grid Grid;
-
-      typedef typename Traits::IndexSet IndexSet;
-
-      typedef typename Traits::Intersection Intersection;
-
-      typedef typename Traits::IntersectionIterator IntersectionIterator;
-
-      typedef typename Traits::CollectiveCommunication CollectiveCommunication;
-
-      template< int codim >
-      struct Codim
-        : public Traits::template Codim< codim >
-      {};
 
       static const bool conforming = Traits::conforming;
 
-      GridView ( const Grid &grid) : grid_( &grid )  { }
+      GridView (const Grid &grid, GridBaseType & gridbase)
+             : grid_( &grid ), gridbase_(gridbase), indexset_(gridbase)
+      { }
 
       const Grid &grid () const
       {
@@ -111,42 +46,14 @@ namespace Dune
 
       const IndexSet &indexSet () const
       {
-        if( !indexSet_ )  { indexSet_ = IndexSet( ); }
-        return indexSet_;
+        if( !indexset_ )  { indexset_ = IndexSet( ); }
+        return indexset_;
       }
 
 
-      //
-      int size ( int codim ) const  { return hostGridView().size( codim ); }
-      int size ( const GeometryType &type ) const  { return hostGridView().size( type ); }
-
-      template< int codim >
-      typename Codim< codim >::Iterator begin () const
-      {
-        typedef typename Traits::template Codim< codim >::template Partition< pitype >::IteratorTraits IteratorTraits;
-        return CurvGrid::Iterator< IteratorTraits >( grid(), IteratorTraits::begin );
-      }
-
-      template< int codim, PartitionIteratorType pit >
-      typename Codim< codim >::template Partition< pit >::Iterator begin () const
-      {
-        typedef typename Traits::template Codim< codim >::template Partition< pit >::IteratorTraits IteratorTraits;
-        return CurvGrid::Iterator< IteratorTraits >( grid(), IteratorTraits::begin );
-      }
-
-      template< int codim >
-      typename Codim< codim >::Iterator end () const
-      {
-        typedef typename Traits::template Codim< codim >::template Partition< pitype >::IteratorTraits IteratorTraits;
-        return CurvGrid::Iterator< IteratorTraits >( grid(), IteratorTraits::end );
-      }
-
-      template< int codim, PartitionIteratorType pit >
-      typename Codim< codim >::template Partition< pit >::Iterator end () const
-      {
-        typedef typename Traits::template Codim< codim >::template Partition< pit >::IteratorTraits IteratorTraits;
-        return CurvGrid::Iterator< IteratorTraits >( grid(), IteratorTraits::end );
-      }
+      // Get the number of entities within this gridview
+      int size ( int codim )                 const  { return indexset_.size(codim); }
+      int size ( const GeometryType &type )  const  { return indexset_.size(type); }
 
       IntersectionIterator ibegin ( const typename Codim< 0 >::Entity &entity ) const
       {
@@ -165,10 +72,6 @@ namespace Dune
         return grid().comm();
       }
 
-      int overlapSize ( int codim ) const  { return grid().overlapSize(level_, codim); }
-
-      int ghostSize ( int codim ) const  { return grid().ghostSize(level_, codim); }
-
       template< class DataHandle, class Data >
       void communicate ( CommDataHandleIF< DataHandle, Data > &dataHandle,
                          InterfaceType interface,
@@ -177,10 +80,124 @@ namespace Dune
     	  //[TODO] Call communication.hh
       }
 
-    private:
+    protected:
       const Grid *grid_;
-      mutable IndexSet indexSet_;
+      GridBaseType & gridbase_;
+      mutable IndexSet indexset_;
     };
+
+
+
+
+
+
+    template< class Grid, PartitionIteratorType pitype >
+    class LeafGridView : GridView<Grid, pitype >
+    {
+    	typedef Dune::CurvilinearGridBase<ct, dim>       GridBaseType;
+    	typedef typename GridBaseType::IndexSetIterator  IndexSetIterator;
+
+    	typedef CurvGrid::LeafIterator< codim, Grid >    LeafIterator;
+
+    public:
+    	typedef GridView<Grid, pitype >  Base;
+
+    	using Base::grid_;
+    	using Base::gridbase_;
+    	using Base::indexset_;
+
+    	LeafGridView(const Grid &grid, GridBaseType & gridbase)
+             : Base (grid, gridbase)
+    	{ }
+
+        template< int codim >
+        typename Codim< codim >::Iterator begin () const
+        {
+        	return LeafIterator(gridbase_.entityDuneIndexBegin(codim, pitype), gridbase_, grid());
+        }
+
+        template< int codim, PartitionIteratorType pit >
+        typename Codim< codim >::template Partition< pit >::Iterator begin () const
+        {
+        	return LeafIterator(gridbase_.entityDuneIndexBegin(codim, pit), gridbase_, grid());
+        }
+
+        template< int codim >
+        typename Codim< codim >::Iterator end () const
+        {
+      	  return LeafIterator(gridbase_.entityDuneIndexEnd(codim, pitype), gridbase_, grid());
+        }
+
+        template< int codim, PartitionIteratorType pit >
+        typename Codim< codim >::template Partition< pit >::Iterator end () const
+        {
+      	  return LeafIterator(gridbase_.entityDuneIndexEnd(codim, pit), gridbase_, grid());
+        }
+
+        int overlapSize ( int codim ) const  { return grid().overlapSize(codim); }
+
+        int ghostSize ( int codim ) const  { return grid().ghostSize(codim); }
+
+    };
+
+
+
+
+
+    template< class Grid, PartitionIteratorType pitype >
+    class LevelGridView : GridView<Grid, pitype >
+    {
+    	typedef Dune::CurvilinearGridBase<ct, dim>       GridBaseType;
+    	typedef typename GridBaseType::IndexSetIterator  IndexSetIterator;
+
+    	typedef CurvGrid::LevelIterator< codim, Grid >    LevelIterator;
+
+    public:
+    	typedef GridView<Grid, pitype >  Base;
+
+    	using Base::grid_;
+    	using Base::gridbase_;
+    	using Base::indexset_;
+
+    	LevelGridView(const Grid &grid, GridBaseType & gridbase)
+             : Base (grid, gridbase),
+               level_(level)
+    	{ }
+
+        template< int codim >
+        typename Codim< codim >::Iterator begin () const
+        {
+        	return LevelIterator(gridbase_.entityDuneIndexBegin(codim, pitype), gridbase_, grid());
+        }
+
+        template< int codim, PartitionIteratorType pit >
+        typename Codim< codim >::template Partition< pit >::Iterator begin () const
+        {
+        	return LevelIterator(gridbase_.entityDuneIndexBegin(codim, pit), gridbase_, grid());
+        }
+
+        template< int codim >
+        typename Codim< codim >::Iterator end () const
+        {
+      	  return LevelIterator(gridbase_.entityDuneIndexEnd(codim, pitype), gridbase_, grid());
+        }
+
+        template< int codim, PartitionIteratorType pit >
+        typename Codim< codim >::template Partition< pit >::Iterator end () const
+        {
+      	  return LevelIterator(gridbase_.entityDuneIndexEnd(codim, pit), gridbase_, grid());
+        }
+
+        int overlapSize ( int codim ) const  { return grid().overlapSize(level_, codim); }
+
+        int ghostSize ( int codim ) const  { return grid().ghostSize(level_, codim); }
+
+    private:
+        int level_;
+
+    };
+
+
 
   } // namespace CurvGrid
 

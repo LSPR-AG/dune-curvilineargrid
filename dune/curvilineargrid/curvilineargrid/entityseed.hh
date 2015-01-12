@@ -14,19 +14,9 @@ namespace Dune
   namespace CurvGrid
   {
 
-    // Internal Forward Declarations
-    // -----------------------------
-
-    template< int codim, class Grid, bool fake = !(Capabilities::hasHostEntity< Grid, codim >::v) >
-    class EntitySeed;
-
-
-
-    // EntitySeed (real)
-    // -----------------
 
     template< int codim, class GridType >
-    class EntitySeed< codim, GridType, false >
+    class EntitySeed
     {
       typedef typename remove_const< GridType >::type::Traits Traits;
 
@@ -36,79 +26,41 @@ namespace Dune
       static const int mydimension = dimension - codimension;
       static const int dimensionworld = Traits::dimensionworld;
 
-      static const bool fake = false;
+      typedef typename Traits::ctype ctype
 
-      typedef typename Traits::Grid Grid;
-      typedef typename Traits::template Codim< codim >::Entity Entity;
 
-      typedef typename Traits::HostGrid HostGrid;
-      typedef typename HostGrid::template Codim< codim >::EntitySeed HostEntitySeed;
+      typedef Dune::CurvilinearGridStorage<ctype, dimensionworld> GridStorageType;
+      typedef Dune::CurvilinearGridBase<ctype, dimensionworld> GridBaseType;
+
+
+      typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
+      typedef typename GridStorageType::LocalIndexType            LocalIndexType;
 
       //! default construct an invalid entity seed
-      EntitySeed ( )
-      {}
-
-      explicit EntitySeed ( const HostEntitySeed &hostEntitySeed )
-        : hostEntitySeed_( hostEntitySeed )
+      EntitySeed (LocalIndexType index, Dune::PartitionType pitype, GridBaseType & gridbase)
+  	  	  : index_(index), pitype_(pitype), gridbase_(gridbase)
       {}
 
       //! check whether the EntitySeed refers to a valid Entity
       bool isValid() const
       {
-        return hostEntitySeed_.isValid();
+    	  return !(gridbase_.entityIndexIterator(codim, localIndex) == gridbase_.entityIndexEnd(codim) );
       }
 
-      const HostEntitySeed &hostEntitySeed () const { return hostEntitySeed_; }
+      // Returns local index of the associated entity
+      LocalIndexType localIndex() const  { return index_; }
+
+      // Returns partition type of the associated entity.
+      // Not needed for entity itself, but needed for the range the entity would iterate over if necessary
+      Dune::PartitionType partitionType() const  { return pitype_; }
+
+      // Returns a reference to the grid base class
+      GridBaseType & gridBase() const  { return gridbase_; }
 
     private:
-      HostEntitySeed hostEntitySeed_;
-    };
-
-
-
-    // EntitySeed (fake)
-    // -----------------
-
-    template< int codim, class GridType >
-    class EntitySeed< codim, GridType, true >
-    {
-      typedef typename remove_const< GridType >::type::Traits Traits;
-
-    public:
-      static const int codimension = codim;
-      static const int dimension = Traits::dimension;
-      static const int mydimension = dimension - codimension;
-      static const int dimensionworld = Traits::dimensionworld;
-
-      static const bool fake = true;
-
-      typedef typename Traits::Grid Grid;
-      typedef typename Traits::template Codim< codim >::Entity Entity;
-
-      typedef typename Traits::HostGrid HostGrid;
-      typedef typename HostGrid::template Codim< 0 >::EntitySeed HostElementSeed;
-
-      //! default construct an invalid entity seed
-      EntitySeed ( )
-      {}
-
-      explicit EntitySeed ( const HostElementSeed &hostElementSeed, unsigned int subEntity )
-        : hostElementSeed_( hostElementSeed ),
-          subEntity_( subEntity )
-      {}
-
-      //! check whether the EntitySeed refers to a valid Entity
-      bool isValid() const
-      {
-        return hostElementSeed_.isValid();
-      }
-
-      const HostElementSeed &hostElementSeed () const { return hostElementSeed_; }
-      unsigned int subEntity () const { return subEntity_; }
-
-    private:
-      HostElementSeed hostElementSeed_;
-      unsigned int subEntity_;
+      GridBaseType & gridbase_;
+      LocalIndexType index_;
+      Dune::PartitionType pitype_;
     };
 
   } // namespace CurvGrid

@@ -64,7 +64,11 @@ namespace Dune
         return *this;
       }
 
-      operator bool () const { return bool( hostIntersection_ ); }
+
+
+
+
+
 
       EntityPointer inside () const
       {
@@ -76,50 +80,78 @@ namespace Dune
         return EntityPointerImpl( grid(), hostIntersection().outside() );
       }
 
-      bool boundary () const { return hostIntersection().boundary(); }
+      // By dune-convention, domain and process boundaries are considered boundaries
+      bool boundary () const {
+    	  StructuralType structtype = gridbase_.entityStructuralType(1, localIndex_);
 
-      bool conforming () const { return hostIntersection().conforming(); }
+    	  return
+    		(structtype == Dune::CurvilinearGridStorage::PartitionType::DomainBoundary) ||
+    		(structtype == Dune::CurvilinearGridStorage::PartitionType::ProcessBoundary) ||
+    		(structtype == Dune::CurvilinearGridStorage::PartitionType::ComplexBoundary);
+      }
 
-      bool neighbor () const { return hostIntersection().neighbor(); }
 
-      int boundaryId () const { return hostIntersection().boundaryId(); }
+      /** \note Non-conformal grids not implemented atm  **/
+      bool conforming () const { return true; }
+
+
+      // By dune-convention, everything has a neighbor, except domain boundaries, and (process boundaries in serial case)
+      bool neighbor () const
+      {
+    	  StructuralType structtype = gridbase_.entityStructuralType(1, localIndex_);
+
+    	  if (structtype == Dune::CurvilinearGridStorage::PartitionType::DomainBoundary)  { return false; }
+
+    	  if (
+    		(structtype == Dune::CurvilinearGridStorage::PartitionType::ProcessBoundary) ||
+    		(structtype == Dune::CurvilinearGridStorage::PartitionType::ComplexBoundary))
+    	  {
+    		  return !gridbase_.isSerial();
+    	  }
+
+    	  return true;
+      }
+
 
       size_t boundarySegmentIndex () const
       {
         return hostIntersection().boundarySegmentIndex();
       }
 
+      // Geometry of the element that calls this intersection
       LocalGeometry geometryInInside () const
       {
-        return hostIntersection().geometryInInside();
+
       }
 
+      // Geometry of the other element
       LocalGeometry geometryInOutside () const
       {
-        return hostIntersection().geometryInOutside();
+
       }
 
+      // Geometry of this face
       Geometry geometry () const
       {
-        if( !geo_ )
-        {
-          CoordVector coords( insideGeo_, geometryInInside() );
-          geo_ = GeometryImpl( grid(), type(), coords );
-        }
+        if(!geo_)  { geo_ = GeometryImpl( grid(), type(), coords ); }
         return Geometry( geo_ );
       }
 
-      GeometryType type () const { return hostIntersection().type(); }
+      GeometryType type () const { return geo_.type(); }
 
-      int indexInInside () const
+      // Face Subentity index as viewed from calling element
+      InternalIndexType indexInInside () const
       {
-        return hostIntersection().indexInInside();
+    	  return subentityIndex(localElementIndex_);
       }
 
-      int indexInOutside () const
+      // Face Subentity index as viewed from other element
+      InternalIndexType indexInOutside () const
       {
-        return hostIntersection().indexInOutside();
+    	  return subentityIndex(outsideElementIndex());
       }
+
+      // All normals as viewed from the calling element
 
       FieldVector< ctype, dimensionworld >
       integrationOuterNormal ( const FieldVector< ctype, dimension-1 > &local ) const
@@ -147,30 +179,31 @@ namespace Dune
         return unitOuterNormal( refFace.position( 0, 0 ) );
       }
 
-      const HostIntersection &hostIntersection () const
-      {
-        assert( *this );
-        return *hostIntersection_;
-      }
 
       const Grid &grid () const { return insideGeo_.grid(); }
 
-      void invalidate ()
+
+      // Additional methods
+      // *****************************************************************
+      LocalIndexType outsideElementIndex()
       {
-        hostIntersection_ = 0;
-        geo_ = GeometryImpl( grid() );
+    	  // 1) gridbase_.face().element1index and element2index and choose the one that is not the inside
       }
 
-      void initialize ( const HostIntersection &hostIntersection )
+      InternalIndexType subentityIndex(LocalIndexType localElementIndex)
       {
-        assert( !(*this) );
-        hostIntersection_ = &hostIntersection;
+    	  // 1) Get local index of this face
+    	  // 2) Loop over all subentity faces of this element
+    	  // 3) Find face matching this local index, get its subentityIndex
+
+    	  // Implement this in gridbase
       }
 
     private:
-      ElementGeometryImpl insideGeo_;
-      const HostIntersection *hostIntersection_;
-      mutable GeometryImpl geo_;
+      LocalIndexType     localElementIndex_;
+      InternalIndexType  faceSubIndex_;
+      GeometryImpl       geo_;
+      GridBaseType & gridbase_;
     };
 
   } // namespace CurvGrid

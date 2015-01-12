@@ -28,7 +28,7 @@ namespace Dune
       typedef IndexSet< Grid > This;
       typedef Dune::IndexSet< Grid, This > Base;
 
-      typedef typename Dune::CurvilinearGridBase      CurvilinearGridBase;
+      typedef typename Dune::CurvilinearGridBase<ct, dim>      GridBaseType;
 
       typedef typename remove_const< Grid >::type::Traits Traits;
 
@@ -37,14 +37,15 @@ namespace Dune
 
       typedef typename Base::IndexType IndexType;
 
-      IndexSet ()  { }
+      IndexSet (GridBaseType & gridbase) : gridbase_(gridbase)
+      { }
 
-      IndexSet ( const This &other )  { }
+      IndexSet ( const This &other ) : gridbase_(other.gridBase()) { }
 
       const This &operator= ( const This &other )  { return *this; }
 
-      using Base::index;
-      using Base::subIndex;
+      GridBaseType & gridBase() { return gridbase_; }
+
 
       template< int codim >
       IndexType index ( const typename Traits::template Codim< codim >::Entity &entity ) const
@@ -69,17 +70,7 @@ namespace Dune
       }
 
 
-      IndexType size ( int codim ) const
-      {
-    	  switch(codim)
-    	  {
-    	  case 0  :   return gridbase_.nEntity(0);  break;
-    	  case 1  :   return gridbase_.nEntity(1);  break;
-    	  case 2  :   return gridbase_.nEntity(2);  break;
-    	  case 3  :   return gridbase_.nEntity(3);  break;
-    	  }
-    	  return 0;
-      }
+      IndexType size ( int codim ) const  { return gridbase_.nEntity(codim); }
 
       template< int codim >
       bool contains ( const typename Traits::template Codim< codim >::Entity &entity ) const
@@ -107,7 +98,7 @@ namespace Dune
 
     private:
 
-      CurvilinearGridBase & gridbase_;
+      GridBaseType & gridbase_;
     };
 
   } // namespace CurvGrid

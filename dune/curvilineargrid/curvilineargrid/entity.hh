@@ -48,17 +48,17 @@ namespace Dune
   public:
 	  typedef typename remove_const< GridImp >::type::Traits Traits;
 
-	  typedef typename Traits::ctype ctype;						//! coordinate type of the grid
+	  typedef typename Traits::ctype ctype;
 
   protected:
-	  typedef typename Traits::template Codim< codim >::EntitySeed EntitySeed;			//! type of corresponding entity seed
+	  typedef typename Traits::template Codim< codim >::EntitySeed EntitySeed;
 
-	  typedef Dune::CurvilinearGridStorage<ctype, dim>      GridStorageType;
-	  typedef Dune::CurvilinearGridBase<ctype, dim>         GridBaseType;
+	  typedef typename Traits::GridStorageType      GridStorageType;
+	  typedef typename Traits::GridBaseType         GridBaseType;
 
-	  typedef typename GridStorageType::StructuralType      StructuralType;
+	  typedef typename Traits::StructuralType       StructuralType;
 
-	  typedef typename GridBaseType::IndexSetIterator       IndexSetIterator;
+	  typedef typename Traits::IndexSetIterator     IndexSetIterator;
 
   public:
 		/** \name Construction, Initialization and Destruction
@@ -66,13 +66,11 @@ namespace Dune
 
 	  EntityBase (
 	    IndexSetIterator & iter,
-	    GridBaseType & gridbase,
-	    GridImp & grid
+	    GridBaseType & gridbase
 	    )
 	  	  :
 	  		gridbaseIndexIterator_(iter),
-	  	    gridbase_(gridbase),
-	  	    grid_(grid)
+	  	    gridbase_(gridbase)
 	  {  }
 
 
@@ -106,12 +104,9 @@ namespace Dune
 	  /** \brief moves to the next entity within the base storage. Additional functionality used by iterators */
 	  void next()  { gridbaseIndexIterator_++; }
 
-	  GridImp & grid()  { return grid_; }
-
   protected:
 	    IndexSetIterator gridbaseIndexIterator_;
 	    GridBaseType & gridbase_;
-	    GridImp & grid_;
   };
 
 
@@ -144,11 +139,12 @@ namespace Dune
 
 	    typedef typename Traits::template Codim< codimension >::GeometryImpl GeometryImpl;
 
-	    typedef EntityBase<codim, dim, GridImp>                  Base;
+	    typedef typename Traits::GridBaseStorage      GridBaseStorage;
+	    typedef typename Traits::GridBaseType         GridBaseType;
+	    typedef typename Traits::IdType               IdType;
 
-	    typedef Dune::CurvilinearGridStorage<ctype, dim>      GridBaseStorage;
-	    typedef Dune::CurvilinearGridBase<ctype, dim>         GridBaseType;
-	    typedef Dune::CurvilinearGridStorage::IdType          IdType;
+
+	    typedef EntityBase<codim, dim, GridImp>   Base;
 
 	    using Base::gridbaseIndexIterator_;
 	    using Base::gridbase_;
@@ -227,7 +223,6 @@ namespace Dune
 	  typedef typename remove_const< GridImp >::type::Traits Traits;
 
   public:
-	  typedef typename remove_const< Grid >::type::Traits Traits;
 
 	  /** \brief The geometry type of this entity */
 	  typedef typename Traits::template Codim< 0 >::Geometry Geometry;
@@ -243,22 +238,14 @@ namespace Dune
 
 	  /** \name Attributes
 	   *  \{ */
-	  static const int codimension = 0;		//! codimensioon of the entity
-	  static const int dimension = dim;		//! dimension of the grid
-	  static const int mydimension = dim;	//! dimension of the entity
+	  static const int codimension    = 0;		//! codimensioon of the entity
+	  static const int dimension      = dim;	//! dimension of the grid
+	  static const int mydimension    = dim;	//! dimension of the entity
 	  static const int dimensionworld = dim;	//! dimension of the world
 	  /** \} */
 
-	  typedef typename Traits::ctype ctype;						//! coordinate type of the grid
-
-	  typedef Dune::CurvilinearGridStorage<ctype, dim>      GridBaseStorage;
-	  typedef Dune::CurvilinearGridBase<ctype, dim>         GridBaseType;
-
-	  typedef EntityBase<0, dim, GridImp>                  Base;
-
-	  using Base::gridbaseIndexIterator_;
-	  using Base::gridbase_;
-
+	  typedef typename Traits::GridStorageType      GridStorageType;
+	  typedef typename Traits::GridBaseType         GridBaseType;
 
 	  typedef typename GridBaseType::GlobalIndexType           GlobalIndexType;
 	  typedef typename GridBaseType::LocalIndexType            LocalIndexType;
@@ -268,11 +255,14 @@ namespace Dune
 	  typedef typename GridBaseType::InterpolatoryOrderType    InterpolatoryOrderType;
 
 
+	  typedef EntityBase<0, dim, GridImp>                  Base;
+	  using Base::gridbaseIndexIterator_;
+	  using Base::gridbase_;
+
   public:
 
 
-      Entity (int localEntityIndex,
-    		  GridBaseType & gridbase)
+      Entity (int localEntityIndex, GridBaseType & gridbase)
   	  	  : Base(localEntityIndex, gridbase)
       {}
 
@@ -416,8 +406,8 @@ namespace Dune
     		StructuralType thisStructType = entityStructuralType<1>(thisFaceIndex);
 
     		if (
-    		  (thisStructType == GridBaseStorage::PartitionType::ProcessBoundary) ||
-    		  (thisStructType == GridBaseStorage::PartitionType::ComplexBoundary)
+    		  (thisStructType == GridStorageType::PartitionType::ProcessBoundary) ||
+    		  (thisStructType == GridStorageType::PartitionType::ComplexBoundary)
     		)  { return true; }
     	}
 

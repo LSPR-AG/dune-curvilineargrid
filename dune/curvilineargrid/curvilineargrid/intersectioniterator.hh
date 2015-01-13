@@ -20,7 +20,7 @@ namespace Dune
     {
       typedef typename remove_const< Grid >::type::Traits Traits;
 
-      typedef CurvGrid::Intersection< Grid, typename HostIntersectionIterator::Intersection > IntersectionImpl;
+      typedef typename Traits::IntersectionImpl IntersectionImpl;
 
       typedef typename Traits::template Codim< 0 >::EntityPointerImpl EntityPointerImpl;
       typedef typename Traits::template Codim< 0 >::Geometry ElementGeometry;
@@ -31,15 +31,14 @@ namespace Dune
       typedef typename Traits::template Codim< 0 >::EntityPointer EntityPointer;
 
       template< class Entity >
-      IntersectionIterator ( const Entity &inside,
-                             const HostIntersectionIterator &hostIterator )
-        : hostIterator_( hostIterator ),
-          intersection_( IntersectionImpl( inside.geometry() ) )
+      IntersectionIterator (LocalIndexType localIndexInside,
+    		  InternalIndexType subIndexInside,
+    		  GridBaseType & gridbase)
+        : intersection_(localIndexInside, subIndexInside, gridbase)
       {}
 
       IntersectionIterator ( const IntersectionIterator &other )
-        : hostIterator_( other.hostIterator_ ),
-          intersection_( IntersectionImpl( Grid::getRealImplementation( other.intersection_ ) ) )
+        : intersection_( IntersectionImpl( Grid::getRealImplementation( other.intersection_ ) ) )
       {}
 
       IntersectionIterator &operator= ( const IntersectionIterator &other )
@@ -56,6 +55,12 @@ namespace Dune
 
       void increment ()
       {
+    	  // If (SubentityIndex >= SubentitySize)  { THROW ERROR }
+    	  // Increase iterator, while
+    	  // 1) SubentityIndex < SubentitySize
+    	  // 2) FacePartitionType == Ghost
+
+
         ++hostIterator_;
         intersectionImpl().invalidate();
       }
@@ -73,7 +78,6 @@ namespace Dune
         return Grid::getRealImplementation( intersection_ );
       }
 
-      HostIntersectionIterator hostIterator_;
       mutable Intersection intersection_;
     };
 

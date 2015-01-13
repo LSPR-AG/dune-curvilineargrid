@@ -18,23 +18,20 @@ namespace Dune
     template< int codim, class GridType >
     class EntitySeed
     {
-      typedef typename remove_const< GridType >::type::Traits Traits;
+      typedef typename GridType::Traits Traits;
 
     public:
-      static const int codimension = codim;
-      static const int dimension = Traits::dimension;
-      static const int mydimension = dimension - codimension;
+      static const int codimension    = codim;
+      static const int dimension      = Traits::dimension;
+      static const int mydimension    = dimension - codimension;
       static const int dimensionworld = Traits::dimensionworld;
 
-      typedef typename Traits::ctype ctype
+	  typedef typename Traits::GridStorageType      GridStorageType;
+	  typedef typename Traits::GridBaseType         GridBaseType;
 
 
-      typedef Dune::CurvilinearGridStorage<ctype, dimensionworld> GridStorageType;
-      typedef Dune::CurvilinearGridBase<ctype, dimensionworld> GridBaseType;
-
-
-      typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
-      typedef typename GridStorageType::LocalIndexType            LocalIndexType;
+      typedef typename Traits::GlobalIndexType           GlobalIndexType;
+      typedef typename Traits::LocalIndexType            LocalIndexType;
 
       //! default construct an invalid entity seed
       EntitySeed (LocalIndexType index, Dune::PartitionType pitype, GridBaseType & gridbase)

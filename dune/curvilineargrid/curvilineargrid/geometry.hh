@@ -60,38 +60,21 @@ namespace Dune
       typedef typename BasicMapping::SubLocalCoordinate SubLocalCoordinate;
 
 
-      Geometry ( const Grid &grid )
-        : grid_( &grid ),
-          mapping_( nullptr )
-      {}
-
       template< class Vertices >
-      Geometry ( const Grid &grid, const GeometryType &type, const Vertices &vertices, int order )
-        : grid_( &grid )
+      Geometry (const GeometryType &type, const Vertices &vertices, int order )
+      	  : mapping_ ( type, vertices, order )
       {
           assert( int( type.dim() ) == mydimension );
-          void *mappingStorage = grid.allocateStorage( sizeof( BasicMapping ) );
-          mapping_ = new( mappingStorage ) BasicMapping( type, vertices, order );
       }
 
-      Geometry ( const This &other )
-        : grid_( other.grid_ ),
-          mapping_( other.mapping_ )
-      {
+      Geometry (BasicMapping & mapping ) : mapping_ ( mapping )  { }
 
-      }
-
-      ~Geometry ()
-      {
-        if(mapping_)  { grid().deallocateStorage( mapping_, sizeof( BasicMapping ) ); }
-      }
+      Geometry ( const This &other ) : mapping_( other.mapping_ )  { }
 
       const This &operator= ( const This &other )
       {
-        if( mapping_)               { grid().deallocateStorage( mapping_, sizeof( BasicMapping ) );               }
-        grid_ = other.grid_;
-        mapping_ = other.mapping_;
-        return *this;
+    	  mapping_ = other.mapping_;
+    	  return *this;
       }
 
       operator bool () const { return bool( mapping_ ); }
@@ -117,6 +100,11 @@ namespace Dune
       PolynomialVector NormalIntegrationElementAnalytical()      const { return mapping_->NormalIntegrationElementAnalytical(); }
       Polynomial IntegrationElementSquaredAnalytical()           const { return mapping_->IntegrationElementSquaredAnalytical(); }
 
+      GlobalCoordinate subentityIntegrationNormal (InternalIndexType subIndex, LocalCoordinate localCoord)  const { return mapping_->subentityIntegrationNormal(subIndex, localCoord); }
+      GlobalCoordinate subentityNormal            (InternalIndexType subIndex, LocalCoordinate localCoord)  const { return mapping_->subentityNormal(subIndex, localCoord); }
+      GlobalCoordinate subentityUnitNormal        (InternalIndexType subIndex, LocalCoordinate localCoord)  const { return mapping_->subentityUnitNormal(subIndex, localCoord); }
+
+
       // Explicit integrals
       ctype integrateScalar(const Polynomial & P, double tolerance) const { return mapping_->integrateScalar(P, tolerance); }
       template <typename Functor>
@@ -124,15 +112,12 @@ namespace Dune
       ctype integrateAnalyticalDot(const PolynomialVector & PVec)   const { return mapping_->integrateAnalyticalDot(PVec); }
       ctype volume () const { return mapping_->volume(); }
 
-      JacobianTransposed jacobianTransposed ( const LocalCoordinate &local ) const { return mapping_->jacobianTransposed( local ); }
-      JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local ) const { return mapping_->jacobianInverseTransposed( local ); }
-
-      const Grid &grid () const { return *grid_; }
+      JacobianTransposed jacobianTransposed ( const LocalCoordinate &local )                const { return mapping_->jacobianTransposed( local ); }
+      JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local )  const { return mapping_->jacobianInverseTransposed( local ); }
 
     private:
 
-      const Grid *grid_;
-      BasicMapping* mapping_;
+      BasicMapping mapping_;
     };
 
   } // namespace CurvGrid

@@ -452,6 +452,26 @@ public:
     }
 
 
+    /** Get vertex global coordinate */
+    InterpolatoryOrderType entityInterpolationOrder(int codim, LocalIndexType localIndex) const
+    {
+    	if (codim >= 3)  { return 0; }
+
+    	LocalIndexType localAssocElementIndex;
+
+    	switch (codim)
+    	{
+    	case 0 : localAssocElementIndex = localIndex;  break;
+    	case 1 : localAssocElementIndex = gridstorage_.face[localIndex].element1Index;  break;
+    	case 2 : localAssocElementIndex = gridstorage_.edge[localIndex].elementIndex;  break;
+    	}
+
+    	return gridstorage_.element[localAssocElementIndex].interpOrder;
+    }
+
+
+
+
     /** Returns the local index of a subentity of a given entity
      *  \param[in] entityIndex              local index of the entity
      *  \param[in] codim                    codimension of the entity

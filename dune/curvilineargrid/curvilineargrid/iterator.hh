@@ -21,15 +21,18 @@ namespace Dune
     class LeafIterator : public EntityPointer< codim, Grid >
     {
         typedef EntityPointer< codim, Grid > Base;
-        typedef typename Grid::Traits Traits;
+
 
     protected:
         typedef typename Base::EntityImpl EntityImpl;
         typedef typename Base::EntitySeed EntitySeed;
 
+        using Base::GridBaseType;
+        using Base::IndexSetIterator;
+
     public:
-        LeafIterator (IndexSetIterator & iter, GridBaseType & gridbase, const Grid &grid)
-         : Base( iter, gridbase, grid)
+        LeafIterator (IndexSetIterator & iter, GridBaseType & gridbase)
+         : Base( iter, gridbase)
         {}
 
         void increment ()
@@ -44,15 +47,17 @@ namespace Dune
     class LevelIterator : public EntityPointer< codim, Grid >
     {
         typedef EntityPointer< codim, Grid > Base;
-        typedef typename Grid::Traits Traits;
 
     protected:
         typedef typename Base::EntityImpl EntityImpl;
         typedef typename Base::EntitySeed EntitySeed;
 
+        using Base::GridBaseType;
+        using Base::IndexSetIterator;
+
     public:
-        LevelIterator (IndexSetIterator & iter, GridBaseType & gridbase, const Grid &grid)
-    	  : Base( iter, gridbase, grid)
+        LevelIterator (IndexSetIterator & iter, GridBaseType & gridbase)
+    	  : Base( iter, gridbase)
         {}
 
         void increment ()
@@ -75,9 +80,12 @@ namespace Dune
     	typedef typename Base::EntityImpl EntityImpl;
     	typedef typename Base::EntitySeed EntitySeed;
 
+        using Base::GridBaseType;
+        using Base::IndexSetIterator;
+
     public:
-      HierarchicIterator (IndexSetIterator & iter, GridBaseType & gridbase, const Grid &grid)
-    	: Base( iter, gridbase, grid)
+      HierarchicIterator (IndexSetIterator & iter, GridBaseType & gridbase)
+    	: Base( iter, gridbase)
       {}
 
       void increment ()

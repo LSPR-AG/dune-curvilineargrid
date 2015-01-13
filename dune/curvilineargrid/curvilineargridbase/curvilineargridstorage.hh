@@ -48,7 +48,8 @@ public:
     // ******************************************************************
 	typedef  int      GlobalIndexType;
 	typedef  int      LocalIndexType;
-	typedef  int      InternalIndexType;
+	typedef  Dune::CurvilinearGeometryHelper::InternalIndexType      InternalIndexType;
+
 	typedef  int      StructuralType;
 	typedef  int      PhysicalTagType;
 	typedef  int      InterpolatoryOrderType;

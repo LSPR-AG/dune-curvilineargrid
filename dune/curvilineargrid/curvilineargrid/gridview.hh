@@ -27,15 +27,24 @@ namespace Dune
     template< class Grid, PartitionIteratorType pitype >
     class GridView
     {
-    	typedef Dune::CurvilinearGridBase<ct, dim>       GridBaseType;
-    	typedef typename GridBaseType::IndexSetIterator  IndexSetIterator;
+    	typedef typename Grid::Traits Traits;
+
+    	typedef typename Traits::GridBaseType      GridBaseType;
+    	typedef typename Traits::IndexSetIterator  IndexSetIterator;
+
+    	typedef typename Traits::template Codim< 0 >::Entity  Entity;
+
+    	typedef typename Traits::CollectiveCommunication      CollectiveCommunication;
+
+    	typedef typename Traits::IntersectionIterator         IntersectionIterator;
+    	typedef typename Traits::IntersectionIteratorImpl     IntersectionIteratorImpl;
 
     public:
 
       static const bool conforming = Traits::conforming;
 
       GridView (const Grid &grid, GridBaseType & gridbase)
-             : grid_( &grid ), gridbase_(gridbase), indexset_(gridbase)
+             : grid_( &grid ), gridbase_(gridbase)
       { }
 
       const Grid &grid () const
@@ -44,27 +53,30 @@ namespace Dune
         return *grid_;
       }
 
-      const IndexSet &indexSet () const
+
+	  // 1) Create IntersectionIterator with subentityIndex = 0;
+	  // 2) Check the type of associated face
+	  // 3) if (faceType == Ghost) then iterator++
+      IntersectionIterator ibegin ( const Entity &entity ) const
       {
-        if( !indexset_ )  { indexset_ = IndexSet( ); }
-        return indexset_;
+    	  LocalIndexType elementLocalIndex = entity.localIndex();
+    	  LocalIndexType faceLocalIndex = gridbase_.subentityLocalIndex(elementLocalIndex, 0, 1, 0);
+
+    	  IntersectionIteratorImpl iter (elementLocalIndex, 0, gridbase_);
+
+          // Iterator must not point at a Ghost face
+          // If it does, increment it, it will automatically point at the next non-ghost face
+          if (gridbase_.entityStructuralType(1, faceLocalIndex) == Dune::CurvilinearGridStorage<ctype, dim>::PartitionType::Ghost)  { iter.increment(); }
+
+          return iter;
       }
 
 
-      // Get the number of entities within this gridview
-      int size ( int codim )                 const  { return indexset_.size(codim); }
-      int size ( const GeometryType &type )  const  { return indexset_.size(type); }
-
-      IntersectionIterator ibegin ( const typename Codim< 0 >::Entity &entity ) const
+      // FIXME: Replace the number 4 with SubentitySize
+      IntersectionIterator iend ( const Entity &entity ) const
       {
-        typedef CurvGrid::IntersectionIterator< const Grid > IntersectionIteratorImpl;
-        return IntersectionIteratorImpl(entity);
-      }
-
-      IntersectionIterator iend ( const typename Codim< 0 >::Entity &entity ) const
-      {
-        typedef CurvGrid::IntersectionIterator< const Grid > IntersectionIteratorImpl;
-        return IntersectionIteratorImpl(entity);
+    	  // 1) Create IntersectionIterator with subentityIndex = subentityNumber;
+    	  return IntersectionIteratorImpl(entity.localIndex(), 4, gridbase_);
       }
 
       const CollectiveCommunication &comm () const
@@ -83,10 +95,7 @@ namespace Dune
     protected:
       const Grid *grid_;
       GridBaseType & gridbase_;
-      mutable IndexSet indexset_;
     };
-
-
 
 
 
@@ -94,42 +103,56 @@ namespace Dune
     template< class Grid, PartitionIteratorType pitype >
     class LeafGridView : GridView<Grid, pitype >
     {
-    	typedef Dune::CurvilinearGridBase<ct, dim>       GridBaseType;
-    	typedef typename GridBaseType::IndexSetIterator  IndexSetIterator;
+    	typedef typename Grid::Traits Traits;
 
-    	typedef CurvGrid::LeafIterator< codim, Grid >    LeafIterator;
+    	typedef typename Traits::GridBaseType      GridBaseType;
+    	typedef typename Traits::IndexSetIterator  IndexSetIterator;
+
+    	typedef typename Traits::LeafIndexSet  LeafIndexSet;
+
 
     public:
     	typedef GridView<Grid, pitype >  Base;
 
     	using Base::grid_;
     	using Base::gridbase_;
-    	using Base::indexset_;
 
     	LeafGridView(const Grid &grid, GridBaseType & gridbase)
              : Base (grid, gridbase)
     	{ }
 
+        const IndexSet &indexSet () const
+        {
+          if( !indexset_ )  { indexset_ = LeafIndexSet(gridbase); }
+          return indexset_;
+        }
+
+
+        // Get the number of entities within this gridview
+        int size ( int codim )                       const  { return indexset_.size(codim); }
+        int size ( const Dune::GeometryType &type )  const  { return indexset_.size(type); }
+
+
         template< int codim >
-        typename Codim< codim >::Iterator begin () const
+        typename Traits::template Codim< codim >::LeafIterator begin () const
         {
         	return LeafIterator(gridbase_.entityDuneIndexBegin(codim, pitype), gridbase_, grid());
         }
 
         template< int codim, PartitionIteratorType pit >
-        typename Codim< codim >::template Partition< pit >::Iterator begin () const
+        typename Traits::template Codim< codim >::template Partition< pit >::LeafIterator begin () const
         {
         	return LeafIterator(gridbase_.entityDuneIndexBegin(codim, pit), gridbase_, grid());
         }
 
         template< int codim >
-        typename Codim< codim >::Iterator end () const
+        typename Traits::template Codim< codim >::LeafIterator end () const
         {
       	  return LeafIterator(gridbase_.entityDuneIndexEnd(codim, pitype), gridbase_, grid());
         }
 
         template< int codim, PartitionIteratorType pit >
-        typename Codim< codim >::template Partition< pit >::Iterator end () const
+        typename Traits::template Codim< codim >::template Partition< pit >::LeafIterator end () const
         {
       	  return LeafIterator(gridbase_.entityDuneIndexEnd(codim, pit), gridbase_, grid());
         }
@@ -138,8 +161,10 @@ namespace Dune
 
         int ghostSize ( int codim ) const  { return grid().ghostSize(codim); }
 
-    };
+    private:
+        mutable LeafIndexSet indexset_;
 
+    };
 
 
 
@@ -147,43 +172,57 @@ namespace Dune
     template< class Grid, PartitionIteratorType pitype >
     class LevelGridView : GridView<Grid, pitype >
     {
-    	typedef Dune::CurvilinearGridBase<ct, dim>       GridBaseType;
-    	typedef typename GridBaseType::IndexSetIterator  IndexSetIterator;
+    	typedef typename Grid::Traits Traits;
 
-    	typedef CurvGrid::LevelIterator< codim, Grid >    LevelIterator;
+    	typedef typename Traits::GridBaseType      GridBaseType;
+    	typedef typename Traits::IndexSetIterator  IndexSetIterator;
+
+    	typedef typename Traits::LevelIndexSet  LevelIndexSet;
 
     public:
     	typedef GridView<Grid, pitype >  Base;
 
     	using Base::grid_;
     	using Base::gridbase_;
-    	using Base::indexset_;
 
-    	LevelGridView(const Grid &grid, GridBaseType & gridbase)
+    	LevelGridView(const Grid &grid, GridBaseType & gridbase, int level)
              : Base (grid, gridbase),
                level_(level)
     	{ }
 
+
+        const IndexSet &indexSet () const
+        {
+          if( !indexset_ )  { indexset_ = LevelIndexSet(gridbase); }
+          return indexset_;
+        }
+
+
+        // Get the number of entities within this gridview
+        int size ( int codim )                       const  { return indexset_.size(codim); }
+        int size ( const Dune::GeometryType &type )  const  { return indexset_.size(type); }
+
+
         template< int codim >
-        typename Codim< codim >::Iterator begin () const
+        typename Traits::template Codim< codim >::LevelIterator begin () const
         {
         	return LevelIterator(gridbase_.entityDuneIndexBegin(codim, pitype), gridbase_, grid());
         }
 
         template< int codim, PartitionIteratorType pit >
-        typename Codim< codim >::template Partition< pit >::Iterator begin () const
+        typename Traits::template Codim< codim >::template Partition< pit >::LevelIterator begin () const
         {
         	return LevelIterator(gridbase_.entityDuneIndexBegin(codim, pit), gridbase_, grid());
         }
 
         template< int codim >
-        typename Codim< codim >::Iterator end () const
+        typename Traits::template Codim< codim >::LevelIterator end () const
         {
       	  return LevelIterator(gridbase_.entityDuneIndexEnd(codim, pitype), gridbase_, grid());
         }
 
         template< int codim, PartitionIteratorType pit >
-        typename Codim< codim >::template Partition< pit >::Iterator end () const
+        typename Traits::template Codim< codim >::template Partition< pit >::LevelIterator end () const
         {
       	  return LevelIterator(gridbase_.entityDuneIndexEnd(codim, pit), gridbase_, grid());
         }
@@ -194,6 +233,7 @@ namespace Dune
 
     private:
         int level_;
+        mutable LevelIndexSet indexset_;
 
     };
 

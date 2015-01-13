@@ -23,19 +23,24 @@ namespace Dune
 
     template<class Grid>
     class IndexSet
-      : public Dune::IndexSet< Grid, IndexSet< Grid> >
+      : public Dune::IndexSet< Grid, IndexSet< Grid>, remove_const< Grid >::type::Traits::LocalIndexType >
     {
-      typedef IndexSet< Grid > This;
-      typedef Dune::IndexSet< Grid, This > Base;
+    	typedef typename remove_const< Grid >::type::Traits Traits;
 
-      typedef typename Dune::CurvilinearGridBase<ct, dim>      GridBaseType;
+    	typedef typename Traits::LocalIndexType   LocalIndexType;
 
-      typedef typename remove_const< Grid >::type::Traits Traits;
+    	typedef typename Traits::GridBaseType     GridBaseType;
+
+
+    	typedef IndexSet< Grid > This;
+    	typedef Dune::IndexSet< Grid, This, LocalIndexType > Base;
+
+
 
     public:
       static const int dimension = Traits::dimension;
 
-      typedef typename Base::IndexType IndexType;
+      typedef typename LocalIndexType   IndexType;
 
       IndexSet (GridBaseType & gridbase) : gridbase_(gridbase)
       { }

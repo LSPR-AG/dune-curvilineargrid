@@ -33,71 +33,120 @@ namespace Dune
     template <int dim, int dimworld, class ct>
     struct GridFamily
     {
-      struct Traits
-      {
-        typedef CurvilinearGrid< dim, dimworld, ct> Grid;
+    	struct Traits
+    	{
+    		// GridBase typedefs
+    		// ****************************************************
 
-        typedef typename ct ctype;
+    		typedef Dune::CurvilinearGridBase<ct, dimworld>             GridBaseType;
+    		typedef Dune::CurvilinearGridStorage<ct, dimworld>          GridStorageType;
 
-        static const int dimension       = dim;
-        static const int dimensionworld  = dimworld;
+    	    typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
+    	    typedef typename GridStorageType::LocalIndexType            LocalIndexType;
+    	    typedef typename GridStorageType::InternalIndexType	        InternalIndexType;
+    	    typedef typename GridStorageType::StructuralType            StructuralType;
+    	    typedef typename GridStorageType::PhysicalTagType           PhysicalTagType;
+    	    typedef typename GridStorageType::InterpolatoryOrderType    InterpolatoryOrderType;
+    	    typedef typename GridStorageType::Vertex                    Vertex;
 
-        typedef CurvGrid::Intersection< const Grid, typename HostGrid::LeafIntersection >    BaseLeafIntersection;
-        typedef CurvGrid::Intersection< const Grid, typename HostGrid::LevelIntersection >   BaseLevelIntersection;
-        typedef CurvGrid::IntersectionIterator< const Grid, typename HostGrid::LeafIntersectionIterator >   BaseLeafIntersectionIterator;
-        typedef CurvGrid::IntersectionIterator< const Grid, typename HostGrid::LevelIntersectionIterator >  BaseLevelIntersectionIterator;
-        typedef CurvGrid::HierarchicIterator< const Grid >                                                  BaseHierarchicIterator;
-
-        typedef Dune::Intersection< const Grid, BaseLeafIntersection > LeafIntersection;
-        typedef Dune::Intersection< const Grid, BaseLevelIntersection > LevelIntersection;
+  	      	typedef typename GridStorageType::LocalIndexSet             LocalIndexSet;
+  	      	typedef typename GridStorageType::IndexSetIterator          IndexSetIterator;
 
 
-        typedef Dune::IntersectionIterator< const Grid, BaseLeafIntersectionIterator, BaseLeafIntersection >    LeafIntersectionIterator;
-        typedef Dune::IntersectionIterator< const Grid, BaseLevelIntersectionIterator, BaseLevelIntersection >  LevelIntersectionIterator;
-        typedef Dune::EntityIterator< 0, const Grid, BaseHierarchicIterator>                                    HierarchicIterator;
+  	      	template <int codim>
+  	      	struct BaseCodim
+  	      	{
+  	      		typedef typename GridStorageType::template Codim<codim>::EntityGeometry	EntityGeometry;
+  	      	};
 
-        template< int codim >
-        struct Codim
-        {
-          typedef Dune::CurvGrid::Geometry< dimension-codim, dimensionworld, const Grid > GeometryImpl;
-          typedef Dune::Geometry< dimension-codim, dimensionworld, const Grid, GeometryImpl > Geometry;
-          typedef typename HostGrid::template Codim< codim >::LocalGeometry LocalGeometry;
+      	    // Logging Message Typedefs
+      	    static const unsigned int LOG_PHASE_DEV      = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
+      	    static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
 
-          typedef CurvGrid::EntityPointerTraits< codim, const Grid >     EntityPointerTraits;
-          typedef CurvGrid::EntityPointer< EntityPointerTraits >         EntityPointerImpl;
-          typedef Dune::EntityPointer< const Grid, EntityPointerImpl >   EntityPointer;
-          typedef typename EntityPointerTraits::Entity                   Entity;
 
-          typedef Dune::EntitySeed< const Grid, CurvGrid::EntitySeed< codim, const Grid > > EntitySeed;
 
-          template< PartitionIteratorType pitype >
-          struct Partition
-          {
-            typedef CurvGrid::IteratorTraits< typename HostGrid::LeafGridView, codim, pitype, const Grid > LeafIteratorTraits;
-            typedef Dune::EntityIterator< codim, const Grid, CurvGrid::Iterator< LeafIteratorTraits > > LeafIterator;
+    		// Grid typedefs
+    		// ****************************************************
 
-            typedef CurvGrid::IteratorTraits< typename HostGrid::LevelGridView, codim, pitype, const Grid > LevelIteratorTraits;
-            typedef Dune::EntityIterator< codim, const Grid, CurvGrid::Iterator< LevelIteratorTraits > > LevelIterator;
-          };
+      	    typedef CurvilinearGrid< dim, dimworld, ct> Grid;
 
-          typedef typename Partition< All_Partition >::LeafIterator LeafIterator;
-          typedef typename Partition< All_Partition >::LevelIterator LevelIterator;
-        };
+            typedef typename ct ctype;
 
-        typedef CurvGrid::IndexSet< const Grid, typename HostGrid::Traits::LeafIndexSet >   LeafIndexSet;
-        typedef CurvGrid::IndexSet< const Grid, typename HostGrid::Traits::LevelIndexSet >  LevelIndexSet;
+            static const int dimension       = dim;
+            static const int dimensionworld  = dimworld;
 
-        typedef CurvGrid::IdSet< const Grid, typename HostGrid::Traits::GlobalIdSet >  GlobalIdSet;
-        typedef CurvGrid::IdSet< const Grid, typename HostGrid::Traits::LocalIdSet >   LocalIdSet;
 
-        typedef typename Dune::CollectiveCommunication<MPI_Comm> CollectiveCommunication;
+            typedef Dune::CurvGrid::HierarchicIterator       HierarchicIteratorImpl;
 
-        template< PartitionIteratorType pitype >
-        struct Partition
-        {
-          typedef Dune::GridView< CurvGrid::GridViewTraits< typename HostGrid::LeafGridView, Allocator, pitype > >   LeafGridView;
-          typedef Dune::GridView< CurvGrid::GridViewTraits< typename HostGrid::LevelGridView, Allocator, pitype > >  LevelGridView;
-        };
+            typedef Dune::CurvGrid::LeafIntersection<const Grid>   LeafIntersectionImpl;
+            typedef Dune::CurvGrid::LevelIntersection<const Grid>  LevelIntersectionImpl;
+
+            typedef Dune::CurvGrid::LeafIntersectionIterator<const Grid>   LeafIntersectionIteratorImpl;
+            typedef Dune::CurvGrid::LevelIntersectionIterator<const Grid>  LevelIntersectionIteratorImpl;
+
+
+            typedef Dune::Intersection< const Grid, LeafIntersectionImpl > LeafIntersection;
+            typedef Dune::Intersection< const Grid, LevelIntersectionImpl > LevelIntersection;
+
+
+            typedef Dune::IntersectionIterator< const Grid, LeafIntersectionIteratorImpl, LeafIntersectionImpl >    LeafIntersectionIterator;
+            typedef Dune::IntersectionIterator< const Grid, LevelIntersectionIteratorImpl, LevelIntersectionImpl >  LevelIntersectionIterator;
+            typedef Dune::EntityIterator< 0, const Grid, BaseHierarchicIterator>                                    HierarchicIterator;
+
+            template< int codim >
+            struct Codim
+            {
+                typedef Dune::CurvGrid::Geometry< dimension-codim, dimensionworld, const Grid > GeometryImpl;
+                typedef Dune::Geometry< dimension-codim, dimensionworld, const Grid, GeometryImpl > Geometry;
+
+                // TODO: Maybe implement a simple linear geometry wrapper for this one to save memory
+                typedef typename GeometryImpl                                                   LocalGeometry;
+
+                //
+                typedef Dune::CurvGrid::Entity<codim, dim, const Grid>      EntityImpl;
+                typedef Dune::CurvGrid::EntityPointer< const Grid, codim >  EntityPointerImpl;
+                typedef Dune::CurvGrid::EntitySeed< codim, const Grid >     EntitySeedImpl;
+
+                typedef Dune::Entity<codim, dim, const Grid, EntityImpl>       Entity;
+                typedef Dune::EntityPointer< const Grid, EntityPointerImpl >   EntityPointer;
+                typedef Dune::EntitySeed< const Grid, EntitySeedImpl >         EntitySeed;
+
+                template< PartitionIteratorType pitype >
+                struct Partition
+                {
+                	typedef Dune::CurvGrid::LeafIterator< codim, const Grid >  LeafIteratorImpl;
+                	typedef Dune::CurvGrid::LevelIterator< codim, const Grid > LevelIteratorImpl;
+
+                    typedef Dune::EntityIterator< codim, const Grid, LeafIteratorImpl > LeafIterator;
+                    typedef Dune::EntityIterator< codim, const Grid, LevelIteratorImpl > LevelIterator;
+                };
+
+                typedef typename Partition< All_Partition >::LeafIterator LeafIterator;
+                typedef typename Partition< All_Partition >::LevelIterator LevelIterator;
+            };
+
+            typedef Dune::CurvGrid::IndexSet<const Grid>   LeafIndexSet;
+            typedef Dune::CurvGrid::IndexSet<const Grid >  LevelIndexSet;
+
+            typedef Dune::CurvGrid::IdSet<const Grid>  GlobalIdSet;
+            typedef Dune::CurvGrid::IdSet<const Grid>  LocalIdSet;
+
+            typedef typename GridBaseType::IdType  IdType;
+
+            typedef typename Dune::CollectiveCommunication<MPI_Comm> CollectiveCommunication;
+
+            template< PartitionIteratorType pitype >
+            struct Partition
+            {
+            	typedef Dune::CurvGrid::LeafGridView<const Grid, pitype>   LeafGridViewImpl;
+            	typedef Dune::CurvGrid::LevelGridView<const Grid, pitype>  LevelGridViewImpl;
+
+            	typedef Dune::CurvGrid::LeafGridViewTraits<pitype>         LeafGridViewTraitsImpl;
+            	typedef Dune::CurvGrid::LevelGridViewTraitsImpl<pitype>    LevelGridViewTraitsImpl;
+
+                typedef Dune::GridView<LeafGridViewTraitsImpl>    LeafGridView;
+                typedef Dune::GridView<LevelGridViewTraitsImpl>   LevelGridView;
+            };
       };
     };
 

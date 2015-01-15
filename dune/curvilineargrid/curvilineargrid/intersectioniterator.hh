@@ -53,24 +53,9 @@ namespace Dune
         return (hostIterator_ == other.hostIterator_);
       }
 
-      void increment ()
-      {
-    	  // If (SubentityIndex >= SubentitySize)  { THROW ERROR }
-    	  // Increase iterator, while
-    	  // 1) SubentityIndex < SubentitySize
-    	  // 2) FacePartitionType == Ghost
+      void increment ()  { intersection_.next(); }
 
-
-        ++hostIterator_;
-        intersectionImpl().invalidate();
-      }
-
-      const Intersection &dereference () const
-      {
-        if( !intersectionImpl() )
-          intersectionImpl().initialize( *hostIterator_ );
-        return intersection_;
-      }
+      const Intersection &dereference () const  { return intersection_; }
 
     private:
       IntersectionImpl &intersectionImpl () const

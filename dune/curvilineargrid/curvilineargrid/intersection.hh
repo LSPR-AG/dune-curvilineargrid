@@ -35,6 +35,7 @@ namespace Dune
       typedef typename Traits::template Codim< 0 >::Geometry ElementGeometry;
 
 
+      typedef typename Traits::GridStorageType    GridStorageType;
       typedef typename Traits::GridBaseType       GridBaseType;
 
       typedef typename Traits::LocalIndexType             LocalIndexType;
@@ -69,15 +70,7 @@ namespace Dune
       {
     	  localFaceIndex_ = gridbase.subentityLocalIndex (localIndexInside, 0, 1, subIndexInside);
 
-    	  LocalIndexType tmpIndex1 = faceNeighbor(localFaceIndex_, 0);
-    	  LocalIndexType tmpIndex2 = faceNeighbor(localFaceIndex_, 1);
-
-    	  localIndexOutside_ = (tmpIndex1 == localIndexInside) ? tmpIndex2 : tmpIndex1;
-
-    	  for (InternalIndexType iFace = 0; iFace < 4; iFace++)
-    	  {
-    		  if (localFaceIndex_ == gridbase.subentityLocalIndex(localIndexOutside_, 0, 1, iFace))  { subIndexOutside_ = iFace; }
-    	  }
+    	  computeOutside();
       }
 
       Intersection ( const Intersection &other )
@@ -204,6 +197,45 @@ namespace Dune
       // Auxiliary methods
       // *******************************************************
 
+      LocalIndexType intersectionIndex() { return localFaceIndex_; }
+
+      // Iterates over subentities of the inside entity by increasing the inside element subentity index
+      // If intersection is a ghost intersection, skip it
+      // If next() is called beyond the allowed size, throw error
+      void next()
+      {
+    	  const int SUBENTITY_SIZE = 4;
+
+    	  if (subIndexInside_ >= SUBENTITY_SIZE) { DUNE_THROW(Dune::IOError, "intersection: next() called with unexpected subentity index"); }
+
+    	  // Increase iterator until find a non-ghost face or reach the end
+    	  bool inc = true;
+    	  while( inc && (subIndexInside_ < SUBENTITY_SIZE) )
+    	  {
+    		  subIndexInside_++;
+    		  localFaceIndex_ = gridbase_.subentityLocalIndex (localIndexInside_, 0, 1, subIndexInside_);
+    		  inc = (gridbase_.entityStructuralType(1, localFaceIndex_) == GridStorageType::PartitionType::Ghost);
+    	  }
+
+    	  // If this is not the end, update contents of the intersection
+    	  if (subIndexInside_ != SUBENTITY_SIZE)  { computeOutside(); }
+      }
+
+      // Finds outside entity local index, and this face subentity index
+      void computeOutside()
+      {
+    	  LocalIndexType tmpIndex1 = gridbase_.faceNeighbor(localFaceIndex_, 0);
+    	  LocalIndexType tmpIndex2 = gridbase_.faceNeighbor(localFaceIndex_, 1);
+
+    	  localIndexOutside_ = (tmpIndex1 == localIndexInside_) ? tmpIndex2 : tmpIndex1;
+
+    	  for (InternalIndexType iFace = 0; iFace < 4; iFace++)
+    	  {
+    		  if (localFaceIndex_ == gridbase_.subentityLocalIndex(localIndexOutside_, 0, 1, iFace))  { subIndexOutside_ = iFace; }
+    	  }
+      }
+
+      // Creates coordinates of a linear intersection as one of the faces of the reference element
       std::vector<GlobalCoordinate> refCoord(InternalIndexType subentityIndex)
 	  {
     	  std::vector<InternalIndexType> referenceSubset = Dune::CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet(type(), 1, subentityIndex);

@@ -176,8 +176,8 @@ public:
     typedef typename GridStorageType::FaceKey                FaceKey;
     typedef typename GridStorageType::IdType                 IdType;
 
-    typedef typename GridStorageType::Index2IndexMap            Index2IndexMap;
-    typedef typename GridStorageType::IndexMapIterator          IndexMapIterator;
+    typedef typename GridStorageType::Global2LocalMap           Global2LocalMap;
+    typedef typename GridStorageType::Global2LocalIterator      Global2LocalIterator;
     typedef typename GridStorageType::LocalIndexSet             LocalIndexSet;
     typedef typename GridStorageType::IndexSetIterator          IndexSetIterator;
 
@@ -363,7 +363,7 @@ public:
 
 
     /** Get total number of entities of specific type on this process  */
-    int nEntity(int codim, StructuralType structtype) const  { entityIndexSetSelect(codim, structtype).size(); }
+    int nEntity(int codim, StructuralType structtype) const  { return entityIndexSetSelect(codim, structtype).size(); }
 
 
     /** Get the GeometryType of entities on this process  */
@@ -393,7 +393,7 @@ public:
 
 
     /** Finds global index using local index and codimension of entity. Returns false if requested local index does not correspond to an entity on this process  */
-    bool findEntityGlobalIndex(int codim, LocalIndexType localIndex, GlobalIndexType & globalIndex)
+    bool findEntityGlobalIndex(int codim, LocalIndexType localIndex, GlobalIndexType & globalIndex) const
     {
     	if (localIndex < 0)  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Received negative index");  }
 
@@ -409,17 +409,17 @@ public:
 
 
     /** Finds local index using global index and codimension of entity. Returns false if requested global index does not correspond to an entity on this process  */
-    bool findEntityLocalIndex(int codim, GlobalIndexType globalIndex, LocalIndexType & localIndex)
+    bool findEntityLocalIndex(int codim, GlobalIndexType globalIndex, LocalIndexType & localIndex) const
     {
     	if (globalIndex < 0)  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Received negative index");  }
 
-    	IndexMapIterator tmpIter = gridstorage_.entityIndexMap_[codim].find(globalIndex);
+    	Global2LocalIterator tmpIter = gridstorage_.entityIndexMap_[codim].find(globalIndex);
     	if (tmpIter != gridstorage_.entityIndexMap_[codim].end())  { localIndex = (*tmpIter).second;  return true; }
     	else  { return false; }
     }
 
     /** Checks if the entity with specified codim and local index exists, and if it has the specified structtype  */
-    bool verifyEntity(int codim, LocalIndexType localIndex, StructuralType structtype)
+    bool verifyEntity(int codim, LocalIndexType localIndex, StructuralType structtype) const
     {
     	LocalIndexSet & thisSet = entityIndexSetSelect(codim, structtype);
 
@@ -469,6 +469,42 @@ public:
     	return gridstorage_.element[localAssocElementIndex].interpOrder;
     }
 
+
+    std::vector<LocalIndexType> entityCornerLocalIndex(int codim, LocalIndexType localIndex)
+	{
+    	std::vector<LocalIndexType> rez;
+
+    	if (codim == 3)  { rez.push_back(localIndex);  return rez; }
+
+    	LocalIndexType    localElementIndex;
+    	InternalIndexType subentityIndex;
+
+    	switch(codim)
+    	{
+    	case 0 : localElementIndex = localIndex;  break;
+    	case 1 : {
+    		localElementIndex = gridstorage_.face_[localIndex].element1Index;
+    		subentityIndex  = gridstorage_.face_[localIndex].element1SubentityIndex;
+
+    	} break;
+    	case 2 : {
+    		localElementIndex = gridstorage_.edge_[localIndex].elementIndex;
+    		subentityIndex  = gridstorage_.edge_[localIndex].subentityIndex;
+    	} break;
+    	}
+
+
+    	EntityStorage & thisElem = entityData(0, localElementIndex);
+        std::vector<LocalIndexType> elementCornerLocalIndexSet = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
+
+        std::vector<InternalIndexType> internalLinearSubentityIndices = Dune::CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet(thisElem.geometryType, 2, subentityIndex);
+
+        for (int i = 0; i < internalLinearSubentityIndices.size(); i++)  {
+        	rez.push_back(elementCornerLocalIndexSet[internalLinearSubentityIndices[i]]);
+        }
+
+        return rez;
+	}
 
 
 
@@ -736,7 +772,7 @@ public:
 
     // Checks if entities of a given codim are allowed to be of a given structural type
     // If not throws an error
-    static void assertValidCodimStructuralType(int codim, StructuralType structtype)
+    void assertValidCodimStructuralType(int codim, StructuralType structtype) const
     {
     	bool fail = false;
 
@@ -771,7 +807,7 @@ protected:
     }
 
     // Returns a link to the set of all local indices of entities of a given codimension and specific structural type
-    LocalIndexSet & entityIndexSetSelect(int codim, StructuralType structtype)
+    const LocalIndexSet & entityIndexSetSelect(int codim, StructuralType structtype) const
     {
     	assertValidCodimStructuralType(codim, structtype);
 
@@ -786,7 +822,7 @@ protected:
     }
 
     // Returns a link to the set of all local indices of entities of a given codimension, based on Dune-convention partition type
-    LocalIndexSet & entityIndexSetDuneSelect(int codim, Dune::PartitionIteratorType pitype)
+    const LocalIndexSet & entityIndexSetDuneSelect(int codim, Dune::PartitionIteratorType pitype) const
     {
     	const int DuneIPartition   = Dune::PartitionIteratorType::Interior_Partition;
     	const int DuneIBPartition  = Dune::PartitionIteratorType::InteriorBorder_Partition;

@@ -74,9 +74,9 @@ private:
 	typedef typename GridStorageType::PhysicalTagType           PhysicalTagType;
 	typedef typename GridStorageType::InterpolatoryOrderType    InterpolatoryOrderType;
 
-	typedef typename GridStorageType::Vertex                GridVertex;
-	typedef typename GridStorageType::Index2IndexMap        GridIndexMap;
-	typedef typename GridStorageType::IndexMapIterator      GridIndexMapIterator;
+	typedef typename GridStorageType::Vertex                Vertex;
+	typedef typename GridStorageType::LocalIndexSet         LocalIndexSet;
+	typedef typename GridStorageType::IndexSetIterator      IndexSetIterator;
 
 	typedef typename GridStorageType::template Codim<1>::EntityGeometry     GridFaceGeometry;
 	typedef typename GridStorageType::template Codim<0>::EntityGeometry     GridElementGeometry;
@@ -177,17 +177,17 @@ public:
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Elements");
 		if (withElements)
 		{
-			GridIndexMapIterator elemIterB =  gridbase_.template entityIndexBegin(0);
-			GridIndexMapIterator elemIterE =  gridbase_.template entityIndexEnd(0);
+			IndexSetIterator elemIterB =  gridbase_.template entityIndexBegin(0);
+			IndexSetIterator elemIterE =  gridbase_.template entityIndexEnd(0);
 
-			for (GridIndexMapIterator elemIter = elemIterB;  elemIter != elemIterE;  elemIter++)
+			for (IndexSetIterator elemIter = elemIterB;  elemIter != elemIterE;  elemIter++)
 			{
-				LocalIndexType           elementLocalIndex = (*elemIter).second;
+				LocalIndexType           elementLocalIndex = *elemIter;
 				PhysicalTagType          physicalTag       = gridbase_.template physicalTag(0, elementLocalIndex);
 				GridElementGeometry      thisGeometry      = gridbase_.template entityGeometry<0>(elementLocalIndex);
 				Dune::GeometryType       gt                = thisGeometry.type();
 				InterpolatoryOrderType   order             = thisGeometry.order();
-				std::vector<GridVertex>  point             = thisGeometry.vertexSet();
+				std::vector<Vertex>  point             = thisGeometry.vertexSet();
 				std::vector<int>         tags  { physicalTag, VTK_INTERNAL, rank_ };
 
 				Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "writing element");
@@ -211,17 +211,17 @@ public:
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Ghost Elements");
 		if (withGhostElements)
 		{
-			GridIndexMapIterator ghostIterB =  gridbase_.template entityIndexBegin(0, GhostType);
-			GridIndexMapIterator ghostIterE =  gridbase_.template entityIndexEnd(0, GhostType);
+			IndexSetIterator ghostIterB =  gridbase_.template entityIndexBegin(0, GhostType);
+			IndexSetIterator ghostIterE =  gridbase_.template entityIndexEnd(0, GhostType);
 
-			for (GridIndexMapIterator ghostIter = ghostIterB;  ghostIter != ghostIterE;  ghostIter++)
+			for (IndexSetIterator ghostIter = ghostIterB;  ghostIter != ghostIterE;  ghostIter++)
 			{
-				LocalIndexType           ghostLocalIndex   = (*ghostIter).second;
+				LocalIndexType           ghostLocalIndex   = *ghostIter;
 				PhysicalTagType          physicalTag       = gridbase_.template physicalTag(0, ghostLocalIndex);
 				GridElementGeometry      thisGeometry      = gridbase_.template entityGeometry<0>(ghostLocalIndex);
 				Dune::GeometryType       gt                = thisGeometry.type();
 				InterpolatoryOrderType   order             = thisGeometry.order();
-				std::vector<GridVertex>  point             = thisGeometry.vertexSet();
+				std::vector<Vertex>  point             = thisGeometry.vertexSet();
 				std::vector<int>         tags  { physicalTag, VTK_GHOST, rank_ };
 
 				Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: WritingVTK Ghost Vertices=(" + vector2string(point) + ")");
@@ -246,17 +246,17 @@ public:
 		if (withDomainBoundaries)
 		{
 			// Add DomainBoundaries to VTK
-			GridIndexMapIterator faceIterB =  gridbase_.template entityIndexBegin(1, DomainBoundaryType);
-			GridIndexMapIterator faceIterE =  gridbase_.template entityIndexEnd(1, DomainBoundaryType);
+			IndexSetIterator faceIterB =  gridbase_.template entityIndexBegin(1, DomainBoundaryType);
+			IndexSetIterator faceIterE =  gridbase_.template entityIndexEnd(1, DomainBoundaryType);
 
-			for (GridIndexMapIterator faceIter = faceIterB;  faceIter != faceIterE;  faceIter++)
+			for (IndexSetIterator faceIter = faceIterB;  faceIter != faceIterE;  faceIter++)
 			{
-				LocalIndexType           faceLocalIndex    = (*faceIter).second;
+				LocalIndexType           faceLocalIndex    = *faceIter;
 				PhysicalTagType          physicalTag       = gridbase_.template physicalTag(1, faceLocalIndex);
 				GridFaceGeometry         thisGeometry      = gridbase_.template entityGeometry<1>(faceLocalIndex);
 				Dune::GeometryType       gt                = thisGeometry.type();
 				InterpolatoryOrderType   order             = thisGeometry.order();
-				std::vector<GridVertex>  point             = thisGeometry.vertexSet();
+				std::vector<Vertex>  point             = thisGeometry.vertexSet();
 				std::vector<int>         tags  { physicalTag, VTK_DOMAIN_BOUNDARY, rank_ };
 
 		    	vtkCurvWriter.addCurvilinearElement(
@@ -279,17 +279,17 @@ public:
 		if (withProcessBoundaries)
 		{
 			// Add DomainBoundaries to VTK
-			GridIndexMapIterator faceIterB =  gridbase_.template entityIndexBegin(1, ProcessBoundaryType);
-			GridIndexMapIterator faceIterE =  gridbase_.template entityIndexEnd(1, ProcessBoundaryType);
+			IndexSetIterator faceIterB =  gridbase_.template entityIndexBegin(1, ProcessBoundaryType);
+			IndexSetIterator faceIterE =  gridbase_.template entityIndexEnd(1, ProcessBoundaryType);
 
-			for (GridIndexMapIterator faceIter = faceIterB;  faceIter != faceIterE;  faceIter++)
+			for (IndexSetIterator faceIter = faceIterB;  faceIter != faceIterE;  faceIter++)
 			{
-				LocalIndexType           faceLocalIndex    = (*faceIter).second;
+				LocalIndexType           faceLocalIndex    = *faceIter;
 				PhysicalTagType          physicalTag       = gridbase_.template physicalTag(1, faceLocalIndex);
 				GridFaceGeometry         thisGeometry      = gridbase_.template entityGeometry<1>(faceLocalIndex);
 				Dune::GeometryType       gt                = thisGeometry.type();
 				InterpolatoryOrderType   order             = thisGeometry.order();
-				std::vector<GridVertex>  point             = thisGeometry.vertexSet();
+				std::vector<Vertex>  point             = thisGeometry.vertexSet();
 				std::vector<int>         tags  { physicalTag, VTK_PROCESS_BOUNDARY, rank_ };
 
 		    	vtkCurvWriter.addCurvilinearElement(
@@ -342,21 +342,21 @@ protected:
 		// 1) Collect statistics related to the elements of the mesh
 		// ***********************************************************************8
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting element statistics");
-		GridIndexMapIterator elemIterB = gridbase_.template entityIndexBegin(0);
-		GridIndexMapIterator elemIterE = gridbase_.template entityIndexEnd(0);
+		IndexSetIterator elemIterB = gridbase_.template entityIndexBegin(0);
+		IndexSetIterator elemIterE = gridbase_.template entityIndexEnd(0);
 
 
 
-		for (GridIndexMapIterator elemIter = elemIterB;  elemIter != elemIterE;  elemIter++)
+		for (IndexSetIterator elemIter = elemIterB;  elemIter != elemIterE;  elemIter++)
 		{
-			GridElementGeometry thisGeometry = gridbase_.template entityGeometry<0>((*elemIter).second);
-			std::vector<GridVertex> cr       = thisGeometry.cornerSet();
+			GridElementGeometry thisGeometry = gridbase_.template entityGeometry<0>(*elemIter);
+			std::vector<Vertex> cr       = thisGeometry.cornerSet();
 
-			GridVertex CoM = cr[0] + cr[1] + cr[2] + cr[3];
+			Vertex CoM = cr[0] + cr[1] + cr[2] + cr[3];
 			CoM /= 4;
 
 			std::vector<double>     comCornerRadius { (CoM-cr[0]).two_norm(), (CoM-cr[1]).two_norm(), (CoM-cr[2]).two_norm(), (CoM-cr[3]).two_norm() };
-			std::vector<GridVertex> linearEdges   { cr[3]-cr[0], cr[3]-cr[1], cr[3]-cr[2], cr[2]-cr[0], cr[2]-cr[1], cr[1]-cr[0] };
+			std::vector<Vertex> linearEdges   { cr[3]-cr[0], cr[3]-cr[1], cr[3]-cr[2], cr[2]-cr[0], cr[2]-cr[1], cr[1]-cr[0] };
 			std::vector<double>     linearEdgeLen;
 			for (int i = 0; i < linearEdges.size(); i++)  { linearEdgeLen.push_back(linearEdges[i].two_norm()); }
 
@@ -393,12 +393,12 @@ protected:
 		// ***********************************************************************
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Process Boundary statistics");
 		rez[12].push_back(0.0);  // processBoundarySurfaceArea
-		GridIndexMapIterator pbIterB = gridbase_.template entityIndexBegin(1, ProcessBoundaryType);
-		GridIndexMapIterator pbIterE = gridbase_.template entityIndexEnd(1, ProcessBoundaryType);
+		IndexSetIterator pbIterB = gridbase_.template entityIndexBegin(1, ProcessBoundaryType);
+		IndexSetIterator pbIterE = gridbase_.template entityIndexEnd(1, ProcessBoundaryType);
 
-		for (GridIndexMapIterator pbIter = pbIterB;  pbIter != pbIterE;  pbIter++)
+		for (IndexSetIterator pbIter = pbIterB;  pbIter != pbIterE;  pbIter++)
 		{
-			GridFaceGeometry faceGeom = gridbase_.template entityGeometry<1>((*pbIter).second);
+			GridFaceGeometry faceGeom = gridbase_.template entityGeometry<1>(*pbIter);
 			double faceCurvilinearArea = faceGeom.volume(1.0e-5);
 			rez[12][0] += faceCurvilinearArea;
 
@@ -411,12 +411,12 @@ protected:
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Domain Boundary Statistics");
 
 		rez[13].push_back(0.0);  // domainBoundarySurfaceArea
-		GridIndexMapIterator dbIterB = gridbase_.template entityIndexBegin(1, DomainBoundaryType);
-		GridIndexMapIterator dbIterE = gridbase_.template entityIndexEnd(1, DomainBoundaryType);
+		IndexSetIterator dbIterB = gridbase_.template entityIndexBegin(1, DomainBoundaryType);
+		IndexSetIterator dbIterE = gridbase_.template entityIndexEnd(1, DomainBoundaryType);
 
-		for (GridIndexMapIterator dbIter = dbIterB;  dbIter != dbIterE;  dbIter++)
+		for (IndexSetIterator dbIter = dbIterB;  dbIter != dbIterE;  dbIter++)
 		{
-			GridFaceGeometry faceGeom = gridbase_.template entityGeometry<1>((*dbIter).second);
+			GridFaceGeometry faceGeom = gridbase_.template entityGeometry<1>(*dbIter);
 			double faceCurvilinearArea = faceGeom.volume(1.0e-5);
 			rez[13][0] += faceCurvilinearArea;
 
@@ -453,9 +453,9 @@ protected:
     }
 
 	// Initializes a FieldVector in 1 line
-	GridVertex initVector(ct a, ct b, ct c)
+	Vertex initVector(ct a, ct b, ct c)
 	{
-		GridVertex rez;
+		Vertex rez;
 		rez[0] = a;
 		rez[1] = b;
 		rez[2] = c;
@@ -464,11 +464,11 @@ protected:
 
 	// Dot product between FieldVectors
 	// [TODO] Replace with existing Dune functionality if found
-	ct GridVectorDot(GridVertex a, GridVertex b)  { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+	ct GridVectorDot(Vertex a, Vertex b)  { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
 
 	// Cross product between FieldVectors
 	// [TODO] Replace with existing Dune functionality if found
-	GridVertex GridVectorTimes(GridVertex a, GridVertex b)  { return initVector(a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]); }
+	Vertex GridVectorTimes(Vertex a, Vertex b)  { return initVector(a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]); }
 
 	// Returns smallest entry of a vector of comparable objects
 	template <class T>

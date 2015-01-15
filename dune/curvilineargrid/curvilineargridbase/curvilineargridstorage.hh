@@ -204,8 +204,10 @@ public:
     typedef typename CurvilinearEntityMapKey::EdgeKey   EdgeKey;
     typedef typename CurvilinearEntityMapKey::FaceKey   FaceKey;
 
-    typedef std::map<GlobalIndexType, LocalIndexType>   Index2IndexMap;
-    typedef typename Index2IndexMap::iterator           IndexMapIterator;
+    typedef std::map<LocalIndexType, LocalIndexType>    Local2LocalMap;
+    typedef std::map<GlobalIndexType, LocalIndexType>   Global2LocalMap;
+    typedef typename Local2LocalMap::iterator           Local2LocalIterator;
+    typedef typename Global2LocalMap::iterator          Global2LocalIterator;
 
     typedef std::set<LocalIndexType>                    LocalIndexSet;
     typedef typename LocalIndexSet::iterator            IndexSetIterator;
@@ -253,7 +255,10 @@ public:
 
 
     // Maps from global to local indices - all entities of given codim, regardless of structural type
-    Index2IndexMap entityIndexMap_[4];
+    Global2LocalMap entityIndexMap_[4];
+
+    // Entity local index -> local process boundary index (if this entity is a process boundary)
+    Local2LocalMap  processBoundaryIndexMap_[4];
 
     // Index sets for entities of a specific structural type
     // Used to iterate over the grid entities
@@ -269,7 +274,11 @@ public:
     LocalIndexSet  entityDuneInteriorBorderIndexSet_[4];   // In Dune interior border entities are (internal + domain + process boundaries)
 
     // List of all ranks of processors neighboring processorBoundaries.
-    std::map<LocalIndexType, int> processBoundaryNeighborProcess_;  // (face_ index -> neighbor rank)
+    std::map<LocalIndexType, int> processBoundaryNeighborProcess_[4];  // (entity_index<codim> -> neighbor rank)
+
+    std::vector<std::vector< int > > processBoundaryNeighborRank_[4];  // (entityPBIndex<codim> -> vector{neighbour ranks})
+
+
 
     // Octree used to efficiently locate elements in which the points are located
     CurvilinearLooseOctree * octree_;

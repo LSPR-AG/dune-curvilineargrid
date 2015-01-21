@@ -64,10 +64,9 @@ public:
 			ProcessBoundary    = 2,   // Boundary entity shared by more than one process
 			DomainBoundary     = 3,   // Boundary entity that is not a process boundary [codim > 0]
 			InternalBoundary   = 4,   // Artificial user-defined boundary that is not the process boundary [Not Implemented]
-			ComplexBoundary    = 5,   // Boundary entity shared by more than two processes [only edges]
-			FrontBoundary      = 6,   // Faces of Overlap partition [Not Implemented]
-			Ghost              = 7,   // Entities stored on this process but not owned by it [all codim]
-			Overlap            = 8,   // Dune-Magic [Not Implemented]
+			FrontBoundary      = 5,   // Faces of Overlap partition [Not Implemented]
+			Ghost              = 6,   // Entities stored on this process but not owned by it [all codim]
+			Overlap            = 7,   // Dune-Magic [Not Implemented]
 		};
 	};
 
@@ -266,7 +265,6 @@ public:
     LocalIndexSet  entityInternalIndexSet_[4];
     LocalIndexSet  entityProcessBoundaryIndexSet_[4];
     LocalIndexSet  entityDomainBoundaryIndexSet_[4];
-    LocalIndexSet  entityComplexBoundaryIndexSet_[4];   // Technically allowed only for edges
     LocalIndexSet  entityGhostIndexSet_[4];
 
     // Two additional composite sets to represent Dune-specific composite partition types
@@ -274,8 +272,6 @@ public:
     LocalIndexSet  entityDuneInteriorBorderIndexSet_[4];   // In Dune interior border entities are (internal + domain + process boundaries)
 
     // List of all ranks of processors neighboring processorBoundaries.
-    std::map<LocalIndexType, int> processBoundaryNeighborProcess_[4];  // (entity_index<codim> -> neighbor rank)
-
     std::vector<std::vector< int > > processBoundaryNeighborRank_[4];  // (entityPBIndex<codim> -> vector{neighbour ranks})
 
 

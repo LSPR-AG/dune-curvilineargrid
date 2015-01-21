@@ -102,6 +102,9 @@ public:
 
     typedef typename GridStorageType::Global2LocalMap           Global2LocalMap;
     typedef typename GridStorageType::Global2LocalIterator      Global2LocalIterator;
+    typedef typename GridStorageType::Local2LocalMap            Local2LocalMap;
+    typedef typename GridStorageType::Local2LocalIterator       Local2LocalIterator;
+
     typedef typename GridStorageType::LocalIndexSet             LocalIndexSet;
     typedef typename GridStorageType::IndexSetIterator          IndexSetIterator;
 
@@ -119,7 +122,6 @@ public:
     static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
     static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
     static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
-    static const unsigned int ComplexBoundaryType  = GridStorageType::PartitionType::ComplexBoundary;
     static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
 
     // Logging Message Typedefs
@@ -411,6 +413,20 @@ public:
         }
 
         constructOctree();
+
+
+        // Create iterator lists for quick iteration over mesh entities of a given type
+        // NOTE: Must only intert corners, not other interpolatory vertices
+        // ************************************************************
+        fillPartitionIteratorCorner();
+
+        for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)     { fillPartitionIterator(EDGE_CODIM, iEdge, gridstorage_.edge_[iEdge].structuralType); }
+
+        for (LocalIndexType iFace = 0; iFace < gridstorage_.face_.size(); iFace++)     { fillPartitionIterator(FACE_CODIM, iFace, gridstorage_.face_[iFace].structuralType); }
+
+        for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)  { fillPartitionIterator(ELEMENT_CODIM, iElem, gridstorage_.element_[iElem].structuralType); }
+
+
 
 
         // Deletes all temporary memory
@@ -905,17 +921,16 @@ protected:
      * 1) Communicate process ranks associated with each process boundary corner
      * 1.1) As a result, for each process boundary corner, each process knows a set ranks of all other processes that share it
      * 1.2) Set of ranks of processes sharing process boundary edges and faces can be computed by set intersecting ranks of corresponding corners
-     * 2) Mark correct structural type for all complicated edges - those shared by multiple processes
-     * 3) Find ownership of each edge and face. A shared entity is owned by the process with lowest rank
-     * 4) Communicate number of edges and faces owned by each process to all
-     * 5) Locally enumerate all edges, faces and elements owned by this process. That is, to assign them a global index
-     * 5.1) Global index for edges starts at nVertexTotal+nEdgesOwnedBeforeMe.
-     * 5.2) Global index for faces starts at nVertexTotal+nEdgeTotal+nFacesOwnedBeforeMe.
-     * 5.3) Global index for elements starts at nVertexTotal+nEdgesTotal+nFacesTotal+nElementsOwnedBeforeMe. Note that each process owns all its elements since they are not shared.
-     * 6) Communicate missing edge and face globalIndices
-     * 6.1) By analyzing entity neighbors, each process can compute how many how many global indices it needs to send and to receive to each other process
-     * 6.2) Each process sends to each neighbor the shared entity global indices enumerated by this process and receives those enumerated by the neighbor process
-     * 7) Fill in Global2Local maps. They are required for user functionality and for construction of GhostElements
+     * 2) Find ownership of each edge and face. A shared entity is owned by the process with lowest rank
+     * 3) Communicate number of edges and faces owned by each process to all
+     * 4) Locally enumerate all edges, faces and elements owned by this process. That is, to assign them a global index
+     * 4.1) Global index for edges starts at nVertexTotal+nEdgesOwnedBeforeMe.
+     * 4.2) Global index for faces starts at nVertexTotal+nEdgeTotal+nFacesOwnedBeforeMe.
+     * 4.3) Global index for elements starts at nVertexTotal+nEdgesTotal+nFacesTotal+nElementsOwnedBeforeMe. Note that each process owns all its elements since they are not shared.
+     * 5) Communicate missing edge and face globalIndices
+     * 5.1) By analyzing entity neighbors, each process can compute how many how many global indices it needs to send and to receive to each other process
+     * 5.2) Each process sends to each neighbor the shared entity global indices enumerated by this process and receives those enumerated by the neighbor process
+     * 6) Fill in Global2Local maps. They are required for user functionality and for construction of GhostElements
      *
      * [FIXME] Algorithm Misses a case:
      * Description: It is realistic that process possesses all vertices of an entity and does not possess the entity itself. Mostly due to concavities.
@@ -950,26 +965,12 @@ protected:
         // 1) Communicate process ranks associated with each process boundary corner
         // Then compute that for edges and faces using set intersection
         // *************************************************************************
-        globalCommunicateVertexNeighborRanks();
+        globalCommunicateCornerNeighborRank();
         globalComputeEdgeNeighborRanks();
         globalComputeFaceNeighborRank();
 
 
-        // 2) Mark correct structural type for all complicated edges
-        // *************************************************************************
-        for (EdgeMapIterator edgeIter  = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].begin();
-        		             edgeIter != gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].end(); edgeIter++ )
-        {
-        	int nNeighbors = gridstorage_.processBoundaryNeighborRank_[EDGE_CODIM][(*edgeIter).second].size();
-        	if (nNeighbors > 1)  // Complicated edge is the one shared by more than 2 processes
-        	{
-        		LocalIndexType thisEdgeLocalIndex = (*edgeIter).first;
-        		gridstorage_.edge_[thisEdgeLocalIndex].structuralType = GridStorageType::PartitionType::ComplexBoundary;
-        	}
-        }
-
-
-        // 3) Get edges and faces on this process that are not owned by this process
+        // 2) Get edges and faces on this process that are not owned by this process
         // *************************************************************************
         EdgeKey2EdgeIndexMap edgeNonOwned;
         FaceKey2FaceIndexMap faceNonOwned;
@@ -999,7 +1000,7 @@ protected:
         int elementsOwned = gridstorage_.element_.size();
 
 
-        // 4) Communicate number of edges and faces owned by each process to all
+        // 3) Communicate number of edges and faces owned by each process to all
         // *************************************************************************
         std::vector<int> edgesOnProcess(size_);      // owned edges [rank]
         std::vector<int> facesOnProcess(size_);      // owned faces [rank]
@@ -1027,7 +1028,7 @@ protected:
         }
 
 
-        // 5) Enumerate all edges, faces and elements that you own
+        // 4) Enumerate all edges, faces and elements that you own
         // *************************************************************************
 
         GlobalIndexType iEdgeGlobalId = edgesBeforeMe;
@@ -1056,37 +1057,20 @@ protected:
         }
 
 
-        // 6) Communicate missing edge and face global indices to their corresponding neighbors. Receive them and assign.
+        // 5) Communicate missing edge and face global indices to their corresponding neighbors. Receive them and assign.
         // *************************************************************************
 
         globalDistributeMissingEdgeGlobalIndex();
         globalDistributeMissingFaceGlobalIndex();
 
 
-        // 7) Fill in Global2Local maps
+        // 6) Fill in Global2Local maps
         // *************************************************************************
-        for (LocalIndexType iVertex = 0; iVertex < gridstorage_.point_.size(); iVertex++)
-        {
-        	globalPartitionIteratorFill(VERTEX_CODIM, iVertex, gridstorage_.point_[iVertex].structuralType);
-        }
+        for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)    { gridstorage_.entityIndexMap_[EDGE_CODIM][gridstorage_.edge_[iEdge].globalIndex] = iEdge; }
 
-        for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)
-        {
-        	gridstorage_.entityIndexMap_[EDGE_CODIM][gridstorage_.edge_[iEdge].globalIndex] = iEdge;
-        	globalPartitionIteratorFill(EDGE_CODIM, iEdge, gridstorage_.edge_[iEdge].structuralType);
-        }
+        for (LocalIndexType iFace = 0; iFace < gridstorage_.face_.size(); iFace++)    { gridstorage_.entityIndexMap_[FACE_CODIM][gridstorage_.face_[iFace].globalIndex] = iFace; }
 
-        for (LocalIndexType iFace = 0; iFace < gridstorage_.face_.size(); iFace++)
-        {
-        	gridstorage_.entityIndexMap_[FACE_CODIM][gridstorage_.face_[iFace].globalIndex] = iFace;
-        	globalPartitionIteratorFill(FACE_CODIM, iFace, gridstorage_.face_[iFace].structuralType);
-        }
-
-        for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)
-        {
-        	gridstorage_.entityIndexMap_[ELEMENT_CODIM][gridstorage_.element_[iElem].globalIndex] = iElem;
-        	globalPartitionIteratorFill(ELEMENT_CODIM, iElem, gridstorage_.element_[iElem].structuralType);
-        }
+        for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++) {	gridstorage_.entityIndexMap_[ELEMENT_CODIM][gridstorage_.element_[iElem].globalIndex] = iElem; }
 
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished Constructing Global Indices");
     }
@@ -1263,9 +1247,12 @@ protected:
      * * Every process boundary corners is communicated to all processes, but can be used only by few
      * * All processes have to wait until the process with the largest number of corners finishes communicating, since they could receive sth from it
      *
+     * [TODO] Currently uses negative LocalIndex values to pass fake vertex info. If we want a uint impl, need to have different def. for fake vertex
+     *
+     *
      * */
 
-    void globalCommunicateVertexNeighborRanks ()
+    void globalCommunicateCornerNeighborRank ()
     {
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started communicating corner process boundary neighbors");
 
@@ -1945,50 +1932,6 @@ protected:
     }
 
 
-    // Fill all LocalIndexSets necessary to iterate over the grid
-    void globalPartitionIteratorFill (int codim, LocalIndexType localIndex, StructuralType structtype)
-    {
-    	// Check if the entity is of a valid type
-    	gridbase_.assertValidCodimStructuralType(codim, structtype);
-
-    	// All-set includes entities of all structural types
-        gridstorage_.entityAllIndexSet_[codim].insert(localIndex);
-
-    	switch (structtype)
-    	{
-    	case InternalType          :
-    	{
-    		gridstorage_.entityInternalIndexSet_[codim].insert(localIndex);
-    		gridstorage_.entityDuneInteriorIndexSet_[codim].insert(localIndex);
-    		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
-    	} break;
-    	case ProcessBoundaryType   :
-    	{
-    		gridstorage_.entityProcessBoundaryIndexSet_[codim].insert(localIndex);
-    		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
-    	} break;
-    	case DomainBoundaryType    :
-    	{
-    		gridstorage_.entityDomainBoundaryIndexSet_[codim].insert(localIndex);
-    		gridstorage_.entityDuneInteriorIndexSet_[codim].insert(localIndex);
-    		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
-    		break;
-    	}
-    	case ComplexBoundaryType   :   // ComplexBoundary is also a ProcessBoundary
-    	{
-    		gridstorage_.entityComplexBoundaryIndexSet_[codim].insert(localIndex);
-    		gridstorage_.entityProcessBoundaryIndexSet_[codim].insert(localIndex);
-    		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
-    	} break;
-    	case GhostType             :
-    	{
-    		gridstorage_.entityGhostIndexSet_[codim].insert(localIndex);
-    	} break;
-
-    	}
-    }
-
-
 
     /* ***************************************************************************
      * SubSection: Auxiliary methods of generateGhostElements()
@@ -2281,11 +2224,9 @@ protected:
                 }
 
 
-                // Create the ghost element
-                // Mark it both in all-element map and in the ghost element map
+                // Create the ghost element and insert it into global map
                 // ***********************************************************************
                 LocalIndexType thisElementLocalIndex = gridstorage_.element_.size();
-                gridstorage_.entityGhostIndexSet_[ELEMENT_CODIM].insert(thisElementLocalIndex);
                 gridstorage_.entityIndexMap_[ELEMENT_CODIM][thisElement.globalIndex] = thisElementLocalIndex;
 
 
@@ -2296,10 +2237,10 @@ protected:
                 {
                 	GlobalIndexType thisFaceGlobalIndex = packageGhostElementData[iData++];
                 	LocalIndexType thisFaceLocalIndex;
-                	Global2LocalIterator thisPBFaceIter = gridstorage_.entityIndexMap_[FACE_CODIM].find(thisFaceGlobalIndex);
+                	Global2LocalIterator thisFaceIter = gridstorage_.entityIndexMap_[FACE_CODIM].find(thisFaceGlobalIndex);
 
                 	// If the face already exists, then it is one of the process boundaries, otherwise it is a new ghost face
-                	if (thisPBFaceIter == gridstorage_.entityIndexMap_[FACE_CODIM].end())
+                	if (thisFaceIter == gridstorage_.entityIndexMap_[FACE_CODIM].end())
                 	{
                     	FaceStorage thisFace;
                     	thisFace.geometryType.makeTriangle();
@@ -2312,9 +2253,10 @@ protected:
 
                     	thisFaceLocalIndex = gridstorage_.face_.size();
                     	gridstorage_.face_.push_back(thisFace);
+                    	gridstorage_.entityIndexMap_[FACE_CODIM][thisFaceGlobalIndex] = thisFaceLocalIndex;
                 	} else
                 	{
-                		thisFaceLocalIndex = (*thisPBFaceIter).second;
+                		thisFaceLocalIndex = (*thisFaceIter).second;
                 	}
 
                 	// Note this face as the ghost element subentity
@@ -2329,10 +2271,10 @@ protected:
                 {
                 	GlobalIndexType thisEdgeGlobalIndex = packageGhostElementData[iData++];
                 	LocalIndexType thisEdgeLocalIndex;
-                	Global2LocalIterator thisPBEdgeIter = gridstorage_.entityIndexMap_[EDGE_CODIM].find(thisEdgeGlobalIndex);
+                	Global2LocalIterator thisEdgeIter = gridstorage_.entityIndexMap_[EDGE_CODIM].find(thisEdgeGlobalIndex);
 
                 	// If the edge already exists, then it is one of the process boundaries, otherwise it is a new ghost face
-                	if ( thisPBEdgeIter == gridstorage_.entityIndexMap_[EDGE_CODIM].end() )
+                	if ( thisEdgeIter == gridstorage_.entityIndexMap_[EDGE_CODIM].end() )
                 	{
                     	EdgeStorage thisEdge;
                 		thisEdge.globalIndex      = thisEdgeGlobalIndex;
@@ -2342,9 +2284,10 @@ protected:
 
                     	thisEdgeLocalIndex = gridstorage_.edge_.size();
                     	gridstorage_.edge_.push_back(thisEdge);
+                    	gridstorage_.entityIndexMap_[EDGE_CODIM][thisEdgeGlobalIndex] = thisEdgeLocalIndex;
                 	} else
                 	{
-                		thisEdgeLocalIndex= (*thisPBEdgeIter).second;
+                		thisEdgeLocalIndex= (*thisEdgeIter).second;
                 	}
 
                 	// Note this face as the ghost element subentity
@@ -2547,6 +2490,74 @@ protected:
         }
     }
 
+
+
+    /* ***************************************************************************
+     * SubSection: Auxiliary methods of generateMesh()
+     * ***************************************************************************/
+
+    // Loop over all corners of the mesh (including ghost) and add them to the interator set
+    // Do this by iterating over all corners of all elements
+    void fillPartitionIteratorCorner()
+    {
+    	// Loop over all elements
+    	for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)
+    	{
+        	// Get LocalCornerIndices
+    		std::vector<LocalIndexType> thisCornerIndex =  gridbase_.entityCornerLocalIndex(VERTEX_CODIM, iElem);
+
+        	// Loop over LocalCornerIndices
+    		for (int iCorner = 0; iCorner < thisCornerIndex.size(); iCorner++)
+    		{
+    			// If this corner has not been added yet, add it
+    			LocalIndexType thisIndex = thisCornerIndex[iCorner];
+    			if (gridstorage_.entityAllIndexSet_[VERTEX_CODIM].find(thisIndex) == gridstorage_.entityAllIndexSet_[VERTEX_CODIM].end())
+    			{
+    				fillPartitionIterator (VERTEX_CODIM, thisIndex, gridstorage_.point_[thisIndex].structuralType);
+    			}
+    		}
+    	}
+    }
+
+
+
+    // Fill all LocalIndexSets necessary to iterate over the grid
+    // Note: Must not contain all interpolatory vertices, only corners
+    void fillPartitionIterator (int codim, LocalIndexType localIndex, StructuralType structtype)
+    {
+    	// Check if the entity is of a valid type
+    	gridbase_.assertValidCodimStructuralType(codim, structtype);
+
+    	// All-set includes entities of all structural types
+        gridstorage_.entityAllIndexSet_[codim].insert(localIndex);
+
+    	switch (structtype)
+    	{
+    	case InternalType          :
+    	{
+    		gridstorage_.entityInternalIndexSet_[codim].insert(localIndex);
+    		gridstorage_.entityDuneInteriorIndexSet_[codim].insert(localIndex);
+    		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
+    	} break;
+    	case ProcessBoundaryType   :
+    	{
+    		gridstorage_.entityProcessBoundaryIndexSet_[codim].insert(localIndex);
+    		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
+    	} break;
+    	case DomainBoundaryType    :
+    	{
+    		gridstorage_.entityDomainBoundaryIndexSet_[codim].insert(localIndex);
+    		gridstorage_.entityDuneInteriorIndexSet_[codim].insert(localIndex);
+    		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
+    		break;
+    	}
+    	case GhostType             :
+    	{
+    		gridstorage_.entityGhostIndexSet_[codim].insert(localIndex);
+    	} break;
+
+    	}
+    }
 
 
 private: // Private members

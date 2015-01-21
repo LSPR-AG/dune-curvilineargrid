@@ -3,10 +3,12 @@ add_definitions("-DDUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH=\"${PROJECT_SOURCE_DI
 
 # Define tests to be run
 set(TESTS
-  test-diagnostics)
+  test-diagnostics, test-allcommunicate)
 
 add_executable(test-diagnostics test-diagnostics.cc)
+add_executable(test-allcommunicate test-allcommunicate.cc)
 target_link_libraries(test-diagnostics dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-allcommunicate dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 
 
 # We do not want want to build the tests during make all,

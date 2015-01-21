@@ -85,6 +85,8 @@
  *  - [FIXME] Convert all code to unsigned ints wherever the number is definitely non-negative
  *  - [FIXME] Do Ghost elements require same properties as normal elements. For example, subentityByIndex?
  *  - [FIXME] Implement ostream operator << for IdType.
+ *  - [FIXME] Currently nEntity counts ghost elements. Is this expected
+ *  - [FIXME] Currently nEntity counts only corners. Is this expected
  *
  *  - [FIXME] Need to add normal and outerNormal
  *  - [FIXME] Need to wrap for Dune
@@ -200,7 +202,6 @@ public:
     // Partition type shorthands
     static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
     static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
-    static const unsigned int ComplexBoundaryType  = GridStorageType::PartitionType::ComplexBoundary;
     static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
     static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
 
@@ -357,9 +358,12 @@ public:
     int nEntityTotal(int codim) const  { gridstorage_.nEntityTotal_[codim]; }
 
 
-    /** Get total number of entities on this process  */
-    // [FIXME] Do we expect to count GhostElements towards this?
-    int nEntity(int codim) const  { return gridstorage_.entityIndexMap_[codim].size(); }
+    /** Get total number of entities on this process
+     *
+     * \note Currently interpolation points are not counted towards this number.
+     * One should not use this number to loop over entities
+     * */
+    int nEntity(int codim) const  { return gridstorage_.entityAllIndexSet_[codim].size(); }
 
 
     /** Get total number of entities of specific type on this process  */
@@ -418,6 +422,7 @@ public:
     	else  { return false; }
     }
 
+
     /** Checks if the entity with specified codim and local index exists, and if it has the specified structtype  */
     bool verifyEntity(int codim, LocalIndexType localIndex, StructuralType structtype) const
     {
@@ -426,6 +431,7 @@ public:
     	if (thisSet.find(localIndex) == thisSet.end())  { return false; }
     	else  { return true; }
     }
+
 
     IdType globalId(int codim, LocalIndexType localIndex)
     {
@@ -438,7 +444,7 @@ public:
     }
 
 
-    /** Get vertex global coordinate */
+    /** Get Structural Type of an entity */
     StructuralType entityStructuralType(int codim, LocalIndexType localIndex) const
     {
     	switch(codim)
@@ -452,7 +458,7 @@ public:
     }
 
 
-    /** Get vertex global coordinate */
+    /** Get Interpolatory order of the entity */
     InterpolatoryOrderType entityInterpolationOrder(int codim, LocalIndexType localIndex) const
     {
     	if (codim >= 3)  { return 0; }
@@ -470,6 +476,7 @@ public:
     }
 
 
+    /** Get vertex global coordinate */
     std::vector<LocalIndexType> entityCornerLocalIndex(int codim, LocalIndexType localIndex)
 	{
     	std::vector<LocalIndexType> rez;
@@ -505,6 +512,26 @@ public:
 
         return rez;
 	}
+
+
+    /** Check if edge is a complex edge */
+    bool isComplex(LocalIndexType localIndex)
+    {
+    	LocalIndexType edgePBIndex = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM][localIndex];
+    	return gridstorage_.processBoundaryNeighborRank_[EDGE_CODIM][edgePBIndex].size() > 1;
+    }
+
+
+    /** Get the neighbors of this process boundary  */
+
+    std::vector<int> processBoundaryNeighborRankSet(int codim, LocalIndexType localIndex)
+	{
+    	if ((codim <= 0)||(codim > 3)) { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected process boundary codim"); }
+
+    	LocalIndexType entityPBIndex = gridstorage_.processBoundaryIndexMap_[codim][localIndex];
+    	return gridstorage_.processBoundaryNeighborRank_[codim][entityPBIndex];
+	}
+
 
 
 
@@ -779,7 +806,6 @@ public:
     	fail |= (structtype == GridStorageType::PartitionType::FrontBoundary);    // Not Implemented
     	fail |= (structtype == GridStorageType::PartitionType::Overlap);          // Not Implemented
     	fail |= (structtype == GridStorageType::PartitionType::InternalBoundary); // Not Implemented
-    	fail |= ((codim != EDGE_CODIM)&&(structtype == GridStorageType::PartitionType::ComplexBoundary));   // ComplexBoundary type allowed only for edges
 
     	if (codim == 0)
     	{
@@ -816,7 +842,6 @@ protected:
     	case InternalType          : return gridstorage_.entityInternalIndexSet_[codim];          break;
     	case DomainBoundaryType    : return gridstorage_.entityDomainBoundaryIndexSet_[codim];    break;
     	case ProcessBoundaryType   : return gridstorage_.entityProcessBoundaryIndexSet_[codim];   break;
-    	case ComplexBoundaryType   : return gridstorage_.entityProcessBoundaryIndexSet_[codim];   break;
     	case GhostType             : return gridstorage_.entityGhostIndexSet_[codim];             break;
     	}
     }

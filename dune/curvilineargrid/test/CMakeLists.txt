@@ -3,7 +3,9 @@ add_definitions("-DDUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH=\"${PROJECT_SOURCE_DI
 
 # Define tests to be run
 set(TESTS
-  test-diagnostics, test-allcommunicate)
+  test-diagnostics
+  test-allcommunicate
+)
 
 add_executable(test-diagnostics test-diagnostics.cc)
 add_executable(test-allcommunicate test-allcommunicate.cc)
@@ -23,6 +25,8 @@ endforeach(_test ${TESTS})
 
 # Add parmetis
 if(HAVE_MPI)
+    add_dune_mpi_flags(test-diagnostics)
+    add_dune_mpi_flags(test-allcommunicate)
     add_dune_parmetis_flags(test-diagnostics)
 endif(HAVE_MPI)
 

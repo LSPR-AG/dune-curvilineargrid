@@ -477,7 +477,7 @@ public:
 
 
     /** Get vertex global coordinate */
-    std::vector<LocalIndexType> entityCornerLocalIndex(int codim, LocalIndexType localIndex)
+    std::vector<LocalIndexType> entityCornerLocalIndex(int codim, LocalIndexType localIndex) const
 	{
     	std::vector<LocalIndexType> rez;
 
@@ -501,8 +501,8 @@ public:
     	}
 
 
-    	EntityStorage & thisElem = entityData(0, localElementIndex);
-        std::vector<LocalIndexType> elementCornerLocalIndexSet = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
+    	const EntityStorage & thisElem = gridstorage_.element_[localElementIndex];
+        std::vector<LocalIndexType> elementCornerLocalIndexSet = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ct, 3>(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
 
         std::vector<InternalIndexType> internalLinearSubentityIndices = Dune::CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet(thisElem.geometryType, 2, subentityIndex);
 
@@ -515,7 +515,7 @@ public:
 
 
     /** Check if edge is a complex edge */
-    bool isComplex(LocalIndexType localIndex)
+    bool isComplex(LocalIndexType localIndex) const
     {
     	LocalIndexType edgePBIndex = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM][localIndex];
     	return gridstorage_.processBoundaryNeighborRank_[EDGE_CODIM][edgePBIndex].size() > 1;
@@ -524,7 +524,7 @@ public:
 
     /** Get the neighbors of this process boundary  */
 
-    std::vector<int> processBoundaryNeighborRankSet(int codim, LocalIndexType localIndex)
+    std::vector<int> processBoundaryNeighborRankSet(int codim, LocalIndexType localIndex) const
 	{
     	if ((codim <= 0)||(codim > 3)) { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected process boundary codim"); }
 

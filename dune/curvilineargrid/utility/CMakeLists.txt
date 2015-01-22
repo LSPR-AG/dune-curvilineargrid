@@ -1,5 +1,5 @@
 set(HEADERS
-  curvilineargriddiagnostic.hh,
+  curvilineargriddiagnostic.hh
   allcommunication.hh)
 
 install(FILES ${HEADERS}

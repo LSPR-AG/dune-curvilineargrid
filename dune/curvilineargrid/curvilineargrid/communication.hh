@@ -3,6 +3,10 @@
 #ifndef DUNE_CURVGRID_DECLARATION_HH
 #define DUNE_CURVGRID_DECLARATION_HH
 
+#include <dune/curvilineargrid/utility/allcommunication.hh>
+
+
+
 namespace Dune
 {
 
@@ -29,109 +33,182 @@ namespace Dune
     };
 
 
+
+
+
     // Performs communication requested from gridview.communication()
-    struct Communication
+    template<class Grid>
+    class Communication
     {
+    	typedef typename Grid::Traits  Traits;
+
+    	typedef typename Traits::LocalIndexType   LocalIndexType;
+    	typedef typename Traits::GlobalIndexType  GlobalIndexType;
+
+    	typedef typename Traits::GridBaseType     GridBaseType;
+
+
+
+    public:
+
+    	Communication(const GridBaseType & gridbase, MPIHelper & mpihelper)
+    		: mpihelper_(mpihelper),
+    		  gridbase_(gridbase)
+    	{
+    		rank_ = mpihelper.rank();
+    		size_ = mpihelper.size();
+    	}
+
+
+
+    	// [FIXME] Choose if we want entity or entityImpl
+    	// [FIXME] Pass on IteratorRange somehow
 
     	template<class DataHandle, int codim>
     	void communicate (DataHandle& datahandle, InterfaceType iftype, CommunicationDirection dir, int level) const
     	{
-    		// Type of data to be communicated
-    		typedef typename DataHandle::DataType DataType;
+    		typedef typename DataHandle::DataType DataType;             // Type of data to be communicated
+    		typedef typename Traits::Codim<codim>::Entity  EntityType;  // Type of the entity
+
+    		Dune::CurvGrid::AllCommunication allcommunicate(mpihelper_);
 
     		CurvilinearMessageBuffer<DataType> gathermessagebuffer;
+    		CurvilinearMessageBuffer<DataType> scattermessagebuffer;
+
+    		int nDataSend = 0;
+    		int nEntitySend = 0;
+
+    		std::vector<int> nEntityPerProcessSend(size_);
+    		std::vector<int> nEntityPerProcessRecv(size_);
+
+    		std::vector<GlobalIndexType> globalIndexSend;
+    		std::vector<GlobalIndexType> globalIndexRecv;
+
+    		std::vector<int> nDataPerEntitySend;
+    		std::vector<int> nDataPerEntityRecv;
+
+    		std::vector<int> nDataPerProcessSend(size_, 0);
+    		std::vector<int> nDataPerProcessRecv(size_);
+
+    		std::vector<int> displEntityPerProcessSend(size_);
+    		std::vector<int> displDataPerProcessSend(size_);
+
+    		std::vector<DataType> dataSend;
+    		std::vector<DataType> dataRecv;
 
 
-    		// rank -> communicationIndex -> neighborEntityGlobalIndex
-    		std::vector< std::vector< GlobalIndexType> > neighborEntityGlobalIndex(size_);
-
-    		// rank -> communicationIndex -> std::vector<data to send>
-    		std::vector< std::vector< std::vector< DataType > > > neighborEntityData(size_);
+    		// 1) First loop over all entities of the interface
+    		// Compute total number of entities to be communicated to each process
+    		// ********************************************************
 
 
-
-    		// 1) Loop over all entities of the interface
     		for (int i = 0; i < 10; i++)
     		{
     			const EntityType & thisEntity = entity(i);
 
+    			LocalIndexType thisLocalIndex = thisEntity.localIndex();
+    			std::vector<int> thisNeighborRankSet = gridbase_.processBoundaryNeighborRankSet(codim, thisLocalIndex);
+
+    			for (int iProc = 0; iProc < thisNeighborRankSet.size(); iProc++)
+    			{
+    				nEntityPerProcessSend[thisNeighborRankSet[iProc]]++;
+    				nDataPerProcessSend[thisNeighborRankSet[iProc]] += datahandle.size(thisEntity);
+    			}
+    		}
+
+    		// 1.1) Construct send-displacements
+    		for (int i = 0; i < size_; i++)  {
+    			displEntityPerProcessSend[i]  = (i == 0) ? 0 : displEntityPerProcessSend[i - 1] + nEntityPerProcessSend[i - 1];
+    			displDataPerProcessSend[i]    = (i == 0) ? 0 : displDataPerProcessSend[i - 1]   + nDataPerProcessSend[i - 1];
+
+    			nEntitySend += nEntityPerProcessSend[i];
+    			nDataSend += nDataPerProcessSend[i];
+    		}
+    		globalIndexSend.resize(nEntitySend);
+    		nDataPerEntitySend.resize(nEntitySend);
+    		dataSend.resize(nDataSend);
+
+
+    		// 2) Second loop over all entities of the interface
+    		// Read and fill in data
+    		// ********************************************************
+
+    		for (int i = 0; i < 10; i++)
+    		{
+    			const EntityType & thisEntity = entity(i);
+
+    			LocalIndexType thisLocalIndex = thisEntity.localIndex();
+    			GlobalIndexType thisGlobalIndex;
+    			if (!gridbase_.findEntityGlobalIndex(codim, thisLocalIndex, thisGlobalIndex))  {  /* THROW ERROR */ }
+    			std::vector<int> thisNeighborRankSet = gridbase_.processBoundaryNeighborRankSet(codim, thisLocalIndex);
+
     			datahandle.gather(gathermessagebuffer, thisEntity);
 
-    			int neighborEntityRank = entity_neighbor_rank(i);
-    			int neighborEntityGlobalIndex = entity_neighbor_index(i);
-
-    			std::vector< DataType > dataToSend;
 
     			// Straight up read all the data that was added by the user to this entity
     			for (int iData = 0; iData < datahandle.size(thisEntity); iData++)
     			{
     				DataType thisData;
-    				messagebuffer.read(thisData);
-    				dataToSend.push_back(thisData);
+    				gathermessagebuffer.read(thisData);
+
+    				// Add this data to send array for each process neighboring this entity
+        			for (int iProc = 0; iProc < thisNeighborRankSet.size(); iProc++)
+        			{
+        				dataSend[displDataPerProcessSend[thisNeighborRankSet[iProc]]++] = thisData;
+        			}
     			}
 
-    			neighborEntityGlobalIndex[neighborEntityRank].push_back(neighborEntityGlobalIndex);
-    			neighborEntityData[neighborEntityRank].push_back(dataToSend);
+    			// Record data number and global index of this entity for each process neighboring this entity
+        		for (int iProc = 0; iProc < thisNeighborRankSet.size(); iProc++)
+        		{
+        			int entityDisplIndex = displEntityPerProcessSend[thisNeighborRankSet[iProc]]++;
+
+        			globalIndexSend[entityDisplIndex]    = thisGlobalIndex;
+        			nDataPerEntitySend[entityDisplIndex] = datahandle.size(thisEntity);
+    			}
     		}
 
-    		// 2) Communicate data
-    		// 2.1) Communicate number of entities with non-zero data to be communicated
-    		std::vector<int> entitiesPerRankSend;
-    		std::vector<int> entitiesPerRankRecv(size_);
 
-    		for (int iProc = 0; iProc < size_; iProc++)  { entitiesPerRankSend.push_back(neighborEntityData[iProc].size()); }
-    		int MPI_Alltoall(entitiesPerRankSend.data(), 1, MPI_INT, reinterpret_cast<int*>(entitiesPerRankRecv.data()), 1, MPI_INT, comm);
+    		// 3) Communicate
+    		// **************************************************************
 
-    		// 2.2) Communicate globalindex for each entity
-    		// 2.3) Communicate datasize for each entity
-    		int nEntityRecv = 0;
-    		std::vector< GlobalIndexType > sendEntityGlobalIndex;
-    		std::vector< GlobalIndexType > recvEntityGlobalIndex;
-    		std::vector< int > sendEntityDataSize;
-    		std::vector< int > recvEntityDataSize;
-    		std::vector<int> sdispls, rdispls;
+    		// Communicate entity global index
+    		allcommunicate.communicate(globalIndexSend, nEntityPerProcessSend, globalIndexRecv, nEntityPerProcessRecv);
 
-    		for (int iProc = 0; iProc < size_; iProc++)
+    		// Communicate data per entity
+    		allcommunicate.communicate(nDataPerEntitySend, nEntityPerProcessSend, nDataPerEntityRecv, nEntityPerProcessRecv);
+
+    		// Communicate data per entity
+    		allcommunicate.communicate(dataSend, nDataPerProcessSend, dataRecv, nDataPerProcessRecv);
+
+
+    		// 4) Refill
+    		// **************************************************************
+
+    		int iData = 0;
+    		for (int i = 0; i < globalIndexRecv.size(); i++)
     		{
-    			nEntityRecv += entitiesPerRankRecv[iProc];
+    			GlobalIndexType thisGlobalIndex = globalIndexRecv[i];
+    			int thisNData = nDataPerEntityRecv[i];
 
-    			sdispls.push_back( iProc == 0 ? 0 : entitiesPerRankSend[iProc - 1] - sdispls[iProc - 1] );
-    			rdispls.push_back( iProc == 0 ? 0 : entitiesPerRankRecv[iProc - 1] - rdispls[iProc - 1] );
+    			const EntityType & thisEntity = entity(thisGlobalIndex);
 
-    			for (int iElem = 0; iElem < entitiesPerRankSend[iProc]; iElem++)
-    			{
-    				sendEntityGlobalIndex.push_back(neighborEntityGlobalIndex[iProc][iElem]);
-    				sendEntityDataSize.push_back(neighborEntityData[iProc][iElem].size());
-    			}
+    			for (int j = 0; j < thisNData; j++)  { scattermessagebuffer.write(dataRecv[iData++]); }
+
+    			datahandle.scatter(scattermessagebuffer, thisEntity);
     		}
-
-    		recvEntityGlobalIndex.resize(nEntityRecv);
-    		recvEntityDataSize.resize(nEntityRecv);
-
-    		MPI_Alltoallv (sendEntityGlobalIndex.data(), entitiesPerRankSend.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvEntityGlobalIndex.data()), entitiesPerRankRecv.data(), rdispls.data(), MPI_INT, comm );
-    		MPI_Alltoallv (sendEntityDataSize.data(), entitiesPerRankSend.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvEntityDataSize.data()), entitiesPerRankRecv.data(), rdispls.data(), MPI_INT, comm );
-
-
-    		// 2.4) Serialize all data and communicate serialization lengths
-
-    		// 2.5) Communicate package all data for each entity - send as integer pointers.
-
-    		// 2.6) Unserialize data
-
-    		// 3) Refill
-    		// 3.1) Fill the scattermessagebuffer
-    		// 3.2) Fill the recepient list ()
-
-
-
-
-
-
-
     	}
 
 
-    };
+    private:
+    	MPIHelper & mpihelper_;
+    	int rank_;
+    	int size_;
+
+    	const GridBaseType & gridbase_;
+
+
+    }; // Class
 
   } // namespace CurvGrid
 

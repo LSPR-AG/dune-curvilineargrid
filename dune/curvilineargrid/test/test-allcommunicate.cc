@@ -10,10 +10,8 @@
 #include <cstdlib>
 #include <cstdio>
 
-/** *\brief include functionality that encapsulates MPI */
-#include <dune/common/parallel/mpihelper.hh>
 
-#include <dune/grid/common/mcmgmapper.hh>
+#include <dune/common/parallel/mpihelper.hh>
 
 #include <dune/curvilineargrid/utility/allcommunication.hh>
 
@@ -32,20 +30,84 @@ struct teststruct
 	int data;
 };
 
-template <class T>
-std::string vector2string(const T & V)
-{
-    std::stringstream tmp_stream;
 
-    int nEntry = V.size();
-    if (nEntry == 0)  { tmp_stream << "Null"; }
-    for (int i = 0; i < nEntry; i++) {
-    	tmp_stream << V[i];
-    	if (i != nEntry - 1) { tmp_stream << " "; }
+void test_pointerinterface(MPIHelper & mpihelper)
+{
+    int rank = mpihelper.rank();
+    int size = mpihelper.size();
+    Dune::CurvGrid::AllCommunication allcomm(mpihelper);
+
+    std::cout << "process_" << rank << " ::: Testing pointer interface" << std::endl;
+
+    int tmpsize = 5;
+
+    int lin[size];
+    int lout[size];
+
+    teststruct dataIn[size * tmpsize];
+    teststruct dataOut[size * tmpsize];
+
+    for (int i = 0; i < size; i++)
+    {
+    	lin[i] = tmpsize;
+
+    	for (int j = 0; j < tmpsize; j++)
+    	{
+    		int l = i * tmpsize + j;
+    		dataIn[l].rank_s = rank;
+    		dataIn[l].rank_r = i;
+    		dataIn[l].data = j;
+    	}
     }
-    return tmp_stream.str();
+
+    //std::cout << "process_" << rank << " start comm of array of sizeof(T)=" << sizeof(teststruct) << " sizeof(arr<T>)=" << sizeof(dataIn) << std::endl;
+
+    allcomm.communicate(dataIn, lin, dataOut, lout);
+
+    for (int i = 0; i < size * tmpsize; i++)
+    {
+    	std::cout << "process_" << rank << " received-struct " << dataOut[i].rank_s << " " << dataOut[i].rank_r << " " << dataOut[i].data << std::endl;
+    }
 }
 
+
+void test_vectorinterface(MPIHelper & mpihelper)
+{
+    int rank = mpihelper.rank();
+    int size = mpihelper.size();
+    Dune::CurvGrid::AllCommunication allcomm(mpihelper);
+
+    std::cout << "process_" << rank << " ::: Testing vector interface" << std::endl;
+
+    int tmpsize = 5;
+
+    std::vector<int> lin;
+    std::vector<int> lout;
+
+    std::vector<teststruct> dataIn(size * tmpsize);
+    std::vector<teststruct> dataOut;
+
+    for (int i = 0; i < size; i++)
+    {
+    	lin.push_back(tmpsize);
+
+    	for (int j = 0; j < 5; j++)
+    	{
+    		int l = i * tmpsize + j;
+    		dataIn[l].rank_s = rank;
+    		dataIn[l].rank_r = i;
+    		dataIn[l].data = j;
+    	}
+    }
+
+    allcomm.communicate(dataIn, lin, dataOut, lout);
+
+
+    for (int i = 0; i < dataOut.size(); i++)
+    {
+    	std::cout << "process_" << rank << " received-struct " << dataOut[i].rank_s << " " << dataOut[i].rank_r << " " << dataOut[i].data << std::endl;
+    }
+}
 
 
 int main(int argc, char** argv)
@@ -53,39 +115,9 @@ int main(int argc, char** argv)
     // initialize MPI, finalize is done automatically on exit
     static MPIHelper &mpihelper=Dune::MPIHelper::instance(argc,argv);
 
-    Dune::CurvGrid::AllCommunication allcomm(mpihelper);
 
-
-    std::vector<int> lin;
-    std::vector<int> lout;
-
-    std::vector<teststruct> dataIn;
-    std::vector<teststruct> dataOut;
-
-
-    for (int i = 0; i < mpihelper.size(); i++)
-    {
-    	lin.push_back(5);
-
-    	for (int j = 0; j < 5; j++)
-    	{
-    		teststruct tmp;
-    		tmp.rank_s = mpihelper.rank();
-    		tmp.rank_r = i;
-    		tmp.data = j;
-    		dataIn.push_back(tmp);
-    	}
-    }
-
-    allcomm.communicate(dataIn, lin, dataOut, lout);
-
-    std::cout << "process_" << mpihelper.rank() << " datasize-send " << vector2string(lin) << std::endl;
-    std::cout << "process_" << mpihelper.rank() << " datasize-recv " << vector2string(lout) << std::endl;
-
-    for (int i = 0; i < dataOut.size(); i++)
-    {
-    	std::cout << "process_" << mpihelper.rank() << " received-struct " << dataOut[i].rank_s << " " << dataOut[i].rank_r << " " << dataOut[i].data << std::endl;
-    }
+    //test_pointerinterface(mpihelper);
+    test_vectorinterface(mpihelper);
 
 
 

@@ -14,6 +14,8 @@
 #include <dune/curvilineargrid/curvilineargrid/intersectioniterator.hh>
 #include <dune/curvilineargrid/curvilineargrid/iterator.hh>
 
+#include <dune/curvilineargrid/curvilineargrid/communication.hh>
+
 namespace Dune
 {
 

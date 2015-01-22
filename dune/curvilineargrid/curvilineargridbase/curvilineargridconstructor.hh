@@ -258,7 +258,7 @@ public:
 
         // Get corners of this face
         // **********************************************************************************
-        std::vector<LocalIndexType> faceCorners = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset(gt, vertexIndexSet, order);
+        std::vector<LocalIndexType> faceCorners = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ct, 2>(gt, vertexIndexSet, order);
         FaceKey thisFaceKey;
         thisFaceKey.node0 = gridstorage_.point_[faceCorners[0]].globalIndex;
         thisFaceKey.node1 = gridstorage_.point_[faceCorners[1]].globalIndex;
@@ -270,7 +270,7 @@ public:
 
         // Take associated element, get all its corners, get all keys, compare to face key
         // **********************************************************************************
-        std::vector<LocalIndexType> elementCorners = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset(
+        std::vector<LocalIndexType> elementCorners = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ct, 3>(
         		gridstorage_.element_[associatedElementIndex].geometryType,
         		gridstorage_.element_[associatedElementIndex].vertexIndexSet,
         		gridstorage_.element_[associatedElementIndex].interpOrder
@@ -548,7 +548,7 @@ protected:
         for (int iElem = 0; iElem < nElem; iElem++)
         {
         	EntityStorage & thisElem = gridstorage_.element_[iElem];
-            std::vector<LocalIndexType> elementCornerLocalIndexSet = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
+            std::vector<LocalIndexType> elementCornerLocalIndexSet = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ct, 3>(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
 
             for (int iEdge = 0; iEdge < nEdgePerTetrahedron; iEdge++)
             {
@@ -635,7 +635,7 @@ protected:
         for (int iElem = 0; iElem < nElem; iElem++)
         {
         	EntityStorage & thisElem = gridstorage_.element_[iElem];
-            std::vector<int> elementCornerLocalIndexSet = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
+            std::vector<int> elementCornerLocalIndexSet = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ct, 3>(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
 
             // Store info for all faces except of domain boundaries
             // Store it in a map, not to store internal faces twice
@@ -972,27 +972,28 @@ protected:
 
         // 2) Get edges and faces on this process that are not owned by this process
         // *************************************************************************
-        EdgeKey2EdgeIndexMap edgeNonOwned;
-        FaceKey2FaceIndexMap faceNonOwned;
+        LocalIndexSet edgeNonOwned;  // LocalIndex of edge not owned by this process
+        LocalIndexSet faceNonOwned;  // LocalIndex of face not owned by this process
 
         // Edges
-        for (EdgeMapIterator edgeIter  = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].begin();
-        		             edgeIter != gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].end(); edgeIter++ )
+        for (Local2LocalIterator edgeIter  = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].begin();
+        		                 edgeIter != gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].end(); edgeIter++ )
         {
-        	//std::cout << "process_" << rank_ << " -- edgePBIndex=" << (*edgeIter).second << std::endl;
-        	//std::cout << "process_" << rank_ << " -- nEdgeNeighbor=" << gridstorage_.processBoundaryNeighborRank_[EDGE_CODIM][(*edgeIter).second].size() << std::endl;
+        	LocalIndexType thisEdgeLocalIndex = (*edgeIter).second;
+        	LocalIndexType thisEdgePBIndex    = (*edgeIter).second;
 
-            int edgeOwnerCandidateRank = gridstorage_.processBoundaryNeighborRank_[EDGE_CODIM][(*edgeIter).second][0];
-            if (edgeOwnerCandidateRank < rank_) { edgeNonOwned[(*edgeIter).first] = edgeOwnerCandidateRank; }
+            int edgeOwnerCandidateRank = gridstorage_.processBoundaryNeighborRank_[EDGE_CODIM][thisEdgePBIndex][0];
+            if (edgeOwnerCandidateRank < rank_) { edgeNonOwned.insert(thisEdgeLocalIndex); }
         }
 
         // Faces
-        for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++ )
+        for (Local2LocalIterator faceIter = gridstorage_.processBoundaryIndexMap_[FACE_CODIM].begin();
+        		                 faceIter != gridstorage_.processBoundaryIndexMap_[FACE_CODIM].end(); faceIter++ )
         {
-        	LocalIndexType localFaceIndex = (*faceIter).second;
-        	LocalIndexType localPBIndex = gridstorage_.processBoundaryIndexMap_[FACE_CODIM][localFaceIndex];
-            int faceOwnerCandidateRank = gridstorage_.processBoundaryNeighborRank_[FACE_CODIM][localPBIndex][0];
-            if (faceOwnerCandidateRank < rank_) { faceNonOwned[(*faceIter).first] = faceOwnerCandidateRank; }
+        	LocalIndexType thisFaceLocalIndex = (*faceIter).first;
+        	LocalIndexType thisFacePBIndex = (*faceIter).second;
+            int faceOwnerCandidateRank = gridstorage_.processBoundaryNeighborRank_[FACE_CODIM][thisFacePBIndex][0];
+            if (faceOwnerCandidateRank < rank_) { faceNonOwned.insert(thisFaceLocalIndex); }
         }
 
         int nEdgeOwned = gridstorage_.edge_.size() - edgeNonOwned.size();
@@ -1044,16 +1045,16 @@ protected:
         // This process owns this face if it is in the processInternalMap and if it is not in the non-owned face map
         for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
-            if (faceNonOwned.find((*faceIter).first) == faceNonOwned.end())  {
-            	LocalIndexType thisFaceLocalIndex = (*faceIter).second;
+        	LocalIndexType thisFaceLocalIndex = (*faceIter).second;
+            if (faceNonOwned.find(thisFaceLocalIndex) == faceNonOwned.end())  {
             	gridstorage_.face_[thisFaceLocalIndex].globalIndex = iFaceGlobalId++;
             }
         }
 
         // This process owns this edge if it is in the edgemap and if it is not in the non-owned edge map
-        for (EdgeMapIterator iter = edgeKey2LocalIndexMap_.begin(); iter != edgeKey2LocalIndexMap_.end(); iter++)
+        for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)
         {
-            if (edgeNonOwned.find((*iter).first) == edgeNonOwned.end())  { gridstorage_.edge_[(*iter).second].globalIndex = iEdgeGlobalId++; }
+            if (edgeNonOwned.find(iEdge) == edgeNonOwned.end())  { gridstorage_.edge_[iEdge].globalIndex = iEdgeGlobalId++; }
         }
 
 
@@ -1341,8 +1342,8 @@ protected:
 
     	// 1) Compute neighbor ranks for each process boundary edge by intersecting neighbor ranks of its corners
     	// *************************************************************************************************************
-        for (EdgeMapIterator edgeIter = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].begin();
-        		             edgeIter != gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].end(); edgeIter++ )
+        for (Local2LocalIterator edgeIter = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].begin();
+        		                 edgeIter != gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].end(); edgeIter++ )
         {
             LocalIndexType thisEdgeLocalIndex = (*edgeIter).first;
             LocalIndexType thisPBEdgeLocalIndex = (*edgeIter).second;
@@ -1557,7 +1558,7 @@ protected:
             } else
             {
                 // Store the face neighbor rank. Face is only allowed to have exactly one neighbor
-            	LocalIndexType thisFaceLocalPBIndex = gridstorage_.processBoundaryIndexMap_[thisFaceLocalIndex];
+            	LocalIndexType thisFaceLocalPBIndex = gridstorage_.processBoundaryIndexMap_[FACE_CODIM][thisFaceLocalIndex];
             	gridstorage_.processBoundaryNeighborRank_[FACE_CODIM][thisFaceLocalPBIndex].push_back(faceneighborset[0]);
             }
         }
@@ -1832,11 +1833,11 @@ protected:
 
         // 1) Loop over all process boundary faces, split faces on the ones to be sent and to be received
         // ********************************************************************************************
-        for (EdgeMapIterator iter  = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].begin();
-        		             iter != gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].end(); iter++)
+        for (Local2LocalIterator iter  = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].begin();
+        		                 iter != gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].end(); iter++)
         {
             LocalIndexType localEdgeIndex = (*iter).first;
-            LocalIndexType localProcessBoundaryIndex = (*iter).second;
+            LocalIndexType localEdgePBIndex = (*iter).second;
 
             // Construct EdgeKey
             std::vector<LocalIndexType> thisCornerLocalIndices =  gridbase_.entityCornerLocalIndex(2, localEdgeIndex);
@@ -1845,7 +1846,7 @@ protected:
             thisEdgeKey.node1 = gridstorage_.point_[thisCornerLocalIndices[1]].globalIndex;
 
 
-            int candidateOwnerRank = gridstorage_.processBoundaryNeighborRank_[EDGE_CODIM][localProcessBoundaryIndex][0];
+            int candidateOwnerRank = gridstorage_.processBoundaryNeighborRank_[EDGE_CODIM][localEdgePBIndex][0];
 
             //std::cout << "process_" << rank_ <<  " EdgeKey=(" << thisEdgeKey.node0 << "," << thisEdgeKey.node1 << ") localIndex=" << localEdgeIndex <<  std::endl;
 
@@ -1858,9 +1859,9 @@ protected:
 
                 EdgeInfo thisEdgeInfo(thisEdgeKey, thisGlobalIndex);
 
-                for (int iNeighbor = 0; iNeighbor < gridstorage_.processBoundaryNeighborRank_[EDGE_CODIM][localProcessBoundaryIndex].size(); iNeighbor++)
+                for (int iNeighbor = 0; iNeighbor < gridstorage_.processBoundaryNeighborRank_[EDGE_CODIM][localEdgePBIndex].size(); iNeighbor++)
                 {
-                    int thisNeighborRank = gridstorage_.processBoundaryNeighborRank_[EDGE_CODIM][localProcessBoundaryIndex][iNeighbor];
+                    int thisNeighborRank = gridstorage_.processBoundaryNeighborRank_[EDGE_CODIM][localEdgePBIndex][iNeighbor];
                     edgesToSend[thisNeighborRank].push_back(thisEdgeInfo);
                 };
             }

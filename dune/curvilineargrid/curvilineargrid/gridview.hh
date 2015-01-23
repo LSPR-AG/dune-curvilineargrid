@@ -31,8 +31,12 @@ namespace Dune
     {
     	typedef typename Grid::Traits Traits;
 
-    	typedef typename Traits::GridBaseType      GridBaseType;
-    	typedef typename Traits::IndexSetIterator  IndexSetIterator;
+    	typedef typename Traits::GridStorageType     GridStorageType;
+    	typedef typename Traits::GridBaseType        GridBaseType;
+    	typedef typename Traits::LocalIndexType      LocalIndexType;
+    	typedef typename Traits::IndexSetIterator    IndexSetIterator;
+
+
 
     	typedef typename Traits::template Codim< 0 >::Entity  Entity;
 
@@ -41,8 +45,11 @@ namespace Dune
     	typedef typename Traits::IntersectionIterator         IntersectionIterator;
     	typedef typename Traits::IntersectionIteratorImpl     IntersectionIteratorImpl;
 
+    	typedef Dune::IteratorRange<>  GridviewIteratorRange;
+
     public:
 
+      static const int dimension =  Traits::dimension;
       static const bool conforming = Traits::conforming;
 
       GridView (const Grid &grid, GridBaseType & gridbase)
@@ -68,7 +75,7 @@ namespace Dune
 
           // Iterator must not point at a Ghost face
           // If it does, increment it, it will automatically point at the next non-ghost face
-          if (gridbase_.entityStructuralType(1, faceLocalIndex) == Dune::CurvilinearGridStorage<ctype, dim>::PartitionType::Ghost)  { iter.increment(); }
+          if (gridbase_.entityStructuralType(1, faceLocalIndex) == GridStorageType::PartitionType::Ghost)  { iter.increment(); }
 
           return iter;
       }
@@ -86,12 +93,24 @@ namespace Dune
         return grid().comm();
       }
 
-      template< class DataHandle, class Data >
-      void communicate ( CommDataHandleIF< DataHandle, Data > &dataHandle,
+      template< class DataHandle, class Data, class GridViewType >
+      void communicateCodim( CommDataHandleIF< DataHandle, Data > &dataHandle,
                          InterfaceType interface,
-                         CommunicationDirection direction ) const
+                         CommunicationDirection direction,
+                         GridViewType & gv ) const
       {
-    	  //[TODO] Call communication.hh
+    	Dune::CurvGrid::Communication<Grid> communicator;
+
+      	Dune::IteratorRange<This, partitions> elems = Dune::GridView::elements (*this, Dune::PartitionSet< partitions > ps);
+      	Dune::IteratorRange<This, partitions> faces = Dune::GridView::facets   (*this, Dune::PartitionSet< partitions > ps);
+      	Dune::IteratorRange<This, partitions> edges = Dune::GridView::edges    (*this, Dune::PartitionSet< partitions > ps);
+      	Dune::IteratorRange<This, partitions> verts = Dune::GridView::vertices (*this, Dune::PartitionSet< partitions > ps);
+
+
+      	if (dataHandle.contains(dimension, 0))  { communicator.communicate(dataHandle, interface, direction, level, elems); }
+      	if (dataHandle.contains(dimension, 1))  { communicator.communicate(dataHandle, interface, direction, level, faces); }
+      	if (dataHandle.contains(dimension, 2))  { communicator.communicate(dataHandle, interface, direction, level, edges); }
+      	if (dataHandle.contains(dimension, 3))  { communicator.communicate(dataHandle, interface, direction, level, verts); }
       }
 
     protected:
@@ -114,6 +133,7 @@ namespace Dune
 
 
     public:
+    	typedef LeafGridView<Grid, pitype > This;
     	typedef GridView<Grid, pitype >  Base;
 
     	using Base::grid_;
@@ -162,6 +182,32 @@ namespace Dune
         int overlapSize ( int codim ) const  { return grid().overlapSize(codim); }
 
         int ghostSize ( int codim ) const  { return grid().ghostSize(codim); }
+
+
+
+
+        template< class DataHandle, class Data>
+        void communicate( CommDataHandleIF< DataHandle, Data > &dataHandle,
+                           InterfaceType interface,
+                           CommunicationDirection direction ) const
+        {
+        	Base::communicateCodim< DataHandle, Data, This>(dataHandle, interface, direction, *this);
+        }
+
+
+        template <partitions>
+        Dune::PartitionSet< partitions >
+        interface2partitionSet(InterfaceType interface)
+        {
+        	switch(interface)
+        	{
+            InteriorBorder_InteriorBorder_Interface=0,     //!< send/receive interior and border entities
+            InteriorBorder_All_Interface=1,                //!< send interior and border, receive all entities
+            All_All_Interface=4                            //!< send all and receive all entities
+        	}
+
+        }
+
 
     private:
         mutable LeafIndexSet indexset_;

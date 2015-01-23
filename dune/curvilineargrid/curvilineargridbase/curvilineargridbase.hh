@@ -602,7 +602,7 @@ public:
     		case 3 :
     		{
     			InterpolatoryOrderType interpolationOrder = gridstorage_.element_[elementLocalIndex].interpOrder;
-    			InternalIndexType cornerInternalIndex = Dune::CurvilinearGeometryHelper::cornerID(tetrahedronGeometry, interpolationOrder, elementSubentityInternalIndex1);
+    			InternalIndexType cornerInternalIndex = Dune::CurvilinearGeometryHelper::cornerIndex(tetrahedronGeometry, interpolationOrder, elementSubentityInternalIndex1);
     			return gridstorage_.element_[elementLocalIndex].vertexIndexSet[cornerInternalIndex];
     		} break;
     	}

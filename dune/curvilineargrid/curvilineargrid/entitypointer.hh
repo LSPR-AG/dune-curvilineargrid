@@ -7,7 +7,7 @@
 
 #include <dune/curvilineargrid/curvilineargrid/declaration.hh>
 #include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
-#include <dune/curvilineargrid/curvilineargrid/entityseed.hh>
+#include <dune/curvilineargrid/curvilineargrid/entity.hh>
 
 namespace Dune
 {
@@ -49,40 +49,30 @@ namespace Dune
           : entity_(iter, gridbase)
         {}
 
-        explicit EntityPointer ( const EntityImpl &entity )
+        EntityPointer ( const EntityImpl &entity )
           : entity_( entity )
         {}
 
-        EntityPointer ( const This &other )
-           : entity_( other.getEntity() )
+        EntityPointer ( const EntityImpl && entity )
+          : entity_( std::move(entity) )
         {}
 
-        const This &operator= ( const This &other )
+        //const This &operator= ( const This &other )  { entity_ = other.getEntity(); return *this; }
+
+        bool equals ( const EntityPointer &other ) const
         {
-      	  entity_ = other.getEntity();
-      	  return *this;
+          return entity_.equals(other.dereference());
         }
 
-        template< class T >
-        bool equals ( const EntityPointer< T> &other ) const
-        {
-          return entity_.equals(other.getEntity());
-        }
-
-        Entity &dereference () const  { return entity_; }
+        const Entity &dereference () const  { return entity_; }
 
         int level () const { return 0; }
 
-        Entity getEntity()  { return entity_; }
-
     protected:
-        EntityImpl &entityImpl () const
-        {
-          return Grid::getRealImplementation( entity_ );
-        }
+        // EntityImpl &entityImpl () const  { return Grid::getRealImplementation( entity_ ); }
 
     private:
-      mutable Entity entity_;
+      Entity entity_;
 
     };
 

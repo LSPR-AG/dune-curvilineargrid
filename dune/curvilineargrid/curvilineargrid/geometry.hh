@@ -29,10 +29,12 @@ namespace Dune
 
       typedef typename remove_const< Grid >::type::Traits Traits;
 
-      template< int, int, class > friend class Geometry;
+      //template< int, int, class > friend class Geometry;
 
     public:
       typedef typename Traits::ctype ctype;
+      typedef typename Traits::InternalIndexType         InternalIndexType;
+      typedef typename Traits::InterpolatoryOrderType    InterpolatoryOrderType;
 
       static const int mydimension = mydim;
       static const int coorddimension = cdim;
@@ -61,7 +63,7 @@ namespace Dune
 
 
       template< class Vertices >
-      Geometry (const GeometryType &type, const Vertices &vertices, int order )
+      Geometry (const GeometryType &type, const Vertices &vertices, InterpolatoryOrderType order )
       	  : mapping_ ( type, vertices, order )
       {
           assert( int( type.dim() ) == mydimension );
@@ -79,15 +81,15 @@ namespace Dune
 
       operator bool () const { return bool( mapping_ ); }
 
-      bool           affine ()   const  { return mapping_->affine(); }
-      GeometryType   type ()     const  { return mapping_->type(); }
-      int order()                const  { return mapping_->order(); }
-      int vertex (int i)         const  { return mapping_->vertex(i); }
-      int vertices ()            const  { return mapping_->vertices(); }
-      int corners ()             const  { return mapping_->corners(); }
+      bool           affine ()          const  { return mapping_->affine(); }
+      GeometryType   type ()            const  { return mapping_->type(); }
+      int order()                       const  { return mapping_->order(); }
+      int vertex (InternalIndexType i)  const  { return mapping_->vertex(i); }
+      int vertices ()                   const  { return mapping_->vertices(); }
+      int corners ()                    const  { return mapping_->corners(); }
 
-      GlobalCoordinate corner ( const int i ) const { return mapping_->corner( i ); }
-      GlobalCoordinate center ()              const { return mapping_->center(); }
+      GlobalCoordinate corner ( const InternalIndexType i ) const { return mapping_->corner( i ); }
+      GlobalCoordinate center ()                            const { return mapping_->center(); }
 
       GlobalCoordinate global ( const LocalCoordinate &local ) const { return mapping_->global( local ); }
       // Local returns true if the point is inside the element. Then localC is the corresponding local coordinate
@@ -110,7 +112,7 @@ namespace Dune
       template <typename Functor>
       ctype integrateNumerical(const Functor & f, double tolerance) const { return mapping_->integrateNumerical(f, tolerance); }
       ctype integrateAnalyticalDot(const PolynomialVector & PVec)   const { return mapping_->integrateAnalyticalDot(PVec); }
-      ctype volume () const { return mapping_->volume(); }
+      ctype volume () const  { return mapping_->volume(); }
 
       JacobianTransposed jacobianTransposed ( const LocalCoordinate &local )                const { return mapping_->jacobianTransposed( local ); }
       JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local )  const { return mapping_->jacobianInverseTransposed( local ); }

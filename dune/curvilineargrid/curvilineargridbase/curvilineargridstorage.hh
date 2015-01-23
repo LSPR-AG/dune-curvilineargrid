@@ -274,6 +274,10 @@ public:
     // List of all ranks of processors neighboring processorBoundaries.
     std::vector<std::vector< int > > processBoundaryNeighborRank_[4];  // (entityPBIndex<codim> -> vector{neighbour ranks})
 
+    // [TODO] To implement higher codim communication, each ghost needs to know its neighbor processes
+    // Will require more global communication to compute
+    // std::vector<std::vector<int>> ghostNeighborRank_[4];  // ghost entity index -> vector{neighbor ranks}
+
 
 
     // Octree used to efficiently locate elements in which the points are located

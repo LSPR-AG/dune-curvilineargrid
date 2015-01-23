@@ -689,13 +689,16 @@ protected:
             LocalIndexType localFaceIndex = gridstorage_.face_.size();
             std::vector<int> connectedFaceInfo = (*iter).second;
 
+            LocalIndexType    thisAssociatedElementIndex = connectedFaceInfo[0];
+            InternalIndexType thisFaceSubentityIndex = connectedFaceInfo[1];
+
             // Store the face local index as element subentity
-            gridstorage_.elementSubentityCodim1_[connectedFaceInfo[0]][connectedFaceInfo[1]] = localFaceIndex;
+            gridstorage_.elementSubentityCodim1_[thisAssociatedElementIndex][thisFaceSubentityIndex] = localFaceIndex;
 
             // Recover parental information for this face
             thisFace.globalIndex = 0;       // GlobalId is defined at a later stage
-            thisFace.element1Index = connectedFaceInfo[0];
-            thisFace.element1SubentityIndex = connectedFaceInfo[1];
+            thisFace.element1Index = thisAssociatedElementIndex;
+            thisFace.element1SubentityIndex = thisFaceSubentityIndex;
             thisFace.physicalTag = -1;    // At the moment physicalTag of an internal face is not defined as it could be inbetween two different elements
 
             // Find the geometry type of the face from its parent face

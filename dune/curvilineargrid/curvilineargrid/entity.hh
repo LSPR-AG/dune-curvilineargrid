@@ -66,36 +66,45 @@ namespace Dune
 
 	  EntityBase (
 	    IndexSetIterator & iter,
-	    GridBaseType & gridbase
+	    GridBaseType & gridbase,
+	    Dune::PartitionType pitype
 	    )
 	  	  :
 	  		gridbaseIndexIterator_(iter),
-	  	    gridbase_(gridbase)
+	  	    gridbase_(gridbase),
+	  	    pitype_(pitype)
 	  {  }
 
 
 	  //! Copy constructor from an existing entity.
-	  EntityBase(const EntityBase& other) { }
-
-	  /** \} */
-
-	  //! Copy assignment operator from an existing entity.
-	  EntityBase& operator=(const EntityBase& other)  { }
-
-	  //! Move assignment operator from an existing entity.
-	  EntityBase& operator=(EntityBase&& other)
+	  EntityBase(const EntityBase& other)
 	  {
-		  realEntity = std::move(other.realEntity);
-		  return *this;
+		  gridbaseIndexIterator_ = other.gridbaseIndexIterator_;
+		  gridbase_ = other.gridbase_;
+		  pitype_ = other.pitype_;
 	  }
 
 	  //! Move constructor from an existing entity.
-	  EntityBase(EntityBase&& other) : realEntity(std::move(other.realEntity))
-	  {}
+	  //EntityBase(EntityBase&& other) : realEntity(std::move(other.realEntity)) {}
+
+
+	  //! Copy assignment operator from an existing entity.
+	  //EntityBase& operator=(const EntityBase& other)  { }
+
+	  //! Move assignment operator from an existing entity.
+	  //EntityBase& operator=(EntityBase&& other)  { realEntity = std::move(other.realEntity);  return *this; }
+
+
+
+	  /** \} */
 
 
 	  /** \brief compare two entities */
-	  bool equals ( const EntityBase &other) const  { }
+	  bool equals ( const EntityBase &other) const
+	  {
+		  return ((gridbaseIndexIterator_ == other.gridbaseIndexIterator_) && (gridbase_ == other.gridbase_));
+	  }
+
 
 	  /** \brief Return the entity seed which contains sufficient information to generate the entity again and uses as little memory as possible */
 	  EntitySeed seed () const  { return EntitySeed(*gridbaseIndexIterator_, pitype_, gridbase_); }
@@ -107,6 +116,7 @@ namespace Dune
   protected:
 	    IndexSetIterator gridbaseIndexIterator_;
 	    GridBaseType & gridbase_;
+	    Dune::PartitionType pitype_;
   };
 
 

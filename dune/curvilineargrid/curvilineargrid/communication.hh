@@ -1,7 +1,7 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
-#ifndef DUNE_CURVGRID_DECLARATION_HH
-#define DUNE_CURVGRID_DECLARATION_HH
+#ifndef DUNE_CURVGRID_COMMUNICATION_HH
+#define DUNE_CURVGRID_COMMUNICATION_HH
 
 #include <dune/curvilineargrid/utility/allcommunication.hh>
 
@@ -214,4 +214,4 @@ namespace Dune
 
 } // namespace Dune
 
-#endif // #ifndef DUNE_CURVGRID_DECLARATION_HH
+#endif // #ifndef DUNE_CURVGRID_COMMUNICATION_HH

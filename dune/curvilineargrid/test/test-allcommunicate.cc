@@ -31,6 +31,7 @@ struct teststruct
 };
 
 
+
 void test_pointerinterface(MPIHelper & mpihelper)
 {
     int rank = mpihelper.rank();
@@ -66,7 +67,7 @@ void test_pointerinterface(MPIHelper & mpihelper)
 
     for (int i = 0; i < size * tmpsize; i++)
     {
-    	std::cout << "process_" << rank << " received-struct " << dataOut[i].rank_s << " " << dataOut[i].rank_r << " " << dataOut[i].data << std::endl;
+    	std::cout << "process_" << rank << " received-struct from=" << dataOut[i].rank_s << " to=" << dataOut[i].rank_r << " data=" << dataOut[i].data << std::endl;
     }
 }
 
@@ -91,7 +92,7 @@ void test_vectorinterface(MPIHelper & mpihelper)
     {
     	lin.push_back(tmpsize);
 
-    	for (int j = 0; j < 5; j++)
+    	for (int j = 0; j < tmpsize; j++)
     	{
     		int l = i * tmpsize + j;
     		dataIn[l].rank_s = rank;
@@ -105,9 +106,102 @@ void test_vectorinterface(MPIHelper & mpihelper)
 
     for (int i = 0; i < dataOut.size(); i++)
     {
-    	std::cout << "process_" << rank << " received-struct " << dataOut[i].rank_s << " " << dataOut[i].rank_r << " " << dataOut[i].data << std::endl;
+    	std::cout << "process_" << rank << " received-struct from=" << dataOut[i].rank_s << " to=" << dataOut[i].rank_r << " data=" << dataOut[i].data << std::endl;
     }
 }
+
+
+void test_neighbor_pointerinterface(MPIHelper & mpihelper)
+{
+    int rank = mpihelper.rank();
+    int size = mpihelper.size();
+    Dune::CurvGrid::AllCommunication allcomm(mpihelper);
+
+    std::cout << "process_" << rank << " ::: Testing neighbour pointer interface" << std::endl;
+
+    // Communication sparsity pattern - communicate to next and previous (cyclic)
+	int ranksIn[2];
+	ranksIn[0] = (rank == 0)      ? size - 1 : rank - 1;
+	ranksIn[1] = (rank == size-1) ? 0        : rank + 1;
+
+	int nNeighborIn = 2;
+	int nNeighborOut;
+    int tmpsize = 5;
+
+    int lin[nNeighborIn];
+    int lout[nNeighborIn];
+
+    teststruct dataIn[nNeighborIn * tmpsize];
+    teststruct dataOut[nNeighborIn * tmpsize];
+
+    for (int i = 0; i < nNeighborIn; i++)
+    {
+    	lin[i] = tmpsize;
+
+    	for (int j = 0; j < tmpsize; j++)
+    	{
+    		int l = i * tmpsize + j;
+    		dataIn[l].rank_s = rank;
+    		dataIn[l].rank_r = ranksIn[i];
+    		dataIn[l].data = j;
+    	}
+    }
+
+    //std::cout << "process_" << rank << " start comm of array of sizeof(T)=" << sizeof(teststruct) << " sizeof(arr<T>)=" << sizeof(dataIn) << std::endl;
+
+    allcomm.communicate_neighbors(dataIn, nNeighborIn, ranksIn, lin, dataOut, nNeighborOut, lout);
+    assert(nNeighborOut == 2);
+
+    for (int i = 0; i < nNeighborOut * tmpsize; i++)
+    {
+    	std::cout << "process_" << rank << " received-struct from=" << dataOut[i].rank_s << " to=" << dataOut[i].rank_r << " data=" << dataOut[i].data << std::endl;
+    }
+}
+
+
+void test_neighbor_vectorinterface(MPIHelper & mpihelper)
+{
+    int rank = mpihelper.rank();
+    int size = mpihelper.size();
+    Dune::CurvGrid::AllCommunication allcomm(mpihelper);
+
+    std::cout << "process_" << rank << " ::: Testing neighbour vector interface" << std::endl;
+
+    // Communication sparsity pattern - communicate to next and previous (cyclic)
+	std::vector<int> ranksIn(2);
+	ranksIn[0] = (rank == 0)      ? size - 1 : rank - 1;
+	ranksIn[1] = (rank == size-1) ? 0        : rank + 1;
+
+	int nNeighborIn = 2;
+    int tmpsize = 5;
+
+    std::vector<int> lin;
+    std::vector<int> lout;
+
+    std::vector<teststruct> dataIn(nNeighborIn * tmpsize);
+    std::vector<teststruct> dataOut;
+
+    for (int i = 0; i < nNeighborIn; i++)
+    {
+    	lin.push_back(tmpsize);
+
+    	for (int j = 0; j < tmpsize; j++)
+    	{
+    		int l = i * tmpsize + j;
+    		dataIn[l].rank_s = rank;
+    		dataIn[l].rank_r = ranksIn[i];
+    		dataIn[l].data = j;
+    	}
+    }
+
+    allcomm.communicate_neighbors(dataIn, ranksIn, lin, dataOut, lout);
+
+    for (int i = 0; i < dataOut.size(); i++)
+    {
+    	std::cout << "process_" << rank << " received-struct from=" << dataOut[i].rank_s << " to=" << dataOut[i].rank_r << " data=" << dataOut[i].data << std::endl;
+    }
+}
+
 
 
 int main(int argc, char** argv)
@@ -117,7 +211,10 @@ int main(int argc, char** argv)
 
 
     //test_pointerinterface(mpihelper);
-    test_vectorinterface(mpihelper);
+    //test_vectorinterface(mpihelper);
+
+    //test_neighbor_pointerinterface(mpihelper);
+    test_neighbor_vectorinterface(mpihelper);
 
 
 

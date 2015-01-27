@@ -200,6 +200,24 @@ namespace Dune
     	}
 
 
+
+    protected:
+    	void codim0_IB2IB() {}
+
+    	void codim0_IB2All() {}
+
+    	void codim0_All2IB() {}
+
+    	void codim0_All2All() {}
+
+    	void codim1_IB2IB() {}
+
+    	void codim2_IB2IB() {}
+
+    	void codim3_IB2IB() {}
+
+
+
     private:
     	MPIHelper & mpihelper_;
     	int rank_;
@@ -209,6 +227,8 @@ namespace Dune
 
 
     }; // Class
+
+
 
   } // namespace CurvGrid
 

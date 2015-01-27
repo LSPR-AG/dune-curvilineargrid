@@ -47,6 +47,8 @@
 
 
 #include <dune/curvilineargrid/common/loggingmessage.hh>
+#include <dune/curvilineargrid/common/vectorhelper.hh>
+
 #include <dune/curvilineargrid/curvilineargrid/curvilineargridfactory.hh>
 #include <dune/curvilineargrid/io/file/curvilinearvtkwriter.hh>
 
@@ -348,7 +350,7 @@ namespace Dune
 #endif
 #endif
 
-        //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Parmetis-suggested processes for elements: " + vector2string(part));
+        //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Parmetis-suggested processes for elements: " + Dune::VectorHelper::vector2string(part));
     }
 
 
@@ -439,12 +441,12 @@ namespace Dune
    	     MPI_Alltoallv (sendbuf.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvbuf.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
 #endif
 
-   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Sending buffer: " + vector2string(sendbuf));
-   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Sending counts: " + vector2string(sendcounts));
-   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Sending displs: " + vector2string(sdispls));
-   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Receiving buffer: " + vector2string(recvbuf));
-   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Receiving counts: " + vector2string(recvcounts));
-   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Receiving displs: " + vector2string(rdispls));
+   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Sending buffer: " + Dune::VectorHelper::vector2string(sendbuf));
+   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Sending counts: " + Dune::VectorHelper::vector2string(sendcounts));
+   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Sending displs: " + Dune::VectorHelper::vector2string(sdispls));
+   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Receiving buffer: " + Dune::VectorHelper::vector2string(recvbuf));
+   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Receiving counts: " + Dune::VectorHelper::vector2string(recvcounts));
+   	     //Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Receiving displs: " + Dune::VectorHelper::vector2string(rdispls));
 
    	     thisProcessElementIndexSet = std::set<int> (recvbuf.begin(), recvbuf.end());
 
@@ -659,7 +661,7 @@ namespace Dune
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Finished communicating partition");
 
     	std::vector<int> test2 (thisProcessElementIndexSet.begin(), thisProcessElementIndexSet.end());
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " elements after partition: " + vector2string(test2));
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " elements after partition: " + Dune::VectorHelper::vector2string(test2));
 #else
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "No MPI found! Running sequential case without partitioning");
     	for (int i = 0; i < baseElementVector.size(); i++) { thisProcessElementIndexSet.insert(baseElementVector[i].elementIndex_); }
@@ -773,7 +775,7 @@ namespace Dune
 
                     // 5) Check if map empty for this entry, then add to the map
                     if (boundaryKey2LinkedElementSet.find(key) == boundaryKey2LinkedElementSet.end()) {
-                    	log_string = " -- element " + std::to_string(localID) + " has added boundary " + vector2string(key);
+                    	log_string = " -- element " + std::to_string(localID) + " has added boundary " + Dune::VectorHelper::vector2string(key);
                         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
                         boundaryKey2LinkedElementSet[key] = std::vector<int> (1, localID);
@@ -784,7 +786,7 @@ namespace Dune
                         tmp.push_back(localID);
                         boundaryKey2LinkedElementSet[key] = tmp;   // Should overwrite previous value
 
-                        log_string = " -- element " + std::to_string(localID) + " shares boundary " + vector2string(key) + " with element " + std::to_string(tmp[0]);
+                        log_string = " -- element " + std::to_string(localID) + " shares boundary " + Dune::VectorHelper::vector2string(key) + " with element " + std::to_string(tmp[0]);
                         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
                     }
                 }
@@ -881,7 +883,7 @@ namespace Dune
                 // 3) Obtain this boundary element's localID
                 int localID = boundaryElementVector.size();
 
-                log_string = " -- boundary " + std::to_string(localID) + " checking key " + vector2string(cornerVector);
+                log_string = " -- boundary " + std::to_string(localID) + " checking key " + Dune::VectorHelper::vector2string(cornerVector);
                 Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
 
@@ -890,7 +892,7 @@ namespace Dune
                 // If not, it is likely on another process
                 if (boundaryKey2LinkedElementSet.find(cornerVector) != boundaryKey2LinkedElementSet.end())
                 {
-                	log_string = " -found b.e localID = " + vector2string(boundaryKey2LinkedElementSet[cornerVector]);
+                	log_string = " -found b.e localID = " + Dune::VectorHelper::vector2string(boundaryKey2LinkedElementSet[cornerVector]);
                     Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
                     // correct differences between gmsh and Dune in the local vertex numbering
@@ -960,7 +962,7 @@ namespace Dune
                 elementNodeVector.push_back(vertexIndex2CoordinateMap[internalElementVector[i].elementDofSet_[iDof]]);
             }
 
-            //std::cout << "process_" << rank_ << " element=" << i << " globalVertexIndices=(" << vector2string(internalElementVector[i].elementDofSet_) << ")" << " localVertexIndices=(" << vector2string(localDofVector) << ")" << std::endl;
+            //std::cout << "process_" << rank_ << " element=" << i << " globalVertexIndices=(" << Dune::VectorHelper::vector2string(internalElementVector[i].elementDofSet_) << ")" << " localVertexIndices=(" << Dune::VectorHelper::vector2string(localDofVector) << ")" << std::endl;
 
 
             // TESTING SECTION FOR TETRAHEDRA
@@ -1108,15 +1110,6 @@ namespace Dune
     			VTK_WRITE_TRIANGLES);
     }
 
-    // Converts an arbitrary vector into string by sticking all of the entries together
-    // Whitespace separated
-    template <class T>
-    std::string vector2string(const T & V)
-    {
-        std::string tmp_str;
-        for (int i = 0; i < V.size(); i++) { tmp_str += std::to_string(V[i]) + " "; }
-        return tmp_str;
-    }
 
   public:
 

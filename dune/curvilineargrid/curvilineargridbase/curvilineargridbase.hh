@@ -178,7 +178,9 @@ public:
     typedef typename GridStorageType::FaceKey                FaceKey;
     typedef typename GridStorageType::IdType                 IdType;
 
+    typedef typename GridStorageType::Local2LocalMap            Local2LocalMap;
     typedef typename GridStorageType::Global2LocalMap           Global2LocalMap;
+    typedef typename GridStorageType::Local2LocalIterator       Local2LocalIterator;
     typedef typename GridStorageType::Global2LocalIterator      Global2LocalIterator;
     typedef typename GridStorageType::LocalIndexSet             LocalIndexSet;
     typedef typename GridStorageType::IndexSetIterator          IndexSetIterator;
@@ -518,7 +520,7 @@ public:
     bool isComplex(LocalIndexType localIndex) const
     {
     	LocalIndexType edgePBIndex = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM][localIndex];
-    	return gridstorage_.processBoundaryNeighborRank_[EDGE_CODIM][edgePBIndex].size() > 1;
+    	return gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][edgePBIndex].size() > 1;
     }
 
 
@@ -529,10 +531,79 @@ public:
     	if ((codim <= 0)||(codim > 3)) { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected process boundary codim"); }
 
     	LocalIndexType entityPBIndex = gridstorage_.processBoundaryIndexMap_[codim][localIndex];
-    	return gridstorage_.processBoundaryNeighborRank_[codim][entityPBIndex];
+    	return gridstorage_.PB2PBNeighborRank_[codim][entityPBIndex];
 	}
 
 
+
+    /** \brief  Computes the set of neighbor ranks for all elements on the boundary
+     *
+     *  if Ghost, then computes ghost element neighbour ranks
+     *  otherwise, computes internal boundary element neighbour ranks
+     *
+     * */
+	void boundaryElementNeighbors(
+		Local2LocalMap & boundarySubsetIndex,
+		std::vector< std::vector<int> > & boundaryNeighborRanks,
+		bool ghost
+	)
+	{
+		InternalIndexType faceNeighborSubIndex = ghost ? 1 : 0;
+
+		IndexSetIterator iterB = entityIndexBegin(FACE_CODIM , ProcessBoundaryType);
+		IndexSetIterator iterE = entityIndexEnd(FACE_CODIM , ProcessBoundaryType);
+
+		for (IndexSetIterator iter = iterB; iter != iterE; iter++)
+		{
+			LocalIndexType thisFaceLocalIndex = *iter;
+			LocalIndexType thisElementLocalIndex = faceNeighbor(thisFaceLocalIndex, faceNeighborSubIndex);
+			int thisNeighborRank = processBoundaryNeighborRankSet(FACE_CODIM, thisFaceLocalIndex);
+			LocalIndexType thisElementIBIndex;
+
+			Local2LocalIterator ghostIter = boundarySubsetIndex.find(thisElementLocalIndex);
+
+			if (ghostIter == boundarySubsetIndex.end())
+			{
+				thisElementIBIndex = boundarySubsetIndex.size();
+				boundarySubsetIndex[thisElementLocalIndex] = thisElementIBIndex;
+			} else {
+				thisElementIBIndex = (*ghostIter).second;
+			}
+
+			boundaryNeighborRanks[thisElementIBIndex].push_back(thisNeighborRank);
+		}
+	}
+
+
+    /** \brief  Computes set of all subentities of internal element next to process boundary,
+     * except of the process boundary itself. Then for each such entity provides all neighbor ranks
+     *
+     * */
+	std::set<LocalIndexType> boundaryInternalEntitySet(
+		int codim,
+		Local2LocalMap & boundarySubsetIndex,
+		std::vector< std::vector<int> > & boundaryNeighborRanks,
+		bool ghost
+	)
+	{
+		// Loop over all process boundaries
+		// If (codim = 0) and (ghost)  select ghost element
+		// If (codim = 0) and (!ghost) select internal element
+		// If (codim > 0) and (ghost)  throw error
+		// If (codim > 0) and (!ghost) for each internal element
+		//    Loop over all subentities, select subentity unless it is PB
+
+		// For each selected entity, add it to the map and add its neighbor to the neighbor map.
+
+
+		// [FIXME] Need correction for G-PB connection
+
+		// Logic:
+		// I  friends with G
+		// G  friends with I, PB, G
+		// PB friends with PB, G
+
+	}
 
 
     /** Returns the local index of a subentity of a given entity
@@ -958,21 +1029,6 @@ protected:
         return isInside;
     }
 
-    // Converts an arbitrary vector into string by sticking all of the entries together
-    // Whitespace separated
-    template <class T>
-    std::string vector2string(const T & V)
-    {
-        std::stringstream tmp_stream;
-
-        int nEntry = V.size();
-        if (nEntry == 0)  { tmp_stream << "Null"; }
-        for (int i = 0; i < nEntry; i++) {
-        	tmp_stream << V[i];
-        	if (i != nEntry - 1) { tmp_stream << " "; }
-        }
-        return tmp_stream.str();
-    }
 
 private: // Private members
 

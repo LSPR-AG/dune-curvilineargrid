@@ -50,6 +50,7 @@
 #include <dune/curvilineargeometry/curvilineargeometry.hh>
 
 #include <dune/curvilineargrid/common/loggingmessage.hh>
+#include <dune/curvilineargrid/common/vectorhelper.hh>
 
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridstorage.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
@@ -224,7 +225,7 @@ public:
 				std::vector<Vertex>  point             = thisGeometry.vertexSet();
 				std::vector<int>         tags  { physicalTag, VTK_GHOST, rank_ };
 
-				Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: WritingVTK Ghost Vertices=(" + vector2string(point) + ")");
+				Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: WritingVTK Ghost Vertices=(" + Dune::VectorHelper::vector2string(point) + ")");
 
 		    	vtkCurvWriter.addCurvilinearElement(
 		    			gt,
@@ -420,7 +421,7 @@ protected:
 			double faceCurvilinearArea = faceGeom.volume(1.0e-5);
 			rez[13][0] += faceCurvilinearArea;
 
-			std::cout << "size=" << faceGeom.vertexSet().size() <<" vertices = " << vector2string(faceGeom.vertexSet()) << std::endl;
+			std::cout << "size=" << faceGeom.vertexSet().size() <<" vertices = " << Dune::VectorHelper::vector2string(faceGeom.vertexSet()) << std::endl;
 
 			Dune::CurvilinearGeometry<double,2,3>::PolynomialVector polyMap = faceGeom.interpolatoryVectorAnalytical();
 
@@ -436,21 +437,6 @@ protected:
 	// Auxiliary Methods
 	// *************************************************************
 
-    // Converts an arbitrary vector into string by sticking all of the entries together
-    // Whitespace separated
-    template <class T>
-    std::string vector2string(const T & V)
-    {
-        std::stringstream tmp_stream;
-
-        int nEntry = V.size();
-        if (nEntry == 0)  { tmp_stream << "Null"; }
-        for (int i = 0; i < nEntry; i++) {
-        	tmp_stream << V[i];
-        	if (i != nEntry - 1) { tmp_stream << " "; }
-        }
-        return tmp_stream.str();
-    }
 
 	// Initializes a FieldVector in 1 line
 	Vertex initVector(ct a, ct b, ct c)

@@ -121,6 +121,7 @@ void test_neighbor_pointerinterface(MPIHelper & mpihelper)
 
     // Communication sparsity pattern - communicate to next and previous (cyclic)
 	int ranksIn[2];
+	int ranksOut[2];
 	ranksIn[0] = (rank == 0)      ? size - 1 : rank - 1;
 	ranksIn[1] = (rank == size-1) ? 0        : rank + 1;
 
@@ -149,12 +150,18 @@ void test_neighbor_pointerinterface(MPIHelper & mpihelper)
 
     //std::cout << "process_" << rank << " start comm of array of sizeof(T)=" << sizeof(teststruct) << " sizeof(arr<T>)=" << sizeof(dataIn) << std::endl;
 
-    allcomm.communicate_neighbors(dataIn, nNeighborIn, ranksIn, lin, dataOut, nNeighborOut, lout);
+    allcomm.communicate_neighbors(dataIn, nNeighborIn, ranksIn, lin, dataOut, nNeighborOut, ranksOut, lout);
     assert(nNeighborOut == 2);
 
-    for (int i = 0; i < nNeighborOut * tmpsize; i++)
+    int iData = 0;
+    for (int i = 0; i < nNeighborOut; i++)
     {
-    	std::cout << "process_" << rank << " received-struct from=" << dataOut[i].rank_s << " to=" << dataOut[i].rank_r << " data=" << dataOut[i].data << std::endl;
+    	for (int j = 0; j < tmpsize; j++)
+    	{
+    		teststruct thisData = dataOut[iData++];
+    		std::cout << "process_" << rank << " received from=" << ranksOut[i];
+    		std::cout << " data={ from=" << thisData.rank_s << " to=" << thisData.rank_r << " data=" << thisData.data << "}" << std::endl;
+    	}
     }
 }
 
@@ -169,6 +176,7 @@ void test_neighbor_vectorinterface(MPIHelper & mpihelper)
 
     // Communication sparsity pattern - communicate to next and previous (cyclic)
 	std::vector<int> ranksIn(2);
+	std::vector<int> ranksOut;
 	ranksIn[0] = (rank == 0)      ? size - 1 : rank - 1;
 	ranksIn[1] = (rank == size-1) ? 0        : rank + 1;
 
@@ -194,11 +202,17 @@ void test_neighbor_vectorinterface(MPIHelper & mpihelper)
     	}
     }
 
-    allcomm.communicate_neighbors(dataIn, ranksIn, lin, dataOut, lout);
+    allcomm.communicate_neighbors(dataIn, ranksIn, lin, dataOut, ranksOut, lout);
 
-    for (int i = 0; i < dataOut.size(); i++)
+    int iData = 0;
+    for (int i = 0; i < lout.size(); i++)
     {
-    	std::cout << "process_" << rank << " received-struct from=" << dataOut[i].rank_s << " to=" << dataOut[i].rank_r << " data=" << dataOut[i].data << std::endl;
+    	for (int j = 0; j < lout[i]; j++)
+    	{
+    		teststruct thisData = dataOut[iData++];
+    		std::cout << "process_" << rank << " received from=" << ranksOut[i];
+    		std::cout << " data={ from=" << thisData.rank_s << " to=" << thisData.rank_r << " data=" << thisData.data << "}" << std::endl;
+    	}
     }
 }
 

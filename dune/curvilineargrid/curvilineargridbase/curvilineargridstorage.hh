@@ -211,6 +211,8 @@ public:
     typedef std::set<LocalIndexType>                    LocalIndexSet;
     typedef typename LocalIndexSet::iterator            IndexSetIterator;
 
+    typedef std::vector<std::vector <int> >             EntityNeighborRankVector;
+
     typedef Dune::CurvilinearOctreeNode<ct, cdim>                 NodeType;
     typedef Dune::CurvilinearLooseOctree<ct, cdim, NodeType>      CurvilinearLooseOctree;
 
@@ -258,6 +260,8 @@ public:
 
     // Entity local index -> local process boundary index (if this entity is a process boundary)
     Local2LocalMap  processBoundaryIndexMap_[4];
+    Local2LocalMap  boundaryInternalEntityIndexMap_[4];
+    Local2LocalMap  ghostIndexMap_[4];
 
     // Index sets for entities of a specific structural type
     // Used to iterate over the grid entities
@@ -272,11 +276,20 @@ public:
     LocalIndexSet  entityDuneInteriorBorderIndexSet_[4];   // In Dune interior border entities are (internal + domain + process boundaries)
 
     // List of all ranks of processors neighboring processorBoundaries.
-    std::vector<std::vector< int > > processBoundaryNeighborRank_[4];  // (entityPBIndex<codim> -> vector{neighbour ranks})
+
 
     // [TODO] To implement higher codim communication, each ghost needs to know its neighbor processes
     // Will require more global communication to compute
-    // std::vector<std::vector<int>> ghostNeighborRank_[4];  // ghost entity index -> vector{neighbor ranks}
+
+    // List of all the processes sharing an entity with this process, noting the type that entity has on each process
+    // BI - Boundary Internal Entity. Subentity of internal element neighbouring a PB face
+    // PB - Process Boundary Entity (corners, edges, faces. Not elements)
+    // G -  Ghost
+    EntityNeighborRankVector BI2GNeighborRank_[4];    // boundary internal entity index -> vector{neighbor ranks}
+    EntityNeighborRankVector PB2PBNeighborRank_[4];  // (entityPBIndex<codim> -> vector{neighbour ranks})
+    EntityNeighborRankVector PB2GNeighborRank_[4];    // process boundary entity index -> vector{neighbor ranks}
+    EntityNeighborRankVector G2BIPBNeighborRank_[4];  // ghost entity index -> vector{neighbor ranks}
+    EntityNeighborRankVector G2GNeighborRank_[4];     // ghost entity index -> vector{neighbor ranks}
 
 
 

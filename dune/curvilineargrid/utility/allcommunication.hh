@@ -109,11 +109,12 @@ public:
 
 	/** \brief Function allowing scalable MPI-Alltoallv communication
 	 *  \param[in] in            buffer with data to send to neighbouring processes
-	 *  \param[in] nNeighborIn   number of neighbour processes (in-neighbours)
+	 *  \param[in] nNeighborIn   number of neighbour processes this process sends to (in-neighbours)
 	 *  \param[in] ranksIn       array of ranks of in-neighbours of this process
 	 *  \param[in] lengthIn      array of sizes of data to be sent to each in-neighbour
 	 *  \param[in] out           buffer with data to be received by this process
 	 *  \param[in] nNeighborOut  number of processes that will send something to this process (out-neighbours)
+	 *  \param[in] ranksOut      array of ranks of out-neighbours of this process
 	 *  \param[in] lengthOut     array of sizes of data to be received from each out-neighbor
 	 *
 	 * */
@@ -125,6 +126,7 @@ public:
 		const int * lengthIn,
 		T * out,
 		int & nNeighborOut,
+		int * ranksOut,
 		int * lengthOut
 	)
 	{
@@ -134,11 +136,11 @@ public:
 		MPI_Comm comm = Dune::MPIHelper::getCommunicator();
 		MPI_Comm comm_neighbor;
 
-		const int ranksOut[1] = {rank_};
+		const int ranksOutInput[1] = {rank_};
 		std::vector<int> weightsIn(nNeighborIn, 1);
 
 		MPI_Dist_graph_create(
-			comm, 1, ranksOut, &nNeighborIn, ranksIn, weightsIn.data(), MPI_INFO_NULL, true, &comm_neighbor);
+			comm, 1, ranksOutInput, &nNeighborIn, ranksIn, weightsIn.data(), MPI_INFO_NULL, true, &comm_neighbor);
 
 		/*
 		MPI_Dist_graph_create_adjacent(
@@ -153,6 +155,12 @@ public:
 		int nNeighborInTmp;
 		MPI_Dist_graph_neighbors_count(comm_neighbor, &nNeighborInTmp, &nNeighborOut, &weighted);
 		assert(nNeighborInTmp == nNeighborIn);
+
+		// Find out-neighbour ranks
+		int neighborRanksInTmp[nNeighborIn];
+		int neighborWeightsInTmp[nNeighborIn];
+		int neighborWeightsOutTmp[nNeighborOut];
+		MPI_Dist_graph_neighbors(comm_neighbor, nNeighborOut, ranksOut, neighborWeightsOutTmp, nNeighborIn, neighborRanksInTmp, neighborWeightsInTmp);
 
 
 		// 1) Communicate lengths of the arrays to be communicated
@@ -171,6 +179,7 @@ public:
 	 *  \param[in] ranksIn       vector of ranks of in-neighbours of this process
 	 *  \param[in] lengthIn      vector of sizes of data to be sent to each in-neighbour
 	 *  \param[in] out           buffer with data to be received by this process
+	 *  \param[in] ranksOut      array of ranks of out-neighbours of this process
 	 *  \param[in] lengthOut     vector of sizes of data to be received from each out-neighbor
 	 *
 	 *  \note space for all output vectors is reserved automatically
@@ -182,6 +191,7 @@ public:
 		const std::vector<int> & ranksIn,
 		const std::vector<int> & lengthIn,
 		std::vector<T> & out,
+		std::vector<int> & ranksOut,
 		std::vector<int> & lengthOut
 	)
 	{
@@ -193,11 +203,11 @@ public:
 
 		int nNeighborIn = ranksIn.size();
 		int nNeighborOut;
-		const int ranksOut[1] = {rank_};
+		const int ranksOutInput[1] = {rank_};
 		std::vector<int> weightsIn(nNeighborIn, 1);
 
 		MPI_Dist_graph_create(
-			comm, 1, ranksOut, &nNeighborIn, ranksIn.data(), weightsIn.data(), MPI_INFO_NULL, true, &comm_neighbor);
+			comm, 1, ranksOutInput, &nNeighborIn, ranksIn.data(), weightsIn.data(), MPI_INFO_NULL, true, &comm_neighbor);
 
 		/*
 		MPI_Dist_graph_create_adjacent(
@@ -212,6 +222,19 @@ public:
 		int nNeighborInTmp;
 		MPI_Dist_graph_neighbors_count(comm_neighbor, &nNeighborInTmp, &nNeighborOut, &weighted);
 		assert(nNeighborInTmp == nNeighborIn);
+
+		ranksOut.resize(nNeighborOut);
+
+		// Find out-neighbour ranks
+		int neighborRanksInTmp[nNeighborIn];
+		int neighborWeightsInTmp[nNeighborIn];
+		int neighborWeightsOutTmp[nNeighborOut];
+		MPI_Dist_graph_neighbors(comm_neighbor, nNeighborOut,
+				reinterpret_cast<int *>(ranksOut.data()),
+				neighborWeightsOutTmp,
+				nNeighborIn,
+				neighborRanksInTmp,
+				neighborWeightsInTmp);
 
 
 		// 1) Communicate lengths of the arrays to be communicated

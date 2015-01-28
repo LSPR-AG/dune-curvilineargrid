@@ -46,6 +46,26 @@ namespace Dune
     	typedef typename Traits::GlobalIndexType  GlobalIndexType;
 
     	typedef typename Traits::GridBaseType     GridBaseType;
+    	typedef typename Traits::GridStorageType  GridStorageType;
+
+
+    	struct InterfaceSubsetType
+    	{
+        	enum
+        	{
+        		Internal_Ghost = 0,
+        		ProcessBoundary_ProcessBoundary = 1,
+        		ProcessBoundary_Ghost = 2,
+        		Ghost_Internal = 3,
+        		Ghost_ProcessBoundary = 4,
+        		Ghost_Ghost = 5
+        	};
+    	};
+
+    	typedef int          InterfaceSubType;
+
+
+
 
 
 
@@ -58,6 +78,90 @@ namespace Dune
     		rank_ = mpihelper.rank();
     		size_ = mpihelper.size();
     	}
+
+
+    	// Wrapper Communication Algorithm
+    	// 1) Loop over all codim
+    	// 1.1) Check if this codim is allowed by DataHandle
+    	// 1.2) For each InterfaceSubset, check if it is consistent with InterfaceType and CommunicationDirection
+    	// 1.3) If it is, call main communication protocol main_communicate(codim, mapSend, ranklistSend)
+    	template<class DataHandle, int codim>
+    	void communicateWrapper(DataHandle& datahandle, InterfaceType iftype, CommunicationDirection dir, int level) const
+    	{
+    		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_ProcessBoundary))
+    		{
+    			communicateMain<DataHandle, codim>(
+    				datahandle,
+    				gridstorage_.processBoundaryIndexMap_[codim],
+    				gridstorage_.PB2PBNeighborRank_[codim]
+    			);
+    		}
+
+    		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_Ghost))
+    		{
+    			communicateMain<DataHandle, codim>(
+    				datahandle,
+    				gridstorage_.processBoundaryIndexMap_[codim],
+    				gridstorage_.PB2GNeighborRank_[codim]
+    			);
+    		}
+
+    		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Internal_Ghost))
+    		{
+    			communicateMain<DataHandle, codim>(
+    				datahandle,
+    				gridstorage_.boundaryInternalEntityIndexMap_[codim],
+    				gridstorage_.BI2GNeighborRank_[codim]
+    			);
+    		}
+
+    		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Internal))
+    		{
+    			communicateMain<DataHandle, codim>(
+    				datahandle,
+    				gridstorage_.ghostIndexMap_[codim],
+    				gridstorage_.G2BIPBNeighborRank_[codim]
+    			);
+    		}
+
+    		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Ghost))
+    		{
+    			communicateMain<DataHandle, codim>(
+    				datahandle,
+    				gridstorage_.ghostIndexMap_[codim],
+    				gridstorage_.G2GNeighborRank_[codim]
+    			);
+    		}
+    	}
+
+
+    	// Main Communication Algorithm
+    	// 1) Iterate over provided map
+    	// 1.1) mapSend.first -> LocalIndex, GlobalIndex -> Entity -> Data from DataHandle
+    	// 1.2) mapSend.second -> LocalStructIndex -> neighbor ranks from ranklist
+    	// 1.3) Data Structures to communicate
+    	//        * nEntitiesPerProcess
+    	//        * nDataPerProcess
+    	//        * nDataPerEntity
+    	//        * entityGlobalIndex
+    	//        * Data - Communicated via Allcommunicate
+    	// 2) On receiving end
+    	// 2.1) GlobalIndex -> LocalIndex -> Entity -> scatter via DataHandle
+    	template<class DataHandle, int codim>
+    	void communicationMain(DataHandle& datahandle,
+    		Local2LocalMap mapSend,
+			std::vector< std::vector<int> > ranklist
+    	)
+    	{
+
+    	}
+
+
+
+
+
+
+
 
 
 
@@ -202,19 +306,30 @@ namespace Dune
 
 
     protected:
-    	void codim0_IB2IB() {}
 
-    	void codim0_IB2All() {}
+    	bool allowedInterfaceSubset(InterfaceType iftype, CommunicationDirection dir, InterfaceSubType istype)
+    	{
+    		if (InterfaceType == Dune::InteriorBorder_InteriorBorder_Interface)
+    		{
+    			return (istype == InterfaceSubsetType::ProcessBoundary_ProcessBoundary);
+    		}
+    		else if ((iftype == Dune::InteriorBorder_All_Interface)&&(dir == Dune::ForwardCommunication) )
+    		{
+    			return (istype == InterfaceSubsetType::ProcessBoundary_ProcessBoundary) ||
+    				   (istype == InterfaceSubsetType::Internal_Ghost) ||
+    				   (istype == InterfaceSubsetType::ProcessBoundary_Ghost);
+    		}
+    		else if ((iftype == Dune::InteriorBorder_All_Interface)&&(dir == Dune::BackwardCommunication) )
+    		{
+    			return (istype == InterfaceSubsetType::ProcessBoundary_ProcessBoundary) ||
+    				   (istype == InterfaceSubsetType::Ghost_Internal) ||
+    				   (istype == InterfaceSubsetType::Ghost_ProcessBoundary);
+    		}
+    		else if (iftype == Dune::All_All_Interface)  { return true; } // Assuming istype has any allowed value
 
-    	void codim0_All2IB() {}
-
-    	void codim0_All2All() {}
-
-    	void codim1_IB2IB() {}
-
-    	void codim2_IB2IB() {}
-
-    	void codim3_IB2IB() {}
+    		// Otherwise an unsupported iftype is provided, so no communication will be done
+    		return false;
+    	}
 
 
 
@@ -222,6 +337,8 @@ namespace Dune
     	MPIHelper & mpihelper_;
     	int rank_;
     	int size_;
+
+    	const GridStorageType & gridstorage_;
 
     	const GridBaseType & gridbase_;
 

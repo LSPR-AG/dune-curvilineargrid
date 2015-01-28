@@ -159,6 +159,9 @@ public: /* public methods */
      *
      *  */
 
+    // [FIXME] Do not add candidate PB-G, if the candidate rank is same as PB rank
+    // [FIXME] Check all iCodim <= 3
+    // This occurs if have 2 PB faces of same process, then it is a useless candidate
     void generateCommunicationMaps()
     {
 		IndexSetIterator iterB = gridbase_.entityIndexBegin(FACE_CODIM , ProcessBoundaryType);
@@ -282,6 +285,7 @@ public: /* public methods */
      *  Algorithm:
      *  1) Iterate over all PB entities
      *  1.1) divide provisional PB->G set by PB->PB set to see which provisional PB->G are new
+     *  1.2) Mark number of real PB-G candidates for each process
      *  2) For all PB entities having non-zero PB->G, communicate G to all neighbouring PB
      *
      *  3) For all PB append received G by using union on them - This completes PB->G (hopefully)
@@ -297,6 +301,27 @@ public: /* public methods */
      *  */
     void communicateCommunicationEntityNeighborRanks()
     {
+    	MPI_Comm comm = Dune::MPIHelper::getCommunicator();
+
+    	for (int iCodim = 1; iCodim <= cdim; iCodim++)
+    	{
+
+    		//1) Compute true PB-G candidates, communicate their number to PB neighbor entities
+    		//2) Communicate PB-G candidates and fill them on the receiving end
+    		// ************************************************************************************
+    	    communicatePBG(iCodim, comm);
+
+
+    	    //4) For all PB entities having non-zero PB->G, communicate self to all G of (PB->G)
+    	    //5) For all G append received PB by using union on them - This completes G->PB (hopefully)
+    		// ************************************************************************************
+    	    communicateGPB(iCodim, comm);
+
+    	    //6) For all PB entities having non-zero PB->G, communicate to all G all remaining G
+    	    //7) For all G append received G by using union on them - This completes G->G (hopefully)
+    	    // ************************************************************************************
+    	    communicateGG(iCodim, comm);
+    	}
 
     }
 
@@ -346,6 +371,11 @@ protected:
     	}
     }
 
+
+
+    // ************************************************************************************
+	// Auxiliary methods for Iterator list generation
+	// ************************************************************************************
 
     // Loop over all corners of the mesh (including ghost) and add them to the interator set
     // Do this by iterating over all corners of all elements
@@ -408,6 +438,564 @@ protected:
 
     	}
     }
+
+
+
+
+    // ************************************************************************************
+	// Auxiliary methods for communicating communication entity neighbor ranks
+	// ************************************************************************************
+
+    // [FIXME] Add checks if communicated global indices exist
+    void communicatePBG(int codim, MPI_Comm comm)
+    {
+    	Local2LocalIterator iterB = gridstorage_.processBoundaryIndexMap_[codim].begin();
+    	Local2LocalIterator iterE = gridstorage_.processBoundaryIndexMap_[codim].end();
+
+		//1) Iterate over all PB entities, find entities with non-zero PB-G candidates
+		//   Mark these entities to send to all their PB neighbors
+		// ************************************************************************************
+
+    	std::vector<int> & nPBGEntitySend(size_);
+    	std::vector<int> & nPBGEntityRecv(size_);
+    	std::vector<int> & nPBGRankPerProcessSend(size_);
+    	std::vector<int> & nPBGRankPerProcessRecv(size_);
+
+		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
+		{
+			//1.1) divide provisional PB->G set by PB->PB set to see which provisional PB->G are new
+			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
+
+			gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex] = Dune::VectorHelper::sortedSetComplement(
+				gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex],
+				gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex]
+			);
+
+			// 1.2) Mark number of real PB-G candidates for each process
+			int PBPBSize = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex].size();
+			int realPBGSize = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
+
+			if (realPBGSize > 0)
+			{
+    			for (int i = 0; i < PBPBSize; i++)
+    			{
+    				int thisPBNeighborRank = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex][i];
+    				nPBGEntitySend[thisPBNeighborRank]++;
+    				nPBGRankPerProcessSend[thisPBNeighborRank] += realPBGSize;
+    			}
+			}
+		}
+
+		// Communicate entity number and candidate number per process
+		MPI_Alltoall(nPBGEntitySend.data(), 1, MPI_INT, reinterpret_cast<int*>(nPBGEntityRecv.data()), 1, MPI_INT, comm);
+		MPI_Alltoall(nPBGRankPerProcessSend.data(), 1, MPI_INT, reinterpret_cast<int*>(nPBGRankPerProcessRecv.data()), 1, MPI_INT, comm);
+
+
+		//2) For each PB-G entity, communicate its global index
+		// as well as communicate how many candidates it is going to send
+		// ************************************************************************************
+
+		// Construct displacements
+		std::vector<int> displSend(size_);
+		std::vector<int> displRecv(size_);
+		std::vector<int> displSendTmp(size_);
+		int sendSize = 0;
+		int recvSize = 0;
+
+		for (int i = 0; i < size_; i++)
+		{
+			displSend[i] = (i == 0) ? 0 : displSend[i-1] + nPBGEntitySend[i-1];
+			displRecv[i] = (i == 0) ? 0 : displRecv[i-1] + nPBGEntityRecv[i-1];
+			sendSize += nPBGEntitySend[i];
+			recvSize += nPBGEntityRecv[i];
+
+		}
+		displSendTmp = displSend;
+
+
+		// Fill candidate number send arrays
+    	std::vector<int> & nPBGRankPerEntitySend(sendSize);
+    	std::vector<int> & nPBGRankPerEntityRecv(recvSize);
+    	std::vector<int> & PBGEntityGlobalIndexSend(sendSize);
+    	std::vector<int> & PBGEntityGlobalIndexRecv(recvSize);
+
+		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
+		{
+			LocalIndexType thisEntityLocalIndex = (*iter).first;
+			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
+
+			// 1.2) Mark number of real PB-G candidates for each process
+			int PBPBSize = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex].size();
+			int realPBGSize = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
+
+			if (realPBGSize > 0)
+			{
+    			for (int i = 0; i < PBPBSize; i++)
+    			{
+    				int thisPBNeighborRank = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex][i];
+    				int thisTmpIndex = displSendTmp[thisPBNeighborRank]++;
+
+    				gridstorage_.findEntityGlobalIndex(codim, thisEntityLocalIndex, PBGEntityGlobalIndexSend[thisTmpIndex]);
+    				nPBGRankPerEntitySend[thisTmpIndex] = realPBGSize;
+    			}
+			}
+		}
+
+
+		// Communicate PBG entity global indices
+		MPI_Alltoallv (
+			                       PBGEntityGlobalIndexSend.data(),  nPBGEntitySend.data(), displSend.data(), MPI_INT,
+			reinterpret_cast<int*>(PBGEntityGlobalIndexRecv.data()), nPBGEntityRecv.data(), displRecv.data(), MPI_INT,
+			comm
+		);
+
+		// Communicate candidate rank numbers
+		MPI_Alltoallv (
+				                   nPBGRankPerEntitySend.data(),  nPBGEntitySend.data(), displSend.data(), MPI_INT,
+			reinterpret_cast<int*>(nPBGRankPerEntityRecv.data()), nPBGEntityRecv.data(), displRecv.data(), MPI_INT,
+			comm
+		);
+
+
+
+		//3) Communicate PB-G candidate ranks
+		// ************************************************************************************
+
+		sendSize = 0;
+		recvSize = 0;
+
+		for (int i = 0; i < size_; i++)
+		{
+			displSend[i] = (i == 0) ? 0 : displSend[i-1] + nPBGRankPerProcessSend[i-1];
+			displRecv[i] = (i == 0) ? 0 : displRecv[i-1] + nPBGRankPerProcessRecv[i-1];
+			recvSize += nPBGRankPerProcessRecv[i];
+		}
+		displSendTmp = displSend;
+
+		// Fill in communication arrays
+		std::vector<int> neighborPBGRankSetSend(sendSize);
+		std::vector<int> neighborPBGRankSetRecv(recvSize);
+
+		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
+		{
+			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
+
+			// Send all provisional PB-G ranks to all PB neighbors of this entity
+			int PBPBSize = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex].size();
+			int realPBGSize = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
+
+			for (int i = 0; i < PBPBSize; i++)
+			{
+    			for (int j = 0; j < realPBGSize; j++)
+    			{
+    				int thisPBPBRank = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex][i];
+    				int thisPBGRank = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][i];
+
+    				neighborPBGRankSetSend[displSendTmp[thisPBPBRank]++] = thisPBGRank;
+    			}
+			}
+		}
+
+		MPI_Alltoallv (
+			                       neighborPBGRankSetSend.data(),  nPBGRankPerProcessSend.data(), displSend.data(), MPI_INT,
+			reinterpret_cast<int*>(neighborPBGRankSetRecv.data()), nPBGRankPerProcessRecv.data(), displRecv.data(), MPI_INT,
+			comm
+		);
+
+
+		//4) Fill in
+		// ************************************************************************************
+		int iRankData = 0;
+		int iEntityData = 0;
+
+		for (int i = 0; i < size_; i++)
+		{
+			for (int j = 0; j < nPBGEntityRecv[i]; j++)
+			{
+				int nRankPerEntity = nPBGRankPerEntityRecv[iEntityData];
+				GlobalIndexType thisEntityGlobalIndex = PBGEntityGlobalIndexRecv[iEntityData];
+				LocalIndexType thisEntityLocalIndex = gridstorage_.entityIndexMap_[codim][thisEntityGlobalIndex];
+				LocalIndexType thisEntityLocalPBIndex = gridstorage_.processBoundaryIndexMap_[codim][thisEntityLocalIndex];
+
+				iEntityData++;
+
+				for (int k = 0; k < nRankPerEntity; k++)
+				{
+					int thisNeighborRank = neighborPBGRankSetRecv[iRankData++];
+					gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].push_back(thisNeighborRank);
+
+				}
+
+			}
+		}
+
+
+		//5) Compactify PB-G arrays (sort and eliminate repeating)
+		// ************************************************************************************
+
+		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
+		{
+			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
+
+			// Compactify the neighbor ranks
+			Dune::VectorHelper::compactify(gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex]);
+
+			// divide PB->G set by PB->PB set
+			// This is just to make sure that no PB-PB links were picked up in the process
+			gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex] = Dune::VectorHelper::sortedSetComplement(
+				gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex],
+				gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex]
+			);
+		}
+
+
+    }
+
+
+
+    /** \brief For each PB entity that has non-zero PB-G, communicate its globalIndex and rank of self
+     *
+     * Algorithm:
+     * 1) Communicate number of G-PB entities to send to each process
+     * 2) Communicate global indices for each G-PB entity
+     * 3) On receiving end, mark sender's rank on all received G-PB
+     *
+     * [FIXME] Check that own PB that are subentities of Ghost are not in the ghost set
+     * [FIXME] Check that PB and G do not point to self
+     *
+     *
+     * */
+    void communicateGPB(int codim, MPI_Comm comm)
+    {
+    	Local2LocalIterator iterB = gridstorage_.processBoundaryIndexMap_[codim].begin();
+    	Local2LocalIterator iterE = gridstorage_.processBoundaryIndexMap_[codim].end();
+
+		// 1) Communicate number of G-PB entities to send to each process
+		// ********************************************************************
+    	std::vector<int> & nGPBEntitySend(size_);
+    	std::vector<int> & nGPBEntityRecv(size_);
+
+		for (IndexSetIterator iter = iterB; iter != iterE; iter++)
+		{
+			//1.1) divide provisional PB->G set by PB->PB set to see which provisional PB->G are new
+			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
+
+			int PBGSize = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
+			for (int i = 0; i < PBGSize; i++)
+			{
+				int thisGNeighborRank = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][i];
+				nGPBEntitySend[thisGNeighborRank]++;
+			}
+		}
+		MPI_Alltoall(nGPBEntitySend.data(), 1, MPI_INT, reinterpret_cast<int*>(nGPBEntityRecv.data()), 1, MPI_INT, comm);
+
+
+		// 2) Communicate global indices for each G-PB entity
+		// ********************************************************************
+
+		// Create displacement arrays
+		std::vector<int> displSend(size_);
+		std::vector<int> displRecv(size_);
+		std::vector<int> displSendTmp(size_);
+		int sendSize = 0;
+		int recvSize = 0;
+
+		for (int i = 0; i < size_; i++)
+		{
+			displSend[i] = (i == 0) ? 0 : displSend[i-1] + nGPBEntitySend[i-1];
+			displRecv[i] = (i == 0) ? 0 : displRecv[i-1] + nGPBEntityRecv[i-1];
+			sendSize += nGPBEntitySend[i];
+			recvSize += nGPBEntityRecv[i];
+
+		}
+		displSendTmp = displSend;
+
+		// fill global index array
+    	std::vector<int> & GPBEntityGlobalIndexSend(sendSize);
+    	std::vector<int> & GPBEntityGlobalIndexRecv(recvSize);
+
+		for (IndexSetIterator iter = iterB; iter != iterE; iter++)
+		{
+			LocalIndexType thisEntityLocalIndex = (*iter).first;
+			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
+
+			int PBGSize = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
+			for (int i = 0; i < PBGSize; i++)
+			{
+				int thisGNeighborRank = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][i];
+				int thisTmpIndex = displSendTmp[thisGNeighborRank]++;
+
+				gridstorage_.findEntityGlobalIndex(codim, thisEntityLocalIndex, GPBEntityGlobalIndexSend[thisTmpIndex]);
+			}
+		}
+
+		// Communicate
+		MPI_Alltoallv (
+				                   GPBEntityGlobalIndexSend.data(),  nGPBEntitySend.data(), displSend.data(), MPI_INT,
+			reinterpret_cast<int*>(GPBEntityGlobalIndexRecv.data()), nGPBEntityRecv.data(), displRecv.data(), MPI_INT,
+			comm
+		);
+
+
+		// 3) On receiving end, mark sender's rank on all received G-PB
+		// ********************************************************************
+		int iData = 0;
+
+		for (int i = 0; i < size_; i++)
+		{
+			for (int j = 0; j < nGPBEntityRecv[i]; j++)
+			{
+				GlobalIndexType thisEntityGlobalIndex = GPBEntityGlobalIndexRecv[iData++];
+				LocalIndexType thisEntityLocalIndex = gridstorage_.entityIndexMap_[codim][thisEntityGlobalIndex];
+				LocalIndexType thisEntityLocalGhostIndex = gridstorage_.ghostIndexMap_[codim][thisEntityLocalIndex];
+
+				gridstorage_.G2BIPBNeighborRank_[codim][thisEntityLocalGhostIndex].push_back(i);
+			}
+		}
+
+
+		// 4) Compactify G-PB arrays (sort and eliminate repeating)
+		// ********************************************************************
+		Local2LocalIterator iterGB = gridstorage_.ghostIndexMap_[codim].begin();
+		Local2LocalIterator iterEB = gridstorage_.ghostIndexMap_[codim].end();
+
+		for (Local2LocalIterator iter = iterGB; iter != iterEB; iter++)
+		{
+			LocalIndexType thisEntityGhostLocalIndex = (*iter).second;
+
+			//! Compactify the neighbor ranks
+			//! \note no need to set-divide here, since only BI and PB were communicated
+			Dune::VectorHelper::compactify(gridstorage_.G2BIPBNeighborRank_[codim][thisEntityGhostLocalIndex]);
+		}
+    }
+
+
+    /** \brief For each PB entity that has non-zero PB-G, and is lowest rank among all its neighbor PB,
+     *   communicate to each its neighbour G all other G on the list
+     *
+     *
+     * [FIXME] Ensure PB2PBNeighborRank_ is sorted before using this
+     * [TODO]  Seems like this procedure could be compactified in 1 loop since there is no feedback
+     *
+     * */
+    void communicateGG(int codim, MPI_Comm comm)
+    {
+    	Local2LocalIterator iterB = gridstorage_.processBoundaryIndexMap_[codim].begin();
+    	Local2LocalIterator iterE = gridstorage_.processBoundaryIndexMap_[codim].end();
+
+
+    	// 1) Communicate number of Ghost entities this process will communicate to each
+    	// It will communicate to each ghost the rest of the ghosts neighboring this entity
+    	// It will only communicate if this process owns this entity
+    	// ********************************************************************************
+
+    	std::vector<int> & nGGEntitySend(size_);
+    	std::vector<int> & nGGEntityRecv(size_);
+    	std::vector<int> & nGGRanksPerProcessSend(size_);
+    	std::vector<int> & nGGRanksPerProcessRecv(size_);
+
+    	// Loop over all PB
+		for (IndexSetIterator iter = iterB; iter != iterE; iter++)
+		{
+			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
+
+			//! Assume that all ghost neighbors of this PB are on the other processes
+			int nGhostNeighbors = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
+			int candidateRank = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex][0];
+
+			assert(candidateRank != rank_);  // This map should not point to self
+
+			bool hasComm = true;
+			hasComm &= (nGhostNeighbors > 1);    // Only communicate to Ghost if at least 2 ghosts share this
+			hasComm &= (candidateRank > rank_);  // Only communicate if you own this entity
+
+			if (hasComm)
+			{
+				int PBGSize = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
+				for (int i = 0; i < PBGSize; i++)
+				{
+					int thisGNeighborRank = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][i];
+					nGGEntitySend[thisGNeighborRank]++;
+					nGGRanksPerProcessSend[thisGNeighborRank] += PBGSize - 1;
+				}
+			}
+		}
+		MPI_Alltoall(nGGEntitySend.data(), 1, MPI_INT, reinterpret_cast<int*>(nGGEntityRecv.data()), 1, MPI_INT, comm);
+		MPI_Alltoall(nGGRanksPerProcessSend.data(), 1, MPI_INT, reinterpret_cast<int*>(nGGRanksPerProcessRecv.data()), 1, MPI_INT, comm);
+
+
+    	// 2) Communicate global indices of elements, as well as
+		// number of ranks to communicate for each element
+    	// ********************************************************************************
+
+		// Construct displacements
+		std::vector<int> displSend(size_);
+		std::vector<int> displRecv(size_);
+		std::vector<int> displSendTmp(size_);
+		int sendSize = 0;
+		int recvSize = 0;
+
+		for (int i = 0; i < size_; i++)
+		{
+			displSend[i] = (i == 0) ? 0 : displSend[i-1] + nGGEntitySend[i-1];
+			displRecv[i] = (i == 0) ? 0 : displRecv[i-1] + nGGEntityRecv[i-1];
+			sendSize += nGGEntitySend[i];
+			recvSize += nGGEntityRecv[i];
+
+		}
+		displSendTmp = displSend;
+
+
+		// Fill candidate number send arrays
+    	std::vector<int> & nGGRankPerEntitySend(sendSize);
+    	std::vector<int> & nGGRankPerEntityRecv(recvSize);
+    	std::vector<int> & GGEntityGlobalIndexSend(sendSize);
+    	std::vector<int> & GGEntityGlobalIndexRecv(recvSize);
+
+		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
+		{
+			LocalIndexType thisEntityLocalIndex = (*iter).first;
+			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
+
+			int nGhostNeighbors = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
+			int candidateRank = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex][0];
+
+			bool hasComm = true;
+			hasComm &= (nGhostNeighbors > 1);    // Only communicate to Ghost if at least 2 ghosts share this
+			hasComm &= (candidateRank > rank_);  // Only communicate if you own this entity
+
+			if (hasComm)
+			{
+				int PBGSize = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
+    			for (int i = 0; i < PBGSize; i++)
+    			{
+    				int thisGNeighborRank = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][i];
+    				int thisTmpIndex = displSendTmp[thisGNeighborRank]++;
+
+    				gridstorage_.findEntityGlobalIndex(codim, thisEntityLocalIndex, nGGRankPerEntitySend[thisTmpIndex]);
+    				nGGRankPerEntitySend[thisTmpIndex] = nGhostNeighbors - 1;
+    			}
+			}
+		}
+
+
+		// Communicate PBG entity global indices
+		MPI_Alltoallv (
+				                   GGEntityGlobalIndexSend.data(),  nGGEntitySend.data(), displSend.data(), MPI_INT,
+			reinterpret_cast<int*>(GGEntityGlobalIndexRecv.data()), nGGEntityRecv.data(), displRecv.data(), MPI_INT,
+			comm
+		);
+
+		// Communicate candidate rank numbers
+		MPI_Alltoallv (
+				                   nGGRankPerEntitySend.data(),  nGGEntitySend.data(), displSend.data(), MPI_INT,
+			reinterpret_cast<int*>(nGGRankPerEntityRecv.data()), nGGEntityRecv.data(), displRecv.data(), MPI_INT,
+			comm
+		);
+
+
+
+		//3) Communicate G-G candidate ranks
+		// ************************************************************************************
+
+		sendSize = 0;
+		recvSize = 0;
+
+		for (int i = 0; i < size_; i++)
+		{
+			displSend[i] = (i == 0) ? 0 : displSend[i-1] + nGGRanksPerProcessSend[i-1];
+			displRecv[i] = (i == 0) ? 0 : displRecv[i-1] + nGGRanksPerProcessRecv[i-1];
+			recvSize += nGGRanksPerProcessRecv[i];
+		}
+		displSendTmp = displSend;
+
+		// Fill in communication arrays
+		std::vector<int> neighborGGRankSetSend(sendSize);
+		std::vector<int> neighborGGRankSetRecv(recvSize);
+
+		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
+		{
+			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
+
+			int nGhostNeighbors = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
+			int candidateRank = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex][0];
+
+			bool hasComm = true;
+			hasComm &= (nGhostNeighbors > 1);    // Only communicate to Ghost if at least 2 ghosts share this
+			hasComm &= (candidateRank > rank_);  // Only communicate if you own this entity
+
+
+			if (hasComm)
+			{
+				// Send to all Ghost neighbors of this PB the ranks of all Ghosts except itself
+				int PBGSize = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
+				for (int i = 0; i < PBGSize; i++)
+				{
+					int thisGNeighborRank = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][i];
+					for (int j = 0; j < PBGSize; j++)
+					{
+						int thisGNeighborRankSend = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][j];
+						if (thisGNeighborRank != thisGNeighborRankSend)
+						{
+							neighborGGRankSetSend[displSendTmp[thisGNeighborRank]++] = thisGNeighborRankSend;
+						}
+
+					}
+				}
+			}
+		}
+
+		MPI_Alltoallv (
+				                   neighborGGRankSetSend.data(),  nGGRanksPerProcessSend.data(), displSend.data(), MPI_INT,
+			reinterpret_cast<int*>(neighborGGRankSetRecv.data()), nGGRanksPerProcessRecv.data(), displRecv.data(), MPI_INT,
+			comm
+		);
+
+
+		//4) Fill in
+		// ************************************************************************************
+		int iRankData = 0;
+		int iEntityData = 0;
+
+		for (int i = 0; i < size_; i++)
+		{
+			for (int j = 0; j < nGGEntityRecv[i]; j++)
+			{
+				int nRankPerEntity = nGGRankPerEntityRecv[iEntityData];
+				GlobalIndexType thisEntityGlobalIndex = GGEntityGlobalIndexRecv[iEntityData];
+				LocalIndexType thisEntityLocalIndex = gridstorage_.entityIndexMap_[codim][thisEntityGlobalIndex];
+				LocalIndexType thisEntityGhostLocalIndex = gridstorage_.ghostIndexMap_[codim][thisEntityLocalIndex];
+
+				iEntityData++;
+
+				for (int k = 0; k < nRankPerEntity; k++)
+				{
+					int thisNeighborRank = neighborGGRankSetRecv[iRankData++];
+					gridstorage_.G2GNeighborRank_[codim][thisEntityGhostLocalIndex].push_back(thisNeighborRank);
+				}
+			}
+		}
+
+
+		//5) Compactify G-G arrays (sort and eliminate repeating)
+		// ************************************************************************************
+
+		Local2LocalIterator iterGB = gridstorage_.ghostIndexMap_[codim].begin();
+		Local2LocalIterator iterGE = gridstorage_.ghostIndexMap_[codim].end();
+
+
+		for (Local2LocalIterator iter = iterGB; iter != iterGE; iter++)
+		{
+			LocalIndexType thisEntityGhostLocalIndex = (*iter).second;
+
+			// Compactify the neighbor ranks
+			Dune::VectorHelper::compactify(gridstorage_.G2GNeighborRank_[codim][thisEntityGhostLocalIndex]);
+
+			//! No need to perform division, as it is assumed that only ghost entities were communicated,
+			//! if all the previous steps were done correctly
+		}
+    }
+
 
 
 

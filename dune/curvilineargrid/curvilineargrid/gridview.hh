@@ -93,6 +93,12 @@ namespace Dune
         return grid().comm();
       }
 
+
+  	  // Wrapper Communication Algorithm
+  	  // 1) Loop over all codim
+  	  // 1.1) Check if this codim is allowed by DataHandle
+  	  // 1.2) For each InterfaceSubset, check if it is consistent with InterfaceType and CommunicationDirection
+  	  // 1.3) If it is, call main communication protocol main_communicate(codim, mapSend, ranklistSend)
       template< class DataHandle, class Data, class GridViewType >
       void communicateCodim( CommDataHandleIF< DataHandle, Data > &dataHandle,
                          InterfaceType interface,
@@ -100,17 +106,12 @@ namespace Dune
                          GridViewType & gv ) const
       {
     	Dune::CurvGrid::Communication<Grid> communicator;
+    	int level = 0; // Fake
 
-      	Dune::IteratorRange<This, partitions> elems = Dune::GridView::elements (*this, Dune::PartitionSet< partitions > ps);
-      	Dune::IteratorRange<This, partitions> faces = Dune::GridView::facets   (*this, Dune::PartitionSet< partitions > ps);
-      	Dune::IteratorRange<This, partitions> edges = Dune::GridView::edges    (*this, Dune::PartitionSet< partitions > ps);
-      	Dune::IteratorRange<This, partitions> verts = Dune::GridView::vertices (*this, Dune::PartitionSet< partitions > ps);
-
-
-      	if (dataHandle.contains(dimension, 0))  { communicator.communicate(dataHandle, interface, direction, level, elems); }
-      	if (dataHandle.contains(dimension, 1))  { communicator.communicate(dataHandle, interface, direction, level, faces); }
-      	if (dataHandle.contains(dimension, 2))  { communicator.communicate(dataHandle, interface, direction, level, edges); }
-      	if (dataHandle.contains(dimension, 3))  { communicator.communicate(dataHandle, interface, direction, level, verts); }
+      	if (dataHandle.contains(dimension, 0))  { communicator.communicateWrapper<DataHandle, 0>(dataHandle, interface, direction, level); }
+      	if (dataHandle.contains(dimension, 1))  { communicator.communicateWrapper<DataHandle, 1>(dataHandle, interface, direction, level); }
+      	if (dataHandle.contains(dimension, 2))  { communicator.communicateWrapper<DataHandle, 2>(dataHandle, interface, direction, level); }
+      	if (dataHandle.contains(dimension, 3))  { communicator.communicateWrapper<DataHandle, 3>(dataHandle, interface, direction, level); }
       }
 
     protected:

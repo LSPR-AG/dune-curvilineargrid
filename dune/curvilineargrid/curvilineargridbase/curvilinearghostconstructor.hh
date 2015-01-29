@@ -226,6 +226,16 @@ protected:
      * ***************************************************************************/
 
 
+    /** For each neighbor process, compute the set of internal elements that will be sent to it as ghost elements
+     *
+     * Algorithm:  (No communication needed)
+     * 1) Loop over all PB faces
+     * 1.1) Find associated internal element index
+     * 1.2) Find neighbor process rank
+     * 1.3) For each rank, store a map (LocalElementIndex -> vector {PB face subentity indices})
+     *
+     *
+     * */
     void ghostComputeLocalNeighborGhostElements()
     {
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Computing to-be ghost elements locally");
@@ -562,7 +572,7 @@ protected:
                 	LocalIndexType thisEdgeLocalIndex;
                 	Global2LocalIterator thisEdgeIter = gridstorage_.entityIndexMap_[EDGE_CODIM].find(thisEdgeGlobalIndex);
 
-                	// If the edge already exists, then it is one of the process boundaries, otherwise it is a new ghost face
+                	// If the edge already exists, then it is one of the process boundaries, otherwise it is a new ghost edge
                 	if ( thisEdgeIter == gridstorage_.entityIndexMap_[EDGE_CODIM].end() )
                 	{
                     	EdgeStorage thisEdge;

@@ -161,8 +161,8 @@ namespace Dune
 
   public:
 
-	    Entity (int localEntityIndex, GridBaseType & gridbase)
-	  	  : Base(localEntityIndex, gridbase)
+	    Entity (int localEntityIndex, GridBaseType & gridbase, Dune::PartitionType pitype)
+	  	  : Base(localEntityIndex, gridbase, pitype)
 	    {}
 
 	    /** \name Methods Shared by Entities of All Codimensions
@@ -272,8 +272,8 @@ namespace Dune
   public:
 
 
-      Entity (int localEntityIndex, GridBaseType & gridbase)
-  	  	  : Base(localEntityIndex, gridbase)
+      Entity (int localEntityIndex, GridBaseType & gridbase, Dune::PartitionType pitype)
+  	  	  : Base(localEntityIndex, gridbase, pitype)
       {}
 
 

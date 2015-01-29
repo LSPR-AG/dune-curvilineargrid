@@ -42,11 +42,16 @@ namespace Dune
     {
     	typedef typename Grid::Traits  Traits;
 
-    	typedef typename Traits::LocalIndexType   LocalIndexType;
-    	typedef typename Traits::GlobalIndexType  GlobalIndexType;
+    	typedef typename Traits::LocalIndexType        LocalIndexType;
+    	typedef typename Traits::GlobalIndexType       GlobalIndexType;
 
-    	typedef typename Traits::GridBaseType     GridBaseType;
-    	typedef typename Traits::GridStorageType  GridStorageType;
+    	typedef typename Traits::StructuralType        StructuralType;
+
+    	typedef typename Traits::GridStorageType       GridStorageType;
+    	typedef typename Traits::GridBaseType          GridBaseType;
+
+    	typedef typename Traits::Local2LocalMap        Local2LocalMap;
+    	typedef typename Traits::Local2LocalIterator   Local2LocalIterator;
 
 
     	struct InterfaceSubsetType
@@ -65,14 +70,11 @@ namespace Dune
     	typedef int          InterfaceSubType;
 
 
-
-
-
-
     public:
 
-    	Communication(const GridBaseType & gridbase, MPIHelper & mpihelper)
+    	Communication(const GridStorageType gridstorage, const GridBaseType & gridbase, MPIHelper & mpihelper)
     		: mpihelper_(mpihelper),
+    		  gridstorage_(gridstorage),
     		  gridbase_(gridbase)
     	{
     		rank_ = mpihelper.rank();
@@ -86,7 +88,7 @@ namespace Dune
     	// 1.2) For each InterfaceSubset, check if it is consistent with InterfaceType and CommunicationDirection
     	// 1.3) If it is, call main communication protocol main_communicate(codim, mapSend, ranklistSend)
     	template<class DataHandle, int codim>
-    	void communicateWrapper(DataHandle& datahandle, InterfaceType iftype, CommunicationDirection dir, int level) const
+    	void communicate(DataHandle& datahandle, InterfaceType iftype, CommunicationDirection dir, int level) const
     	{
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_ProcessBoundary))
     		{
@@ -135,6 +137,48 @@ namespace Dune
     	}
 
 
+    protected:
+
+    	Dune::PartitionType structural2partitionType(StructuralType structtype)
+    	{
+    		switch (structtype)
+    		{
+    		case Dune::CurvilinearGridStorage::PartitionType::Internal           :  return Dune::PartitionType::InteriorEntity;  break;
+    		case Dune::CurvilinearGridStorage::PartitionType::DomainBoundary     :  return Dune::PartitionType::InteriorEntity;  break;
+    		case Dune::CurvilinearGridStorage::PartitionType::ProcessBoundary    :  return Dune::PartitionType::BorderEntity;    break;
+    		//case Dune::CurvilinearGridStorage::PartitionType::InternalBoundary   :  return Dune::PartitionType::InteriorEntity;  break;
+    		case Dune::CurvilinearGridStorage::PartitionType::FrontBoundary      :  return Dune::PartitionType::FrontEntity;     break;
+    		case Dune::CurvilinearGridStorage::PartitionType::Ghost              :  return Dune::PartitionType::GhostEntity;     break;
+    		case Dune::CurvilinearGridStorage::PartitionType::Overlap            :  return Dune::PartitionType::OverlapEntity;   break;
+    		}
+    	}
+
+
+    	bool allowedInterfaceSubset(InterfaceType iftype, CommunicationDirection dir, InterfaceSubType istype)
+    	{
+    		if (InterfaceType == Dune::InteriorBorder_InteriorBorder_Interface)
+    		{
+    			return (istype == InterfaceSubsetType::ProcessBoundary_ProcessBoundary);
+    		}
+    		else if ((iftype == Dune::InteriorBorder_All_Interface)&&(dir == Dune::ForwardCommunication) )
+    		{
+    			return (istype == InterfaceSubsetType::ProcessBoundary_ProcessBoundary) ||
+    				   (istype == InterfaceSubsetType::Internal_Ghost) ||
+    				   (istype == InterfaceSubsetType::ProcessBoundary_Ghost);
+    		}
+    		else if ((iftype == Dune::InteriorBorder_All_Interface)&&(dir == Dune::BackwardCommunication) )
+    		{
+    			return (istype == InterfaceSubsetType::ProcessBoundary_ProcessBoundary) ||
+    				   (istype == InterfaceSubsetType::Ghost_Internal) ||
+    				   (istype == InterfaceSubsetType::Ghost_ProcessBoundary);
+    		}
+    		else if (iftype == Dune::All_All_Interface)  { return true; } // Assuming istype has any allowed value
+
+    		// Otherwise an unsupported iftype is provided, so no communication will be done
+    		return false;
+    	}
+
+
     	// Main Communication Algorithm
     	// 1) Iterate over provided map
     	// 1.1) mapSend.first -> LocalIndex, GlobalIndex -> Entity -> Data from DataHandle
@@ -147,29 +191,14 @@ namespace Dune
     	//        * Data - Communicated via Allcommunicate
     	// 2) On receiving end
     	// 2.1) GlobalIndex -> LocalIndex -> Entity -> scatter via DataHandle
-    	template<class DataHandle, int codim>
-    	void communicationMain(DataHandle& datahandle,
-    		Local2LocalMap mapSend,
-			std::vector< std::vector<int> > ranklist
-    	)
-    	{
-
-    	}
-
-
-
-
-
-
-
-
-
 
     	// [FIXME] Choose if we want entity or entityImpl
-    	// [FIXME] Pass on IteratorRange somehow
 
     	template<class DataHandle, int codim>
-    	void communicate (DataHandle& datahandle, InterfaceType iftype, CommunicationDirection dir, int level) const
+    	void communicateMain(DataHandle& datahandle,
+    		Local2LocalMap & mapSend,
+			std::vector< std::vector<int> > & ranklist
+    	)
     	{
     		typedef typename DataHandle::DataType DataType;             // Type of data to be communicated
     		typedef typename Traits::Codim<codim>::Entity  EntityType;  // Type of the entity
@@ -205,18 +234,21 @@ namespace Dune
     		// Compute total number of entities to be communicated to each process
     		// ********************************************************
 
-
-    		for (int i = 0; i < 10; i++)
+    		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)
     		{
-    			const EntityType & thisEntity = entity(i);
+    			LocalIndexType thisEntityLocalIndex = (*iter).first;
+    			LocalIndexType thisEntityLocalSubIndex = (*iter).second;
 
-    			LocalIndexType thisLocalIndex = thisEntity.localIndex();
-    			std::vector<int> thisNeighborRankSet = gridbase_.processBoundaryNeighborRankSet(codim, thisLocalIndex);
+    			// Get Entity
+    			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
+    			Dune::PartitionType thisPIType = structural2partitionType(thisEntityStructType);
+    			EntityType thisEntity (thisEntityLocalIndex, gridbase_, thisPIType);
 
-    			for (int iProc = 0; iProc < thisNeighborRankSet.size(); iProc++)
+    			// Get data sizes
+    			for (int iProc = 0; iProc < ranklist[thisEntityLocalSubIndex].size(); iProc++)
     			{
-    				nEntityPerProcessSend[thisNeighborRankSet[iProc]]++;
-    				nDataPerProcessSend[thisNeighborRankSet[iProc]] += datahandle.size(thisEntity);
+    				nEntityPerProcessSend[ranklist[thisEntityLocalSubIndex][iProc]]++;
+    				nDataPerProcessSend[ranklist[thisEntityLocalSubIndex][iProc]] += datahandle.size(thisEntity);
     			}
     		}
 
@@ -237,14 +269,18 @@ namespace Dune
     		// Read and fill in data
     		// ********************************************************
 
-    		for (int i = 0; i < 10; i++)
+    		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)
     		{
-    			const EntityType & thisEntity = entity(i);
+    			LocalIndexType thisEntityLocalIndex = (*iter).first;
+    			LocalIndexType thisEntityLocalSubIndex = (*iter).second;
+    			GlobalIndexType thisEntityGlobalIndex;
+    			if (!gridbase_.findEntityGlobalIndex(codim, thisEntityLocalSubIndex, thisEntityGlobalIndex))  {  /* THROW ERROR */ }
 
-    			LocalIndexType thisLocalIndex = thisEntity.localIndex();
-    			GlobalIndexType thisGlobalIndex;
-    			if (!gridbase_.findEntityGlobalIndex(codim, thisLocalIndex, thisGlobalIndex))  {  /* THROW ERROR */ }
-    			std::vector<int> thisNeighborRankSet = gridbase_.processBoundaryNeighborRankSet(codim, thisLocalIndex);
+
+    			// Get Entity
+    			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
+    			Dune::PartitionType thisPIType = structural2partitionType(thisEntityStructType);
+    			EntityType thisEntity (thisEntityLocalIndex, gridbase_, thisPIType);
 
     			datahandle.gather(gathermessagebuffer, thisEntity);
 
@@ -256,18 +292,20 @@ namespace Dune
     				gathermessagebuffer.read(thisData);
 
     				// Add this data to send array for each process neighboring this entity
-        			for (int iProc = 0; iProc < thisNeighborRankSet.size(); iProc++)
+    				for (int iProc = 0; iProc < ranklist[thisEntityLocalSubIndex].size(); iProc++)
         			{
-        				dataSend[displDataPerProcessSend[thisNeighborRankSet[iProc]]++] = thisData;
+    					int thisNeighborRank = ranklist[thisEntityLocalSubIndex][iProc];
+        				dataSend[displDataPerProcessSend[thisNeighborRank]++] = thisData;
         			}
     			}
 
     			// Record data number and global index of this entity for each process neighboring this entity
-        		for (int iProc = 0; iProc < thisNeighborRankSet.size(); iProc++)
+        		for (int iProc = 0; iProc < ranklist[thisEntityLocalSubIndex].size(); iProc++)
         		{
-        			int entityDisplIndex = displEntityPerProcessSend[thisNeighborRankSet[iProc]]++;
+        			int thisNeighborRank = ranklist[thisEntityLocalSubIndex][iProc];
+        			int entityDisplIndex = displEntityPerProcessSend[thisNeighborRank]++;
 
-        			globalIndexSend[entityDisplIndex]    = thisGlobalIndex;
+        			globalIndexSend[entityDisplIndex]    = thisEntityGlobalIndex;
         			nDataPerEntitySend[entityDisplIndex] = datahandle.size(thisEntity);
     			}
     		}
@@ -286,52 +324,28 @@ namespace Dune
     		allcommunicate.communicate(dataSend, nDataPerProcessSend, dataRecv, nDataPerProcessRecv);
 
 
-    		// 4) Refill
+    		// 4) Scatter
     		// **************************************************************
 
     		int iData = 0;
     		for (int i = 0; i < globalIndexRecv.size(); i++)
     		{
-    			GlobalIndexType thisGlobalIndex = globalIndexRecv[i];
+    			// Get Entity
+    			GlobalIndexType thisEntityGlobalIndex = globalIndexRecv[i];
+    			LocalIndexType thisEntityLocalIndex;
+    			if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex))  {  /* THROW ERROR */ }
+
+    			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
+    			Dune::PartitionType thisPIType = structural2partitionType(thisEntityStructType);
+    			EntityType thisEntity (thisEntityLocalIndex, gridbase_, thisPIType);
+
+    			// Scatter data
     			int thisNData = nDataPerEntityRecv[i];
-
-    			const EntityType & thisEntity = entity(thisGlobalIndex);
-
     			for (int j = 0; j < thisNData; j++)  { scattermessagebuffer.write(dataRecv[iData++]); }
 
     			datahandle.scatter(scattermessagebuffer, thisEntity);
     		}
     	}
-
-
-
-    protected:
-
-    	bool allowedInterfaceSubset(InterfaceType iftype, CommunicationDirection dir, InterfaceSubType istype)
-    	{
-    		if (InterfaceType == Dune::InteriorBorder_InteriorBorder_Interface)
-    		{
-    			return (istype == InterfaceSubsetType::ProcessBoundary_ProcessBoundary);
-    		}
-    		else if ((iftype == Dune::InteriorBorder_All_Interface)&&(dir == Dune::ForwardCommunication) )
-    		{
-    			return (istype == InterfaceSubsetType::ProcessBoundary_ProcessBoundary) ||
-    				   (istype == InterfaceSubsetType::Internal_Ghost) ||
-    				   (istype == InterfaceSubsetType::ProcessBoundary_Ghost);
-    		}
-    		else if ((iftype == Dune::InteriorBorder_All_Interface)&&(dir == Dune::BackwardCommunication) )
-    		{
-    			return (istype == InterfaceSubsetType::ProcessBoundary_ProcessBoundary) ||
-    				   (istype == InterfaceSubsetType::Ghost_Internal) ||
-    				   (istype == InterfaceSubsetType::Ghost_ProcessBoundary);
-    		}
-    		else if (iftype == Dune::All_All_Interface)  { return true; } // Assuming istype has any allowed value
-
-    		// Otherwise an unsupported iftype is provided, so no communication will be done
-    		return false;
-    	}
-
-
 
     private:
     	MPIHelper & mpihelper_;

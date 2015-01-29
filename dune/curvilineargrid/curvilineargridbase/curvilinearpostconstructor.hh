@@ -173,7 +173,7 @@ public: /* public methods */
 		int nEdgeTet = 6;
 		int nVertexTet = 4;
 
-		StructuralType tmpTypes = { InternalType, GhostType };
+		StructuralType tmpTypes[2] = { InternalType, GhostType };
 
 		// Resize the PB->G comm map, since we already know its size, it is the number of PB entities
 		for (int iCodim = 1; iCodim <= cdim; iCodim++)
@@ -188,7 +188,7 @@ public: /* public methods */
 		for (IndexSetIterator iter = iterB; iter != iterE; iter++)
 		{
 			LocalIndexType thisFaceLocalIndex = *iter;
-			int thisFaceNeighborRank = gridbase_.processBoundaryNeighborRankSet(FACE_CODIM, thisFaceLocalIndex)[0];
+			int thisFaceNeighborRank = gridbase_.commEntityNeighborRankSet(FACE_CODIM, thisFaceLocalIndex, ProcessBoundaryType, ProcessBoundaryType)[0];
 
 			// 1) Find all Internal and Ghost entities associated with this PB Face
 			// **********************************************************************
@@ -203,6 +203,7 @@ public: /* public methods */
 			std::vector<LocalIndexType> faceNeighborSubentityIndex[2][4];
 			for (int iTmp = 0; iTmp <= 1; iTmp++)
 			{
+				// Gets either internal or ghost element depending on iTmp
 				LocalIndexType thisElementLocalIndex = gridbase_.faceNeighbor(thisFaceLocalIndex, iTmp);
 
 				faceNeighborSubentityIndex[iTmp][0].push_back(thisElementLocalIndex);
@@ -218,7 +219,7 @@ public: /* public methods */
 
 					// 2) Add entities to the map unless they are already added.
 					// **********************************************************************
-					Local2LocalMap & thisLocalMap = selectCommMap(iCodim, tmpTypes[iTmp]);
+					Local2LocalMap & thisLocalMap = gridbase_.selectCommMap(iCodim, tmpTypes[iTmp]);
 
 					for (int iEntity = 0; iEntity < faceNeighborSubentityIndex[iTmp][iCodim].size(); iEntity++ )
 					{
@@ -330,46 +331,7 @@ public: /* public methods */
 
 protected:
 
-    Local2LocalMap & selectCommMap(int codim, StructuralType structtype)
-    {
-    	switch (structtype)
-    	{
-    	case InternalType          :  return gridstorage_.boundaryInternalEntityIndexMap_[codim];  break;
-    	case ProcessBoundaryType   :  return gridstorage_.processBoundaryIndexMap_[codim];         break;
-    	case GhostType             :  return gridstorage_.ghostIndexMap_[codim];                   break;
 
-    	}
-    }
-
-
-    EntityNeighborRankVector & selectCommRankVector(int codim, StructuralType structSend, StructuralType structRecv)
-    {
-    	// Can only communicate over these 3 PartitionTypes
-    	assert((structRecv == InternalType)||(structRecv == ProcessBoundaryType)||(structRecv == GhostType));
-
-    	switch (structSend)
-    	{
-    	case InternalType          :   // Internal -> Ghost protocol
-    	{
-    		assert(structRecv == GhostType);
-    		return gridstorage_.BI2GNeighborRank_[codim];
-    	} break;
-    	case ProcessBoundaryType   :   // PB -> PB and PB -> Ghost protocols
-    	{
-    		assert((structRecv == ProcessBoundaryType)||(structRecv == GhostType));
-    		if (structRecv == ProcessBoundaryType)  { return gridstorage_.PB2PBNeighborRank_[codim]; }
-    		if (structRecv == GhostType)            { return gridstorage_.PB2GNeighborRank_[codim]; }
-    	} break;
-    	case GhostType             :   // Ghost -> (Internal & PB) and Ghost -> Ghost protocols
-    	{
-    		assert((structRecv == InternalType)||(structRecv == ProcessBoundaryType)||(structRecv == GhostType));
-    		if (structRecv == InternalType)         { return gridstorage_.G2BIPBNeighborRank_[codim]; }
-    		if (structRecv == ProcessBoundaryType)  { return gridstorage_.G2BIPBNeighborRank_[codim]; }
-    		if (structRecv == GhostType)            { return gridstorage_.G2GNeighborRank_[codim]; }
-    	} break;
-
-    	}
-    }
 
 
 
@@ -446,7 +408,7 @@ protected:
 	// Auxiliary methods for communicating communication entity neighbor ranks
 	// ************************************************************************************
 
-    // [FIXME] Add checks if communicated global indices exist
+
     void communicatePBG(int codim, MPI_Comm comm)
     {
     	Local2LocalIterator iterB = gridstorage_.processBoundaryIndexMap_[codim].begin();
@@ -456,10 +418,10 @@ protected:
 		//   Mark these entities to send to all their PB neighbors
 		// ************************************************************************************
 
-    	std::vector<int> & nPBGEntitySend(size_);
-    	std::vector<int> & nPBGEntityRecv(size_);
-    	std::vector<int> & nPBGRankPerProcessSend(size_);
-    	std::vector<int> & nPBGRankPerProcessRecv(size_);
+    	std::vector<int> nPBGEntitySend(size_);
+    	std::vector<int> nPBGEntityRecv(size_);
+    	std::vector<int> nPBGRankPerProcessSend(size_);
+    	std::vector<int> nPBGRankPerProcessRecv(size_);
 
 		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
 		{
@@ -514,10 +476,10 @@ protected:
 
 
 		// Fill candidate number send arrays
-    	std::vector<int> & nPBGRankPerEntitySend(sendSize);
-    	std::vector<int> & nPBGRankPerEntityRecv(recvSize);
-    	std::vector<int> & PBGEntityGlobalIndexSend(sendSize);
-    	std::vector<int> & PBGEntityGlobalIndexRecv(recvSize);
+    	std::vector<int> nPBGRankPerEntitySend(sendSize);
+    	std::vector<int> nPBGRankPerEntityRecv(recvSize);
+    	std::vector<int> PBGEntityGlobalIndexSend(sendSize);
+    	std::vector<int> PBGEntityGlobalIndexRecv(recvSize);
 
 		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
 		{
@@ -535,7 +497,10 @@ protected:
     				int thisPBNeighborRank = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex][i];
     				int thisTmpIndex = displSendTmp[thisPBNeighborRank]++;
 
-    				gridstorage_.findEntityGlobalIndex(codim, thisEntityLocalIndex, PBGEntityGlobalIndexSend[thisTmpIndex]);
+    				if (!gridbase_.findEntityGlobalIndex(codim, thisEntityLocalIndex, PBGEntityGlobalIndexSend[thisTmpIndex]))
+    				{
+    					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found by its local index");
+    				}
     				nPBGRankPerEntitySend[thisTmpIndex] = realPBGSize;
     			}
 			}
@@ -614,7 +579,13 @@ protected:
 			{
 				int nRankPerEntity = nPBGRankPerEntityRecv[iEntityData];
 				GlobalIndexType thisEntityGlobalIndex = PBGEntityGlobalIndexRecv[iEntityData];
-				LocalIndexType thisEntityLocalIndex = gridstorage_.entityIndexMap_[codim][thisEntityGlobalIndex];
+
+				// Get local index corresponding to the communicated global index, check that it exists
+				LocalIndexType thisEntityLocalIndex;
+				if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex)) {
+					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found corresponding to communicated global index");
+				}
+
 				LocalIndexType thisEntityLocalPBIndex = gridstorage_.processBoundaryIndexMap_[codim][thisEntityLocalIndex];
 
 				iEntityData++;
@@ -672,10 +643,10 @@ protected:
 
 		// 1) Communicate number of G-PB entities to send to each process
 		// ********************************************************************
-    	std::vector<int> & nGPBEntitySend(size_);
-    	std::vector<int> & nGPBEntityRecv(size_);
+    	std::vector<int> nGPBEntitySend(size_);
+    	std::vector<int> nGPBEntityRecv(size_);
 
-		for (IndexSetIterator iter = iterB; iter != iterE; iter++)
+		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
 		{
 			//1.1) divide provisional PB->G set by PB->PB set to see which provisional PB->G are new
 			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
@@ -711,10 +682,10 @@ protected:
 		displSendTmp = displSend;
 
 		// fill global index array
-    	std::vector<int> & GPBEntityGlobalIndexSend(sendSize);
-    	std::vector<int> & GPBEntityGlobalIndexRecv(recvSize);
+    	std::vector<int> GPBEntityGlobalIndexSend(sendSize);
+    	std::vector<int> GPBEntityGlobalIndexRecv(recvSize);
 
-		for (IndexSetIterator iter = iterB; iter != iterE; iter++)
+		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
 		{
 			LocalIndexType thisEntityLocalIndex = (*iter).first;
 			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
@@ -725,7 +696,10 @@ protected:
 				int thisGNeighborRank = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][i];
 				int thisTmpIndex = displSendTmp[thisGNeighborRank]++;
 
-				gridstorage_.findEntityGlobalIndex(codim, thisEntityLocalIndex, GPBEntityGlobalIndexSend[thisTmpIndex]);
+				// Check if element with this local index exists at all, otherwise bug in the map
+				if (!gridbase_.findEntityGlobalIndex(codim, thisEntityLocalIndex, GPBEntityGlobalIndexSend[thisTmpIndex])) {
+					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found by its local index");
+				}
 			}
 		}
 
@@ -746,9 +720,14 @@ protected:
 			for (int j = 0; j < nGPBEntityRecv[i]; j++)
 			{
 				GlobalIndexType thisEntityGlobalIndex = GPBEntityGlobalIndexRecv[iData++];
-				LocalIndexType thisEntityLocalIndex = gridstorage_.entityIndexMap_[codim][thisEntityGlobalIndex];
-				LocalIndexType thisEntityLocalGhostIndex = gridstorage_.ghostIndexMap_[codim][thisEntityLocalIndex];
 
+				// Get local index corresponding to the communicated global index, check that it exists
+				LocalIndexType thisEntityLocalIndex;
+				if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex)) {
+					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found corresponding to communicated global index");
+				}
+
+				LocalIndexType thisEntityLocalGhostIndex = gridstorage_.ghostIndexMap_[codim][thisEntityLocalIndex];
 				gridstorage_.G2BIPBNeighborRank_[codim][thisEntityLocalGhostIndex].push_back(i);
 			}
 		}
@@ -773,8 +752,6 @@ protected:
     /** \brief For each PB entity that has non-zero PB-G, and is lowest rank among all its neighbor PB,
      *   communicate to each its neighbour G all other G on the list
      *
-     *
-     * [FIXME] Ensure PB2PBNeighborRank_ is sorted before using this
      * [TODO]  Seems like this procedure could be compactified in 1 loop since there is no feedback
      *
      * */
@@ -789,13 +766,13 @@ protected:
     	// It will only communicate if this process owns this entity
     	// ********************************************************************************
 
-    	std::vector<int> & nGGEntitySend(size_);
-    	std::vector<int> & nGGEntityRecv(size_);
-    	std::vector<int> & nGGRanksPerProcessSend(size_);
-    	std::vector<int> & nGGRanksPerProcessRecv(size_);
+    	std::vector<int> nGGEntitySend(size_);
+    	std::vector<int> nGGEntityRecv(size_);
+    	std::vector<int> nGGRanksPerProcessSend(size_);
+    	std::vector<int> nGGRanksPerProcessRecv(size_);
 
     	// Loop over all PB
-		for (IndexSetIterator iter = iterB; iter != iterE; iter++)
+		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
 		{
 			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
 
@@ -847,10 +824,10 @@ protected:
 
 
 		// Fill candidate number send arrays
-    	std::vector<int> & nGGRankPerEntitySend(sendSize);
-    	std::vector<int> & nGGRankPerEntityRecv(recvSize);
-    	std::vector<int> & GGEntityGlobalIndexSend(sendSize);
-    	std::vector<int> & GGEntityGlobalIndexRecv(recvSize);
+    	std::vector<int> nGGRankPerEntitySend(sendSize);
+    	std::vector<int> nGGRankPerEntityRecv(recvSize);
+    	std::vector<int> GGEntityGlobalIndexSend(sendSize);
+    	std::vector<int> GGEntityGlobalIndexRecv(recvSize);
 
 		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
 		{
@@ -872,7 +849,11 @@ protected:
     				int thisGNeighborRank = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][i];
     				int thisTmpIndex = displSendTmp[thisGNeighborRank]++;
 
-    				gridstorage_.findEntityGlobalIndex(codim, thisEntityLocalIndex, nGGRankPerEntitySend[thisTmpIndex]);
+    				// Check if element with this local index exists at all, otherwise bug in the map
+    				if (!gridbase_.findEntityGlobalIndex(codim, thisEntityLocalIndex, GGEntityGlobalIndexSend[thisTmpIndex])) {
+    					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found by its local index");
+    				}
+
     				nGGRankPerEntitySend[thisTmpIndex] = nGhostNeighbors - 1;
     			}
 			}
@@ -963,10 +944,15 @@ protected:
 			{
 				int nRankPerEntity = nGGRankPerEntityRecv[iEntityData];
 				GlobalIndexType thisEntityGlobalIndex = GGEntityGlobalIndexRecv[iEntityData];
-				LocalIndexType thisEntityLocalIndex = gridstorage_.entityIndexMap_[codim][thisEntityGlobalIndex];
-				LocalIndexType thisEntityGhostLocalIndex = gridstorage_.ghostIndexMap_[codim][thisEntityLocalIndex];
-
 				iEntityData++;
+
+				// Get local index corresponding to the communicated global index, check that it exists
+				LocalIndexType thisEntityLocalIndex;
+				if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex)) {
+					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found corresponding to communicated global index");
+				}
+
+				LocalIndexType thisEntityGhostLocalIndex = gridstorage_.ghostIndexMap_[codim][thisEntityLocalIndex];
 
 				for (int k = 0; k < nRankPerEntity; k++)
 				{

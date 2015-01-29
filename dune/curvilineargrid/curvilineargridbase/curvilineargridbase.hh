@@ -190,6 +190,8 @@ public:
 
     typedef typename GridStorageType::template Codim<0>::EntityGeometry    ElementGeometry;
 
+    typedef typename GridStorageType::EntityNeighborRankVector  EntityNeighborRankVector;
+
 
     // Logging Message Typedefs
     static const unsigned int LOG_PHASE_DEV      = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
@@ -519,90 +521,28 @@ public:
     /** Check if edge is a complex edge */
     bool isComplex(LocalIndexType localIndex) const
     {
-    	LocalIndexType edgePBIndex = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM][localIndex];
+    	Local2LocalIterator tmp = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].find(localIndex);
+    	if (tmp == gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].end())  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected local edge index"); }
+
+    	LocalIndexType edgePBIndex = (*tmp).second;
     	return gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][edgePBIndex].size() > 1;
     }
 
 
-    /** Get the neighbors of this process boundary  */
-
-    std::vector<int> processBoundaryNeighborRankSet(int codim, LocalIndexType localIndex) const
+    /** Get the neighbour ranks of this communication entity  */
+    std::vector<int> & commEntityNeighborRankSet(
+    	int codim, LocalIndexType localIndex, StructuralType structSend, StructuralType structRecv
+    )
 	{
-    	if ((codim <= 0)||(codim > 3)) { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected process boundary codim"); }
+    	typedef typename std::map<LocalIndexType,LocalIndexType>::const_iterator Local2LocalConstIter;
 
-    	LocalIndexType entityPBIndex = gridstorage_.processBoundaryIndexMap_[codim][localIndex];
-    	return gridstorage_.PB2PBNeighborRank_[codim][entityPBIndex];
-	}
+    	Local2LocalMap & tmpMap = selectCommMap(codim, structSend);
+    	Local2LocalConstIter tmp = tmpMap.find(localIndex);
 
+    	if (tmp == tmpMap.end())  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected local index"); }
 
-
-    /** \brief  Computes the set of neighbor ranks for all elements on the boundary
-     *
-     *  if Ghost, then computes ghost element neighbour ranks
-     *  otherwise, computes internal boundary element neighbour ranks
-     *
-     * */
-	void boundaryElementNeighbors(
-		Local2LocalMap & boundarySubsetIndex,
-		std::vector< std::vector<int> > & boundaryNeighborRanks,
-		bool ghost
-	)
-	{
-		InternalIndexType faceNeighborSubIndex = ghost ? 1 : 0;
-
-		IndexSetIterator iterB = entityIndexBegin(FACE_CODIM , ProcessBoundaryType);
-		IndexSetIterator iterE = entityIndexEnd(FACE_CODIM , ProcessBoundaryType);
-
-		for (IndexSetIterator iter = iterB; iter != iterE; iter++)
-		{
-			LocalIndexType thisFaceLocalIndex = *iter;
-			LocalIndexType thisElementLocalIndex = faceNeighbor(thisFaceLocalIndex, faceNeighborSubIndex);
-			int thisNeighborRank = processBoundaryNeighborRankSet(FACE_CODIM, thisFaceLocalIndex);
-			LocalIndexType thisElementIBIndex;
-
-			Local2LocalIterator ghostIter = boundarySubsetIndex.find(thisElementLocalIndex);
-
-			if (ghostIter == boundarySubsetIndex.end())
-			{
-				thisElementIBIndex = boundarySubsetIndex.size();
-				boundarySubsetIndex[thisElementLocalIndex] = thisElementIBIndex;
-			} else {
-				thisElementIBIndex = (*ghostIter).second;
-			}
-
-			boundaryNeighborRanks[thisElementIBIndex].push_back(thisNeighborRank);
-		}
-	}
-
-
-    /** \brief  Computes set of all subentities of internal element next to process boundary,
-     * except of the process boundary itself. Then for each such entity provides all neighbor ranks
-     *
-     * */
-	std::set<LocalIndexType> boundaryInternalEntitySet(
-		int codim,
-		Local2LocalMap & boundarySubsetIndex,
-		std::vector< std::vector<int> > & boundaryNeighborRanks,
-		bool ghost
-	)
-	{
-		// Loop over all process boundaries
-		// If (codim = 0) and (ghost)  select ghost element
-		// If (codim = 0) and (!ghost) select internal element
-		// If (codim > 0) and (ghost)  throw error
-		// If (codim > 0) and (!ghost) for each internal element
-		//    Loop over all subentities, select subentity unless it is PB
-
-		// For each selected entity, add it to the map and add its neighbor to the neighbor map.
-
-
-		// [FIXME] Need correction for G-PB connection
-
-		// Logic:
-		// I  friends with G
-		// G  friends with I, PB, G
-		// PB friends with PB, G
-
+    	LocalIndexType entityLocalSubIndex = (*tmp).second;
+    	return selectCommRankVector(codim, structSend, structRecv)[entityLocalSubIndex];
 	}
 
 
@@ -629,7 +569,7 @@ public:
     	// **************************************************************************
     	Dune::GeometryType tetrahedronGeometry;
     	tetrahedronGeometry.makeTetrahedron();
-    	Dune::ReferenceElement<ct,cdim> & thisRefElement = Dune::ReferenceElements<ct,cdim>::general(tetrahedronGeometry);
+    	const Dune::ReferenceElement<ct,cdim> & thisRefElement = Dune::ReferenceElements<ct,cdim>::general(tetrahedronGeometry);
 
     	if (subcodim >= codim) { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair"); }
 
@@ -652,9 +592,9 @@ public:
     		} break;
     		case 2 :
     		{
-    			InternalIndexType elementSubentityInternalIndex2 = gridstorage_.edge[entityIndex].subentityIndex;
+    			InternalIndexType elementSubentityInternalIndex2 = gridstorage_.edge_[entityIndex].subentityIndex;
 
-    			elementLocalIndex = gridstorage_.edge_[entityIndex].element1Index;
+    			elementLocalIndex = gridstorage_.edge_[entityIndex].elementIndex;
     			elementSubentityInternalIndex1 = thisRefElement.subEntity(elementSubentityInternalIndex2, codim, subentityInternalIndex, subcodim);
     		} break;
     	}
@@ -890,6 +830,55 @@ public:
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codim-structtype pair");
     	}
     }
+
+
+
+    /* ***************************************************************************
+     * Section: Selector methods for shorthand access of specific arrays
+     * ***************************************************************************/
+
+    Local2LocalMap & selectCommMap(int codim, StructuralType structtype)
+    {
+    	switch (structtype)
+    	{
+    	case InternalType          :  return gridstorage_.boundaryInternalEntityIndexMap_[codim];  break;
+    	case ProcessBoundaryType   :  return gridstorage_.processBoundaryIndexMap_[codim];         break;
+    	case GhostType             :  return gridstorage_.ghostIndexMap_[codim];                   break;
+    	default                    :  DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected comm structural type");  break;
+    	}
+    }
+
+
+    EntityNeighborRankVector & selectCommRankVector(int codim, StructuralType structSend, StructuralType structRecv)
+    {
+    	// Can only communicate over these 3 PartitionTypes
+    	assert((structRecv == InternalType)||(structRecv == ProcessBoundaryType)||(structRecv == GhostType));
+
+    	switch (structSend)
+    	{
+    	case InternalType          :   // Internal -> Ghost protocol
+    	{
+    		assert(structRecv == GhostType);
+    		return gridstorage_.BI2GNeighborRank_[codim];
+    	} break;
+    	case ProcessBoundaryType   :   // PB -> PB and PB -> Ghost protocols
+    	{
+    		assert((structRecv == ProcessBoundaryType)||(structRecv == GhostType));
+    		if (structRecv == ProcessBoundaryType)  { return gridstorage_.PB2PBNeighborRank_[codim]; }
+    		if (structRecv == GhostType)            { return gridstorage_.PB2GNeighborRank_[codim]; }
+    	} break;
+    	case GhostType             :   // Ghost -> (Internal & PB) and Ghost -> Ghost protocols
+    	{
+    		assert((structRecv == InternalType)||(structRecv == ProcessBoundaryType)||(structRecv == GhostType));
+    		if (structRecv == InternalType)         { return gridstorage_.G2BIPBNeighborRank_[codim]; }
+    		if (structRecv == ProcessBoundaryType)  { return gridstorage_.G2BIPBNeighborRank_[codim]; }
+    		if (structRecv == GhostType)            { return gridstorage_.G2GNeighborRank_[codim]; }
+    	} break;
+
+    	}
+    }
+
+
 
 protected:
 

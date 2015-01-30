@@ -727,6 +727,8 @@ namespace Dune
                 int thisElmDofNo               = gmshElementDofNumber(thisElement.gmshIndex_);
                 int thisElmCorners             = ReferenceElements::general(elemType).size(elemType.dim());
                 int thisElmSubentities         = ReferenceElements::general(elemType).size(1);
+                int thisElmSubCorners          = ReferenceElements::general(elemType).size(0, 1, elemType.dim());
+
 
                 // Reading DoF's
                 // *************************************************
@@ -756,22 +758,30 @@ namespace Dune
                 std::vector<int> cornerVector;
                 for (int iCorner = 0; iCorner < thisElmCorners; iCorner++) { cornerVector.push_back(thisElement.elementDofSet_[iCorner]); }
 
-                // 2) sort by increasing globalID
-                std::sort(cornerVector.begin(), cornerVector.end());
+                // 2) sort by increasing globalID - Sorting really unnecessary since it is only used to produce the key,
+                //    and the key has to be sorted regardless
+                //std::sort(cornerVector.begin(), cornerVector.end());
 
                 // 3) Calculate the localID of this element
                 int localID = internalElementVector.size();
 
                 for (int iSub = 0; iSub < thisElmSubentities; iSub++)
                 {
-                    // 4) get all subsets associated with this element type
-                    std::vector<int> thisSubentityCornerIndexSet = Dune::CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet(elemType, 1, iSub);
-                    std::vector<int> key;
-
-                    log_string = " for iSub = " + std::to_string(iSub) + " out of " + std::to_string(thisElmSubentities) + " have sub_size = " + std::to_string(thisSubentityCornerIndexSet.size());
+                    log_string = " for iSub = " + std::to_string(iSub) + " out of " + std::to_string(thisElmSubentities) + " have sub_size = " + std::to_string(thisElmSubCorners);
                     Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
 
-                    for (int iCoord = 0; iCoord < thisSubentityCornerIndexSet.size(); iCoord++) { key.push_back(cornerVector[thisSubentityCornerIndexSet[iCoord]]); }
+                	// 4) get all subsets associated with this element type
+                    //std::vector<int> thisSubentityCornerIndexSet = Dune::CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet;
+                    std::vector<int> key;
+
+                    for (int iCoord = 0; iCoord < thisElmSubCorners; iCoord++) {
+						int thisCornerInternalSubIndex = ReferenceElements::general(elemType).subEntity(iSub, 1, iCoord, elemType.dim());
+                    	key.push_back(cornerVector[thisCornerInternalSubIndex]);
+                    }
+
+                    // Sort the key
+                    std::sort(key.begin(), key.end());
+
 
                     // 5) Check if map empty for this entry, then add to the map
                     if (boundaryKey2LinkedElementSet.find(key) == boundaryKey2LinkedElementSet.end()) {

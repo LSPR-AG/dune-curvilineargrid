@@ -60,15 +60,17 @@ public:
 	struct PartitionType
 	{
 		enum {
-			Internal           = 1,   // Entity that is not on the process boundary
-			ProcessBoundary    = 2,   // Boundary entity shared by more than one process
-			DomainBoundary     = 3,   // Boundary entity that is not a process boundary [codim > 0]
-			InternalBoundary   = 4,   // Artificial user-defined boundary that is not the process boundary [Not Implemented]
-			FrontBoundary      = 5,   // Faces of Overlap partition [Not Implemented]
-			Ghost              = 6,   // Entities stored on this process but not owned by it [all codim]
-			Overlap            = 7,   // Dune-Magic [Not Implemented]
+			Internal           = 0,   // Entity that is not on the process boundary
+			ProcessBoundary    = 1,   // Boundary entity shared by more than one process
+			DomainBoundary     = 2,   // Boundary entity that is not a process boundary [codim > 0]
+			InternalBoundary   = 3,   // Artificial user-defined boundary that is not the process boundary [Not Implemented]
+			FrontBoundary      = 4,   // Faces of Overlap partition [Not Implemented]
+			Ghost              = 5,   // Entities stored on this process but not owned by it [all codim]
+			Overlap            = 6,   // Dune-Magic [Not Implemented]
 		};
 	};
+
+	const std::string PartitonTypeName[7];
 
 
     // Entity Key Structures
@@ -301,6 +303,7 @@ public:
     // ******************************************************************
     CurvilinearGridStorage () :
     	nEntityTotal_ {0, 0, 0, 0},
+    	PartitonTypeName { "Internal", "ProcessBoundary", "DomainBoundary", "InternalBoundary", "FrontBoundary", "Ghost", "Overlap" },
     	octree_(0)
     {
 
@@ -312,6 +315,7 @@ public:
     }
 
 };
+
 
 } // namespace Dune
 

@@ -5,12 +5,15 @@ add_definitions("-DDUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH=\"${PROJECT_SOURCE_DI
 set(TESTS
   test-diagnostics
   test-allcommunicate
+  test-vectorhelper
 )
 
 add_executable(test-diagnostics test-diagnostics.cc)
 add_executable(test-allcommunicate test-allcommunicate.cc)
+add_executable(test-vectorhelper test-vectorhelper.cc)
 target_link_libraries(test-diagnostics dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-allcommunicate dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-vectorhelper dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 
 
 # We do not want want to build the tests during make all,

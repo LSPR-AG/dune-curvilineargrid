@@ -22,6 +22,24 @@ public:
 
 	VectorHelper()  { }
 
+
+	// Finds an element inside sorted non-repeating vector, returns index of the element if found
+	// If not found, returns size of the vector
+	//
+	// [TODO] Implement binary search, but atm for small arrays direct search is fine
+	template<typename T>
+	static int find(const std::vector<T> & data, T elem)
+	{
+		for (int i = 0; i < data.size(); i++)  { if (data[i] == elem)  { return i; }}
+		return data.size();
+	}
+
+
+	// Checks if an element is inside a sorted non-repeating vector
+	template<typename T>
+	static bool isInside(const std::vector<T> & data, T elem)  { return find(data, elem) == data.size(); }
+
+
 	// Sorts array and removes all repeating entries. No overhead
 	template<typename T>
 	static void compactify(std::vector<T> & data)
@@ -126,7 +144,7 @@ public:
 		{
 			     if (A[indA] >  B[indB])  { indB++;          }
 			else if (A[indA] == B[indB])  { indA++;  indB++; }
-			else                          { indA++;  rez.push_back(A[indA]); }
+			else                          { rez.push_back(A[indA++]); }
 		}
 
 		for (int i = indA; i < A.size(); i++) { rez.push_back(A[i]); }

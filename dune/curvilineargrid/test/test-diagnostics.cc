@@ -54,7 +54,7 @@ int main(int argc, char** argv)
 
 
     // Assemble the file name
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE2000_ORD3;
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD1;
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
     typedef Dune::CurvilinearFakeGrid<3,3,double>  SimplexGridType;
@@ -102,9 +102,9 @@ int main(int argc, char** argv)
 	bool VTK_WRITE_GHOST_ELEMENTS = true;
 	bool VTK_WRITE_DOMAIN_BOUNDARY = true;
 	bool VTK_WRITE_PROCESS_BOUNDARY = true;
-	int  VTK_CURV_DISCRETIZATION = 5;       // 2=linear, minimal allowed discretization
+	int  VTK_CURV_DISCRETIZATION = 2;       // 2=linear, minimal allowed discretization
 	bool VTK_INTERPOLATE_DISCRETIZATION = true;
-	bool VTK_EXPLODE_ELEMENTS = true;
+	bool VTK_EXPLODE_ELEMENTS = false;
 
     diagnostic.vtkWriteMesh(
     	VTK_WRITE_ELEMENTS,

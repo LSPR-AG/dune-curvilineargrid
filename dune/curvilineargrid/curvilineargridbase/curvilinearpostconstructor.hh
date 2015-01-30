@@ -132,6 +132,8 @@ public: /* public methods */
     // NOTE: Must only insert corners, not other interpolatory vertices
     void generateIteratorSets()
     {
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating iterator lists");
+
         fillPartitionIteratorCorner();
 
         for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)     { fillPartitionIterator(EDGE_CODIM, iEdge, gridstorage_.edge_[iEdge].structuralType); }
@@ -139,6 +141,8 @@ public: /* public methods */
         for (LocalIndexType iFace = 0; iFace < gridstorage_.face_.size(); iFace++)     { fillPartitionIterator(FACE_CODIM, iFace, gridstorage_.face_[iFace].structuralType); }
 
         for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)  { fillPartitionIterator(ELEMENT_CODIM, iElem, gridstorage_.element_[iElem].structuralType); }
+
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating iterator lists");
 
     }
 
@@ -158,12 +162,10 @@ public: /* public methods */
      *  3) Mark PB face neighbor rank on all subset entities
      *
      *  */
-
-    // [FIXME] Do not add candidate PB-G, if the candidate rank is same as PB rank
-    // [FIXME] Check all iCodim <= 3
-    // This occurs if have 2 PB faces of same process, then it is a useless candidate
     void generateCommunicationMaps()
     {
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating communication maps");
+
 		IndexSetIterator iterB = gridbase_.entityIndexBegin(FACE_CODIM , ProcessBoundaryType);
 		IndexSetIterator iterE = gridbase_.entityIndexEnd(FACE_CODIM , ProcessBoundaryType);
 
@@ -196,8 +198,8 @@ public: /* public methods */
 			// Fill in the sets associated with this face
 			std::vector<LocalIndexType> faceSubentityIndex[4];
 			faceSubentityIndex[1].push_back(thisFaceLocalIndex);
-			for (int i = 0; i < nEdgeTriangle; i++)    { faceSubentityIndex[2].push_back(gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, EDGE_CODIM, i)); }
-			for (int i = 0; i < nVertexTriangle; i++)  { faceSubentityIndex[3].push_back(gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, VERTEX_CODIM, i)); }
+			for (int i = 0; i < nEdgeTriangle; i++)    { faceSubentityIndex[EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, EDGE_CODIM, i)); }
+			for (int i = 0; i < nVertexTriangle; i++)  { faceSubentityIndex[VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, VERTEX_CODIM, i)); }
 
 			// Fill in the sets associated with internal element
 			std::vector<LocalIndexType> faceNeighborSubentityIndex[2][4];
@@ -206,13 +208,13 @@ public: /* public methods */
 				// Gets either internal or ghost element depending on iTmp
 				LocalIndexType thisElementLocalIndex = gridbase_.faceNeighbor(thisFaceLocalIndex, iTmp);
 
-				faceNeighborSubentityIndex[iTmp][0].push_back(thisElementLocalIndex);
-				for (int i = 0; i < nTriangleTet; i++)  { faceNeighborSubentityIndex[iTmp][1].push_back(gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, i)); }
-				for (int i = 0; i < nEdgeTet; i++)      { faceNeighborSubentityIndex[iTmp][2].push_back(gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, EDGE_CODIM, i)); }
-				for (int i = 0; i < nVertexTet; i++)    { faceNeighborSubentityIndex[iTmp][3].push_back(gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, VERTEX_CODIM, i)); }
+				faceNeighborSubentityIndex[iTmp][ELEMENT_CODIM].push_back(thisElementLocalIndex);
+				for (int i = 0; i < nTriangleTet; i++)  { faceNeighborSubentityIndex[iTmp][FACE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, i)); }
+				for (int i = 0; i < nEdgeTet; i++)      { faceNeighborSubentityIndex[iTmp][EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, EDGE_CODIM, i)); }
+				for (int i = 0; i < nVertexTet; i++)    { faceNeighborSubentityIndex[iTmp][VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, VERTEX_CODIM, i)); }
 
 
-				for (int iCodim = 1; iCodim <= cdim; iCodim++)
+				for (int iCodim = 0; iCodim <= cdim; iCodim++)
 				{
 					// Subtract face subentity set from element subentity set, such that only internal and ghost subentities are left
 					faceNeighborSubentityIndex[iTmp][iCodim] = Dune::VectorHelper::sortedSetComplement(faceNeighborSubentityIndex[iTmp][iCodim], faceSubentityIndex[iCodim]);
@@ -227,17 +229,60 @@ public: /* public methods */
 						StructuralType thisEntityType = gridbase_.entityStructuralType(iCodim, thisEntityLocalIndex);
 
 
+
+
+						std::stringstream log_str;
+						log_str << "CurvilinearPostConstructor: ---- Iterating over iTmp=" << gridstorage_.PartitonTypeName[tmpTypes[iTmp]];
+						log_str << " codim=" << iCodim;
+						log_str << " subentityNo=" << iEntity;
+						log_str << " localindex =" << thisEntityLocalIndex;
+						log_str << " gives structural type =" << gridstorage_.PartitonTypeName[thisEntityType];
+						Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_str.str());
+
+
+
+
+
 						// If this is a PB Entity, that happens to not be on the face, it is possible
 						// that it is on a face of a different process, then it is a PB->G link
 						// Otherwise, this entity is either internal or ghost, and it contributest to one
 						// of the new maps
 						if (thisEntityType == ProcessBoundaryType)
 						{
-							LocalIndexType thisEntityPBIndex = gridstorage_.processBoundaryIndexMap_[iCodim][thisEntityLocalIndex];
-							gridstorage_.PB2GNeighborRank_[iCodim][thisEntityPBIndex].push_back(thisFaceNeighborRank);
+							std::vector<int> & thisEntityPBNeighbors = gridbase_.commEntityNeighborRankSet(iCodim, thisEntityLocalIndex, ProcessBoundaryType, ProcessBoundaryType);
+							bool isNewRank = !Dune::VectorHelper::isInside(thisEntityPBNeighbors, thisFaceNeighborRank);
+
+							// If this rank is not already in PB-PB of this entity, then it must be in PB-G
+							if (isNewRank)
+							{
+								LocalIndexType thisEntityPBIndex = gridstorage_.processBoundaryIndexMap_[iCodim][thisEntityLocalIndex];
+								gridstorage_.PB2GNeighborRank_[iCodim][thisEntityPBIndex].push_back(thisFaceNeighborRank);
+							}
 						}
 						else
 						{
+							// Check if the type of the entity is expected
+					    	bool entityTypeExpected =
+					    		((iTmp == 0)&&((thisEntityType == InternalType)||(thisEntityType == DomainBoundaryType))) ||
+					    		((iTmp == 1)&&(thisEntityType == GhostType));
+
+					    	if (!entityTypeExpected) {
+					    		GlobalIndexType thisEntityGlobalIndex;
+
+					    		if (!gridbase_.findEntityGlobalIndex(iCodim, thisEntityLocalIndex, thisEntityGlobalIndex)) {
+					    			std::cout << "Global index not found " << std::endl;
+					    		}
+
+					    		std::cout << "error in codim " << iCodim << " entity localindex=" << thisEntityLocalIndex << " globalIndex=" << thisEntityGlobalIndex << std::endl;
+
+					    		std::string expectedTypeName = gridstorage_.PartitonTypeName[tmpTypes[iTmp]];
+					    		std::string receivedTypeName = gridstorage_.PartitonTypeName[thisEntityType];
+
+					    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridBase: Unexpected type name expected=" + expectedTypeName + ", received="+receivedTypeName);
+					    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected type name");
+					    	}
+
+
 							Local2LocalIterator thisIter = thisLocalMap.find(thisEntityLocalIndex);
 							LocalIndexType thisEntitySubsetIndex;
 
@@ -263,6 +308,8 @@ public: /* public methods */
 				}
 			}
 		}
+
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating communication maps");
     }
 
 
@@ -304,8 +351,10 @@ public: /* public methods */
     {
     	MPI_Comm comm = Dune::MPIHelper::getCommunicator();
 
-    	for (int iCodim = 1; iCodim <= cdim; iCodim++)
+    	for (int iCodim = 0; iCodim <= cdim; iCodim++)
     	{
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Started communicating entity ranks for codim=" + std::to_string(iCodim));
+
 
     		//1) Compute true PB-G candidates, communicate their number to PB neighbor entities
     		//2) Communicate PB-G candidates and fill them on the receiving end
@@ -322,6 +371,8 @@ public: /* public methods */
     	    //7) For all G append received G by using union on them - This completes G->G (hopefully)
     	    // ************************************************************************************
     	    communicateGG(iCodim, comm);
+
+    	    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Finished communicating entity ranks for codim=" + std::to_string(iCodim));
     	}
 
     }
@@ -411,6 +462,8 @@ protected:
 
     void communicatePBG(int codim, MPI_Comm comm)
     {
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started ProcessBoundary-Ghost communication construction");
+
     	Local2LocalIterator iterB = gridstorage_.processBoundaryIndexMap_[codim].begin();
     	Local2LocalIterator iterE = gridstorage_.processBoundaryIndexMap_[codim].end();
 
@@ -579,6 +632,7 @@ protected:
 			{
 				int nRankPerEntity = nPBGRankPerEntityRecv[iEntityData];
 				GlobalIndexType thisEntityGlobalIndex = PBGEntityGlobalIndexRecv[iEntityData];
+				iEntityData++;
 
 				// Get local index corresponding to the communicated global index, check that it exists
 				LocalIndexType thisEntityLocalIndex;
@@ -586,10 +640,11 @@ protected:
 					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found corresponding to communicated global index");
 				}
 
+				// Check if the structural type of the received entity is PB
+				StructuralType thisEntityType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
+				assert(thisEntityType == ProcessBoundaryType);
+
 				LocalIndexType thisEntityLocalPBIndex = gridstorage_.processBoundaryIndexMap_[codim][thisEntityLocalIndex];
-
-				iEntityData++;
-
 				for (int k = 0; k < nRankPerEntity; k++)
 				{
 					int thisNeighborRank = neighborPBGRankSetRecv[iRankData++];
@@ -619,9 +674,8 @@ protected:
 			);
 		}
 
-
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished ProcessBoundary-Ghost communication construction");
     }
-
 
 
     /** \brief For each PB entity that has non-zero PB-G, communicate its globalIndex and rank of self
@@ -631,13 +685,13 @@ protected:
      * 2) Communicate global indices for each G-PB entity
      * 3) On receiving end, mark sender's rank on all received G-PB
      *
-     * [FIXME] Check that own PB that are subentities of Ghost are not in the ghost set
-     * [FIXME] Check that PB and G do not point to self
      *
      *
      * */
     void communicateGPB(int codim, MPI_Comm comm)
     {
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started Ghost-ProcessBoundary communication construction");
+
     	Local2LocalIterator iterB = gridstorage_.processBoundaryIndexMap_[codim].begin();
     	Local2LocalIterator iterE = gridstorage_.processBoundaryIndexMap_[codim].end();
 
@@ -648,7 +702,6 @@ protected:
 
 		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
 		{
-			//1.1) divide provisional PB->G set by PB->PB set to see which provisional PB->G are new
 			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
 
 			int PBGSize = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
@@ -727,6 +780,10 @@ protected:
 					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found corresponding to communicated global index");
 				}
 
+				// Check if the structural type of the received entity is Ghost
+				StructuralType thisEntityType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
+				assert(thisEntityType == GhostType);
+
 				LocalIndexType thisEntityLocalGhostIndex = gridstorage_.ghostIndexMap_[codim][thisEntityLocalIndex];
 				gridstorage_.G2BIPBNeighborRank_[codim][thisEntityLocalGhostIndex].push_back(i);
 			}
@@ -746,6 +803,8 @@ protected:
 			//! \note no need to set-divide here, since only BI and PB were communicated
 			Dune::VectorHelper::compactify(gridstorage_.G2BIPBNeighborRank_[codim][thisEntityGhostLocalIndex]);
 		}
+
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished Ghost-ProcessBoundary communication construction");
     }
 
 
@@ -757,6 +816,8 @@ protected:
      * */
     void communicateGG(int codim, MPI_Comm comm)
     {
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started Ghost-Ghost communication construction");
+
     	Local2LocalIterator iterB = gridstorage_.processBoundaryIndexMap_[codim].begin();
     	Local2LocalIterator iterE = gridstorage_.processBoundaryIndexMap_[codim].end();
 
@@ -952,6 +1013,10 @@ protected:
 					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found corresponding to communicated global index");
 				}
 
+				// Check if the structural type of the received entity is Ghost
+				StructuralType thisEntityType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
+				assert(thisEntityType == GhostType);
+
 				LocalIndexType thisEntityGhostLocalIndex = gridstorage_.ghostIndexMap_[codim][thisEntityLocalIndex];
 
 				for (int k = 0; k < nRankPerEntity; k++)
@@ -980,6 +1045,8 @@ protected:
 			//! No need to perform division, as it is assumed that only ghost entities were communicated,
 			//! if all the previous steps were done correctly
 		}
+
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished Ghost-Ghost communication construction");
     }
 
 

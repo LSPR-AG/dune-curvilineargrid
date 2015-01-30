@@ -298,14 +298,18 @@ public:
                 DUNE_THROW(Dune::IOError, "CurvilinearGrid: insertBoundarySegment() did not find the face in the associated element");
             }
 
-            std::vector<InternalIndexType> internalLinearSubentityIndices =
-            		Dune::CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet(gridstorage_.element_[associatedElementIndex].geometryType, 1, j);
+
+            // Get internal indices of the corners of this face wrt its associated element
+            Dune::GeometryType assocElementGeometryType = gridstorage_.element_[associatedElementIndex].geometryType;
+            InternalIndexType node0SubIndex = Dune::ReferenceElements<ct, cdim>::general(assocElementGeometryType).subEntity(j, FACE_CODIM, 0, VERTEX_CODIM);
+            InternalIndexType node1SubIndex = Dune::ReferenceElements<ct, cdim>::general(assocElementGeometryType).subEntity(j, FACE_CODIM, 1, VERTEX_CODIM);
+            InternalIndexType node2SubIndex = Dune::ReferenceElements<ct, cdim>::general(assocElementGeometryType).subEntity(j, FACE_CODIM, 2, VERTEX_CODIM);
 
             // Define (key = sorted localIndices of corners)
             FaceKey thisKey;
-            thisKey.node0 = gridstorage_.point_[elementCorners[internalLinearSubentityIndices[0]]].globalIndex;
-            thisKey.node1 = gridstorage_.point_[elementCorners[internalLinearSubentityIndices[1]]].globalIndex;
-            thisKey.node2 = gridstorage_.point_[elementCorners[internalLinearSubentityIndices[2]]].globalIndex;
+            thisKey.node0 = gridstorage_.point_[elementCorners[node0SubIndex]].globalIndex;
+            thisKey.node1 = gridstorage_.point_[elementCorners[node1SubIndex]].globalIndex;
+            thisKey.node2 = gridstorage_.point_[elementCorners[node2SubIndex]].globalIndex;
 
 
             // Sort in ascending order
@@ -437,9 +441,17 @@ public:
         // ************************************************************
         GridPostConstructor postConstructor(verbose_, processVerbose_, gridstorage_, gridbase_, mpihelper_);
         postConstructor.generateIteratorSets();
-        postConstructor.generateCommunicationMaps();
-        postConstructor.communicateCommunicationEntityNeighborRanks();
 
+
+        /*
+        if (size_ > 1)
+        {
+#if HAVE_MPI
+            postConstructor.generateCommunicationMaps();
+            postConstructor.communicateCommunicationEntityNeighborRanks();
+#endif
+        }
+         */
 
         // Construct OCTree
         // ************************************************************
@@ -516,12 +528,15 @@ protected:
 
             for (int iEdge = 0; iEdge < nEdgePerTetrahedron; iEdge++)
             {
-                std::vector<InternalIndexType> internalLinearSubentityIndices = Dune::CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet(thisElem.geometryType, 2, iEdge);
+
+                // Get internal indices of the corners of this face wrt its associated element
+                InternalIndexType node0SubIndex = Dune::ReferenceElements<ct, cdim>::general(thisElem.geometryType).subEntity(iEdge, EDGE_CODIM, 0, VERTEX_CODIM);
+                InternalIndexType node1SubIndex = Dune::ReferenceElements<ct, cdim>::general(thisElem.geometryType).subEntity(iEdge, EDGE_CODIM, 1, VERTEX_CODIM);
 
                 // Define (key = sorted globalIndices of corners)
                 EdgeKey thisKey;
-                thisKey.node0 = gridstorage_.point_[elementCornerLocalIndexSet[internalLinearSubentityIndices[0]]].globalIndex;
-                thisKey.node1 = gridstorage_.point_[elementCornerLocalIndexSet[internalLinearSubentityIndices[1]]].globalIndex;
+                thisKey.node0 = gridstorage_.point_[elementCornerLocalIndexSet[node0SubIndex]].globalIndex;
+                thisKey.node1 = gridstorage_.point_[elementCornerLocalIndexSet[node1SubIndex]].globalIndex;
 
                 // Sort in ascending order
                 thisKey.sort();
@@ -605,13 +620,17 @@ protected:
             // Store it in a map, not to store internal faces twice
             for (int iFace = 0; iFace < nFacePerTetrahedron; iFace++)
             {
-                std::vector<InternalIndexType> internalLinearSubentityIndices = Dune::CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet(thisElem.geometryType, 1, iFace);
+
+                // Get internal indices of the corners of this face wrt its associated element
+                InternalIndexType node0SubIndex = Dune::ReferenceElements<ct, cdim>::general(thisElem.geometryType).subEntity(iFace, FACE_CODIM, 0, VERTEX_CODIM);
+                InternalIndexType node1SubIndex = Dune::ReferenceElements<ct, cdim>::general(thisElem.geometryType).subEntity(iFace, FACE_CODIM, 1, VERTEX_CODIM);
+                InternalIndexType node2SubIndex = Dune::ReferenceElements<ct, cdim>::general(thisElem.geometryType).subEntity(iFace, FACE_CODIM, 2, VERTEX_CODIM);
 
                 // Define (key = sorted globalIndices of corners)
                 FaceKey thisKey;
-                thisKey.node0 = gridstorage_.point_[elementCornerLocalIndexSet[internalLinearSubentityIndices[0]]].globalIndex;
-                thisKey.node1 = gridstorage_.point_[elementCornerLocalIndexSet[internalLinearSubentityIndices[1]]].globalIndex;
-                thisKey.node2 = gridstorage_.point_[elementCornerLocalIndexSet[internalLinearSubentityIndices[2]]].globalIndex;
+                thisKey.node0 = gridstorage_.point_[elementCornerLocalIndexSet[node0SubIndex]].globalIndex;
+                thisKey.node1 = gridstorage_.point_[elementCornerLocalIndexSet[node1SubIndex]].globalIndex;
+                thisKey.node2 = gridstorage_.point_[elementCornerLocalIndexSet[node2SubIndex]].globalIndex;
 
                 // Sort in ascending order
                 thisKey.sort();
@@ -1226,7 +1245,7 @@ protected:
             LocalIndexType thisPBEdgeLocalIndex = (*edgeIter).second;
 
             // Get corners of the edge
-            std::vector<LocalIndexType> thisCornerLocalIndices = gridbase_.entityCornerLocalIndex(2, thisEdgeLocalIndex);
+            std::vector<LocalIndexType> thisCornerLocalIndices = gridbase_.entityCornerLocalIndex(EDGE_CODIM, thisEdgeLocalIndex);
 
             EdgeKey thisEdgeKey;
             thisEdgeKey.node0 = gridstorage_.point_[thisCornerLocalIndices[0]].globalIndex;
@@ -1365,6 +1384,16 @@ protected:
         	}
         }
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished computing edge process boundary neighbors");
+
+
+        // 6) Sort all edge neighbor rank sets
+        // *************************************************************************************************************
+        for (int iEdge = 0; iEdge < gridstorage_.PB2PBNeighborRank_[EDGE_CODIM].size(); iEdge++)
+        {
+        	std::sort(gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][iEdge].begin(), gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][iEdge].end());
+        }
+
+
     }
 
 

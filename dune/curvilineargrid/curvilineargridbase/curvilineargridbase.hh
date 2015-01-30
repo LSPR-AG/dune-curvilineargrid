@@ -81,9 +81,9 @@
  *  - [TODO] Does NOT support non-tetrahedral meshes. Generalization to arbitrary and mixed geometry meshes is possible but will be cumbersome
  *
  * Development log
+ *  - [TODO]  To make some member functions const, need to introduce const iterators
  *  - [TODO]  Consider making GridConstructor a pointer and deleting it at the end of construction phase.
- *  - [FIXME] Convert all code to unsigned ints wherever the number is definitely non-negative
- *  - [FIXME] Do Ghost elements require same properties as normal elements. For example, subentityByIndex?
+ *  - [TODO] Convert all code to unsigned ints wherever the number is definitely non-negative
  *  - [FIXME] Implement ostream operator << for IdType.
  *  - [FIXME] Currently nEntity counts ghost elements. Is this expected
  *  - [FIXME] Currently nEntity counts only corners. Is this expected
@@ -417,7 +417,7 @@ public:
 
 
     /** Finds local index using global index and codimension of entity. Returns false if requested global index does not correspond to an entity on this process  */
-    bool findEntityLocalIndex(int codim, GlobalIndexType globalIndex, LocalIndexType & localIndex) const
+    bool findEntityLocalIndex(int codim, GlobalIndexType globalIndex, LocalIndexType & localIndex)
     {
     	if (globalIndex < 0)  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Received negative index");  }
 
@@ -457,7 +457,11 @@ public:
     	case 2 : return gridstorage_.edge_[localIndex].structuralType;                        break;
     	case 1 : return gridstorage_.face_[localIndex].structuralType;                        break;
     	case 0 : return gridstorage_.element_[localIndex].structuralType;                     break;
-    	default : DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected subentity codimension");  break;
+    	default :
+    	{
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Unexpected subentity codimension=" + std::to_string(codim));
+    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected subentity codimension");  break;
+    	}
     	}
     }
 
@@ -508,10 +512,12 @@ public:
     	const EntityStorage & thisElem = gridstorage_.element_[localElementIndex];
         std::vector<LocalIndexType> elementCornerLocalIndexSet = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ct, 3>(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
 
-        std::vector<InternalIndexType> internalLinearSubentityIndices = Dune::CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet(thisElem.geometryType, 2, subentityIndex);
+        Dune::GeometryType elemGT;  elemGT.makeSimplex(cdim);
+        int thisEntityCornerNumber = Dune::ReferenceElements<ct,cdim>::general(elemGT).size(0, codim, cdim);
 
-        for (int i = 0; i < internalLinearSubentityIndices.size(); i++)  {
-        	rez.push_back(elementCornerLocalIndexSet[internalLinearSubentityIndices[i]]);
+        for (int i = 0; i < thisEntityCornerNumber; i++)  {
+        	InternalIndexType thisCornerSubIndex = Dune::ReferenceElements<ct,cdim>::general(elemGT).subEntity(subentityIndex, codim, i, VERTEX_CODIM);
+        	rez.push_back(elementCornerLocalIndexSet[thisCornerSubIndex]);
         }
 
         return rez;
@@ -552,6 +558,7 @@ public:
      *  \param[in] subcodim                 codimension of the subentity
      *  \param[in] subentityInternalIndex   subentity internal index wrt entity
      *
+     *  \note subcodim > codim required
      *
      *  Algorithm:
      *  1) Find the parent tetrahedron index from (entityIndex, codim)
@@ -571,7 +578,10 @@ public:
     	tetrahedronGeometry.makeTetrahedron();
     	const Dune::ReferenceElement<ct,cdim> & thisRefElement = Dune::ReferenceElements<ct,cdim>::general(tetrahedronGeometry);
 
-    	if (subcodim >= codim) { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair"); }
+    	if (subcodim <= codim) {
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair = (" + std::to_string(codim) + "," + std::to_string(subcodim) + ")");
+    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair");
+    	}
 
     	LocalIndexType elementLocalIndex;
     	InternalIndexType elementSubentityInternalIndex1;
@@ -647,7 +657,11 @@ public:
         {
         case 0 : rez = gridstorage_.face_[localIndex].element1Index;  break;
         case 1 : rez = gridstorage_.face_[localIndex].element2Index;  break;
-        default: DUNE_THROW(Dune::IOError, "CurvilinearGrid: faceNeighbor() unexpected neighbor index");  break;
+        default:
+        {
+        	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Unexpected neighbor subentity index =" + std::to_string(internalNeighborIndex));
+        	DUNE_THROW(Dune::IOError, "CurvilinearGrid: faceNeighbor() unexpected neighbor index");  break;
+        }
         }
 
         return rez;

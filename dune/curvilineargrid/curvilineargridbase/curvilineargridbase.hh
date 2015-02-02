@@ -323,19 +323,37 @@ public:
         // Diagnostics output
         std::stringstream log_stream;
         log_stream << "CurvilinearGridBase: Constructed Mesh ";
-        log_stream << " nVertexPerMesh="             << nEntityTotal(3);
-        log_stream << " nEdgePerMesh="               << nEntityTotal(2);
-        log_stream << " nFacePerMesh="               << nEntityTotal(1);
-        log_stream << " nElementPerMesh="            << nEntityTotal(0);
-        log_stream << " nVertex="                    << nEntity(3);
-        log_stream << " nEdge="                      << nEntity(2);
-        log_stream << " nFace="                      << nEntity(1);
-        log_stream << " nElement="                   << nEntity(0);
-        log_stream << " nInternalElement="           << nEntity(0, InternalType);
-        log_stream << " nGhostElement="              << nEntity(0, GhostType);
-        log_stream << " nFaceDomainBoundary="        << nEntity(1, DomainBoundaryType);
-        log_stream << " nFaceProcessBoundary="       << nEntity(1, ProcessBoundaryType);
-        log_stream << " nFaceInternal="              << nEntity(1, InternalType);
+        log_stream << " nVertexPerMesh="             << nEntityTotal(VERTEX_CODIM);
+        log_stream << " nEdgePerMesh="               << nEntityTotal(EDGE_CODIM);
+        log_stream << " nFacePerMesh="               << nEntityTotal(FACE_CODIM);
+        log_stream << " nElementPerMesh="            << nEntityTotal(ELEMENT_CODIM);
+
+        log_stream << std::endl; "    *** ";
+        log_stream << " nCorner="                    << nEntity(VERTEX_CODIM);
+        log_stream << " nCornerInternal="            << nEntity(VERTEX_CODIM, InternalType);
+        log_stream << " nCornerDomainBoundary="      << nEntity(VERTEX_CODIM, DomainBoundaryType);
+        log_stream << " nCornerProcessBoundary="     << nEntity(VERTEX_CODIM, ProcessBoundaryType);
+        log_stream << " nCornerGhost="               << nEntity(VERTEX_CODIM, GhostType);
+
+        log_stream << std::endl; "    *** ";
+        log_stream << " nEdge="                      << nEntity(EDGE_CODIM);
+        log_stream << " nEdgeInternal="              << nEntity(EDGE_CODIM, InternalType);
+        log_stream << " nEdgeDomainBoundary="        << nEntity(EDGE_CODIM, DomainBoundaryType);
+        log_stream << " nEdgeProcessBoundary="       << nEntity(EDGE_CODIM, ProcessBoundaryType);
+        log_stream << " nEdgeGhost="                 << nEntity(EDGE_CODIM, GhostType);
+
+        log_stream << std::endl; "    *** ";
+        log_stream << " nFace="                      << nEntity(FACE_CODIM);
+        log_stream << " nFaceInternal="              << nEntity(FACE_CODIM, InternalType);
+        log_stream << " nFaceDomainBoundary="        << nEntity(FACE_CODIM, DomainBoundaryType);
+        log_stream << " nFaceProcessBoundary="       << nEntity(FACE_CODIM, ProcessBoundaryType);
+        log_stream << " nFaceGhost="                 << nEntity(FACE_CODIM, GhostType);
+
+        log_stream << std::endl; "    *** ";
+        log_stream << " nElement="                   << nEntity(ELEMENT_CODIM);
+        log_stream << " nInternalElement="           << nEntity(ELEMENT_CODIM, InternalType);
+        log_stream << " nGhostElement="              << nEntity(ELEMENT_CODIM, GhostType);
+
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
     }
 
@@ -359,7 +377,7 @@ public:
      * ***************************************************************************/
 
     /** Get total number of entities in a mesh  */
-    int nEntityTotal(int codim) const  { gridstorage_.nEntityTotal_[codim]; }
+    int nEntityTotal(int codim) const  { return gridstorage_.nEntityTotal_[codim]; }
 
 
     /** Get total number of entities on this process
@@ -485,26 +503,26 @@ public:
 
 
     /** Get vertex global coordinate */
-    std::vector<LocalIndexType> entityCornerLocalIndex(int codim, LocalIndexType localIndex) const
+    std::vector<LocalIndexType> entityCornerLocalIndex(int codim, LocalIndexType entityLocalIndex) const
 	{
     	std::vector<LocalIndexType> rez;
 
-    	if (codim == 3)  { rez.push_back(localIndex);  return rez; }
+    	if (codim == 3)  { rez.push_back(entityLocalIndex);  return rez; }
 
     	LocalIndexType    localElementIndex;
     	InternalIndexType subentityIndex;
 
     	switch(codim)
     	{
-    	case 0 : localElementIndex = localIndex;  break;
+    	case 0 : localElementIndex = entityLocalIndex;  break;
     	case 1 : {
-    		localElementIndex = gridstorage_.face_[localIndex].element1Index;
-    		subentityIndex  = gridstorage_.face_[localIndex].element1SubentityIndex;
+    		localElementIndex = gridstorage_.face_[entityLocalIndex].element1Index;
+    		subentityIndex  = gridstorage_.face_[entityLocalIndex].element1SubentityIndex;
 
     	} break;
     	case 2 : {
-    		localElementIndex = gridstorage_.edge_[localIndex].elementIndex;
-    		subentityIndex  = gridstorage_.edge_[localIndex].subentityIndex;
+    		localElementIndex = gridstorage_.edge_[entityLocalIndex].elementIndex;
+    		subentityIndex  = gridstorage_.edge_[entityLocalIndex].subentityIndex;
     	} break;
     	}
 
@@ -512,10 +530,16 @@ public:
     	const EntityStorage & thisElem = gridstorage_.element_[localElementIndex];
         std::vector<LocalIndexType> elementCornerLocalIndexSet = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ct, 3>(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
 
+        // If we are interested in corners of the element, we are interested in all corners
+        if (codim == 0)  { return elementCornerLocalIndexSet; }
+
+        // Otherwise, we need to calculate the subset of corners wrt selected subentity
         Dune::GeometryType elemGT;  elemGT.makeSimplex(cdim);
         int thisEntityCornerNumber = Dune::ReferenceElements<ct,cdim>::general(elemGT).size(0, codim, cdim);
 
         for (int i = 0; i < thisEntityCornerNumber; i++)  {
+        	std::cout << "-- Attempting ref.subentity() using gt.dim=" << elemGT.dim() << " cdim=" << cdim << " codim="<<codim << " subcodim="<< VERTEX_CODIM << " subIndex=" << subentityIndex << " subsubindex=" << i << std::endl;
+
         	InternalIndexType thisCornerSubIndex = Dune::ReferenceElements<ct,cdim>::general(elemGT).subEntity(subentityIndex, codim, i, VERTEX_CODIM);
         	rez.push_back(elementCornerLocalIndexSet[thisCornerSubIndex]);
         }

@@ -383,6 +383,8 @@ public:
         // Construct missing parts of the mesh
         // ************************************************************
         gridstorage_.nEntityTotal_[VERTEX_CODIM] = nVertexTotalMesh;
+        gridstorage_.nEntityTotal_[EDGE_CODIM] = 0;  // Will be updated later
+        gridstorage_.nEntityTotal_[FACE_CODIM] = 0;  // Will be updated later
         gridstorage_.nEntityTotal_[ELEMENT_CODIM] = nElementTotalMesh;
 
         computeProcessBoundingBox();
@@ -442,16 +444,14 @@ public:
         GridPostConstructor postConstructor(verbose_, processVerbose_, gridstorage_, gridbase_, mpihelper_);
         postConstructor.generateIteratorSets();
 
-
-        /*
         if (size_ > 1)
         {
 #if HAVE_MPI
-            postConstructor.generateCommunicationMaps();
-            postConstructor.communicateCommunicationEntityNeighborRanks();
+            //postConstructor.generateCommunicationMaps();
+            //postConstructor.communicateCommunicationEntityNeighborRanks();
 #endif
         }
-         */
+
 
         // Construct OCTree
         // ************************************************************
@@ -1750,7 +1750,7 @@ protected:
             LocalIndexType localEdgePBIndex = (*iter).second;
 
             // Construct EdgeKey
-            std::vector<LocalIndexType> thisCornerLocalIndices =  gridbase_.entityCornerLocalIndex(2, localEdgeIndex);
+            std::vector<LocalIndexType> thisCornerLocalIndices =  gridbase_.entityCornerLocalIndex(EDGE_CODIM, localEdgeIndex);
             EdgeKey thisEdgeKey;
             thisEdgeKey.node0 = gridstorage_.point_[thisCornerLocalIndices[0]].globalIndex;
             thisEdgeKey.node1 = gridstorage_.point_[thisCornerLocalIndices[1]].globalIndex;

@@ -1160,11 +1160,11 @@ namespace Dune
         tetrahedralInterpolatoryVertexGmsh2DuneMap.push_back( std::vector<int> {0, 19, 18, 17, 16, 3, 4, 34, 39, 36, 24, 5, 37, 38, 25, 6, 35, 26, 7, 27, 1, 15, 40, 43, 41, 20, 28, 52, 55, 46, 33, 53, 49, 30, 47, 8, 14, 45, 44, 21, 31, 54, 51, 32, 50, 9, 13, 42, 22, 29, 48, 10, 12, 23, 11, 2} );
    }
 
-    int & totalVertex()   { return nVertexTotal_; }
+    int totalVertex()   { return nVertexTotal_; }
 
-    int & totalElement()   { return nElementTotal_; }
+    int totalElement()   { return nElementTotal_; }
 
-    int & totalInternalElement()   { return nInternalElementTotal_; }
+    int totalInternalElement()   { return nInternalElementTotal_; }
 
     std::vector<int> & boundaryIdMap()   { return boundaryElement2PhysicalEntityIndex; }
 

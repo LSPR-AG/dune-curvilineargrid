@@ -398,7 +398,7 @@ protected:
     	for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)
     	{
         	// Get LocalCornerIndices
-    		std::vector<LocalIndexType> thisCornerIndex =  gridbase_.entityCornerLocalIndex(VERTEX_CODIM, iElem);
+    		std::vector<LocalIndexType> thisCornerIndex =  gridbase_.entityCornerLocalIndex(ELEMENT_CODIM, iElem);
 
         	// Loop over LocalCornerIndices
     		for (int iCorner = 0; iCorner < thisCornerIndex.size(); iCorner++)

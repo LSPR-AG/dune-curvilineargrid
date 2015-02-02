@@ -536,6 +536,8 @@ protected:
                 	// If the face already exists, then it is one of the process boundaries, otherwise it is a new ghost face
                 	if (thisFaceIter == gridstorage_.entityIndexMap_[FACE_CODIM].end())
                 	{
+                		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Face globalIndex=" + std::to_string(thisFaceGlobalIndex) + " is new");
+
                     	FaceStorage thisFace;
                     	thisFace.geometryType.makeTriangle();
                     	thisFace.globalIndex              = thisFaceGlobalIndex;
@@ -550,6 +552,8 @@ protected:
                     	gridstorage_.entityIndexMap_[FACE_CODIM][thisFaceGlobalIndex] = thisFaceLocalIndex;
                 	} else
                 	{
+                		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Face globalIndex=" + std::to_string(thisFaceGlobalIndex) + " already exists");
+
                 		thisFaceLocalIndex = (*thisFaceIter).second;
                 	}
 
@@ -570,6 +574,8 @@ protected:
                 	// If the edge already exists, then it is one of the process boundaries, otherwise it is a new ghost edge
                 	if ( thisEdgeIter == gridstorage_.entityIndexMap_[EDGE_CODIM].end() )
                 	{
+                		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Edge globalIndex=" + std::to_string(thisEdgeGlobalIndex) + " is new");
+
                     	EdgeStorage thisEdge;
                 		thisEdge.globalIndex      = thisEdgeGlobalIndex;
                 		thisEdge.structuralType   = GhostType;
@@ -581,6 +587,7 @@ protected:
                     	gridstorage_.entityIndexMap_[EDGE_CODIM][thisEdgeGlobalIndex] = thisEdgeLocalIndex;
                 	} else
                 	{
+                		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Edge globalIndex=" + std::to_string(thisEdgeGlobalIndex) + " already exists");
                 		thisEdgeLocalIndex= (*thisEdgeIter).second;
                 	}
 

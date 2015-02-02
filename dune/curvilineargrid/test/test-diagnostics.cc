@@ -102,7 +102,7 @@ int main(int argc, char** argv)
 	bool VTK_WRITE_GHOST_ELEMENTS = true;
 	bool VTK_WRITE_DOMAIN_BOUNDARY = true;
 	bool VTK_WRITE_PROCESS_BOUNDARY = true;
-	int  VTK_CURV_DISCRETIZATION = 2;       // 2=linear, minimal allowed discretization
+	int  VTK_CURV_DISCRETIZATION = 4;       // 2=linear, minimal allowed discretization
 	bool VTK_INTERPOLATE_DISCRETIZATION = true;
 	bool VTK_EXPLODE_ELEMENTS = false;
 

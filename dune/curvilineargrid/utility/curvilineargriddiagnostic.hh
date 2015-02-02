@@ -173,13 +173,13 @@ public:
     	bool VTK_WRITE_TRIANGLES = true;      // Whether to write surface discretization triangles to file
 
 
-    	// Writing Elements
+    	// Writing Internal Elements
     	// *************************************************************************
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Elements");
 		if (withElements)
 		{
-			IndexSetIterator elemIterB =  gridbase_.template entityIndexBegin(0);
-			IndexSetIterator elemIterE =  gridbase_.template entityIndexEnd(0);
+			IndexSetIterator elemIterB =  gridbase_.template entityIndexBegin(0, InternalType);
+			IndexSetIterator elemIterE =  gridbase_.template entityIndexEnd(0, InternalType);
 
 			for (IndexSetIterator elemIter = elemIterB;  elemIter != elemIterE;  elemIter++)
 			{

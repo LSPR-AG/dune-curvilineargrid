@@ -98,10 +98,14 @@ int main(int argc, char** argv)
     // Perform diagnostics tests on the constructed grid
     Dune::CurvilinearGridDiagnostic<double, 3> diagnostic(verbose, processVerbose, mpihelper, gridbase);
 
-	bool VTK_WRITE_ELEMENTS = true;
-	bool VTK_WRITE_GHOST_ELEMENTS = true;
-	bool VTK_WRITE_DOMAIN_BOUNDARY = true;
-	bool VTK_WRITE_PROCESS_BOUNDARY = true;
+	bool VTK_WRITE_ELEMENTS = false;
+	bool VTK_WRITE_GHOST_ELEMENTS = false;
+
+	bool VTK_WRITE_INTERNAL_FACE = true;
+	bool VTK_WRITE_DOMAIN_BOUNDARY_FACE = false;
+	bool VTK_WRITE_PROCESS_BOUNDARY_FACE = false;
+	bool VTK_WRITE_GHOST_FACE = true;
+
 	int  VTK_CURV_DISCRETIZATION = 4;       // 2=linear, minimal allowed discretization
 	bool VTK_INTERPOLATE_DISCRETIZATION = true;
 	bool VTK_EXPLODE_ELEMENTS = false;
@@ -109,8 +113,10 @@ int main(int argc, char** argv)
     diagnostic.vtkWriteMesh(
     	VTK_WRITE_ELEMENTS,
     	VTK_WRITE_GHOST_ELEMENTS,
-    	VTK_WRITE_DOMAIN_BOUNDARY,
-    	VTK_WRITE_PROCESS_BOUNDARY,
+    	VTK_WRITE_INTERNAL_FACE,
+    	VTK_WRITE_DOMAIN_BOUNDARY_FACE,
+    	VTK_WRITE_PROCESS_BOUNDARY_FACE,
+    	VTK_WRITE_GHOST_FACE,
     	VTK_CURV_DISCRETIZATION,
     	VTK_INTERPOLATE_DISCRETIZATION,
     	VTK_EXPLODE_ELEMENTS);

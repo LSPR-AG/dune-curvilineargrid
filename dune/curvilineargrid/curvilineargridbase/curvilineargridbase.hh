@@ -846,6 +846,8 @@ public:
      * Section: Public Auxiliary Methods
      * ***************************************************************************/
 
+    std::string PartitonTypeName(StructuralType structtype) const  { return gridstorage_.PartitonTypeName[structtype]; }
+
     // Checks if entities of a given codim are allowed to be of a given structural type
     // If not throws an error
     void assertValidCodimStructuralType(int codim, StructuralType structtype) const

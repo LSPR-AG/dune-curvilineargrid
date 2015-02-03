@@ -419,6 +419,9 @@ protected:
                 for (int iFace = 0; iFace < nSubentityFace; iFace++)
                 {
                 	LocalIndexType localFaceIndex = gridstorage_.elementSubentityCodim1_[ghostElementLocalIndex][iFace];
+
+                	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " /////////////// element=" + std::to_string(ghostElementLocalIndex) + " sending face=" + std::to_string(localFaceIndex));
+
                 	sendPackageGhostElementData.push_back(gridstorage_.face_[localFaceIndex].globalIndex);
                 }
 

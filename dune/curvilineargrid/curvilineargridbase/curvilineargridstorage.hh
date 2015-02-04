@@ -260,7 +260,7 @@ public:
     // Maps from global to local indices - all entities of given codim, regardless of structural type
     Global2LocalMap entityIndexMap_[4];
 
-    // Entity local index -> local process boundary index (if this entity is a process boundary)
+    // Entity local index -> local structural entity index (if this entity is a process boundary)
     Local2LocalMap  processBoundaryIndexMap_[4];
     Local2LocalMap  boundaryInternalEntityIndexMap_[4];
     Local2LocalMap  ghostIndexMap_[4];

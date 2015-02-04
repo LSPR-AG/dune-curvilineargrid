@@ -419,9 +419,7 @@ protected:
                 for (int iFace = 0; iFace < nSubentityFace; iFace++)
                 {
                 	LocalIndexType localFaceIndex = gridstorage_.elementSubentityCodim1_[ghostElementLocalIndex][iFace];
-
-                	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " /////////////// element=" + std::to_string(ghostElementLocalIndex) + " sending face=" + std::to_string(localFaceIndex));
-
+                	//Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " /////////////// element=" + std::to_string(ghostElementLocalIndex) + " sending face=" + std::to_string(localFaceIndex));
                 	sendPackageGhostElementData.push_back(gridstorage_.face_[localFaceIndex].globalIndex);
                 }
 
@@ -433,8 +431,11 @@ protected:
                 }
                 for (int iEdge = 0; iEdge < nSubentityEdge; iEdge++)
                 {
-                	LocalIndexType localEdgeIndex = gridstorage_.elementSubentityCodim2_[ghostElementLocalIndex][iEdge];
-                	sendPackageGhostElementData.push_back(gridstorage_.edge_[localEdgeIndex].globalIndex);
+                	LocalIndexType  localEdgeIndex = gridstorage_.elementSubentityCodim2_[ghostElementLocalIndex][iEdge];
+                	GlobalIndexType globalEdgeIndex = gridstorage_.edge_[localEdgeIndex].globalIndex;
+                	//Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " /////////////// element=" + std::to_string(ghostElementLocalIndex) + " sending edge localIndex=" + std::to_string(localEdgeIndex) + " globalIndex=" + std::to_string(globalEdgeIndex));
+
+                	sendPackageGhostElementData.push_back(globalEdgeIndex);
                 }
 
 

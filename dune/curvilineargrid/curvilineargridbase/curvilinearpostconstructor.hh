@@ -177,10 +177,17 @@ public: /* public methods */
 
 		StructuralType tmpTypes[2] = { InternalType, GhostType };
 
-		// Resize the PB->G comm map, since we already know its size, it is the number of PB entities
-		for (int iCodim = 1; iCodim <= cdim; iCodim++)
+		// Resize all neighbor rank arrays, except the boundary internals, since we do not know their lengths
+		// Boundary Internals will be resized as its number is calculated
+		for (int iCodim = 0; iCodim <= cdim; iCodim++)
 		{
-			gridstorage_.PB2GNeighborRank_[iCodim].resize(gridstorage_.PB2PBNeighborRank_[iCodim].size());
+			int nPB = (iCodim == 0) ? 0 : gridbase_.nEntity(iCodim, ProcessBoundaryType);
+			int nG  = gridbase_.nEntity(iCodim, GhostType);
+
+			// PB2PB already exists, so need not resize it
+			gridstorage_.PB2GNeighborRank_[iCodim].resize(nPB);
+			gridstorage_.G2BIPBNeighborRank_[iCodim].resize(nG);
+			gridstorage_.G2GNeighborRank_[iCodim].resize(nG);
 		}
 
 
@@ -216,6 +223,10 @@ public: /* public methods */
 
 				for (int iCodim = 0; iCodim <= cdim; iCodim++)
 				{
+					// Sort subentity vectors
+					std::sort(faceSubentityIndex[iCodim].begin(), faceSubentityIndex[iCodim].end());
+					std::sort(faceNeighborSubentityIndex[iTmp][iCodim].begin(), faceNeighborSubentityIndex[iTmp][iCodim].end());
+
 					// Subtract face subentity set from element subentity set, such that only internal and ghost subentities are left
 					faceNeighborSubentityIndex[iTmp][iCodim] = Dune::VectorHelper::sortedSetComplement(faceNeighborSubentityIndex[iTmp][iCodim], faceSubentityIndex[iCodim]);
 
@@ -228,9 +239,6 @@ public: /* public methods */
 						LocalIndexType thisEntityLocalIndex = faceNeighborSubentityIndex[iTmp][iCodim][iEntity];
 						StructuralType thisEntityType = gridbase_.entityStructuralType(iCodim, thisEntityLocalIndex);
 
-
-
-
 						std::stringstream log_str;
 						log_str << "CurvilinearPostConstructor: ---- Iterating over iTmp=" << gridstorage_.PartitonTypeName[tmpTypes[iTmp]];
 						log_str << " codim=" << iCodim;
@@ -238,9 +246,6 @@ public: /* public methods */
 						log_str << " localindex =" << thisEntityLocalIndex;
 						log_str << " gives structural type =" << gridstorage_.PartitonTypeName[thisEntityType];
 						Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_str.str());
-
-
-
 
 
 						// If this is a PB Entity, that happens to not be on the face, it is possible
@@ -251,6 +256,7 @@ public: /* public methods */
 						{
 							std::vector<int> & thisEntityPBNeighbors = gridbase_.commEntityNeighborRankSet(iCodim, thisEntityLocalIndex, ProcessBoundaryType, ProcessBoundaryType);
 							bool isNewRank = !Dune::VectorHelper::isInside(thisEntityPBNeighbors, thisFaceNeighborRank);
+							//std::cout << "testing isInside vector=(" << Dune::VectorHelper::vector2string(thisEntityPBNeighbors) << ") elem=" << thisFaceNeighborRank << " isNew=" << isNewRank << std::endl;
 
 							// If this rank is not already in PB-PB of this entity, then it must be in PB-G
 							if (isNewRank)
@@ -292,8 +298,7 @@ public: /* public methods */
 								thisLocalMap[thisEntityLocalIndex] = thisEntitySubsetIndex;
 
 								// Enlarge the neighbour rank vector such that it has enough entries for all entities of subset
-								if (iTmp == 0)  { gridstorage_.BI2GNeighborRank_[iCodim].push_back(std::vector<int>()); }
-								else            { gridstorage_.G2BIPBNeighborRank_[iCodim].push_back(std::vector<int>()); }
+								if (iTmp == 0)  { gridstorage_.BI2GNeighborRank_[iCodim].resize(thisEntitySubsetIndex + 1); }
 
 							} else {
 								thisEntitySubsetIndex = (*thisIter).second;
@@ -460,6 +465,7 @@ protected:
 	// ************************************************************************************
 
 
+    // [TODO] Possibly set complement unnecessary, since already only adding neighbor if it is not a neighbor already
     void communicatePBG(int codim, MPI_Comm comm)
     {
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started ProcessBoundary-Ghost communication construction");
@@ -478,9 +484,12 @@ protected:
 
 		for (Local2LocalIterator iter = iterB; iter != iterE; iter++)
 		{
-			//1.1) divide provisional PB->G set by PB->PB set to see which provisional PB->G are new
 			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
 
+			// PB2G may contain repeating entities, and is not sorted, need to compactify
+			Dune::VectorHelper::compactify(gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex]);
+
+			//1.1) divide provisional PB->G set by PB->PB set to see which provisional PB->G are new
 			gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex] = Dune::VectorHelper::sortedSetComplement(
 				gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex],
 				gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex]
@@ -504,6 +513,7 @@ protected:
 		// Communicate entity number and candidate number per process
 		MPI_Alltoall(nPBGEntitySend.data(), 1, MPI_INT, reinterpret_cast<int*>(nPBGEntityRecv.data()), 1, MPI_INT, comm);
 		MPI_Alltoall(nPBGRankPerProcessSend.data(), 1, MPI_INT, reinterpret_cast<int*>(nPBGRankPerProcessRecv.data()), 1, MPI_INT, comm);
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ProcessBoundaries with candidates");
 
 
 		//2) For each PB-G entity, communicate its global index
@@ -567,12 +577,16 @@ protected:
 			comm
 		);
 
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated global indices");
+
+
 		// Communicate candidate rank numbers
 		MPI_Alltoallv (
 				                   nPBGRankPerEntitySend.data(),  nPBGEntitySend.data(), displSend.data(), MPI_INT,
 			reinterpret_cast<int*>(nPBGRankPerEntityRecv.data()), nPBGEntityRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ranks per entity");
 
 
 
@@ -586,9 +600,12 @@ protected:
 		{
 			displSend[i] = (i == 0) ? 0 : displSend[i-1] + nPBGRankPerProcessSend[i-1];
 			displRecv[i] = (i == 0) ? 0 : displRecv[i-1] + nPBGRankPerProcessRecv[i-1];
+			sendSize += nPBGRankPerProcessSend[i];
 			recvSize += nPBGRankPerProcessRecv[i];
 		}
 		displSendTmp = displSend;
+
+		std::cout << "process_" << rank_ << " a with size = " << sendSize << std::endl;
 
 		// Fill in communication arrays
 		std::vector<int> neighborPBGRankSetSend(sendSize);
@@ -608,8 +625,11 @@ protected:
     			{
     				int thisPBPBRank = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex][i];
     				int thisPBGRank = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][i];
+    				int tmpIndex = displSendTmp[thisPBPBRank]++;
 
-    				neighborPBGRankSetSend[displSendTmp[thisPBPBRank]++] = thisPBGRank;
+    				std::cout << "process_" << rank_ << " e2 tmpindex=" << tmpIndex << std::endl;
+
+    				neighborPBGRankSetSend[tmpIndex] = thisPBGRank;
     			}
 			}
 		}
@@ -619,6 +639,7 @@ protected:
 			reinterpret_cast<int*>(neighborPBGRankSetRecv.data()), nPBGRankPerProcessRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated ranks");
 
 
 		//4) Fill in
@@ -654,6 +675,7 @@ protected:
 
 			}
 		}
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Filled in received data");
 
 
 		//5) Compactify PB-G arrays (sort and eliminate repeating)
@@ -712,6 +734,7 @@ protected:
 			}
 		}
 		MPI_Alltoall(nGPBEntitySend.data(), 1, MPI_INT, reinterpret_cast<int*>(nGPBEntityRecv.data()), 1, MPI_INT, comm);
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of Ghost candidates per process");
 
 
 		// 2) Communicate global indices for each G-PB entity
@@ -762,6 +785,7 @@ protected:
 			reinterpret_cast<int*>(GPBEntityGlobalIndexRecv.data()), nGPBEntityRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Sent own rank to all ghosts");
 
 
 		// 3) On receiving end, mark sender's rank on all received G-PB
@@ -782,12 +806,20 @@ protected:
 
 				// Check if the structural type of the received entity is Ghost
 				StructuralType thisEntityType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
-				assert(thisEntityType == GhostType);
+				if (thisEntityType != GhostType)
+				{
+					Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   codim" + std::to_string(codim) + "entity globalIndex=" + std::to_string(thisEntityGlobalIndex) + " expected type=" + gridstorage_.PartitonTypeName[GhostType] + " received=" + gridstorage_.PartitonTypeName[thisEntityType]);
+					assert(thisEntityType == GhostType);
+				}
+
+
+
 
 				LocalIndexType thisEntityLocalGhostIndex = gridstorage_.ghostIndexMap_[codim][thisEntityLocalIndex];
 				gridstorage_.G2BIPBNeighborRank_[codim][thisEntityLocalGhostIndex].push_back(i);
 			}
 		}
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   filled received data");
 
 
 		// 4) Compactify G-PB arrays (sort and eliminate repeating)
@@ -860,6 +892,7 @@ protected:
 		}
 		MPI_Alltoall(nGGEntitySend.data(), 1, MPI_INT, reinterpret_cast<int*>(nGGEntityRecv.data()), 1, MPI_INT, comm);
 		MPI_Alltoall(nGGRanksPerProcessSend.data(), 1, MPI_INT, reinterpret_cast<int*>(nGGRanksPerProcessRecv.data()), 1, MPI_INT, comm);
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ghost entities");
 
 
     	// 2) Communicate global indices of elements, as well as
@@ -927,6 +960,8 @@ protected:
 			reinterpret_cast<int*>(GGEntityGlobalIndexRecv.data()), nGGEntityRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated global indices");
+
 
 		// Communicate candidate rank numbers
 		MPI_Alltoallv (
@@ -934,6 +969,7 @@ protected:
 			reinterpret_cast<int*>(nGGRankPerEntityRecv.data()), nGGEntityRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated data sizes");
 
 
 
@@ -947,9 +983,13 @@ protected:
 		{
 			displSend[i] = (i == 0) ? 0 : displSend[i-1] + nGGRanksPerProcessSend[i-1];
 			displRecv[i] = (i == 0) ? 0 : displRecv[i-1] + nGGRanksPerProcessRecv[i-1];
+			sendSize += nGGRanksPerProcessSend[i];
 			recvSize += nGGRanksPerProcessRecv[i];
 		}
 		displSendTmp = displSend;
+
+
+		std::cout << "process_" << rank_ << "aa" << std::endl;
 
 		// Fill in communication arrays
 		std::vector<int> neighborGGRankSetSend(sendSize);
@@ -961,6 +1001,8 @@ protected:
 
 			int nGhostNeighbors = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
 			int candidateRank = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex][0];
+
+			std::cout << "process_" << rank_ << "bb" << std::endl;
 
 			bool hasComm = true;
 			hasComm &= (nGhostNeighbors > 1);    // Only communicate to Ghost if at least 2 ghosts share this
@@ -979,6 +1021,8 @@ protected:
 						int thisGNeighborRankSend = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][j];
 						if (thisGNeighborRank != thisGNeighborRankSend)
 						{
+							std::cout << "process_" << rank_ << "cc" << std::endl;
+
 							neighborGGRankSetSend[displSendTmp[thisGNeighborRank]++] = thisGNeighborRankSend;
 						}
 
@@ -987,11 +1031,16 @@ protected:
 			}
 		}
 
+		std::cout << "process_" << rank_ << " ggg procsetsend=(" << Dune::VectorHelper::vector2string(nGGRanksPerProcessSend);
+		std::cout << " sendlength=" << neighborGGRankSetSend.size();
+		std::cout << " recvlength=" << neighborGGRankSetRecv.size() << std::endl;
+
 		MPI_Alltoallv (
 				                   neighborGGRankSetSend.data(),  nGGRanksPerProcessSend.data(), displSend.data(), MPI_INT,
 			reinterpret_cast<int*>(neighborGGRankSetRecv.data()), nGGRanksPerProcessRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated ranks");
 
 
 		//4) Fill in
@@ -1026,6 +1075,7 @@ protected:
 				}
 			}
 		}
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Filled in the received data");
 
 
 		//5) Compactify G-G arrays (sort and eliminate repeating)
@@ -1034,6 +1084,8 @@ protected:
 		Local2LocalIterator iterGB = gridstorage_.ghostIndexMap_[codim].begin();
 		Local2LocalIterator iterGE = gridstorage_.ghostIndexMap_[codim].end();
 
+
+		std::cout << "process_" << rank_ << " has total G2G=" << gridstorage_.G2GNeighborRank_[codim].size() << std::endl;
 
 		for (Local2LocalIterator iter = iterGB; iter != iterGE; iter++)
 		{

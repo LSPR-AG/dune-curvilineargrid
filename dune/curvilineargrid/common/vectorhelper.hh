@@ -37,7 +37,7 @@ public:
 
 	// Checks if an element is inside a sorted non-repeating vector
 	template<typename T>
-	static bool isInside(const std::vector<T> & data, T elem)  { return find(data, elem) == data.size(); }
+	static bool isInside(const std::vector<T> & data, T elem)  { return find(data, elem) < data.size(); }
 
 
 	// Sorts array and removes all repeating entries. No overhead

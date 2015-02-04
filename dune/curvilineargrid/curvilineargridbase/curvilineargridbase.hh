@@ -538,7 +538,7 @@ public:
         int thisEntityCornerNumber = Dune::ReferenceElements<ct,cdim>::general(elemGT).size(0, codim, cdim);
 
         for (int i = 0; i < thisEntityCornerNumber; i++)  {
-        	std::cout << "-- Attempting ref.subentity() using gt.dim=" << elemGT.dim() << " cdim=" << cdim << " codim="<<codim << " subcodim="<< VERTEX_CODIM << " subIndex=" << subentityIndex << " subsubindex=" << i << std::endl;
+        	//std::cout << "-- Attempting ref.subentity() using gt.dim=" << elemGT.dim() << " cdim=" << cdim << " codim="<<codim << " subcodim="<< VERTEX_CODIM << " subIndex=" << subentityIndex << " subsubindex=" << i << std::endl;
 
         	InternalIndexType thisCornerSubIndex = Dune::ReferenceElements<ct,cdim>::general(elemGT).subEntity(subentityIndex, codim, i, VERTEX_CODIM);
         	rez.push_back(elementCornerLocalIndexSet[thisCornerSubIndex]);

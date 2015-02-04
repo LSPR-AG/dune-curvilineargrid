@@ -447,8 +447,8 @@ public:
         if (size_ > 1)
         {
 #if HAVE_MPI
-            //postConstructor.generateCommunicationMaps();
-            //postConstructor.communicateCommunicationEntityNeighborRanks();
+            postConstructor.generateCommunicationMaps();
+            postConstructor.communicateCommunicationEntityNeighborRanks();
 #endif
         }
 
@@ -699,8 +699,8 @@ protected:
             if (connectedFaceInfo.size() == 2)
             {
                 thisFace.structuralType = ProcessBoundaryType;
-                processBoundaryFaceKey2LocalIndexMap_[(*iter).first] = localFaceIndex;     // Store Map (key -> faceIndex)
-                thisFace.element2Index = 0;                              // Eventually this will be the Ghost Element Index
+                processBoundaryFaceKey2LocalIndexMap_[(*iter).first] = localFaceIndex;  // Store Map (key -> faceIndex)
+                thisFace.element2Index = 0;                                             // Eventually this will be the Ghost Element Index
 
                 // Add this face to the process boundary map
                 LocalIndexType thisFaceLocalPBIndex = gridstorage_.processBoundaryIndexMap_[FACE_CODIM].size();
@@ -710,9 +710,17 @@ protected:
             }
             else
             {
+            	// In this case 2nd neighbouring element needs to be mapped
+                LocalIndexType    thisAssociatedElement2Index = connectedFaceInfo[2];
+                InternalIndexType thisFaceSubentityIndex2 = connectedFaceInfo[3];
+                gridstorage_.elementSubentityCodim1_[thisAssociatedElement2Index][thisFaceSubentityIndex2] = localFaceIndex;
+                log_stream << " AssociatedElement2Index=" << thisAssociatedElement2Index;
+                log_stream << " InternalSubentityIndex2=" << thisFaceSubentityIndex2;
+
+                // Add this face to the internal map
                 thisFace.structuralType = InternalType;
                 internalFaceKey2LocalIndexMap_[(*iter).first] = localFaceIndex;    // Store Map (key -> faceIndex)
-                thisFace.element2Index = connectedFaceInfo[2];           // This is the 2nd neighbor of this internal face
+                thisFace.element2Index = thisAssociatedElement2Index;              // This is the 2nd neighbor of this internal face
                 log_stream << " StructuralType=internal";
             }
 
@@ -865,10 +873,15 @@ protected:
         // ********************************************************
         for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
-            // Get global indices of the associated vertices from the map
+            // Get info of this face wrt associated element
             FaceKey thisFaceKey = (*faceIter).first;
-            EdgeKey thisEdgeKey[3];
+            LocalIndexType thisFaceLocalIndex = (*faceIter).second;
+            LocalIndexType assocElementIndex = gridstorage_.face_[thisFaceLocalIndex].element1Index;
+            InternalIndexType thisFaceSubIndex = gridstorage_.face_[thisFaceLocalIndex].element1SubentityIndex;
+            Dune::GeometryType assocElemGT = gridstorage_.element_[assocElementIndex].geometryType;
 
+            // Get global indices of the associated vertices from the map
+            EdgeKey thisEdgeKey[3];
             thisEdgeKey[0].node0 = thisFaceKey.node0;  thisEdgeKey[0].node1 = thisFaceKey.node1;
             thisEdgeKey[1].node0 = thisFaceKey.node0;  thisEdgeKey[1].node1 = thisFaceKey.node2;
             thisEdgeKey[2].node0 = thisFaceKey.node1;  thisEdgeKey[2].node1 = thisFaceKey.node2;
@@ -876,6 +889,10 @@ protected:
             for (int i = 0; i < 3; i++)
             {
             	LocalIndexType thisEdgeLocalIndex = edgeKey2LocalIndexMap_[thisEdgeKey[i]];
+
+            	// Mark this edge as subentity of associated boundary internal element
+            	InternalIndexType thisEdgeSubIndex = Dune::ReferenceElements<ct, cdim>::general(assocElemGT).subEntity(thisFaceSubIndex, FACE_CODIM, i, EDGE_CODIM);
+            	gridstorage_.elementSubentityCodim2_[assocElementIndex][thisEdgeSubIndex] = thisEdgeLocalIndex;
 
                 // For each vertex, if it has not yet been added to the map, add it, mapping to a new entry
                 // in the processBoundaryCornerNeighborRank_
@@ -966,7 +983,7 @@ protected:
         for (Local2LocalIterator edgeIter  = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].begin();
         		                 edgeIter != gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].end(); edgeIter++ )
         {
-        	LocalIndexType thisEdgeLocalIndex = (*edgeIter).second;
+        	LocalIndexType thisEdgeLocalIndex = (*edgeIter).first;
         	LocalIndexType thisEdgePBIndex    = (*edgeIter).second;
 
             int edgeOwnerCandidateRank = gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][thisEdgePBIndex][0];
@@ -1042,6 +1059,7 @@ protected:
         for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)
         {
             if (edgeNonOwned.find(iEdge) == edgeNonOwned.end())  { gridstorage_.edge_[iEdge].globalIndex = iEdgeGlobalId++; }
+            else { Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: do not own edge localIndex=" + std::to_string(iEdge) + " of type=" + gridstorage_.PartitonTypeName[gridstorage_.edge_[iEdge].structuralType] ); }
         }
 
 
@@ -1061,6 +1079,7 @@ protected:
         for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++) {	gridstorage_.entityIndexMap_[ELEMENT_CODIM][gridstorage_.element_[iElem].globalIndex] = iElem; }
 
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished Constructing Global Indices");
+
     }
 
 

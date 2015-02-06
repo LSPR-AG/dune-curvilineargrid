@@ -142,13 +142,11 @@ public: /* public methods */
 
     /** Parallel constructor - USE THIS CONSTRUCTOR*/
     CurvilinearGridConstructor(
-    		bool withGhostElements,
     		bool verbose,
     		bool processVerbose,
     		GridStorageType & gridstorage,
     		GridBaseType & gridbase,
     		MPIHelper &mpihelper ) :
-        withGhostElements_(withGhostElements),
         verbose_(verbose),
         processVerbose_(processVerbose),
         gridstorage_(gridstorage),
@@ -158,7 +156,7 @@ public: /* public methods */
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
 
-        std::string log_string = "Initialized CurvilinearGridConstructor withGhostElements=" + std::to_string(withGhostElements);
+        std::string log_string = "Initialized CurvilinearGridConstructor withGhostElements=" + std::to_string(gridstorage.withGhostElements_);
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
     }
 
@@ -320,11 +318,12 @@ public:
             {
                 found_face = true;
 
-                // Store domain and process boundaries separately for faster iterators
-                // Store Map (key -> faceIndex)
+                // Store face in a Map (key -> faceIndex) for constructor purposes
+                // Also create a domain boundary index for future indexing
                 LocalIndexType localFaceIndex = gridstorage_.face_.size();
+                LocalIndexType localFaceDBIndex = gridstorage_.boundarySegmentIndexMap_.size();
                 domainBoundaryFaceKey2LocalIndexMap_[thisKey] = localFaceIndex;
-
+                gridstorage_.boundarySegmentIndexMap_[localFaceIndex] = localFaceDBIndex;
 
                 // Store Vector (faceId -> associated element)
                 FaceStorage thisFaceAsSubentity;
@@ -402,7 +401,7 @@ public:
             generateProcessBoundaryCorners();
             generateProcessBoundaryEdges();
             generateGlobalIndices();
-            if (withGhostElements_)
+            if (gridstorage_.withGhostElements_)
             {
             	GridGhostConstructor ghostConstructor(verbose_, processVerbose_, gridstorage_, mpihelper_);
             	ghostConstructor.generate();
@@ -417,7 +416,7 @@ public:
             // * No ghost elements, even if requested by user
             // * Fake globalIndex by making it equal to localIndex
 
-            withGhostElements_ = false;
+            gridstorage_.withGhostElements_ = false;
             for (int i = 0; i < gridstorage_.edge_.size();    i++)  { gridstorage_.edge_[i].globalIndex = i;     gridstorage_.entityIndexMap_[EDGE_CODIM][i] = i; }
             for (int i = 0; i < gridstorage_.face_.size();    i++)  { gridstorage_.face_[i].globalIndex = i;     gridstorage_.entityIndexMap_[FACE_CODIM][i] = i; }
             for (int i = 0; i < gridstorage_.element_.size(); i++)  { gridstorage_.element_[i].globalIndex = i;  gridstorage_.entityIndexMap_[ELEMENT_CODIM][i] = i;  gridstorage_.entityInternalIndexSet_[ELEMENT_CODIM].insert(i); }
@@ -444,7 +443,10 @@ public:
         GridPostConstructor postConstructor(verbose_, processVerbose_, gridstorage_, gridbase_, mpihelper_);
         postConstructor.generateIteratorSets();
 
-        if (size_ > 1)
+
+        // The PB-PB communication interface is available by default. The below procedures enable the communication interfaces
+        // involving ghost entities, and require existence of ghost entities
+        if ((size_ > 1)&& gridstorage_.withGhostElements_)
         {
 #if HAVE_MPI
             postConstructor.generateCommunicationMaps();
@@ -497,7 +499,7 @@ protected:
     }
 
 
-    /** Generates all edges
+    /** \brief Generates all edges
      *
      * Algorithm:
      * 1) Loop over all elements
@@ -506,8 +508,7 @@ protected:
      * 4) Note for each edge the local index of the parent that created it
      * 5) Mark edge local index as a subentity of containing element
      *
-     * [FIXME] Original FEMAXX code seems to give edges some orientation
-     * [FIXME] Currently subentity orientation does not match the one of Dune
+     * \note Orientation of elements ensured via Dune::ReferenceElement::subEntity()
      * [TODO]  Use more generic functions when extending to any mesh other than tetrahedral
      *
      * */
@@ -593,7 +594,7 @@ protected:
      * 7) For each process boundary face, create map from localFaceIndex to dummy creation index
      * 8) Resize the future neighbor rank array with the number of PB faces
      *
-     * [FIXME] Currently subentity orientation does not match the one of Dune
+     * \note Orientation of elements ensured via Dune::ReferenceElement::subEntity()
      * [TODO]  If assume mesh with non-uniform p-refinement, it may make sense to point the face to the element which has the higher refinement
      *
      * */
@@ -922,42 +923,28 @@ protected:
     /** Generates Global Indices for Edges, Faces and Elements
      *
      * Algorithm:
-     * 1) Communicate process ranks associated with each process boundary corner
-     * 1.1) As a result, for each process boundary corner, each process knows a set ranks of all other processes that share it
-     * 1.2) Set of ranks of processes sharing process boundary edges and faces can be computed by set intersecting ranks of corresponding corners
-     * 2) Find ownership of each edge and face. A shared entity is owned by the process with lowest rank
-     * 3) Communicate number of edges and faces owned by each process to all
-     * 4) Locally enumerate all edges, faces and elements owned by this process. That is, to assign them a global index
-     * 4.1) Global index for edges starts at nVertexTotal+nEdgesOwnedBeforeMe.
-     * 4.2) Global index for faces starts at nVertexTotal+nEdgeTotal+nFacesOwnedBeforeMe.
-     * 4.3) Global index for elements starts at nVertexTotal+nEdgesTotal+nFacesTotal+nElementsOwnedBeforeMe. Note that each process owns all its elements since they are not shared.
-     * 5) Communicate missing edge and face globalIndices
-     * 5.1) By analyzing entity neighbors, each process can compute how many how many global indices it needs to send and to receive to each other process
-     * 5.2) Each process sends to each neighbor the shared entity global indices enumerated by this process and receives those enumerated by the neighbor process
-     * 6) Fill in Global2Local maps. They are required for user functionality and for construction of GhostElements
+     * 1) Communicate neighbour ranks associated with each process boundary corner
+     * 2) Compute (provisional) neighbour ranks of PB edges and faces by intersection of ranks of associated PB corners
+     * 2.1) Sometimes, an entity does not exist on a neighbouring process, even though all associated PB corners are present
+     *      This only happens if the (provisional) number of neighbors is larger than 1 (complicated PB entity),
+     *      because each PB entity must have at least 1 neighbour.
+     * 2.2) For each complicated PB entity (edge/face), communicate EdgeKeys and FaceKeys to all provisional neighbours
+     * 2.3) For each received key, reply to sender if such entity exists on this process or not
+     * 2.4) Remove neighbour ranks mapping to non-existing entities
      *
-     * [FIXME] Algorithm Misses a case:
-     * Description: It is realistic that process possesses all vertices of an entity and does not possess the entity itself. Mostly due to concavities.
-     *   That is, given 3 vertices, the process may possess 0,1,2,3 edges and may or may not possess the face connecting them
-     * Effect: Currently each process assumes the neighbor ownership of entities by a neighboring process based on its ownership of corner vertices which is wrong.
-     * Solution: This effect only applies on multiprocessor boundaries. If a single neighbor of a process boundary entity is found, that must be the correct neighbor
-     *   as the entity must possess at least one other neighbor by definition. Hence, it is cheap to patch the existing algorithm, since we only need to check the
-     *   entities which report more than 1 neighbor.
+     * 3) Find ownership of each edge and face. A shared entity is owned by the process with lowest rank
+     * 4) Communicate number of edges and faces owned by each process to all
+     * 5) Locally enumerate all edges, faces and elements owned by this process. That is, to assign them a global index
+     * 5.1) Global index for edges starts at nVertexTotal+nEdgesOwnedBeforeMe.
+     * 5.2) Global index for faces starts at nVertexTotal+nEdgeTotal+nFacesOwnedBeforeMe.
+     * 5.3) Global index for elements starts at nVertexTotal+nEdgesTotal+nFacesTotal+nElementsOwnedBeforeMe. Note that each process owns all its elements since they are not shared.
+     * 6) Communicate missing edge and face globalIndices
+     * 6.1) By analysing entity neighbours, each process can compute how many how many global indices it needs to send and to receive to each other process
+     * 6.2) Each process sends to each neighbour the shared entity global indices enumerated by this process and receives those enumerated by the neighbour process
+     * 7) Fill in Global2Local maps. They are required for user functionality and for construction of GhostElements
      *
-     * Proposed Algorithm: For each process boundary entity with multiple neighbors, send its key to all neighbors, requesting (true/false) on whether it is a real entity.
-     * 1) Compute and communicate to each process the number of complicated edges and faces shared with it. This information can not be computed from the vertex neighbor lists,
-     * since a process can not know if another process is assuming its non-existing entity.
-     * 2) Communicate to each process EdgeKeys and FaceKeys of each complicated entity.
-     * 3) Communicate to each process whether the requested edges and faces form elements or not.
-     *
-     *
-     * [TODO]: Inefficient Algorithm
-     * The convention of owning an entity based on rank priority implies that processes with lower rank
-     * have to do most of the work, and then perform a lot of communication. To balance out the workload
-     * one would derive a more balanced owning paradigm
-     *
-     * Propose balanced paradigm: ownership must be a equiprobable function of the entity key, to avoid communication.
-     * ownerRank = Sum(Key[i]) mod nNeighbors
+     * [TODO] Communication of corner neighbour ranks via allgather very inefficient. Try to find better algorithm
+     * [TODO] MinRank-Ownership paradigm non-uniform. If ever becomes bottleneck, replace by XORRank-Ownership
      *
      * */
     void generateGlobalIndices()
@@ -967,14 +954,15 @@ protected:
 
 
         // 1) Communicate process ranks associated with each process boundary corner
-        // Then compute that for edges and faces using set intersection
+        // 2) Compute neighbour ranks of PB edges and faces by intersection of ranks of associated PB corners
+        //    Then eliminate non-existing entities generated this way
         // *************************************************************************
         globalCommunicateCornerNeighborRank();
         globalComputeEdgeNeighborRanks();
         globalComputeFaceNeighborRank();
 
 
-        // 2) Get edges and faces on this process that are not owned by this process
+        // 3) Get edges and faces on this process that are not owned by this process
         // *************************************************************************
         LocalIndexSet edgeNonOwned;  // LocalIndex of edge not owned by this process
         LocalIndexSet faceNonOwned;  // LocalIndex of face not owned by this process
@@ -1005,7 +993,7 @@ protected:
         int elementsOwned = gridstorage_.element_.size();
 
 
-        // 3) Communicate number of edges and faces owned by each process to all
+        // 4) Communicate number of edges and faces owned by each process to all
         // *************************************************************************
         std::vector<int> edgesOnProcess(size_);      // owned edges [rank]
         std::vector<int> facesOnProcess(size_);      // owned faces [rank]
@@ -1033,7 +1021,7 @@ protected:
         }
 
 
-        // 4) Enumerate all edges, faces and elements that you own
+        // 5) Enumerate all edges, faces and elements that you own
         // *************************************************************************
 
         GlobalIndexType iEdgeGlobalId = edgesBeforeMe;
@@ -1063,14 +1051,14 @@ protected:
         }
 
 
-        // 5) Communicate missing edge and face global indices to their corresponding neighbors. Receive them and assign.
+        // 6) Communicate missing edge and face global indices to their corresponding neighbors. Receive them and assign.
         // *************************************************************************
 
         globalDistributeMissingEdgeGlobalIndex();
         globalDistributeMissingFaceGlobalIndex();
 
 
-        // 6) Fill in Global2Local maps
+        // 7) Fill in Global2Local maps
         // *************************************************************************
         for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)    { gridstorage_.entityIndexMap_[EDGE_CODIM][gridstorage_.edge_[iEdge].globalIndex] = iEdge; }
 
@@ -1870,7 +1858,6 @@ private: // Private members
 
     bool verbose_;
     bool processVerbose_;
-    bool withGhostElements_;
 
     // Temporary maps necessary to locate and communicate entities during grid base construction
     EdgeKey2EdgeIndexMap edgeKey2LocalIndexMap_;                    // (global edgeKey -> edge_ index)

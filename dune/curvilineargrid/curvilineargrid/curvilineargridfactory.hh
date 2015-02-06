@@ -107,7 +107,7 @@ class CurvilinearGridFactory
     		bool verbose,
     		bool processVerbose,
     		MPIHelper &mpihelper) :
-    			gridbase_(withGhostElements, verbose, processVerbose_, mpihelper),
+    			gridbase_(withGhostElements, verbose, processVerbose, mpihelper),
     			verbose_(verbose),
     			processVerbose_(processVerbose),
     			mpihelper_(mpihelper)

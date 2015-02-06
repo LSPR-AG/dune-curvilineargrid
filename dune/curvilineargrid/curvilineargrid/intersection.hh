@@ -12,14 +12,18 @@ namespace Dune
   namespace CurvGrid
   {
 
+    // [FIXME]  Create constructor that allows passing inside-geometry, since it need not be computed several times when iterating over intersections
+    // [FIXME]  Since geo_ is not a pointer, must fix (if !geo) statements
+
+
     // Intersection
     // ------------
 
     template< class Grid >
-    class Intersection
+    class CurvIntersection
     {
 
-      typedef typename Grid::Traits Traits;
+    	typedef typename remove_const< Grid >::type::Traits Traits;
 
     public:
       typedef typename Traits::ctype ctype;
@@ -27,16 +31,14 @@ namespace Dune
       static const int dimension = Traits::dimension;
       static const int dimensionworld = Traits::dimensionworld;
 
-      typedef typename Traits::template Codim< 0 >::Entity Entity;
-      typedef typename Traits::template Codim< 0 >::EntityPointer EntityPointer;
-      typedef typename Traits::template Codim< 1 >::Geometry Geometry;
-      typedef typename Traits::template Codim< 1 >::LocalGeometry LocalGeometry;
-
-      typedef typename Traits::template Codim< 0 >::Geometry ElementGeometry;
-
-
       typedef typename Traits::GridStorageType    GridStorageType;
       typedef typename Traits::GridBaseType       GridBaseType;
+
+      // Codimensions of entity types for better code readability
+      static const int   VERTEX_CODIM   = GridStorageType::VERTEX_CODIM;
+      static const int   EDGE_CODIM     = GridStorageType::EDGE_CODIM;
+      static const int   FACE_CODIM     = GridStorageType::FACE_CODIM;
+      static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
       typedef typename Traits::LocalIndexType             LocalIndexType;
       typedef typename Traits::InternalIndexType          InternalIndexType;
@@ -45,24 +47,35 @@ namespace Dune
 
       typedef typename Traits::IndexSetIterator   IndexSetIterator;
 
+
+
+      typedef typename Traits::template Codim< ELEMENT_CODIM >::Entity Entity;
+      typedef typename Traits::template Codim< ELEMENT_CODIM >::EntityPointer EntityPointer;
+      typedef typename Traits::template Codim< FACE_CODIM >::Geometry Geometry;
+      typedef typename Traits::template Codim< FACE_CODIM >::LocalGeometry LocalGeometry;
+
+      typedef typename Traits::template Codim< ELEMENT_CODIM >::Geometry ElementGeometry;
+
     private:
 
-      typedef typename Traits::template Codim< 0 >::EntityPointerImpl EntityPointerImpl;
+      typedef typename Traits::template Codim< ELEMENT_CODIM >::EntityPointerImpl EntityPointerImpl;
 
-      typedef typename Traits::template Codim< 1 >::GeometryImpl GeometryImpl;
-      typedef typename Traits::template Codim< 0 >::GeometryImpl ElementGeometryImpl;
+      typedef typename Traits::template Codim< FACE_CODIM >::GeometryImpl GeometryImpl;
+      typedef typename Traits::template Codim< ELEMENT_CODIM >::GeometryImpl ElementGeometryImpl;
 
       typedef Dune::FieldVector< ctype, dimension-1 >      LocalCoordinate;
       typedef Dune::FieldVector< ctype, dimensionworld >   GlobalCoordinate;
 
 
-      typedef typename Traits::template BaseCodim<0>::EntityGeometry  ElementBaseGeometry;
-      typedef typename Traits::template BaseCodim<1>::EntityGeometry  FaceBaseGeometry;
+      typedef typename Traits::template BaseCodim<ELEMENT_CODIM>::EntityGeometry  ElementBaseGeometry;
+      typedef typename Traits::template BaseCodim<FACE_CODIM>::EntityGeometry  FaceBaseGeometry;
+
+      const InterpolatoryOrderType LINEAR_ELEMENT_ORDER = 1;
 
     public:
-      Intersection (
-    		  LocalIndexType localIndexInside,
-    		  InternalIndexType subIndexInside,
+      CurvIntersection (
+    		  LocalIndexType localIndexInside,    // Index of the element wrt which this intersection is calculated
+    		  InternalIndexType subIndexInside,   // Internal index of the face as the element subentity
     		  GridBaseType & gridbase)
     	: localIndexInside_(localIndexInside),
     	  subIndexInside_(subIndexInside),
@@ -73,14 +86,28 @@ namespace Dune
     	  computeOutside();
       }
 
-      Intersection ( const Intersection &other )
-        : insideGeo_( other.insideGeo_ )
+      CurvIntersection ( const CurvIntersection &other )
+  	    : localIndexInside_(other.localIndexInside_),
+  	      subIndexInside_(other.subIndexInside_),
+  	      gridbase_(other.gridbase_),
+  	      insideGeo_( other.insideGeo_ ),
+  	      localFaceIndex_(other.localFaceIndex_),
+  	      localIndexOutside_(other.localIndexOutside_),
+  	      subIndexOutside_(other.subIndexOutside_)
       {}
 
-      const Intersection &operator= ( const Intersection &other )
+      const CurvIntersection &operator= ( const CurvIntersection &other )
       {
-        insideGeo_ = other.insideGeo_;
-        return *this;
+    	  localIndexInside_ = other.localIndexInside_;
+    	  subIndexInside_ = other.subIndexInside_;
+    	  gridbase_ = other.gridbase_;
+
+  	      localFaceIndex_ = other.localFaceIndex_;
+  	      localIndexOutside_ = other.localIndexOutside_;
+  	      subIndexOutside_ = other.subIndexOutside_;
+
+    	  insideGeo_ = other.insideGeo_;
+    	  return *this;
       }
 
 
@@ -91,24 +118,20 @@ namespace Dune
 
       EntityPointer inside () const
       {
-    	  IndexSetIterator thisIter = gridbase_.entityIndexIterator(0, localIndexInside_);
+    	  IndexSetIterator thisIter = gridbase_.entityIndexIterator(ELEMENT_CODIM, localIndexInside_);
     	  return EntityPointerImpl(thisIter, gridbase_);
       }
 
       EntityPointer outside () const
       {
-    	  IndexSetIterator thisIter = gridbase_.entityIndexIterator(0, localIndexOutside_);
+    	  IndexSetIterator thisIter = gridbase_.entityIndexIterator(ELEMENT_CODIM, localIndexOutside_);
     	  return EntityPointerImpl(thisIter, gridbase_);
       }
 
-      // By dune-convention, domain and process boundaries are considered boundaries
+      // By dune-convention, domain and periodic boundaries are considered boundaries
       bool boundary () const {
-    	  StructuralType structtype = gridbase_.entityStructuralType(1, localFaceIndex_);
-
-    	  return
-    		(structtype == Dune::CurvilinearGridStorage::PartitionType::DomainBoundary) ||
-    		(structtype == Dune::CurvilinearGridStorage::PartitionType::ProcessBoundary) ||
-    		(structtype == Dune::CurvilinearGridStorage::PartitionType::ComplexBoundary);
+    	  StructuralType structtype = gridbase_.entityStructuralType(FACE_CODIM, localFaceIndex_);
+    	  return (structtype == Dune::CurvilinearGridStorage::PartitionType::DomainBoundary);
       }
 
 
@@ -119,16 +142,10 @@ namespace Dune
       // By dune-convention, everything has a neighbor, except domain boundaries, and (process boundaries in serial case)
       bool neighbor () const
       {
-    	  StructuralType structtype = gridbase_.entityStructuralType(1, localFaceIndex_);
+    	  StructuralType structtype = gridbase_.entityStructuralType(FACE_CODIM, localFaceIndex_);
 
     	  if (structtype == Dune::CurvilinearGridStorage::PartitionType::DomainBoundary)  { return false; }
-
-    	  if (
-    		(structtype == Dune::CurvilinearGridStorage::PartitionType::ProcessBoundary) ||
-    		(structtype == Dune::CurvilinearGridStorage::PartitionType::ComplexBoundary))
-    	  {
-    		  return !gridbase_.isSerial();
-    	  }
+    	  if (structtype == Dune::CurvilinearGridStorage::PartitionType::ProcessBoundary) { return !gridbase_.isSerial(); }
 
     	  return true;
       }
@@ -136,23 +153,30 @@ namespace Dune
 
       size_t boundarySegmentIndex () const
       {
-        return hostIntersection().boundarySegmentIndex();
+    	  assert(boundary());  // If this entity is not a Domain Boundary should throw error
+    	  return gridbase_.boundarySegmentIndex(localFaceIndex_);
       }
 
-      // Geometry of the element that calls this intersection
-      LocalGeometry geometryInInside () const  { return Geometry(type(), refCoord(subIndexInside_), 1); }
+      // Geometry of the intersection from within the inside element
+      LocalGeometry geometryInInside () const  {
+    	  Dune::GeometryType gt = gridbase_.entityGeometryType(ELEMENT_CODIM, localIndexInside_);
+    	  return Geometry(type(), refCoord(gt, subIndexInside_), LINEAR_ELEMENT_ORDER);
+      }
 
-      // Geometry of the other element
-      LocalGeometry geometryInOutside () const  { return Geometry(type(), refCoord(subIndexOutside_), 1); }
+      // Geometry of the intersection from within the outside element
+      LocalGeometry geometryInOutside () const  {
+    	  Dune::GeometryType gt = gridbase_.entityGeometryType(ELEMENT_CODIM, localIndexOutside_);
+    	  return Geometry(type(), refCoord(gt, subIndexOutside_), LINEAR_ELEMENT_ORDER);
+      }
 
       // Geometry of this face
       Geometry geometry () const
       {
 
         if(!geo_)  {
-        	InterpolatoryOrderType interporder = gridbase_.entityInterpolationOrder(0, localIndexInside_);
+        	InterpolatoryOrderType interporder = gridbase_.entityInterpolationOrder(ELEMENT_CODIM, localIndexInside_);
 
-        	ElementBaseGeometry entityGeometryBase = gridbase_.entityGeometry(0, localIndexInside_);
+        	ElementBaseGeometry entityGeometryBase = gridbase_.entityGeometry(ELEMENT_CODIM, localIndexInside_);
         	FaceBaseGeometry faceGeometryBase = entityGeometryBase.subentityGeometry(subIndexInside_);
 
         	geo_ = GeometryImpl(faceGeometryBase);
@@ -200,7 +224,7 @@ namespace Dune
       LocalIndexType intersectionIndex() { return localFaceIndex_; }
 
       // Iterates over subentities of the inside entity by increasing the inside element subentity index
-      // If intersection is a ghost intersection, skip it
+      // If intersection is a ghost intersection, skip it, because the intersection is not allowed to be of type ghost
       // If next() is called beyond the allowed size, throw error
       void next()
       {
@@ -213,8 +237,8 @@ namespace Dune
     	  while( inc && (subIndexInside_ < SUBENTITY_SIZE) )
     	  {
     		  subIndexInside_++;
-    		  localFaceIndex_ = gridbase_.subentityLocalIndex (localIndexInside_, 0, 1, subIndexInside_);
-    		  inc = (gridbase_.entityStructuralType(1, localFaceIndex_) == GridStorageType::PartitionType::Ghost);
+    		  localFaceIndex_ = gridbase_.subentityLocalIndex (localIndexInside_, ELEMENT_CODIM, FACE_CODIM, subIndexInside_);
+    		  inc = (gridbase_.entityStructuralType(FACE_CODIM, localFaceIndex_) == GridStorageType::PartitionType::Ghost);
     	  }
 
     	  // If this is not the end, update contents of the intersection
@@ -224,34 +248,42 @@ namespace Dune
       // Finds outside entity local index, and this face subentity index
       void computeOutside()
       {
-    	  LocalIndexType tmpIndex1 = gridbase_.faceNeighbor(localFaceIndex_, 0);
-    	  LocalIndexType tmpIndex2 = gridbase_.faceNeighbor(localFaceIndex_, 1);
+    	  LocalIndexType neighborElementIndex0 = gridbase_.faceNeighbor(localFaceIndex_, 0);
+    	  LocalIndexType neighborElementIndex1 = gridbase_.faceNeighbor(localFaceIndex_, 1);
 
-    	  localIndexOutside_ = (tmpIndex1 == localIndexInside_) ? tmpIndex2 : tmpIndex1;
+    	  localIndexOutside_ = (neighborElementIndex0 == localIndexInside_) ? neighborElementIndex1 : neighborElementIndex0;
 
-    	  for (InternalIndexType iFace = 0; iFace < 4; iFace++)
+    	  int iFace = 0;
+    	  bool found_face = false;
+    	  while (!found_face)
     	  {
-    		  if (localFaceIndex_ == gridbase_.subentityLocalIndex(localIndexOutside_, 0, 1, iFace))  { subIndexOutside_ = iFace; }
+    		  if (iFace >= 4)  { DUNE_THROW(Dune::IOError, "Intersection: Not found face as its outside-element subentity"); }
+
+    		  if (localFaceIndex_ == gridbase_.subentityLocalIndex(localIndexOutside_, ELEMENT_CODIM, FACE_CODIM, iFace))
+    		  {
+    			  found_face = true;
+    			  subIndexOutside_ = iFace;
+    		  }
+    		  iFace++;
     	  }
       }
 
       // Creates coordinates of a linear intersection as one of the faces of the reference element
-      std::vector<GlobalCoordinate> refCoord(InternalIndexType subentityIndex)
+      std::vector<GlobalCoordinate> refCoord(Dune::GeometryType elemGT, InternalIndexType subentityIndex)
 	  {
-    	  std::vector<InternalIndexType> referenceSubset = Dune::CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet(type(), 1, subentityIndex);
+    	  std::vector<GlobalCoordinate> rez;
 
-    	  std::vector<ctype> referenceCoord {
-    		  {0.0, 0.0, 0.0},
-    		  {1.0, 0.0, 0.0},
-    		  {0.0, 1.0, 0.0},
-    		  {0.0, 0.0, 1.0}
-    	  };
+    	  const Dune::ReferenceElement<ctype, dimension> & ref = Dune::ReferenceElements<ctype, dimension>::general(elemGT);
+    	  int nCornerPerFace = ref.size(0, FACE_CODIM, VERTEX_CODIM);
 
-    	  std::vector<GlobalCoordinate> coord;
+    	  for (int i = 0; i < nCornerPerFace; i++)
+    	  {
+    		  InternalIndexType cornerInd = ref.subEntity(subentityIndex, FACE_CODIM, i, VERTEX_CODIM);
+    		  GlobalCoordinate  coord = Dune::CurvilinearGeometryHelper::cornerInternalCoordinate(elemGT, cornerInd);
+    		  rez.push_back(coord);
+    	  }
 
-    	  for (int i = 0; i < referenceSubset.size(); i++)  { coord.push_back(referenceCoord[referenceSubset[i]]); }
-
-    	  return coord;
+    	  return rez;
 	  }
 
 

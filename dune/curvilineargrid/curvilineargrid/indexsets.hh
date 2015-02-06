@@ -22,8 +22,8 @@ namespace Dune
     // --------
 
     template<class Grid>
-    class IndexSet
-      : public Dune::IndexSet< Grid, IndexSet< Grid>, remove_const< Grid >::type::Traits::LocalIndexType >
+    class CurvIndexSet
+      : public Dune::IndexSet< Grid, CurvIndexSet< Grid>, remove_const< Grid >::type::Traits::LocalIndexType >
     {
     	typedef typename remove_const< Grid >::type::Traits Traits;
 
@@ -32,7 +32,7 @@ namespace Dune
     	typedef typename Traits::GridBaseType     GridBaseType;
 
 
-    	typedef IndexSet< Grid > This;
+    	typedef CurvIndexSet< Grid > This;
     	typedef Dune::IndexSet< Grid, This, LocalIndexType > Base;
 
 
@@ -42,10 +42,10 @@ namespace Dune
 
       typedef typename LocalIndexType   IndexType;
 
-      IndexSet (GridBaseType & gridbase) : gridbase_(gridbase)
+      CurvIndexSet (GridBaseType & gridbase) : gridbase_(gridbase)
       { }
 
-      IndexSet ( const This &other ) : gridbase_(other.gridBase()) { }
+      CurvIndexSet ( const This &other ) : gridbase_(other.gridBase()) { }
 
       const This &operator= ( const This &other )  { return *this; }
 

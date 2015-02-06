@@ -94,7 +94,7 @@ public:
      *
      *  */
     template <unsigned int phase, unsigned int messageCat>
-    static std::string write(MPIHelper &mpihelper,
+    static void write(MPIHelper &mpihelper,
                                       bool verbose,
                                       bool parallel,
                                       std::string filename,
@@ -103,7 +103,7 @@ public:
     {
         int rank = mpihelper.rank();
 
-        if (verbose && (parallel || rank == MPI_MASTER_RANK))
+        if (verbose && (parallel || (rank == MPI_MASTER_RANK)))
         {
 
             /** Set the stream to create for the message. */
@@ -151,9 +151,6 @@ public:
             // Only print, if there is something written.
             if (printedMessage.str().length() > 0 )  { std::cout << printedMessage.str() << std::endl; }
             else                                     { std::cout << std::endl; }
-
-            /** \brief go back peacefully */
-            return(printedMessage.str());
         }
 
     };

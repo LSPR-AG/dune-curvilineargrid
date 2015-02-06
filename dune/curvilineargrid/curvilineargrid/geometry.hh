@@ -22,10 +22,10 @@ namespace Dune
     // [TODO] Implement 2 Classes one for Geometry one for CachedGeometry. Introduce template parameter
     // --------------------------------------------------
 
-    template< int mydim, int cdim, class Grid >
-    class Geometry
+    template<int mydim, int cdim, class Grid>
+    class CurvGeometry
     {
-      typedef Geometry< mydim, cdim, Grid > This;
+      typedef CurvGeometry< mydim, cdim, Grid > This;
 
       typedef typename remove_const< Grid >::type::Traits Traits;
 
@@ -63,15 +63,15 @@ namespace Dune
 
 
       template< class Vertices >
-      Geometry (const GeometryType &type, const Vertices &vertices, InterpolatoryOrderType order )
+      CurvGeometry (const GeometryType &type, const Vertices &vertices, InterpolatoryOrderType order )
       	  : mapping_ ( type, vertices, order )
       {
           assert( int( type.dim() ) == mydimension );
       }
 
-      Geometry (BasicMapping & mapping ) : mapping_ ( mapping )  { }
+      CurvGeometry (BasicMapping & mapping ) : mapping_ ( mapping )  { }
 
-      Geometry ( const This &other ) : mapping_( other.mapping_ )  { }
+      CurvGeometry ( const This &other ) : mapping_( other.mapping_ )  { }
 
       const This &operator= ( const This &other )
       {

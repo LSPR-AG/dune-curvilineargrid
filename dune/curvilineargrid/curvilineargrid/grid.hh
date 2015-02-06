@@ -9,10 +9,79 @@
 
 #include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
 #include <dune/grid/common/datahandleif.hh>
-#include <dune/curvilineargrid/curvilineargrid/gridfamily.hh>
 
 namespace Dune
 {
+
+	// Forwards-Declaration
+	// ****************************************************************************************
+	template <int dim, int dimworld, class ct>                          class CurvilinearGrid;
+	template< int mydim, int cdim, class GridImp >                      class CurvGeometry;
+	template< int codim, int dim, class GridImp>                        class CurvEntity;
+	template< int codim, class GridImp >                                class CurvEntityPointer;
+	template< int codim, class GridImp >                                class CurvEntitySeed;
+	template< int codim, PartitionIteratorType pitype, class GridImp >  class CurvLevelIterator;
+	template< class GridImp >                                           class CurvIntersectionIterator;
+	template< class GridImp >                                           class CurvIntersection;
+	template< class GridImp >                                           class CurvHierarchicIterator;
+	template< class GridImp >                                           class CurvIndexSet;
+	template< class GridImp >                                           class CurvIdSet;
+
+
+	// GridFamily
+	// ****************************************************************************************
+	template<int dim, int dimworld, class ct>
+	struct CurvGridFamily
+	{
+#if HAVE_MPI
+	    typedef CollectiveCommunication<MPI_Comm> CCType;
+#else
+	    typedef CollectiveCommunication<No_Comm> CCType;
+#endif
+
+	    typedef Dune::CurvilinearGridStorage<ct, dimworld>::IdType CurvIdType;
+
+	    typedef GridTraits<dim,                                     // dimension of the grid
+	        dimworld,                                               // dimension of the world space
+	        Dune::CurvilinearGrid<dim, dimworld, ct>,
+	        CurvGeometry,
+	        CurvEntity,
+	        CurvEntityPointer,
+	        CurvLevelIterator,                                      // type used for the level iterator
+	        CurvIntersection,              // leaf  intersection
+	        CurvIntersection,              // level intersection
+	        CurvIntersectionIterator,              // leaf  intersection iter
+	        CurvIntersectionIterator,              // level intersection iter
+	        CurvHierarchicIterator,
+	        CurvLevelIterator,                                      // type used for the leaf(!) iterator
+	        CurvIndexSet,                  // level index set
+	        CurvIndexSet,                  // leaf index set
+	        CurvIdSet,
+	        CurvIdType,
+	        CurvIdSet,
+	        CurvIdType,
+	        CCType,
+	        DefaultLevelGridViewTraits,
+	        DefaultLeafGridViewTraits,
+	        CurvEntitySeed>
+	    Traits;
+	  };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
   template <int dim, int dimworld, class ct>
@@ -22,17 +91,6 @@ namespace Dune
     typedef CurvilinearGrid<dim, dimworld, ct> Grid;
     typedef GridDefaultImplementation < dim, dimworld, ct, CurvGrid::GridFamily< dim, dimworld, ct > > Base;
 
-    friend class CurvGrid::HierarchicIterator< const Grid >;
-
-    template< int, class, bool > friend class CurvGrid::EntityBase;
-    template< class, bool > friend class CurvGrid::EntityPointer;
-    template< int, int, class > friend class CurvGrid::Geometry;
-    template< class, class, class, PartitionIteratorType > friend class CurvGrid::GridView;
-    template< class, class > friend class CurvGrid::Intersection;
-    template< class, class > friend class CurvGrid::IntersectionIterator;
-    template< class, class > friend class CurvGrid::IdSet;
-    template< class, class > friend class CurvGrid::IndexSet;
-
   public:
 
     typedef CurvGrid::GridFamily< dim, dimworld, ct > GridFamily;
@@ -40,6 +98,16 @@ namespace Dune
 
     // Curvilinear Grid Implementation
     typedef Dune::CurvilinearGridBase<ct, dimworld> CurvGridBase;
+    typedef Dune::CurvilinearGridStorage<ct, dimworld> CurvGridStorage;
+
+    static const int   VERTEX_CODIM   = CurvGridStorage::VERTEX_CODIM;
+    static const int   EDGE_CODIM     = CurvGridStorage::EDGE_CODIM;
+    static const int   FACE_CODIM     = CurvGridStorage::FACE_CODIM;
+    static const int   ELEMENT_CODIM  = CurvGridStorage::ELEMENT_CODIM;
+
+
+
+
 
 
 
@@ -87,54 +155,10 @@ namespace Dune
     /** \name Index and Id Set Types
      *  \{ */
 
-    /** \brief type of leaf index set
-     *
-     *  The index set assigns consecutive indices to the entities of the
-     *  leaf grid. The indices are of integral type and can be used to access
-     *  arrays.
-     *
-     *  The leaf index set is a model of Dune::IndexSet.
-     */
-    typedef typename Traits::LeafIndexSet LeafIndexSet;
-
-    /** \brief type of level index set
-     *
-     *  The index set assigns consecutive indices to the entities of a grid
-     *  level. The indices are of integral type and can be used to access
-     *  arrays.
-     *
-     *  The level index set is a model of Dune::IndexSet.
-     */
-    typedef typename Traits::LevelIndexSet LevelIndexSet;
-
-    /** \brief type of global id set
-     *
-     *  The id set assigns a unique identifier to each entity within the
-     *  grid. This identifier is unique over all processes sharing this grid.
-     *
-     *  \note Id's are neither consecutive nor necessarily of an integral
-     *        type.
-     *
-     *  The global id set is a model of Dune::IdSet.
-     */
-    typedef typename Traits::GlobalIdSet GlobalIdSet;
-
-    /** \brief type of local id set
-     *
-     *  The id set assigns a unique identifier to each entity within the
-     *  grid. This identifier needs only to be unique over this process.
-     *
-     *  Though the local id set may be identical to the global id set, it is
-     *  often implemented more efficiently.
-     *
-     *  \note Ids are neither consecutive nor necessarily of an integral
-     *        type.
-     *  \note Local ids need not be compatible with global ids. Also, no
-     *        mapping from local ids to global ones needs to exist.
-     *
-     *  The global id set is a model of Dune::IdSet.
-     */
-    typedef typename Traits::LocalIdSet LocalIdSet;
+    typedef typename Traits::LeafIndexSet   LeafIndexSet;
+    typedef typename Traits::LevelIndexSet  LevelIndexSet;
+    typedef typename Traits::GlobalIdSet    GlobalIdSet;
+    typedef typename Traits::LocalIdSet     LocalIdSet;
 
     /** \} */
 
@@ -154,29 +178,16 @@ namespace Dune
 
     /** \brief constructor
      *
-     *  The references to host grid and coordinate function are stored in the
-     *  grid. Therefore, they must remain valid until the grid is destroyed.
-     *
-     *  \param[in]  hostGrid       reference to the grid to wrap
-     *  \param[in]  coordFunction  reference to the coordinate function
-     *  \param[in]  allocator      storage allocator
+     *  [FIXME] Must initialize levelIndexSets_
      */
-    CurvilinearGrid ( const CurvGridBase & gridbase  )
-      : gridbase_(gridbase)
-          // [FIXME] Must initialize levelIndexSets_
+    CurvilinearGrid (bool withGhostElements, bool verbose, bool processVerbose, MPIHelper &mpihelper)
+      : gridbase_(withGhostElements, verbose, processVerbose, mpihelper),
+        mpihelper_(mpihelper)
     {}
 
 
     /** \brief destructor */
-    ~CurvilinearGrid ()
-    {
-        for( unsigned int i = 0; i < levelIndexSets_.size(); ++i )
-        {
-        	if( levelIndexSets_[ i ] )  { delete( levelIndexSets_[ i ] ); }
-        }
-
-        if( removeHostGrid_ )  { delete hostGrid_; }
-    }
+    ~CurvilinearGrid ()  { }
 
     /** \} */
 
@@ -203,7 +214,7 @@ namespace Dune
      */
     int size ( int level, int codim ) const
     {
-      return levelGridView( level ).size( codim );
+      return (level == 0) ? size(codim) : 0;
     }
 
 
@@ -215,7 +226,7 @@ namespace Dune
      */
     int size ( int codim ) const
     {
-      return leafGridView().size( codim );
+      return gridbase_.nEntity(codim);
     }
 
     /** \brief obtain number of entites on a level
@@ -228,7 +239,7 @@ namespace Dune
      */
     int size ( int level, GeometryType type ) const
     {
-      return levelGridView( level ).size( type );
+    	return (level == 0) ? size (type) : 0;
     }
 
     /** \brief obtain number of leaf entities
@@ -237,7 +248,7 @@ namespace Dune
      */
     int size ( GeometryType type ) const
     {
-      return leafGridView().size( type );
+    	return type.isSimplex() ?  size ( dim - type.dim() ) : 0;
     }
 
     /** \brief returns the number of boundary segments within the macro grid
@@ -246,7 +257,7 @@ namespace Dune
      */
     size_t numBoundarySegments () const
     {
-    	return gridbase_.nEntity(1, Dune::CurvilinearGridStorage<ct,dimworld>::EntityStructuralType::InternalBoundaryFace);
+    	return gridbase_.nEntity(FACE_CODIM, DomainBoundaryType);
     }
     /** \} */
 
@@ -259,28 +270,22 @@ namespace Dune
 
     const LocalIdSet &localIdSet () const
     {
-        if( !localIdSet_ )  { localIdSet_ = LocalIdSet(); }
-        assert( localIdSet_ );
-        return localIdSet_;
+        return globalIdSet ();
     }
 
     const LevelIndexSet &levelIndexSet ( int level ) const
     {
-        assert( levelIndexSets_.size() == (size_t)(maxLevel()+1) );
         if( (level < 0) || (level > maxLevel()) )
         {
           DUNE_THROW( GridError, "LevelIndexSet for nonexisting level " << level << " requested." );
         }
 
-        LevelIndexSet *&levelIndexSet = levelIndexSets_[ level ];
-        if( !levelIndexSet )  { levelIndexSet = new LevelIndexSet( level ); }
-        assert( levelIndexSet );
-        return *levelIndexSet;
+        return leafIndexSet();
     }
 
     const LeafIndexSet &leafIndexSet () const
     {
-      if( !leafIndexSet_ )  { leafIndexSet_ = LeafIndexSet( ); }
+      if( !leafIndexSet_ )  { leafIndexSet_ = LeafIndexSet(gridbase_); }
       assert( leafIndexSet_ );
       return leafIndexSet_;
     }
@@ -324,7 +329,6 @@ namespace Dune
     {
     	//DUNE_THROW( NotImplemented, "Refinement not implemented in CurvGrid at the moment" );
     	std::cout << "::: postAdapt() called but refinement has not been implemented" << std::endl;
-    	return false;
     }
 
     /** \name Parallel Data Distribution and Communication Methods
@@ -349,7 +353,7 @@ namespace Dune
      *
      *  \note There is only one level at the moment
      */
-    int overlapSize ( int level, int codim ) const  { return overlapSize (codim); }
+    int overlapSize ( int level, int codim ) const  { return (level == 0) ? overlapSize (codim) : 0; }
 
     /** \brief obtain size of ghost region for a grid level
      *
@@ -358,7 +362,7 @@ namespace Dune
      *
      *  \note There is only one level at the moment
      */
-    int ghostSize ( int level, int codim ) const  { return ghostSize(codim);  }
+    int ghostSize ( int level, int codim ) const  { return (level == 0) ? ghostSize(codim) : 0;  }
 
     /** \brief communicate information on a grid level
      *
@@ -379,7 +383,7 @@ namespace Dune
                        CommunicationDirection direction,
                        int level ) const
     {
-      levelGridView( level ).communicate( dataHandle, interface, direction );
+    	if (level == 0)  { communicate (dataHandle, interface,  direction); }
     }
 
     /** \brief communicate information on leaf entities
@@ -399,7 +403,11 @@ namespace Dune
                        InterfaceType interface,
                        CommunicationDirection direction ) const
     {
-      leafGridView().communicate( dataHandle, interface, direction );
+    	Dune::CurvGrid::Communication<Grid> communicator;
+    	if (dataHandle.contains(dimension, ELEMENT_CODIM)) { communicator.communicateWrapper<DataHandle, ELEMENT_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dimension, FACE_CODIM))    { communicator.communicateWrapper<DataHandle, FACE_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dimension, EDGE_CODIM))    { communicator.communicateWrapper<DataHandle, EDGE_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dimension, VERTEX_CODIM))  { communicator.communicateWrapper<DataHandle, VERTEX_CODIM>(dataHandle, interface, direction); }
     }
 
     /** \brief obtain CollectiveCommunication object
@@ -461,46 +469,8 @@ namespace Dune
     entityPointer ( const EntitySeed &seed ) const
     {
       typedef typename Traits::template Codim< EntitySeed::codimension >::EntityPointerImpl EntityPointerImpl;
-      return EntityPointerImpl( *this, seed );
+      return EntityPointerImpl( seed );
     }
-
-    /** \} */
-
-    /** \name Grid Views
-     *  \{ */
-
-    /** \brief View for a grid level */
-    template< PartitionIteratorType pitype >
-    typename Partition< pitype >::LevelGridView levelGridView ( int level ) const
-    {
-      typedef typename Partition< pitype >::LevelGridView View;
-      typedef typename View::GridViewImp ViewImp;
-      return View( ViewImp( *this, hostGrid().levelGridView( level ) ) );
-    }
-
-    /** \brief View for the leaf grid */
-    template< PartitionIteratorType pitype >
-    typename Partition< pitype >::LeafGridView leafGridView () const
-    {
-      typedef typename Traits::template Partition< pitype >::LeafGridView View;
-      typedef typename View::GridViewImp ViewImp;
-      return View( ViewImp( *this, hostGrid().leafGridView() ) );
-    }
-
-    /** \brief View for a grid level for All_Partition */
-    LevelGridView levelGridView ( int level ) const
-    {
-      typedef typename LevelGridView::GridViewImp ViewImp;
-      return LevelGridView( ViewImp( *this, hostGrid().levelGridView( level ) ) );
-    }
-
-    /** \brief View for the leaf grid for All_Partition*/
-    LeafGridView leafGridView () const
-    {
-      typedef typename LeafGridView::GridViewImp ViewImp;
-      return LeafGridView( ViewImp( *this, hostGrid().leafGridView() ) );
-    }
-
 
     /** \} */
 
@@ -513,10 +483,9 @@ namespace Dune
     mutable CurvGridBase & gridbase_;
     mutable MPIHelper & mpihelper_;
 
-    mutable std::vector< LevelIndexSet *, typename Allocator::template rebind< LevelIndexSet * >::other > levelIndexSets_;
+    //mutable std::vector< LevelIndexSet *, typename Allocator::template rebind< LevelIndexSet * >::other > levelIndexSets_;
     mutable LeafIndexSet leafIndexSet_;
     mutable GlobalIdSet globalIdSet_;
-    mutable LocalIdSet localIdSet_;
   };
 
 

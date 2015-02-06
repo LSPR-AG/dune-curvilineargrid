@@ -77,22 +77,16 @@
  *  - [DESIGN] reader must provide all BoundarySegments (process boundaries), they are not communicated automatically
  *  - [TODO] Does NOT support refinement - it is not possible to dynamically refine or coarsen the mesh at the moment
  *  - [TODO] Does NOT support hanging nodes - it is not possible to load non-uniform h-refined mesh at the moment
- *  - [TODO] Does NOT support overlapping elements at the moment
+ *  - [TODO] Does NOT support front/overlap elements at the moment
+ *  - [TODO] DOes NOT support periodic boundaries at the moment
  *  - [TODO] Does NOT support non-tetrahedral meshes. Generalization to arbitrary and mixed geometry meshes is possible but will be cumbersome
  *
  * Development log
- *  - [TODO]  To make some member functions const, need to introduce const iterators
- *  - [TODO]  Consider making GridConstructor a pointer and deleting it at the end of construction phase.
+ *  - [TODO] To make some member functions const, need to introduce const iterators
+ *  - [TODO] Consider making GridConstructor a pointer and deleting it at the end of construction phase.
  *  - [TODO] Convert all code to unsigned ints wherever the number is definitely non-negative
- *  - [FIXME] Implement ostream operator << for IdType.
  *  - [FIXME] Currently nEntity counts ghost elements. Is this expected
  *  - [FIXME] Currently nEntity counts only corners. Is this expected
- *
- *  - [FIXME] Need to add normal and outerNormal
- *  - [FIXME] Need to wrap for Dune
- *  - [FIXME] Need to match Dune's internal subentity id convention
- *  - [FIXME] When returning Ghost elements, must check if they are defined, and throw error if not
- *  - [FIXME] Replace all DUNE_THROW output by the logging message output such that it can be read
  *
  * Usage:
  *  - [TODO] Disable all the vertex2string output for multiprocessor case - too much output
@@ -102,8 +96,7 @@
  *
  *
  * Testing:
- *  - [FIXME] Write test which checks consistency of all local and global indices
- *  - [FIXME] Constructor run check if all non-owned entities have been successfully enumerated at the end
+ *  - [TODO] Constructor run check if all non-owned entities have been successfully enumerated at the end
  *
  *
  * Additional Functionality - Extended Physical Tags
@@ -215,13 +208,12 @@ public: /* public methods */
 
     /** Parallel constructor - USE THIS CONSTRUCTOR*/
     CurvilinearGridBase(bool withGhostElements, bool verbose, bool processVerbose, MPIHelper &mpihelper ) :
-        withGhostElements_(withGhostElements),
         verbose_(verbose),
         processVerbose_(processVerbose),
         gridstage_(0),
         mpihelper_(mpihelper),
-        gridstorage_(),
-        gridconstructor_(withGhostElements, verbose, processVerbose, gridstorage_, *this, mpihelper)
+        gridstorage_(withGhostElements),
+        gridconstructor_(verbose, processVerbose, gridstorage_, *this, mpihelper)
     {
         //assert(instance_ == 0);
         //instance_ = this;
@@ -466,6 +458,15 @@ public:
     }
 
 
+    /** Get boundary segment index of this entity if it is a Domain Boundary Face */
+    LocalIndexType boundarySegmentIndex(LocalIndexType localIndex)
+    {
+    	StructuralType thisstructtype = entityStructuralType(FACE_CODIM, localIndex);
+    	assert(thisstructtype == DomainBoundaryType);
+    	return gridstorage_.boundarySegmentIndexMap_[thisstructtype];
+    }
+
+
     /** Get Structural Type of an entity */
     StructuralType entityStructuralType(int codim, LocalIndexType localIndex) const
     {
@@ -664,13 +665,10 @@ public:
      * NOTE: If the neighbor is a GHOST ELEMENT, the returned int will be for the GhostElementLocalIndex
      * and not the ElementIndex
      *
-     *
-     *
      * Conventions of internalNeighborIndex for face types
      * * For Domain Boundary there is only one neighbor
      * * For Process Boundary 2nd neighbor is always the Ghost Element
      * * For Internal Face there is no convention on order of the neighbors
-     * FIXME: Check if this contradicts Dune convention in any way
      *
      *  */
     LocalIndexType faceNeighbor(LocalIndexType localIndex, InternalIndexType internalNeighborIndex) const
@@ -1063,7 +1061,6 @@ private: // Private members
 
     bool verbose_;
     bool processVerbose_;
-    bool withGhostElements_;
 
 
     // The stage of the grid determines if the grid has already been assembled or not

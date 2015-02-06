@@ -43,7 +43,7 @@ namespace Dune
 
 
   template<int codim, int dim, class GridImp>
-  class EntityBase
+  class CurvEntityBase
   {
   public:
 	  typedef typename remove_const< GridImp >::type::Traits Traits;
@@ -64,7 +64,7 @@ namespace Dune
 		/** \name Construction, Initialization and Destruction
 		*  \{ */
 
-	  EntityBase (
+	  CurvEntityBase (
 	    IndexSetIterator & iter,
 	    GridBaseType & gridbase,
 	    Dune::PartitionType pitype
@@ -77,7 +77,7 @@ namespace Dune
 
 
 	  //! Copy constructor from an existing entity.
-	  EntityBase(const EntityBase& other)
+	  CurvEntityBase(const CurvEntityBase& other)
 	  {
 		  gridbaseIndexIterator_ = other.gridbaseIndexIterator_;
 		  gridbase_ = other.gridbase_;
@@ -85,14 +85,14 @@ namespace Dune
 	  }
 
 	  //! Move constructor from an existing entity.
-	  //EntityBase(EntityBase&& other) : realEntity(std::move(other.realEntity)) {}
+	  //CurvEntityBase(CurvEntityBase&& other) : realEntity(std::move(other.realEntity)) {}
 
 
 	  //! Copy assignment operator from an existing entity.
-	  //EntityBase& operator=(const EntityBase& other)  { }
+	  //CurvEntityBase& operator=(const CurvEntityBase& other)  { }
 
 	  //! Move assignment operator from an existing entity.
-	  //EntityBase& operator=(EntityBase&& other)  { realEntity = std::move(other.realEntity);  return *this; }
+	  //CurvEntityBase& operator=(CurvEntityBase&& other)  { realEntity = std::move(other.realEntity);  return *this; }
 
 
 
@@ -100,7 +100,7 @@ namespace Dune
 
 
 	  /** \brief compare two entities */
-	  bool equals ( const EntityBase &other) const
+	  bool equals ( const CurvEntityBase &other) const
 	  {
 		  return ((gridbaseIndexIterator_ == other.gridbaseIndexIterator_) && (gridbase_ == other.gridbase_));
 	  }
@@ -126,7 +126,7 @@ namespace Dune
 
 
   template<int codim, int dim, class GridImp>
-  class Entity : EntityBase<codim, dim, GridImp>
+  class CurvEntity : CurvEntityBase<codim, dim, GridImp>
   {
 	    typedef typename remove_const< GridImp >::type::Traits Traits;
 
@@ -154,14 +154,14 @@ namespace Dune
 	    typedef typename Traits::IdType               IdType;
 
 
-	    typedef EntityBase<codim, dim, GridImp>   Base;
+	    typedef CurvEntityBase<codim, dim, GridImp>   Base;
 
 	    using Base::gridbaseIndexIterator_;
 	    using Base::gridbase_;
 
   public:
 
-	    Entity (int localEntityIndex, GridBaseType & gridbase, Dune::PartitionType pitype)
+	    CurvEntity (int localEntityIndex, GridBaseType & gridbase, Dune::PartitionType pitype)
 	  	  : Base(localEntityIndex, gridbase, pitype)
 	    {}
 
@@ -183,7 +183,6 @@ namespace Dune
 	    	case GridBaseStorage::PartitionType::Internal          : return PartitionType::InteriorEntity;
 	    	case GridBaseStorage::PartitionType::DomainBoundary    : return PartitionType::InteriorEntity;
 	    	case GridBaseStorage::PartitionType::ProcessBoundary   : return PartitionType::BorderEntity;
-	    	case GridBaseStorage::PartitionType::ComplexBoundary   : return PartitionType::BorderEntity;
 	    	case GridBaseStorage::PartitionType::Ghost             : return PartitionType::GhostEntity;
 	    	default : return 0;
 	    	}
@@ -228,7 +227,7 @@ namespace Dune
 
 
   template<int dim, class GridImp>
-  class Entity <0,dim,GridImp>
+  class CurvEntity <0, dim, GridImp>
   {
 	  typedef typename remove_const< GridImp >::type::Traits Traits;
 
@@ -265,14 +264,15 @@ namespace Dune
 	  typedef typename GridBaseType::InterpolatoryOrderType    InterpolatoryOrderType;
 
 
-	  typedef EntityBase<0, dim, GridImp>                  Base;
+	  typedef CurvEntityBase<0, dim, GridImp>                  Base;
 	  using Base::gridbaseIndexIterator_;
+	  using Base::pitype_;
 	  using Base::gridbase_;
 
   public:
 
 
-      Entity (int localEntityIndex, GridBaseType & gridbase, Dune::PartitionType pitype)
+      CurvEntity (int localEntityIndex, GridBaseType & gridbase, Dune::PartitionType pitype)
   	  	  : Base(localEntityIndex, gridbase, pitype)
       {}
 
@@ -302,7 +302,7 @@ namespace Dune
     subEntity ( int i ) const
     {
     	int subentityLocalIndex = gridbase_.subentityIndex(*gridbaseIndexIterator_, 0, subcodim, i);
-    	return Entity<dim - subcodim, dim, GridImp>(subentityLocalIndex, gridbase_);
+    	return CurvEntity<dim - subcodim, dim, GridImp>(subentityLocalIndex, gridbase_, pitype_);
     }
 
 
@@ -315,7 +315,7 @@ namespace Dune
              or implemented in general.
              For some grids it might be available, though.
      */
-    Entity<0, dim, GridImp> father () const
+    CurvEntity<0, dim, GridImp> father () const
     {
     	DUNE_THROW(NotImplemented, "CurvilinearGrid-Element: method father() not implemented, since there is no refinement");
     	return *this;
@@ -415,10 +415,7 @@ namespace Dune
     		LocalIndexType thisFaceIndex = gridbase_.subentityIndex(*gridbaseIndexIterator_, 0, 1, i);
     		StructuralType thisStructType = entityStructuralType<1>(thisFaceIndex);
 
-    		if (
-    		  (thisStructType == GridStorageType::PartitionType::ProcessBoundary) ||
-    		  (thisStructType == GridStorageType::PartitionType::ComplexBoundary)
-    		)  { return true; }
+    		if (thisStructType == GridStorageType::PartitionType::ProcessBoundary)  { return true; }
     	}
 
     	return false;

@@ -605,8 +605,6 @@ protected:
 		}
 		displSendTmp = displSend;
 
-		std::cout << "process_" << rank_ << " a with size = " << sendSize << std::endl;
-
 		// Fill in communication arrays
 		std::vector<int> neighborPBGRankSetSend(sendSize);
 		std::vector<int> neighborPBGRankSetRecv(recvSize);
@@ -619,15 +617,15 @@ protected:
 			int PBPBSize = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex].size();
 			int realPBGSize = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
 
-			for (int i = 0; i < PBPBSize; i++)
-			{
-    			for (int j = 0; j < realPBGSize; j++)
-    			{
-    				int thisPBPBRank = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex][i];
-    				int thisPBGRank = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][i];
-    				int tmpIndex = displSendTmp[thisPBPBRank]++;
 
-    				std::cout << "process_" << rank_ << " e2 tmpindex=" << tmpIndex << std::endl;
+			for (int i = 0; i < realPBGSize; i++)
+			{
+				int thisPBGRank = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][i];
+
+				for (int j = 0; j < PBPBSize; j++)
+				{
+    				int thisPBPBRank = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex][j];
+    				int tmpIndex = displSendTmp[thisPBPBRank]++;
 
     				neighborPBGRankSetSend[tmpIndex] = thisPBGRank;
     			}
@@ -669,6 +667,13 @@ protected:
 				for (int k = 0; k < nRankPerEntity; k++)
 				{
 					int thisNeighborRank = neighborPBGRankSetRecv[iRankData++];
+
+					if (abs(thisNeighborRank) >= size_)
+					{
+						Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Error: Unexpected received rank=" + std::to_string(thisNeighborRank));
+						assert(abs(thisNeighborRank) < size_);
+					}
+
 					gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].push_back(thisNeighborRank);
 
 				}
@@ -812,9 +817,6 @@ protected:
 					assert(thisEntityType == GhostType);
 				}
 
-
-
-
 				LocalIndexType thisEntityLocalGhostIndex = gridstorage_.ghostIndexMap_[codim][thisEntityLocalIndex];
 				gridstorage_.G2BIPBNeighborRank_[codim][thisEntityLocalGhostIndex].push_back(i);
 			}
@@ -948,6 +950,7 @@ protected:
     					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found by its local index");
     				}
 
+    				// To each ghost neighbour we are going to communicate all other ghost neighbour ranks
     				nGGRankPerEntitySend[thisTmpIndex] = nGhostNeighbors - 1;
     			}
 			}
@@ -989,8 +992,6 @@ protected:
 		displSendTmp = displSend;
 
 
-		std::cout << "process_" << rank_ << "aa" << std::endl;
-
 		// Fill in communication arrays
 		std::vector<int> neighborGGRankSetSend(sendSize);
 		std::vector<int> neighborGGRankSetRecv(recvSize);
@@ -1001,8 +1002,6 @@ protected:
 
 			int nGhostNeighbors = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex].size();
 			int candidateRank = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex][0];
-
-			std::cout << "process_" << rank_ << "bb" << std::endl;
 
 			bool hasComm = true;
 			hasComm &= (nGhostNeighbors > 1);    // Only communicate to Ghost if at least 2 ghosts share this
@@ -1021,8 +1020,6 @@ protected:
 						int thisGNeighborRankSend = gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex][j];
 						if (thisGNeighborRank != thisGNeighborRankSend)
 						{
-							std::cout << "process_" << rank_ << "cc" << std::endl;
-
 							neighborGGRankSetSend[displSendTmp[thisGNeighborRank]++] = thisGNeighborRankSend;
 						}
 
@@ -1031,9 +1028,6 @@ protected:
 			}
 		}
 
-		std::cout << "process_" << rank_ << " ggg procsetsend=(" << Dune::VectorHelper::vector2string(nGGRanksPerProcessSend);
-		std::cout << " sendlength=" << neighborGGRankSetSend.size();
-		std::cout << " recvlength=" << neighborGGRankSetRecv.size() << std::endl;
 
 		MPI_Alltoallv (
 				                   neighborGGRankSetSend.data(),  nGGRanksPerProcessSend.data(), displSend.data(), MPI_INT,
@@ -1071,6 +1065,7 @@ protected:
 				for (int k = 0; k < nRankPerEntity; k++)
 				{
 					int thisNeighborRank = neighborGGRankSetRecv[iRankData++];
+					assert((thisNeighborRank >= 0) && (thisNeighborRank < size_) );
 					gridstorage_.G2GNeighborRank_[codim][thisEntityGhostLocalIndex].push_back(thisNeighborRank);
 				}
 			}

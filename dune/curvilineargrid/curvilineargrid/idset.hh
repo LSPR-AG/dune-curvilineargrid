@@ -13,28 +13,31 @@ namespace Dune
   namespace CurvGrid
   {
 
-    // IdSet
+    // CurvIdSet
     // -----
 
     template< class Grid >
-    class IdSet
-      : public Dune::IdSet< Grid, IdSet< Grid >, typename Dune::CurvilinearGridBase::IdType >
+    class CurvIdSet
+      : public Dune::IdSet< Grid, CurvIdSet< Grid >, typename Dune::CurvilinearGridBase::IdType >
     {
 
-      typedef IdSet< Grid > This;
+      typedef CurvIdSet< Grid > This;
       typedef Dune::IdSet< Grid, This, typename Dune::CurvilinearGridBase::IdType > Base;
 
       typedef typename remove_const< Grid >::type::Traits Traits;
+	  typedef typename Traits::ctype ctype;						//! coordinate type of the grid
+
+	  static const int dimensionworld = Traits::dimensionworld;		//! dimension of the world
 
     public:
-      typedef Dune::CurvilinearGridBase::IdType  IdType;
+      typedef Dune::CurvilinearGridBase<ctype, dimensionworld>::IdType  IdType;
 
 
       using Base::subId;
 
-      IdSet ()  { }
+      CurvIdSet ()  { }
 
-      IdSet ( const This &other )  { }
+      CurvIdSet ( const This &other )  { }
 
       const This &operator= ( const This &other )  { return *this; }
 

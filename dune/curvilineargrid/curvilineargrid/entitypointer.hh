@@ -23,11 +23,11 @@ namespace Dune
 
 
 
-    template< class Grid, int codim >
-    class EntityPointer
+    template< int codim, class Grid >
+    class CurvEntityPointer
     {
-    	typedef typename Grid::Traits Traits;
-    	typedef EntityPointer< codim, Grid > This;
+    	typedef typename remove_const< Grid >::type::Traits Traits;
+    	typedef CurvEntityPointer< codim, Grid > This;
 
     public:
         static const int dimension   = Traits::dimension;
@@ -45,21 +45,27 @@ namespace Dune
 
     public:
 
-        EntityPointer ( IndexSetIterator & iter, GridBaseType & gridbase)
-          : entity_(iter, gridbase)
+        CurvEntityPointer ( IndexSetIterator & iter, GridBaseType & gridbase, PartitionIteratorType pitype)
+          : entity_(iter, gridbase, pitype)
         {}
 
-        EntityPointer ( const EntityImpl &entity )
+        CurvEntityPointer ( EntitySeed seed)
+        {
+        	IndexSetIterator iter = seed.gridBase().entityIndexDuneIterator(codim, seed.partitionType(), seed.localIndex());
+        	entity_ = Entity(iter, seed.gridBase(), seed.partitionType());
+        }
+
+        CurvEntityPointer ( const EntityImpl &entity )
           : entity_( entity )
         {}
 
-        EntityPointer ( const EntityImpl && entity )
+        CurvEntityPointer ( const EntityImpl && entity )
           : entity_( std::move(entity) )
         {}
 
         //const This &operator= ( const This &other )  { entity_ = other.getEntity(); return *this; }
 
-        bool equals ( const EntityPointer &other ) const
+        bool equals ( const CurvEntityPointer &other ) const
         {
           return entity_.equals(other.dereference());
         }

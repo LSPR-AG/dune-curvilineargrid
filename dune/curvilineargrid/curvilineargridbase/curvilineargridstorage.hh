@@ -67,6 +67,7 @@ public:
 			FrontBoundary      = 4,   // Faces of Overlap partition [Not Implemented]
 			Ghost              = 5,   // Entities stored on this process but not owned by it [all codim]
 			Overlap            = 6,   // Dune-Magic [Not Implemented]
+			Periodic           = 7,   // Periodic boundary [Not Implemented]
 		};
 	};
 
@@ -236,6 +237,10 @@ public:
     // Curvilinear Grid Storage Variables
     // ******************************************************************
 
+    // Properties of the grid
+    bool withGhostElements_;   // Whether ghost elements will be constructed or not
+
+
     // Storage of process bounding box, since its computation is expensive
     Vertex boundingBoxCenter_;
     Vertex boundingBoxExtent_;
@@ -260,7 +265,9 @@ public:
     // Maps from global to local indices - all entities of given codim, regardless of structural type
     Global2LocalMap entityIndexMap_[4];
 
-    // Entity local index -> local structural entity index (if this entity is a process boundary)
+    // Entity local index -> local structural entity index
+    Local2LocalMap  boundarySegmentIndexMap_;  // This one only for Domain Boundary Faces
+
     Local2LocalMap  processBoundaryIndexMap_[4];
     Local2LocalMap  boundaryInternalEntityIndexMap_[4];
     Local2LocalMap  ghostIndexMap_[4];
@@ -276,12 +283,6 @@ public:
     // Two additional composite sets to represent Dune-specific composite partition types
     LocalIndexSet  entityDuneInteriorIndexSet_[4];         // In Dune interior entities are (internal + domain boundaries)
     LocalIndexSet  entityDuneInteriorBorderIndexSet_[4];   // In Dune interior border entities are (internal + domain + process boundaries)
-
-    // List of all ranks of processors neighboring processorBoundaries.
-
-
-    // [TODO] To implement higher codim communication, each ghost needs to know its neighbor processes
-    // Will require more global communication to compute
 
     // List of all the processes sharing an entity with this process, noting the type that entity has on each process
     // BI - Boundary Internal Entity. Subentity of internal element neighbouring a PB face
@@ -301,7 +302,8 @@ public:
 
     // Constructor and Destructor
     // ******************************************************************
-    CurvilinearGridStorage () :
+    CurvilinearGridStorage (bool withGhostElements) :
+    	withGhostElements_(withGhostElements),
     	nEntityTotal_ {0, 0, 0, 0},
     	PartitonTypeName { "Internal", "ProcessBoundary", "DomainBoundary", "InternalBoundary", "FrontBoundary", "Ghost", "Overlap" },
     	octree_(0)

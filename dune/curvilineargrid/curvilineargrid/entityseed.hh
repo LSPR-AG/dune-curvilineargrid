@@ -15,10 +15,10 @@ namespace Dune
   {
 
 
-    template< int codim, class GridType >
-    class EntitySeed
+    template< int codim, class Grid >
+    class CurvEntitySeed
     {
-      typedef typename GridType::Traits Traits;
+    	typedef typename remove_const< Grid >::type::Traits Traits;
 
     public:
       static const int codimension    = codim;
@@ -34,7 +34,7 @@ namespace Dune
       typedef typename Traits::LocalIndexType            LocalIndexType;
 
       //! default construct an invalid entity seed
-      EntitySeed (LocalIndexType index, Dune::PartitionType pitype, GridBaseType & gridbase)
+      CurvEntitySeed (LocalIndexType index, Dune::PartitionType pitype, GridBaseType & gridbase)
   	  	  : index_(index), pitype_(pitype), gridbase_(gridbase)
       {}
 

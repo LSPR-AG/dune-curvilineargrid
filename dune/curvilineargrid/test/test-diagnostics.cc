@@ -54,18 +54,17 @@ int main(int argc, char** argv)
 
 
     // Assemble the file name
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE2000_ORD3;
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD1;
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
     typedef Dune::CurvilinearFakeGrid<3,3,double>  SimplexGridType;
 
     bool insertBoundarySegment = true;
     bool withGhostElements = true;
-    bool verbose = true;
-    bool processVerbose = true;
+    bool verbose = false;
+    bool processVerbose = false;
 
     bool writeReaderVTKFile = false;
-
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
@@ -98,18 +97,20 @@ int main(int argc, char** argv)
     // Perform diagnostics tests on the constructed grid
     Dune::CurvilinearGridDiagnostic<double, 3> diagnostic(verbose, processVerbose, mpihelper, gridbase);
 
-	bool VTK_WRITE_ELEMENTS = false;
-	bool VTK_WRITE_GHOST_ELEMENTS = false;
+	bool VTK_WRITE_ELEMENTS = true;
+	bool VTK_WRITE_GHOST_ELEMENTS = true;
 
-	bool VTK_WRITE_INTERNAL_FACE = true;
-	bool VTK_WRITE_DOMAIN_BOUNDARY_FACE = false;
-	bool VTK_WRITE_PROCESS_BOUNDARY_FACE = false;
-	bool VTK_WRITE_GHOST_FACE = true;
+	bool VTK_WRITE_INTERNAL_FACE = false;
+	bool VTK_WRITE_DOMAIN_BOUNDARY_FACE = true;
+	bool VTK_WRITE_PROCESS_BOUNDARY_FACE = true;
+	bool VTK_WRITE_GHOST_FACE = false;
 
-	int  VTK_CURV_DISCRETIZATION = 4;       // 2=linear, minimal allowed discretization
+	int  VTK_CURV_DISCRETIZATION = 2;       // 2=linear, minimal allowed discretization
 	bool VTK_INTERPOLATE_DISCRETIZATION = true;
 	bool VTK_EXPLODE_ELEMENTS = false;
 
+
+	/*
     diagnostic.vtkWriteMesh(
     	VTK_WRITE_ELEMENTS,
     	VTK_WRITE_GHOST_ELEMENTS,
@@ -121,9 +122,11 @@ int main(int argc, char** argv)
     	VTK_INTERPOLATE_DISCRETIZATION,
     	VTK_EXPLODE_ELEMENTS);
 
+*/
     diagnostic.vtkWriteOctree();
 
     diagnostic.runAnalyticTest("curvilinearMeshAnalyticTest.txt");
+
 
     /** \brief leave program peacefully */
     return(0);

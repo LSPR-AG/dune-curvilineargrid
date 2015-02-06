@@ -88,7 +88,7 @@ namespace Dune
     	// 1.2) For each InterfaceSubset, check if it is consistent with InterfaceType and CommunicationDirection
     	// 1.3) If it is, call main communication protocol main_communicate(codim, mapSend, ranklistSend)
     	template<class DataHandle, int codim>
-    	void communicate(DataHandle& datahandle, InterfaceType iftype, CommunicationDirection dir, int level) const
+    	void communicate(DataHandle& datahandle, InterfaceType iftype, CommunicationDirection dir) const
     	{
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_ProcessBoundary))
     		{

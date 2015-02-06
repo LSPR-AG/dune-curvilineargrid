@@ -14,50 +14,19 @@ namespace Dune
   namespace CurvGrid
   {
 
-    // Internal Forward Declarations
-    // -----------------------------
-
-    template< int codim, class Grid >
-    class LeafIterator : public EntityPointer< codim, Grid >
+    template< int codim, PartitionIteratorType pitype, class Grid >
+    class CurvLevelIterator : public CurvEntityPointer< codim, Grid >
     {
-        typedef EntityPointer< codim, Grid > Base;
-
+        typedef CurvEntityPointer< codim, Grid > Base;
 
     protected:
-        typedef typename Base::EntityImpl EntityImpl;
-        typedef typename Base::EntitySeed EntitySeed;
 
         using Base::GridBaseType;
         using Base::IndexSetIterator;
 
     public:
-        LeafIterator (IndexSetIterator & iter, GridBaseType & gridbase)
-         : Base( iter, gridbase)
-        {}
-
-        void increment ()
-        {
-      	  // Access by reference the entity stored in entity pointer, and call its method next() to iterate the entity.
-      	  this->dereference().next();
-        }
-    };
-
-
-    template< int codim, class Grid >
-    class LevelIterator : public EntityPointer< codim, Grid >
-    {
-        typedef EntityPointer< codim, Grid > Base;
-
-    protected:
-        typedef typename Base::EntityImpl EntityImpl;
-        typedef typename Base::EntitySeed EntitySeed;
-
-        using Base::GridBaseType;
-        using Base::IndexSetIterator;
-
-    public:
-        LevelIterator (IndexSetIterator & iter, GridBaseType & gridbase)
-    	  : Base( iter, gridbase)
+        CurvLevelIterator (IndexSetIterator & iter, GridBaseType & gridbase)
+    	  : Base( iter, gridbase, pitype)
         {}
 
         void increment ()
@@ -69,23 +38,22 @@ namespace Dune
 
 
     // HierarchicIterator
+    // Note that HierarchicIterator only available over elements (codim 0)
     // ------------------
 
-    template< int codim, class Grid >
-    class HierarchicIterator  : public EntityPointer< codim, Grid >
+    template<class Grid >
+    class CurvHierarchicIterator  : public CurvEntityPointer< 0, Grid >
     {
-    	typedef EntityPointer< codim, Grid  > Base;
+    	typedef CurvEntityPointer< 0, Grid > Base;
 
     protected:
-    	typedef typename Base::EntityImpl EntityImpl;
-    	typedef typename Base::EntitySeed EntitySeed;
 
         using Base::GridBaseType;
         using Base::IndexSetIterator;
 
     public:
-      HierarchicIterator (IndexSetIterator & iter, GridBaseType & gridbase)
-    	: Base( iter, gridbase)
+        CurvHierarchicIterator (IndexSetIterator & iter, GridBaseType & gridbase)
+    	: Base( iter, gridbase, PartitionIteratorType::All_Partition)
       {}
 
       void increment ()

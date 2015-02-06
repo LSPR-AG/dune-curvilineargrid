@@ -12,18 +12,24 @@ namespace Dune
   namespace CurvGrid
   {
 
-    // IntersectionIterator
+    // CurvIntersectionIterator
     // --------------------
 
     template< class Grid >
-    class IntersectionIterator
+    class CurvIntersectionIterator
     {
       typedef typename remove_const< Grid >::type::Traits Traits;
 
-      typedef typename Traits::IntersectionImpl IntersectionImpl;
 
-      typedef typename Traits::template Codim< 0 >::EntityPointerImpl EntityPointerImpl;
-      typedef typename Traits::template Codim< 0 >::Geometry ElementGeometry;
+      typedef typename Traits::GridStorageType    GridStorageType;
+      typedef typename Traits::GridBaseType       GridBaseType;
+
+      typedef typename Traits::LocalIndexType             LocalIndexType;
+      typedef typename Traits::InternalIndexType          InternalIndexType;
+      typedef typename Traits::StructuralType             StructuralType;
+      typedef typename Traits::InterpolatoryOrderType     InterpolatoryOrderType;
+
+      typedef typename Traits::IntersectionImpl IntersectionImpl;
 
     public:
       typedef Dune::Intersection< Grid, IntersectionImpl > Intersection;
@@ -31,27 +37,23 @@ namespace Dune
       typedef typename Traits::template Codim< 0 >::EntityPointer EntityPointer;
 
       template< class Entity >
-      IntersectionIterator (LocalIndexType localIndexInside,
+      CurvIntersectionIterator (LocalIndexType localIndexInside,
     		  InternalIndexType subIndexInside,
     		  GridBaseType & gridbase)
         : intersection_(localIndexInside, subIndexInside, gridbase)
       {}
 
-      IntersectionIterator ( const IntersectionIterator &other )
+      CurvIntersectionIterator ( const CurvIntersectionIterator &other )
         : intersection_( IntersectionImpl( Grid::getRealImplementation( other.intersection_ ) ) )
       {}
 
-      IntersectionIterator &operator= ( const IntersectionIterator &other )
+      CurvIntersectionIterator &operator= ( const CurvIntersectionIterator &other )
       {
-        hostIterator_ = other.hostIterator_;
         Grid::getRealImplementation( intersection_ ) = Grid::getRealImplementation( other.intersection_ );
         return *this;
       }
 
-      bool equals ( const IntersectionIterator &other ) const
-      {
-        return (hostIterator_ == other.hostIterator_);
-      }
+      bool equals ( const CurvIntersectionIterator &other ) const  { return (intersection_ == other.intersection_); }
 
       void increment ()  { intersection_.next(); }
 

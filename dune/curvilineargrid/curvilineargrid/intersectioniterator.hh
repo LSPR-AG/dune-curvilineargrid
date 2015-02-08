@@ -19,15 +19,17 @@ namespace Dune
     class CurvIntersectionIterator
     {
       typedef typename remove_const< Grid >::type::Traits Traits;
+      typedef typename Traits::ctype ctype;
 
+      static const int dimension   = Traits::dimension;
+      static const int codimension = Traits::codimension;
 
-      typedef typename Traits::GridStorageType    GridStorageType;
-      typedef typename Traits::GridBaseType       GridBaseType;
+      typedef Dune::CurvilinearGridBase<ctype,dimension>    GridBaseType;
 
-      typedef typename Traits::LocalIndexType             LocalIndexType;
-      typedef typename Traits::InternalIndexType          InternalIndexType;
-      typedef typename Traits::StructuralType             StructuralType;
-      typedef typename Traits::InterpolatoryOrderType     InterpolatoryOrderType;
+      typedef typename GridBaseType::LocalIndexType             LocalIndexType;
+      typedef typename GridBaseType::InternalIndexType          InternalIndexType;
+      typedef typename GridBaseType::StructuralType             StructuralType;
+      typedef typename GridBaseType::InterpolatoryOrderType     InterpolatoryOrderType;
 
       typedef typename Traits::IntersectionImpl IntersectionImpl;
 
@@ -40,7 +42,7 @@ namespace Dune
       CurvIntersectionIterator (LocalIndexType localIndexInside,
     		  InternalIndexType subIndexInside,
     		  GridBaseType & gridbase)
-        : intersection_(localIndexInside, subIndexInside, gridbase)
+        : intersection_( IntersectionImpl(localIndexInside, subIndexInside, gridbase))
       {}
 
       CurvIntersectionIterator ( const CurvIntersectionIterator &other )
@@ -55,7 +57,7 @@ namespace Dune
 
       bool equals ( const CurvIntersectionIterator &other ) const  { return (intersection_ == other.intersection_); }
 
-      void increment ()  { intersection_.next(); }
+      void increment ()  { intersectionImpl().next(); }
 
       const Intersection &dereference () const  { return intersection_; }
 

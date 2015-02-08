@@ -27,6 +27,8 @@ namespace Dune
     class CurvEntityPointer
     {
     	typedef typename remove_const< Grid >::type::Traits Traits;
+    	typedef typename Traits::ctype ctype;
+
     	typedef CurvEntityPointer< codim, Grid > This;
 
     public:
@@ -39,20 +41,19 @@ namespace Dune
         typedef typename Traits::EntitySeed EntitySeed;
         typedef typename Traits::template Codim<codim>::Entity  EntityImpl;
 
-
-        typedef typename Traits::GridBaseType      GridBaseType;
-        typedef typename Traits::IndexSetIterator  IndexSetIterator;
+        typedef Dune::CurvilinearGridBase<ctype,dimension>    GridBaseType;
+        typedef typename GridBaseType::IndexSetIterator       IndexSetIterator;
 
     public:
 
         CurvEntityPointer ( IndexSetIterator & iter, GridBaseType & gridbase, PartitionIteratorType pitype)
-          : entity_(iter, gridbase, pitype)
+          : entity_(EntityImpl(iter, gridbase, pitype))
         {}
 
         CurvEntityPointer ( EntitySeed seed)
         {
         	IndexSetIterator iter = seed.gridBase().entityIndexDuneIterator(codim, seed.partitionType(), seed.localIndex());
-        	entity_ = Entity(iter, seed.gridBase(), seed.partitionType());
+        	entity_ = Entity(EntityImpl(iter, seed.gridBase(), seed.partitionType()));
         }
 
         CurvEntityPointer ( const EntityImpl &entity )

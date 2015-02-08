@@ -13,27 +13,6 @@
 #include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
 
 
-
-
-
-
-  /********
-   *
-   *
-   * [TODO] Move all the typedefs to the traits
-   *
-   * [TODO] Must condition everywhere to return ghost properties when this entity is ghost
-   * [TODO] Implement entity seed
-   *
-   * [TODO] It is currently not allowed to ask GhostElement for its subentityindex. Is that necessary?
-   *
-   */
-
-
-
-
-
-
 namespace Dune
 {
 
@@ -53,12 +32,8 @@ namespace Dune
   protected:
 	  typedef typename Traits::template Codim< codim >::EntitySeed EntitySeed;
 
-	  typedef typename Traits::GridStorageType      GridStorageType;
-	  typedef typename Traits::GridBaseType         GridBaseType;
-
-	  typedef typename Traits::StructuralType       StructuralType;
-
-	  typedef typename Traits::IndexSetIterator     IndexSetIterator;
+	  typedef Dune::CurvilinearGridBase<ctype,dim>          GridBaseType;
+	  typedef typename GridBaseType::IndexSetIterator       IndexSetIterator;
 
   public:
 		/** \name Construction, Initialization and Destruction
@@ -149,9 +124,9 @@ namespace Dune
 
 	    typedef typename Traits::template Codim< codimension >::GeometryImpl GeometryImpl;
 
-	    typedef typename Traits::GridBaseStorage      GridBaseStorage;
-	    typedef typename Traits::GridBaseType         GridBaseType;
-	    typedef typename Traits::IdType               IdType;
+	    typedef Dune::CurvilinearGridStorage<ctype,dim>           GridBaseStorage;
+	    typedef Dune::CurvilinearGridBase<ctype,dim>              GridBaseType;
+	    typedef typename GridBaseStorage::IdType                  IdType;
 
 
 	    typedef CurvEntityBase<codim, dim, GridImp>   Base;
@@ -190,7 +165,7 @@ namespace Dune
 
 
 	    /** \brief obtain geometric realization of the entity */
-	    Geometry geometry () const { return gridbase_.entityGeometry<codim>(*gridbaseIndexIterator_); }
+	    Geometry geometry () const { return Geometry(GeometryImpl(gridbase_.entityGeometry<codim>(*gridbaseIndexIterator_))); }
 
 	    /** \} */
 
@@ -230,20 +205,9 @@ namespace Dune
   class CurvEntity <0, dim, GridImp>
   {
 	  typedef typename remove_const< GridImp >::type::Traits Traits;
+	  typedef typename Traits::ctype ctype;						//! coordinate type of the grid
 
   public:
-
-	  /** \brief The geometry type of this entity */
-	  typedef typename Traits::template Codim< 0 >::Geometry Geometry;
-
-	  //! \brief The corresponding entity seed (for storage of entities)
-	  typedef typename Traits::template Codim< 0 >::EntitySeed EntitySeed;
-
-	  /** \brief The geometry type of this entity when the geometry is expressed embedded in the father element. */
-	  typedef typename Traits::template Codim< 0 >::LocalGeometry LocalGeometry;
-
-	  /** \brief The HierarchicIterator type*/
-	  typedef typename Traits::HierarchicIterator HierarchicIterator;
 
 	  /** \name Attributes
 	   *  \{ */
@@ -253,8 +217,24 @@ namespace Dune
 	  static const int dimensionworld = dim;	//! dimension of the world
 	  /** \} */
 
-	  typedef typename Traits::GridStorageType      GridStorageType;
-	  typedef typename Traits::GridBaseType         GridBaseType;
+
+	  /** \brief The geometry type of this entity */
+	  typedef typename Traits::template Codim< 0 >::Geometry Geometry;
+
+	  typedef typename Traits::template Codim< codimension >::GeometryImpl GeometryImpl;
+
+	  //! \brief The corresponding entity seed (for storage of entities)
+	  typedef typename Traits::template Codim< 0 >::EntitySeed EntitySeed;
+
+	  /** \brief The geometry type of this entity when the geometry is expressed embedded in the father element. */
+	  typedef typename Traits::template Codim< 0 >::LocalGeometry LocalGeometry;
+
+	  /** \brief The HierarchicIterator type*/
+	  typedef typename Traits::HierarchicIterator               HierarchicIterator;
+	  typedef Dune::CurvGrid::CurvHierarchicIterator<GridImp>   HierarchicIteratorImpl;
+
+	  typedef Dune::CurvilinearGridStorage<ctype,dim>           GridBaseStorage;
+	  typedef Dune::CurvilinearGridBase<ctype,dim>              GridBaseType;
 
 	  typedef typename GridBaseType::GlobalIndexType           GlobalIndexType;
 	  typedef typename GridBaseType::LocalIndexType            LocalIndexType;
@@ -298,11 +278,11 @@ namespace Dune
      *  \note The subentities are numbered 0, ..., count< codim >-1
      */
     template< int subcodim >
-    typename Codim< subcodim >::Entity
+    typename Traits::Codim< subcodim >::Entity
     subEntity ( int i ) const
     {
     	int subentityLocalIndex = gridbase_.subentityIndex(*gridbaseIndexIterator_, 0, subcodim, i);
-    	return CurvEntity<dim - subcodim, dim, GridImp>(subentityLocalIndex, gridbase_, pitype_);
+    	return Traits::template Codim< subcodim >::Entity(CurvEntity<dim - subcodim, dim, GridImp>(subentityLocalIndex, gridbase_, pitype_));
     }
 
 
@@ -338,62 +318,29 @@ namespace Dune
     	return false;
     }
 
-    /** \brief Provides information how this element has been subdivided from its
-     *         father element.
-     *
-     *  The returned LocalGeometry is a model of
-     *  Dune::Geometry<dimension,dimension,...>, mapping the reference element of
-     *  the given entity to the reference element of its father.
-     *
-     *  This information is sufficient to interpolate all degrees of freedom in
-     *  the conforming case.
-     *  Nonconforming may require access to neighbors of the father and
-     *  calculations with local coordinates.
-     *  The on-the-fly case is somewhat inefficient since degrees of freedom may be
-     *  visited several times.
-     *  If we store interpolation matrices, this is tolerable.
-     *  We assume that on-the-fly implementation of interpolation is only done for
-     *  simple discretizations.
-     *
-     *  \note For ghost entities, this method is not guaranteed to be implemented.
-     *
-     *  \note Previously, the geometry was encapsulated in the entity object and
-     *        a const reference was returned.
-     *
-     *  \note The returned geometry object is guaranteed to remain valid until the
-     *        grid is modified (or deleted).
-     */
+    /** \brief Provides information how this element has been subdivided from its father element. */
     LocalGeometry geometryInFather () const {
     	DUNE_THROW(NotImplemented, "CurvilinearGrid-Element: method geometryInFather() not implemented, since there is no refinement");
-    	return gridbase_.entityGeometry<0>(*gridbaseIndexIterator_);
+    	return Geometry(GeometryImpl(gridbase_.entityGeometry<0>(*gridbaseIndexIterator_)));
     }
 
-    /**\brief Inter-level access to elements that resulted from (recursive)
-       subdivision of this element.
-
-       \param[in] maxlevel Iterator does not stop at elements with level greater than maxlevel.
-       \return Iterator to the first son (level is not greater than maxlevel)
-
-       \note If the partitionType of the Entity is GhostEntity,
-           it is not guaranteed that this method is working
-           or implemented in general.
-           For some grids it might be available, though.
+    /**\brief Inter-level access to elements that resulted from (recursive) subdivision of this element.
+     *
+     * Since no refinement implemented, reuse LevelIterator iterating only over the base element itself
+     *
      */
     HierarchicIterator hbegin (int maxLevel) const
     {
-    	//[FIXME] Add iterator link when implemented
+
+    	return HierarchicIterator(HierarchicIteratorImpl(
+    			gridbase_.entityDuneIndexBegin(0, PartitionIteratorType::All_Partition), gridbase_)
+    	);
     }
 
-    /** \brief Returns iterator to one past the last son element
-
-       \note If the partitionType of the Entity is GhostEntity,
-             it is not guaranteed that this method is working
-             or implemented in general.
-             For some grids it might be available, though.
-     */
+    /** \brief Returns iterator to one past the last son element */
     HierarchicIterator hend (int maxLevel) const
     {
-    	//[FIXME] Add iterator link when implemented
+    	return ++hbegin(maxLevel);
     }
 
     /**\brief Returns true, if the entity has been created during the last call to adapt()
@@ -415,7 +362,7 @@ namespace Dune
     		LocalIndexType thisFaceIndex = gridbase_.subentityIndex(*gridbaseIndexIterator_, 0, 1, i);
     		StructuralType thisStructType = entityStructuralType<1>(thisFaceIndex);
 
-    		if (thisStructType == GridStorageType::PartitionType::ProcessBoundary)  { return true; }
+    		if (thisStructType == GridBaseStorage::PartitionType::ProcessBoundary)  { return true; }
     	}
 
     	return false;

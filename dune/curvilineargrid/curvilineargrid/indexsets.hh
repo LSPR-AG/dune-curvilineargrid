@@ -26,31 +26,32 @@ namespace Dune
       : public Dune::IndexSet< Grid, CurvIndexSet< Grid>, remove_const< Grid >::type::Traits::LocalIndexType >
     {
     	typedef typename remove_const< Grid >::type::Traits Traits;
+    	typedef typename Traits::ctype ctype;
 
-    	typedef typename Traits::LocalIndexType   LocalIndexType;
+    public:
+      static const int dimension = Traits::dimension;
 
-    	typedef typename Traits::GridBaseType     GridBaseType;
+    private:
+
+        typedef Dune::CurvilinearGridBase<ctype,dimension>    GridBaseType;
+    	typedef typename Traits::GridBaseType   LocalIndexType;
 
 
     	typedef CurvIndexSet< Grid > This;
     	typedef Dune::IndexSet< Grid, This, LocalIndexType > Base;
 
 
-
     public:
-      static const int dimension = Traits::dimension;
+
 
       typedef typename LocalIndexType   IndexType;
 
       CurvIndexSet (GridBaseType & gridbase) : gridbase_(gridbase)
       { }
 
-      CurvIndexSet ( const This &other ) : gridbase_(other.gridBase()) { }
+      CurvIndexSet ( const This &other ) : gridbase_(other.gridbase_) { }
 
       const This &operator= ( const This &other )  { return *this; }
-
-      GridBaseType & gridBase() { return gridbase_; }
-
 
       template< int codim >
       IndexType index ( const typename Traits::template Codim< codim >::Entity &entity ) const

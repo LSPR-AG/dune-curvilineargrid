@@ -7,7 +7,7 @@ namespace Dune
 {
 
   //template< int dim, int dimworld, class Comm = MPI_Comm>
-  template< int dim, int dimworld>
+  template <int dim, int dimworld, class ct>
   class CurvilinearGrid;
 
 

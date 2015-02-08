@@ -40,18 +40,21 @@ namespace Dune
     template<class Grid>
     class Communication
     {
-    	typedef typename Grid::Traits  Traits;
+    	typedef typename remove_const< Grid >::type::Traits Traits;
+    	typedef typename Traits::ctype ctype;
 
-    	typedef typename Traits::LocalIndexType        LocalIndexType;
-    	typedef typename Traits::GlobalIndexType       GlobalIndexType;
+        static const int dimension   = Traits::dimension;
+        static const int codimension = Traits::codimension;
 
-    	typedef typename Traits::StructuralType        StructuralType;
+    	typedef Dune::CurvilinearGridStorage<ctype,dimension>       GridStorageType;
+    	typedef Dune::CurvilinearGridBase<ctype,dimension>          GridBaseType;
 
-    	typedef typename Traits::GridStorageType       GridStorageType;
-    	typedef typename Traits::GridBaseType          GridBaseType;
+    	typedef typename GridBaseType::LocalIndexType        LocalIndexType;
+    	typedef typename GridBaseType::GlobalIndexType       GlobalIndexType;
+    	typedef typename GridBaseType::StructuralType        StructuralType;
 
-    	typedef typename Traits::Local2LocalMap        Local2LocalMap;
-    	typedef typename Traits::Local2LocalIterator   Local2LocalIterator;
+    	typedef typename GridBaseType::Local2LocalMap        Local2LocalMap;
+    	typedef typename GridBaseType::Local2LocalIterator   Local2LocalIterator;
 
 
     	struct InterfaceSubsetType

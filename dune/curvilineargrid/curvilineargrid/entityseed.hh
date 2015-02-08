@@ -19,6 +19,7 @@ namespace Dune
     class CurvEntitySeed
     {
     	typedef typename remove_const< Grid >::type::Traits Traits;
+    	typedef typename Traits::ctype ctype;
 
     public:
       static const int codimension    = codim;
@@ -26,12 +27,8 @@ namespace Dune
       static const int mydimension    = dimension - codimension;
       static const int dimensionworld = Traits::dimensionworld;
 
-	  typedef typename Traits::GridStorageType      GridStorageType;
-	  typedef typename Traits::GridBaseType         GridBaseType;
-
-
-      typedef typename Traits::GlobalIndexType           GlobalIndexType;
-      typedef typename Traits::LocalIndexType            LocalIndexType;
+      typedef Dune::CurvilinearGridBase<ctype,dimension>    GridBaseType;
+      typedef typename GridBaseType::LocalIndexType         LocalIndexType;
 
       //! default construct an invalid entity seed
       CurvEntitySeed (LocalIndexType index, Dune::PartitionType pitype, GridBaseType & gridbase)

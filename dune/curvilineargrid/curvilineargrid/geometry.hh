@@ -28,13 +28,14 @@ namespace Dune
       typedef CurvGeometry< mydim, cdim, Grid > This;
 
       typedef typename remove_const< Grid >::type::Traits Traits;
+      typedef typename Traits::ctype ctype;
 
       //template< int, int, class > friend class Geometry;
 
     public:
-      typedef typename Traits::ctype ctype;
-      typedef typename Traits::InternalIndexType         InternalIndexType;
-      typedef typename Traits::InterpolatoryOrderType    InterpolatoryOrderType;
+      typedef Dune::CurvilinearGridBase<ctype,cdim>          GridBaseType;
+      typedef typename GridBaseType::InternalIndexType         InternalIndexType;
+      typedef typename GridBaseType::InterpolatoryOrderType    InterpolatoryOrderType;
 
       static const int mydimension = mydim;
       static const int coorddimension = cdim;
@@ -69,7 +70,7 @@ namespace Dune
           assert( int( type.dim() ) == mydimension );
       }
 
-      CurvGeometry (BasicMapping & mapping ) : mapping_ ( mapping )  { }
+      CurvGeometry ( const BasicMapping & mapping ) : mapping_ ( mapping )  { }
 
       CurvGeometry ( const This &other ) : mapping_( other.mapping_ )  { }
 

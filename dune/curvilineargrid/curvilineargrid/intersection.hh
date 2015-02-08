@@ -23,7 +23,7 @@ namespace Dune
     class CurvIntersection
     {
 
-    	typedef typename remove_const< Grid >::type::Traits Traits;
+      typedef typename remove_const< Grid >::type::Traits Traits;
 
     public:
       typedef typename Traits::ctype ctype;
@@ -31,8 +31,8 @@ namespace Dune
       static const int dimension = Traits::dimension;
       static const int dimensionworld = Traits::dimensionworld;
 
-      typedef typename Traits::GridStorageType    GridStorageType;
-      typedef typename Traits::GridBaseType       GridBaseType;
+      typedef Dune::CurvilinearGridStorage<ctype,dimension>    GridStorageType;
+      typedef Dune::CurvilinearGridBase<ctype,dimension>       GridBaseType;
 
       // Codimensions of entity types for better code readability
       static const int   VERTEX_CODIM   = GridStorageType::VERTEX_CODIM;
@@ -40,12 +40,12 @@ namespace Dune
       static const int   FACE_CODIM     = GridStorageType::FACE_CODIM;
       static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
-      typedef typename Traits::LocalIndexType             LocalIndexType;
-      typedef typename Traits::InternalIndexType          InternalIndexType;
-      typedef typename Traits::StructuralType             StructuralType;
-      typedef typename Traits::InterpolatoryOrderType     InterpolatoryOrderType;
+      typedef typename GridBaseType::LocalIndexType             LocalIndexType;
+      typedef typename GridBaseType::InternalIndexType          InternalIndexType;
+      typedef typename GridBaseType::StructuralType             StructuralType;
+      typedef typename GridBaseType::InterpolatoryOrderType     InterpolatoryOrderType;
 
-      typedef typename Traits::IndexSetIterator   IndexSetIterator;
+      typedef typename GridBaseType::IndexSetIterator   IndexSetIterator;
 
 
 
@@ -82,6 +82,7 @@ namespace Dune
     	  gridbase_(gridbase)
       {
     	  localFaceIndex_ = gridbase.subentityLocalIndex (localIndexInside, 0, 1, subIndexInside);
+    	  insideGeo_ = LocalNeighborGeometry(localIndexInside_, subIndexInside_);
 
     	  computeOutside();
       }
@@ -119,13 +120,13 @@ namespace Dune
       EntityPointer inside () const
       {
     	  IndexSetIterator thisIter = gridbase_.entityIndexIterator(ELEMENT_CODIM, localIndexInside_);
-    	  return EntityPointerImpl(thisIter, gridbase_);
+    	  return EntityPointer(EntityPointerImpl(thisIter, gridbase_));
       }
 
       EntityPointer outside () const
       {
     	  IndexSetIterator thisIter = gridbase_.entityIndexIterator(ELEMENT_CODIM, localIndexOutside_);
-    	  return EntityPointerImpl(thisIter, gridbase_);
+    	  return EntityPointer(EntityPointerImpl(thisIter, gridbase_));
       }
 
       // By dune-convention, domain and periodic boundaries are considered boundaries
@@ -159,14 +160,12 @@ namespace Dune
 
       // Geometry of the intersection from within the inside element
       LocalGeometry geometryInInside () const  {
-    	  Dune::GeometryType gt = gridbase_.entityGeometryType(ELEMENT_CODIM, localIndexInside_);
-    	  return Geometry(type(), refCoord(gt, subIndexInside_), LINEAR_ELEMENT_ORDER);
+    	  return Geometry(insideGeo_);
       }
 
       // Geometry of the intersection from within the outside element
       LocalGeometry geometryInOutside () const  {
-    	  Dune::GeometryType gt = gridbase_.entityGeometryType(ELEMENT_CODIM, localIndexOutside_);
-    	  return Geometry(type(), refCoord(gt, subIndexOutside_), LINEAR_ELEMENT_ORDER);
+    	  return Geometry(LocalNeighborGeometry(localIndexOutside_, subIndexOutside_));
       }
 
       // Geometry of this face
@@ -266,6 +265,13 @@ namespace Dune
     		  }
     		  iFace++;
     	  }
+      }
+
+
+      GeometryImpl LocalNeighborGeometry(LocalIndexType neighborIndex, InternalIndexType subentityIndex)
+      {
+    	  Dune::GeometryType gt = gridbase_.entityGeometryType(ELEMENT_CODIM, neighborIndex);
+    	  return GeometryImpl(type(), refCoord(gt, subentityIndex), LINEAR_ELEMENT_ORDER);
       }
 
       // Creates coordinates of a linear intersection as one of the faces of the reference element

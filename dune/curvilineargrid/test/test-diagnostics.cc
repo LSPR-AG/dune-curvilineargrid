@@ -54,7 +54,7 @@ int main(int argc, char** argv)
 
 
     // Assemble the file name
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD1;
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD4;
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
     typedef Dune::CurvilinearFakeGrid<3,3,double>  SimplexGridType;

@@ -1,12 +1,12 @@
 // -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=4 sw=2 sts=2:
 
-#ifndef DUNE_CURVGRID_GRIDFACTORY_HH
-#define DUNE_CURVGRID_GRIDFACTORY_HH
+#ifndef DUNE_CURVGRID_GRIDBASEFACTORY_HH
+#define DUNE_CURVGRID_GRIDBASEFACTORY_HH
 
 /** \file
  *  \author Aleksejs Fomins
- *  \brief  Implementation of Curvilinear Grid Factory
+ *  \brief  Implementation of Curvilinear Grid Base Factory
  */
 
 #include <config.h>
@@ -31,14 +31,6 @@
 #include <dune/geometry/referenceelements.hh>
 
 #include <dune/grid/common/gridfactory.hh>
-#include <dune/grid/common/boundaryprojection.hh>
-
-//#include <dune/grid/utility/globalindex.hh>
-
-//#include <dune/alugrid/common/transformation.hh>
-//#include <dune/alugrid/3d/alugrid.hh>
-//#include <dune/alugrid/3d/gridfactory.hh>
-//#include <dune/alugrid/3d/gridfactory.cc>
 
 #include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
@@ -70,7 +62,7 @@ public:
 
 
 template< class GridType >
-class CurvilinearGridFactory
+class CurvilinearGridBaseFactory
 {
   private:
 
@@ -102,7 +94,7 @@ class CurvilinearGridFactory
 
   public:
 
-    CurvilinearGridFactory(
+    CurvilinearGridBaseFactory(
     		bool withGhostElements,
     		bool verbose,
     		bool processVerbose,
@@ -116,7 +108,7 @@ class CurvilinearGridFactory
     	size_ = mpihelper.size();
     }
 
-    ~CurvilinearGridFactory ()  {}
+    ~CurvilinearGridBaseFactory ()  {}
 
     void insertVertex ( const VertexCoordinate &pos, const VertexGlobalId globalId )
     {
@@ -150,22 +142,6 @@ class CurvilinearGridFactory
     	return gridbase_;
     }
 
-
-  private:
-
-    // Converts an arbitrary vector into string by sticking all of the entries together
-    // Whitespace separated
-    template <class T>
-    std::string vector2string(const T & V)
-    {
-        std::string tmp_str;
-        for (int i = 0; i < V.size(); i++) { tmp_str += std::to_string(V[i]) + " "; }
-        return tmp_str;
-    }
-
-
-
-
     // Variables
     // -----------------------------------------------------------
   private:
@@ -179,4 +155,4 @@ class CurvilinearGridFactory
 } // End of Namespace Dune
 
 
-#endif // #ifndef DUNE_CURVGRID_GRIDFACTORY_HH
+#endif // #ifndef DUNE_CURVGRID_GRIDBASEFACTORY_HH

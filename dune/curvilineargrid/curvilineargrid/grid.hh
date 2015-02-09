@@ -180,8 +180,8 @@ namespace Dune
      *
      *  [FIXME] Must initialize levelIndexSets_
      */
-    CurvilinearGrid (bool withGhostElements, bool verbose, bool processVerbose, MPIHelper &mpihelper)
-      : gridbase_(withGhostElements, verbose, processVerbose, mpihelper),
+    CurvilinearGrid (GridBaseType & gridbase, MPIHelper &mpihelper)
+      : gridbase_(gridbase),
         mpihelper_(mpihelper)
     {}
 

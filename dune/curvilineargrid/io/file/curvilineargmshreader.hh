@@ -49,7 +49,7 @@
 #include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/common/vectorhelper.hh>
 
-#include <dune/curvilineargrid/curvilineargrid/curvilineargridfactory.hh>
+#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbasefactory.hh>
 #include <dune/curvilineargrid/io/file/curvilinearvtkwriter.hh>
 
 #include <parmetis.h>
@@ -74,7 +74,7 @@ namespace Dune
 
 
   //! dimension independent parts for CurvilinearGmshReaderParser
-  template<typename GridType>
+  template<typename GridType, typename FactoryType>
   class CurvilinearGmshReaderParser
   {
   protected:
@@ -1124,7 +1124,7 @@ namespace Dune
   public:
 
     CurvilinearGmshReaderParser(
-    	Dune::CurvilinearGridFactory<GridType> & _factory,
+    	FactoryType & _factory,
     	bool verbose,
     	bool processVerbose,
     	bool insertBoundarySegment,
@@ -1364,7 +1364,7 @@ namespace Dune
 
     // Grid Factory
     //Dune::GridFactory<GridType>& factory;
-    Dune::CurvilinearGridFactory<GridType> & factory;
+    Dune::CurvilinearGridBaseFactory<GridType> & factory;
 
     // Reading file
     std::string fileName;
@@ -1427,7 +1427,8 @@ namespace Dune
     /** \brief Reads .GMSH grid, factory provided as argument
      *  Also receives physical_tag vector for both internal and boundary elements
      * */
-    static void read (Dune::CurvilinearGridFactory<Grid> & factory,
+    template <typename FactoryType>
+    static void read (FactoryType & factory,
                       const std::string& fileName,
                       MPIHelper &mpihelper,
                       std::vector<int>& boundaryElement2PhysicalEntityIndex,
@@ -1441,7 +1442,7 @@ namespace Dune
                      )
     {
         // create parse object
-        CurvilinearGmshReaderParser<Grid> parser(factory,verbose, processVerbose, insertBoundarySegment, writeVTKFile, mpihelper);
+        CurvilinearGmshReaderParser<Grid, FactoryType> parser(factory,verbose, processVerbose, insertBoundarySegment, writeVTKFile, mpihelper);
         parser.read(fileName);
 
         boundaryElement2PhysicalEntityIndex.swap(parser.boundaryIdMap());

@@ -58,6 +58,15 @@
 namespace Dune {
 
 
+// Forward declaration
+template <class ct, int cdim>
+class CurvilinearGridStorage;
+
+template <class ct, int cdim>
+class CurvilinearGridBase;
+
+
+
 template <class ct, int cdim>
 class CurvilinearPostConstructor {
 public:

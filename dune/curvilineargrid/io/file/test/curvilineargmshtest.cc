@@ -137,7 +137,7 @@ int main(int argc, char** argv)
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridFactory<SimplexGridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
+    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
 
 
     /** \brief open the GMSH formatted tetrahedral mesh file into a grid factory */

@@ -29,6 +29,7 @@
 
 #include <limits>
 #include <map>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -56,6 +57,11 @@
 
 
 namespace Dune {
+
+
+// Forward declaration
+template<class ct, int cdim>
+class CurvilinearGridStorage;
 
 
 template <class ct, int cdim>

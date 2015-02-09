@@ -25,7 +25,7 @@ namespace Dune
 
         // Retrieves data from storage
         // if (readpos_ > buff_.size())  { THROW ERROR; }
-        void read(DataType & val) const   { val = buff_[readpos_++]; }
+        void read(DataType & val)    { val = buff_[readpos_++]; }
 
     private:
     	int readpos_;

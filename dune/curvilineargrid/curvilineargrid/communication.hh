@@ -146,20 +146,20 @@ namespace Dune
     	{
     		switch (structtype)
     		{
-    		case Dune::CurvilinearGridStorage::PartitionType::Internal           :  return Dune::PartitionType::InteriorEntity;  break;
-    		case Dune::CurvilinearGridStorage::PartitionType::DomainBoundary     :  return Dune::PartitionType::InteriorEntity;  break;
-    		case Dune::CurvilinearGridStorage::PartitionType::ProcessBoundary    :  return Dune::PartitionType::BorderEntity;    break;
-    		//case Dune::CurvilinearGridStorage::PartitionType::InternalBoundary   :  return Dune::PartitionType::InteriorEntity;  break;
-    		case Dune::CurvilinearGridStorage::PartitionType::FrontBoundary      :  return Dune::PartitionType::FrontEntity;     break;
-    		case Dune::CurvilinearGridStorage::PartitionType::Ghost              :  return Dune::PartitionType::GhostEntity;     break;
-    		case Dune::CurvilinearGridStorage::PartitionType::Overlap            :  return Dune::PartitionType::OverlapEntity;   break;
+    		case GridStorageType::PartitionType::Internal           :  return Dune::PartitionType::InteriorEntity;  break;
+    		case GridStorageType::PartitionType::DomainBoundary     :  return Dune::PartitionType::InteriorEntity;  break;
+    		case GridStorageType::PartitionType::ProcessBoundary    :  return Dune::PartitionType::BorderEntity;    break;
+    		//case GridStorageType::PartitionType::InternalBoundary   :  return Dune::PartitionType::InteriorEntity;  break;
+    		case GridStorageType::PartitionType::FrontBoundary      :  return Dune::PartitionType::FrontEntity;     break;
+    		case GridStorageType::PartitionType::Ghost              :  return Dune::PartitionType::GhostEntity;     break;
+    		case GridStorageType::PartitionType::Overlap            :  return Dune::PartitionType::OverlapEntity;   break;
     		}
     	}
 
 
     	bool allowedInterfaceSubset(InterfaceType iftype, CommunicationDirection dir, InterfaceSubType istype)
     	{
-    		if (InterfaceType == Dune::InteriorBorder_InteriorBorder_Interface)
+    		if (iftype == Dune::InteriorBorder_InteriorBorder_Interface)
     		{
     			return (istype == InterfaceSubsetType::ProcessBoundary_ProcessBoundary);
     		}
@@ -204,7 +204,7 @@ namespace Dune
     	)
     	{
     		typedef typename DataHandle::DataType DataType;             // Type of data to be communicated
-    		typedef typename Traits::Codim<codim>::Entity  EntityType;  // Type of the entity
+    		typedef typename Traits::template Codim<codim>::Entity  EntityType;  // Type of the entity
 
     		Dune::CurvGrid::AllCommunication allcommunicate(mpihelper_);
 

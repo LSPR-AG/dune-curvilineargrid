@@ -53,11 +53,14 @@ namespace Dune
 	    typedef CollectiveCommunication<No_Comm> CCType;
 #endif
 
-	    typedef typename Dune::CurvilinearGridStorage<ct, dimworld>::IdType CurvIdType;
+
+	    typedef Dune::CurvilinearGrid<dim, dimworld, ct>  GridType;
+	    typedef typename Dune::CurvilinearGridStorage<ct, dimworld>::LocalIndexType  LocalIndexType;
+	    typedef typename Dune::CurvilinearGridStorage<ct, dimworld>::IdType          CurvIdType;
 
 	    typedef GridTraits<dim,                                     // dimension of the grid
 	        dimworld,                                               // dimension of the world space
-	        Dune::CurvilinearGrid<dim, dimworld, ct>,
+	        GridType,
 	        CurvGeometry,
 	        CurvEntity,
 	        CurvEntityPointer,
@@ -68,11 +71,11 @@ namespace Dune
 	        CurvIntersectionIterator,              // level intersection iter
 	        CurvHierarchicIterator,
 	        CurvLevelIterator,                                      // type used for the leaf(!) iterator
-	        CurvIndexSet,                  // level index set
-	        CurvIndexSet,                  // leaf index set
-	        CurvIdSet,
+	        CurvIndexSet<GridType>,                  // level index set
+	        CurvIndexSet<GridType>,                  // leaf index set
+	        CurvIdSet<GridType>,
 	        CurvIdType,
-	        CurvIdSet,
+	        CurvIdSet<GridType>,
 	        CurvIdType,
 	        CCType,
 	        DefaultLevelGridViewTraits,
@@ -99,15 +102,15 @@ namespace Dune
 
 
   template <int dim, int dimworld, class ct>
-  class CurvilinearGrid: public GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGrid::GridFamily< dim, dimworld, ct > >
+  class CurvilinearGrid: public GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGridFamily< dim, dimworld, ct > >
       /** \endcond */
   {
     typedef CurvilinearGrid<dim, dimworld, ct> Grid;
-    typedef GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGrid::GridFamily< dim, dimworld, ct > > Base;
+    typedef GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGridFamily< dim, dimworld, ct > > Base;
 
   public:
 
-    typedef Dune::CurvGrid::GridFamily< dim, dimworld, ct > GridFamily;
+    typedef Dune::CurvGridFamily< dim, dimworld, ct > GridFamily;
     typedef typename GridFamily::Traits Traits;                               //! type of the grid traits
 
     // Curvilinear Grid Implementation

@@ -18,19 +18,18 @@ namespace Dune
 
     template< class Grid >
     class CurvIdSet
-      : public Dune::IdSet< Grid, CurvIdSet< Grid >, typename Dune::CurvilinearGridBase::IdType >
+      : public Dune::IdSet< Grid, CurvIdSet< Grid >, typename remove_const< Grid >::type::Traits::CurvIdType >
     {
 
-      typedef CurvIdSet< Grid > This;
-      typedef Dune::IdSet< Grid, This, typename Dune::CurvilinearGridBase::IdType > Base;
-
       typedef typename remove_const< Grid >::type::Traits Traits;
-	  typedef typename Traits::ctype ctype;						//! coordinate type of the grid
+  	  typedef typename Traits::ctype ctype;						//! coordinate type of the grid
 
-	  static const int dimensionworld = Traits::dimensionworld;		//! dimension of the world
+
+      typedef CurvIdSet< Grid > This;
+      typedef Dune::IdSet< Grid, This, typename Traits::CurvIdType > Base;
 
     public:
-      typedef Dune::CurvilinearGridBase<ctype, dimensionworld>::IdType  IdType;
+	  typedef typename Traits::CurvIdType      IdType;
 
 
       using Base::subId;

@@ -23,7 +23,7 @@ namespace Dune
 
     template<class Grid>
     class CurvIndexSet
-      : public Dune::IndexSet< Grid, CurvIndexSet< Grid>, remove_const< Grid >::type::Traits::LocalIndexType >
+      : public Dune::IndexSet< Grid, CurvIndexSet< Grid>, typename remove_const< Grid >::type::Traits::LocalIndexType >
     {
     	typedef typename remove_const< Grid >::type::Traits Traits;
     	typedef typename Traits::ctype ctype;
@@ -34,7 +34,7 @@ namespace Dune
     private:
 
         typedef Dune::CurvilinearGridBase<ctype,dimension>    GridBaseType;
-    	typedef typename Traits::GridBaseType   LocalIndexType;
+    	typedef typename GridBaseType::LocalIndexType         LocalIndexType;
 
 
     	typedef CurvIndexSet< Grid > This;
@@ -44,7 +44,7 @@ namespace Dune
     public:
 
 
-      typedef typename LocalIndexType   IndexType;
+      typedef LocalIndexType   IndexType;
 
       CurvIndexSet (GridBaseType & gridbase) : gridbase_(gridbase)
       { }
@@ -60,9 +60,9 @@ namespace Dune
       }
 
       template< int codim >
-      IndexType subIndex ( const typename Traits::template Codim< codim >::Entity &entity, int i, unsigned int codim ) const
+      IndexType subIndex ( const typename Traits::template Codim< codim >::Entity &entity, int i, unsigned int subcodim ) const
       {
-        return Grid::getRealImplementation( entity ).subIndex( i, codim );
+        return Grid::getRealImplementation( entity ).subIndex( i, subcodim );
       }
 
 

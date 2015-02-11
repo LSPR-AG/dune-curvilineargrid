@@ -132,7 +132,7 @@ namespace Dune
       // By dune-convention, domain and periodic boundaries are considered boundaries
       bool boundary () const {
     	  StructuralType structtype = gridbase_.entityStructuralType(FACE_CODIM, localFaceIndex_);
-    	  return (structtype == Dune::CurvilinearGridStorage::PartitionType::DomainBoundary);
+    	  return (structtype == GridStorageType::PartitionType::DomainBoundary);
       }
 
 
@@ -140,13 +140,13 @@ namespace Dune
       bool conforming () const { return true; }
 
 
-      // By dune-convention, everything has a neighbor, except domain boundaries, and (process boundaries in serial case)
+      // By dune-convention, everything has a neighbour, except domain boundaries, and (process boundaries in serial case)
       bool neighbor () const
       {
     	  StructuralType structtype = gridbase_.entityStructuralType(FACE_CODIM, localFaceIndex_);
 
-    	  if (structtype == Dune::CurvilinearGridStorage::PartitionType::DomainBoundary)  { return false; }
-    	  if (structtype == Dune::CurvilinearGridStorage::PartitionType::ProcessBoundary) { return !gridbase_.isSerial(); }
+    	  if (structtype == GridStorageType::PartitionType::DomainBoundary)  { return false; }
+    	  if (structtype == GridStorageType::PartitionType::ProcessBoundary) { return !gridbase_.isSerial(); }
 
     	  return true;
       }

@@ -18,11 +18,8 @@ namespace Dune
     class CurvLevelIterator : public CurvEntityPointer< codim, Grid >
     {
         typedef CurvEntityPointer< codim, Grid > Base;
-
-    protected:
-
-        using Base::GridBaseType;
-        using Base::IndexSetIterator;
+        typedef typename Base::GridBaseType      GridBaseType;
+        typedef typename Base::IndexSetIterator  IndexSetIterator;
 
     public:
         CurvLevelIterator (IndexSetIterator & iter, GridBaseType & gridbase)
@@ -44,12 +41,9 @@ namespace Dune
     template<class Grid >
     class CurvHierarchicIterator  : public CurvEntityPointer< 0, Grid >
     {
-    	typedef CurvEntityPointer< 0, Grid > Base;
-
-    protected:
-
-        using Base::GridBaseType;
-        using Base::IndexSetIterator;
+        typedef CurvEntityPointer< 0, Grid > Base;
+        typedef typename Base::GridBaseType      GridBaseType;
+        typedef typename Base::IndexSetIterator  IndexSetIterator;
 
     public:
         CurvHierarchicIterator (IndexSetIterator & iter, GridBaseType & gridbase)

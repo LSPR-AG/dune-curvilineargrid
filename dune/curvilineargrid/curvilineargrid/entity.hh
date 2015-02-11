@@ -20,6 +20,12 @@ namespace Dune
   {
 
 
+  // Forwards-Declaration
+  template<class Grid >
+  class CurvHierarchicIterator;
+
+
+
 
   template<int codim, int dim, class GridImp>
   class CurvEntityBase
@@ -127,6 +133,7 @@ namespace Dune
 	    typedef Dune::CurvilinearGridStorage<ctype,dim>           GridBaseStorage;
 	    typedef Dune::CurvilinearGridBase<ctype,dim>              GridBaseType;
 	    typedef typename GridBaseStorage::IdType                  IdType;
+	    typedef typename GridBaseType::StructuralType             StructuralType;
 
 
 	    typedef CurvEntityBase<codim, dim, GridImp>   Base;
@@ -278,7 +285,7 @@ namespace Dune
      *  \note The subentities are numbered 0, ..., count< codim >-1
      */
     template< int subcodim >
-    typename Traits::Codim< subcodim >::Entity
+    typename Traits::template Codim< subcodim >::Entity
     subEntity ( int i ) const
     {
     	int subentityLocalIndex = gridbase_.subentityIndex(*gridbaseIndexIterator_, 0, subcodim, i);
@@ -353,16 +360,16 @@ namespace Dune
      */
     bool mightVanish () const { return false; }
 
-    /**\brief Returns true, if entity has intersections with boundary
+    /**\brief Returns true, if entity has intersections with the domain (or periodic) boundary
      */
     bool hasBoundaryIntersections () const
     {
     	for (InternalIndexType i = 0; i < 4; i++)
     	{
     		LocalIndexType thisFaceIndex = gridbase_.subentityIndex(*gridbaseIndexIterator_, 0, 1, i);
-    		StructuralType thisStructType = entityStructuralType<1>(thisFaceIndex);
+    		StructuralType thisStructType = gridbase_.entityStructuralType<1>(thisFaceIndex);
 
-    		if (thisStructType == GridBaseStorage::PartitionType::ProcessBoundary)  { return true; }
+    		if (thisStructType == GridBaseStorage::PartitionType::DomainBoundary)  { return true; }
     	}
 
     	return false;

@@ -12,6 +12,8 @@
 #include <dune/curvilineargrid/curvilineargrid/grid.hh>
 #include <dune/curvilineargrid/curvilineargrid/factory.hh>
 
+#include <dune/curvilineargrid/io/file/curvilineargmshreader.hh>
+
 #include <dune/grid/test/gridcheck.cc>
 #include <dune/grid/test/checkcommunicate.cc>
 #include <dune/grid/test/checkgeometryinfather.cc>
@@ -26,7 +28,7 @@ struct CurvFactory
 {
   typedef Dune::CurvilinearGrid<cdim, cdim, ctype> GridType;
 
-  static GridType buildGrid(Dune::MPIHelper & mpihelper)
+  static GridType * buildGrid(Dune::MPIHelper & mpihelper)
   {
     std::cout << " using curvgrid 32 with order " << order << std::endl << std::endl;
 
@@ -76,12 +78,12 @@ void check_grid(Dune::CurvilinearGrid<cdim, cdim, ctype> & grid) {
 
   gridcheck(grid);
 
-  checkIterators ( grid->leafGridView() );
-  checkIterators ( grid->levelGridView(0) );
+  checkIterators ( grid.leafGridView() );
+  checkIterators ( grid.levelGridView(0) );
 
   // check communication interface
   checkCommunication(grid, -1, Dune::dvverb);
-  for(int l=0; l<=grid->maxLevel(); ++l)  { checkCommunication(*grid,l,Dune::dvverb); }
+  for(int l=0; l<=grid.maxLevel(); ++l)  { checkCommunication(grid,l,Dune::dvverb); }
 
   // check geometry lifetime
   checkGeometryLifetime( grid.leafGridView() );
@@ -103,28 +105,34 @@ int main (int argc , char **argv) {
 	typedef Dune::CurvilinearGrid<3, 3, double> GridType;
 
 	{
-		GridType grid32ord1 = CurvFactory<double, 3, 1>::buildGrid(mpihelper);
-		check_grid(grid32ord1);
+		GridType * grid32ord1 = CurvFactory<double, 3, 1>::buildGrid(mpihelper);
+		check_grid(*grid32ord1);
+		delete grid32ord1;
+
 	}
 
 	{
-		GridType grid32ord1 = CurvFactory<double, 3, 2>::buildGrid(mpihelper);
-		check_grid(grid32ord2);
+		GridType * grid32ord2 = CurvFactory<double, 3, 2>::buildGrid(mpihelper);
+		check_grid(*grid32ord2);
+		delete grid32ord2;
 	}
 
 	{
-		GridType grid32ord1 = CurvFactory<double, 3, 3>::buildGrid(mpihelper);
-		check_grid(grid32ord3);
+		GridType * grid32ord3 = CurvFactory<double, 3, 3>::buildGrid(mpihelper);
+		check_grid(*grid32ord3);
+		delete grid32ord3;
 	}
 
 	{
-		GridType grid32ord1 = CurvFactory<double, 3, 4>::buildGrid(mpihelper);
-		check_grid(grid32ord4);
+		GridType * grid32ord4 = CurvFactory<double, 3, 4>::buildGrid(mpihelper);
+		check_grid(*grid32ord4);
+		delete grid32ord4;
 	}
 
 	{
-		GridType grid32ord1 = CurvFactory<double, 3, 5>::buildGrid(mpihelper);
-		check_grid(grid32ord5);
+		GridType * grid32ord5 = CurvFactory<double, 3, 5>::buildGrid(mpihelper);
+		check_grid(*grid32ord5);
+		delete grid32ord5;
 	}
 
 

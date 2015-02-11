@@ -27,16 +27,16 @@ namespace Dune
 
 
 
-  template<int codim, int dim, class GridImp>
+  template<int codim, int dim, class Grid>
   class CurvEntityBase
   {
   public:
-	  typedef typename remove_const< GridImp >::type::Traits Traits;
+	  typedef typename remove_const< Grid >::type::Traits Traits;
 
-	  typedef typename Traits::ctype ctype;
+	  typedef typename remove_const< Grid >::type::ctype ctype;
 
   protected:
-	  typedef typename Traits::template Codim< codim >::EntitySeed EntitySeed;
+	  typedef typename Traits::template Codim< codim >::EntitySeed  EntitySeed;
 
 	  typedef Dune::CurvilinearGridBase<ctype,dim>          GridBaseType;
 	  typedef typename GridBaseType::IndexSetIterator       IndexSetIterator;
@@ -106,26 +106,26 @@ namespace Dune
 
 
 
-  template<int codim, int dim, class GridImp>
-  class CurvEntity : CurvEntityBase<codim, dim, GridImp>
+  template<int codim, int dim, class Grid>
+  class CurvEntity : CurvEntityBase<codim, dim, Grid>
   {
-	    typedef typename remove_const< GridImp >::type::Traits Traits;
+	    typedef typename remove_const< Grid >::type::Traits Traits;
 
   public:
 	    /** \name Attributes
 	     *  \{ */
 
-	    static const int codimension = codim;				//! codimensioon of the entity
-	    static const int dimension = Traits::dimension;			//! dimension of the grid
-	    static const int mydimension = dimension - codimension;		//! dimension of the entity
-	    static const int dimensionworld = Traits::dimensionworld;		//! dimension of the world
+	    static const int codimension     = codim;				                         //! codimensioon of the entity
+	    static const int dimension       = remove_const< Grid >::type::dimension;		 //! dimension of the grid
+	    static const int mydimension     = dimension - codimension;		                 //! dimension of the entity
+	    static const int dimensionworld  = remove_const< Grid >::type::dimensionworld;   //! dimension of the world
 
 	    /** \} */
 
 	    /** \name Types Required by DUNE
 	     *  \{ */
-	    typedef typename Traits::ctype ctype;						//! coordinate type of the grid
-	    typedef typename Traits::template Codim< codimension >::Geometry Geometry;	//! type of corresponding geometry
+	    typedef typename remove_const< Grid >::type::ctype ctype;						//! coordinate type of the grid
+	    typedef typename Traits::template Codim< codimension >::Geometry Geometry;	    //! type of corresponding geometry
 	    /** \} */
 
 	    typedef typename Traits::template Codim< codimension >::GeometryImpl GeometryImpl;
@@ -136,7 +136,7 @@ namespace Dune
 	    typedef typename GridBaseType::StructuralType             StructuralType;
 
 
-	    typedef CurvEntityBase<codim, dim, GridImp>   Base;
+	    typedef CurvEntityBase<codim, dim, Grid>   Base;
 
 	    using Base::gridbaseIndexIterator_;
 	    using Base::gridbase_;
@@ -208,11 +208,11 @@ namespace Dune
 
 
 
-  template<int dim, class GridImp>
-  class CurvEntity <0, dim, GridImp>
+  template<int dim, class Grid>
+  class CurvEntity <0, dim, Grid> : CurvEntityBase<0, dim, Grid>
   {
-	  typedef typename remove_const< GridImp >::type::Traits Traits;
-	  typedef typename Traits::ctype ctype;						//! coordinate type of the grid
+	  typedef typename remove_const< Grid >::type::Traits  Traits;
+	  typedef typename remove_const< Grid >::type::ctype   ctype;						//! coordinate type of the grid
 
   public:
 
@@ -238,7 +238,7 @@ namespace Dune
 
 	  /** \brief The HierarchicIterator type*/
 	  typedef typename Traits::HierarchicIterator               HierarchicIterator;
-	  typedef Dune::CurvGrid::CurvHierarchicIterator<GridImp>   HierarchicIteratorImpl;
+	  typedef Dune::CurvGrid::CurvHierarchicIterator<Grid>   HierarchicIteratorImpl;
 
 	  typedef Dune::CurvilinearGridStorage<ctype,dim>           GridBaseStorage;
 	  typedef Dune::CurvilinearGridBase<ctype,dim>              GridBaseType;
@@ -251,7 +251,7 @@ namespace Dune
 	  typedef typename GridBaseType::InterpolatoryOrderType    InterpolatoryOrderType;
 
 
-	  typedef CurvEntityBase<0, dim, GridImp>                  Base;
+	  typedef CurvEntityBase<0, dim, Grid>                  Base;
 	  using Base::gridbaseIndexIterator_;
 	  using Base::pitype_;
 	  using Base::gridbase_;
@@ -289,7 +289,7 @@ namespace Dune
     subEntity ( int i ) const
     {
     	int subentityLocalIndex = gridbase_.subentityIndex(*gridbaseIndexIterator_, 0, subcodim, i);
-    	return Traits::template Codim< subcodim >::Entity(CurvEntity<dim - subcodim, dim, GridImp>(subentityLocalIndex, gridbase_, pitype_));
+    	return Traits::template Codim< subcodim >::Entity(CurvEntity<dim - subcodim, dim, Grid>(subentityLocalIndex, gridbase_, pitype_));
     }
 
 
@@ -302,7 +302,7 @@ namespace Dune
              or implemented in general.
              For some grids it might be available, though.
      */
-    CurvEntity<0, dim, GridImp> father () const
+    CurvEntity<0, dim, Grid> father () const
     {
     	DUNE_THROW(NotImplemented, "CurvilinearGrid-Element: method father() not implemented, since there is no refinement");
     	return *this;

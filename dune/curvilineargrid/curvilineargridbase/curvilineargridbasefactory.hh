@@ -99,11 +99,12 @@ class CurvilinearGridBaseFactory
     		bool verbose,
     		bool processVerbose,
     		MPIHelper &mpihelper) :
-    			gridbase_(withGhostElements, verbose, processVerbose, mpihelper),
     			verbose_(verbose),
     			processVerbose_(processVerbose),
     			mpihelper_(mpihelper)
     {
+    	gridbase_ = new GridBaseType(withGhostElements, verbose, processVerbose, mpihelper);
+
     	rank_ = mpihelper.rank();
     	size_ = mpihelper.size();
     }
@@ -112,7 +113,7 @@ class CurvilinearGridBaseFactory
 
     void insertVertex ( const VertexCoordinate &pos, const VertexGlobalId globalId )
     {
-    	gridbase_.insertVertex(pos, globalId);
+    	gridbase_->insertVertex(pos, globalId);
     }
 
     void insertElement(
@@ -122,7 +123,7 @@ class CurvilinearGridBaseFactory
       const int elemOrder,
       const int physicalTag)
     {
-    	gridbase_.insertElement(geometry, globalId, vertexIndexSet, elemOrder, physicalTag);
+    	gridbase_->insertElement(geometry, globalId, vertexIndexSet, elemOrder, physicalTag);
     }
 
     void insertBoundarySegment(
@@ -133,12 +134,12 @@ class CurvilinearGridBaseFactory
         const ElementLocalIndex associatedElementIndex,
         const int physicalTag)
     {
-    	gridbase_.insertBoundarySegment(geometry, globalId, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag);
+    	gridbase_->insertBoundarySegment(geometry, globalId, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag);
     }
 
-    GridBaseType & createGrid(int nVertexTotal, int nElementTotal)
+    GridBaseType * createGrid(int nVertexTotal, int nElementTotal)
     {
-    	gridbase_.generateMesh(nVertexTotal, nElementTotal);
+    	gridbase_->generateMesh(nVertexTotal, nElementTotal);
     	return gridbase_;
     }
 
@@ -146,7 +147,7 @@ class CurvilinearGridBaseFactory
     // -----------------------------------------------------------
   private:
 
-    GridBaseType gridbase_;
+    GridBaseType * gridbase_;
 
 
 

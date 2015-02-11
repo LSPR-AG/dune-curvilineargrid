@@ -27,19 +27,20 @@ namespace Dune
     class CurvEntityPointer
     {
     	typedef typename remove_const< Grid >::type::Traits Traits;
-    	typedef typename Traits::ctype ctype;
+    	typedef typename remove_const< Grid >::type::ctype  ctype;
 
     	typedef CurvEntityPointer< codim, Grid > This;
 
     public:
-        static const int dimension   = Traits::dimension;
-        static const int codimension = Traits::codimension;
+        static const int dimension     = remove_const< Grid >::type::dimension;
+        static const int codimension   = codim;
 
-        typedef typename Traits::Entity Entity;
+        typedef typename Traits::template Codim<codim>::Entity      Entity;
+        typedef typename Traits::template Codim<codim>::EntitySeed  EntitySeed;
 
     protected:
-        typedef typename Traits::EntitySeed EntitySeed;
-        typedef typename Traits::template Codim<codim>::Entity  EntityImpl;
+
+        typedef Dune::CurvGrid::CurvEntity<codim, dimension, Grid>  EntityImpl;
 
         typedef Dune::CurvilinearGridBase<ctype,dimension>    GridBaseType;
         typedef typename GridBaseType::IndexSetIterator       IndexSetIterator;

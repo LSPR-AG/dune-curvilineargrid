@@ -91,12 +91,12 @@ int main(int argc, char** argv)
                                                             writeReaderVTKFile,
                                                             insertBoundarySegment);
 
-    Dune::CurvilinearGridBase<double, 3> & gridbase = factory.createGrid(nVertexTotal, nElementTotal);
+    Dune::CurvilinearGridBase<double, 3> * gridbase = factory.createGrid(nVertexTotal, nElementTotal);
 
 
 
     // Perform diagnostics tests on the constructed grid
-    Dune::CurvilinearGridDiagnostic<double, 3> diagnostic(verbose, processVerbose, mpihelper, gridbase);
+    Dune::CurvilinearGridDiagnostic<double, 3> diagnostic(verbose, processVerbose, mpihelper, *gridbase);
 
 	bool VTK_WRITE_ELEMENTS = true;
 	bool VTK_WRITE_GHOST_ELEMENTS = true;
@@ -127,6 +127,11 @@ int main(int argc, char** argv)
     diagnostic.vtkWriteOctree();
 
     diagnostic.runAnalyticTest("curvilinearMeshAnalyticTest.txt");
+
+
+
+    // Delete the GridBase
+    delete gridbase;
 
 
     /** \brief leave program peacefully */

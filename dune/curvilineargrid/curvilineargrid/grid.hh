@@ -27,6 +27,9 @@
 namespace Dune
 {
 
+    namespace CurvGrid {
+
+
 	// Forwards-Declaration
 	// ****************************************************************************************
 	template <int dim, int dimworld, class ct>                          class CurvilinearGrid;
@@ -41,6 +44,7 @@ namespace Dune
 	template< class GridImp >                                           class CurvIndexSet;
 	template< class GridImp >                                           class CurvIdSet;
 
+    }
 
 	// GridFamily
 	// ****************************************************************************************
@@ -53,6 +57,7 @@ namespace Dune
 	    typedef CollectiveCommunication<No_Comm> CCType;
 #endif
 
+	    typedef ct  ctype;
 
 	    typedef Dune::CurvilinearGrid<dim, dimworld, ct>  GridType;
 	    typedef typename Dune::CurvilinearGridStorage<ct, dimworld>::LocalIndexType  LocalIndexType;
@@ -61,26 +66,26 @@ namespace Dune
 	    typedef GridTraits<dim,                                     // dimension of the grid
 	        dimworld,                                               // dimension of the world space
 	        GridType,
-	        CurvGeometry,
-	        CurvEntity,
-	        CurvEntityPointer,
-	        CurvLevelIterator,                                      // type used for the level iterator
-	        CurvIntersection,              // leaf  intersection
-	        CurvIntersection,              // level intersection
-	        CurvIntersectionIterator,              // leaf  intersection iter
-	        CurvIntersectionIterator,              // level intersection iter
-	        CurvHierarchicIterator,
-	        CurvLevelIterator,                                      // type used for the leaf(!) iterator
-	        CurvIndexSet<GridType>,                  // level index set
-	        CurvIndexSet<GridType>,                  // leaf index set
-	        CurvIdSet<GridType>,
+	        CurvGrid::CurvGeometry,
+	        CurvGrid::CurvEntity,
+	        CurvGrid::CurvEntityPointer,
+	        CurvGrid::CurvLevelIterator,                                      // type used for the level iterator
+	        CurvGrid::CurvIntersection,              // leaf  intersection
+	        CurvGrid::CurvIntersection,              // level intersection
+	        CurvGrid::CurvIntersectionIterator,              // leaf  intersection iter
+	        CurvGrid::CurvIntersectionIterator,              // level intersection iter
+	        CurvGrid::CurvHierarchicIterator,
+	        CurvGrid::CurvLevelIterator,                                      // type used for the leaf(!) iterator
+	        CurvGrid::CurvIndexSet<GridType>,                  // level index set
+	        CurvGrid::CurvIndexSet<GridType>,                  // leaf index set
+	        CurvGrid::CurvIdSet<GridType>,
 	        CurvIdType,
-	        CurvIdSet<GridType>,
+	        CurvGrid::CurvIdSet<GridType>,
 	        CurvIdType,
 	        CCType,
 	        DefaultLevelGridViewTraits,
 	        DefaultLeafGridViewTraits,
-	        CurvEntitySeed>
+	        CurvGrid::CurvEntitySeed>
 	    Traits;
 	  };
 
@@ -114,13 +119,13 @@ namespace Dune
     typedef typename GridFamily::Traits Traits;                               //! type of the grid traits
 
     // Curvilinear Grid Implementation
-    typedef Dune::CurvilinearGridBase<ct, dimworld> CurvGridBase;
-    typedef Dune::CurvilinearGridStorage<ct, dimworld> CurvGridStorage;
+    typedef Dune::CurvilinearGridBase<ct, dimworld>     GridBaseType;
+    typedef Dune::CurvilinearGridStorage<ct, dimworld>  GridStorageType;
 
-    static const int   VERTEX_CODIM   = CurvGridStorage::VERTEX_CODIM;
-    static const int   EDGE_CODIM     = CurvGridStorage::EDGE_CODIM;
-    static const int   FACE_CODIM     = CurvGridStorage::FACE_CODIM;
-    static const int   ELEMENT_CODIM  = CurvGridStorage::ELEMENT_CODIM;
+    static const int   VERTEX_CODIM   = GridStorageType::VERTEX_CODIM;
+    static const int   EDGE_CODIM     = GridStorageType::EDGE_CODIM;
+    static const int   FACE_CODIM     = GridStorageType::FACE_CODIM;
+    static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
 
 
@@ -183,7 +188,7 @@ namespace Dune
      * \{ */
 
     //! type of vector coordinates (e.g., double)
-    typedef typename Traits::ctype ctype;
+    typedef ct  ctype;
 
     //! communicator with all other processes having some part of the grid
     typedef typename Traits::CollectiveCommunication CollectiveCommunication;
@@ -197,14 +202,14 @@ namespace Dune
      *
      *  [FIXME] Must initialize levelIndexSets_
      */
-    CurvilinearGrid (GridBaseType & gridbase, MPIHelper &mpihelper)
+    CurvilinearGrid (GridBaseType * gridbase, MPIHelper &mpihelper)
       : gridbase_(gridbase),
         mpihelper_(mpihelper)
     {}
 
 
     /** \brief destructor */
-    ~CurvilinearGrid ()  { }
+    ~CurvilinearGrid ()  { delete gridbase_; }
 
     /** \} */
 
@@ -243,7 +248,7 @@ namespace Dune
      */
     int size ( int codim ) const
     {
-      return gridbase_.nEntity(codim);
+      return gridbase_->nEntity(codim);
     }
 
     /** \brief obtain number of entites on a level
@@ -274,7 +279,7 @@ namespace Dune
      */
     size_t numBoundarySegments () const
     {
-    	return gridbase_.nEntity(FACE_CODIM, DomainBoundaryType);
+    	return gridbase_->nEntity(FACE_CODIM, GridStorageType::PartitionType::DomainBoundary);
     }
     /** \} */
 
@@ -302,7 +307,7 @@ namespace Dune
 
     const LeafIndexSet &leafIndexSet () const
     {
-      if( !leafIndexSet_ )  { leafIndexSet_ = LeafIndexSet(gridbase_); }
+      if( !leafIndexSet_ )  { leafIndexSet_ = LeafIndexSet(*gridbase_); }
       assert( leafIndexSet_ );
       return leafIndexSet_;
     }
@@ -348,6 +353,97 @@ namespace Dune
     	std::cout << "::: postAdapt() called but refinement has not been implemented" << std::endl;
     }
 
+
+
+
+
+
+
+
+
+
+    //! one past the end on this level
+    template<int cd, PartitionIteratorType pitype>
+    typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator lbegin (int level) const
+    {
+    	assert(level == 0);
+    	return Dune::CurvGrid::CurvLevelIterator<cd, pitype, Grid>(gridbase_->entityDuneIndexBegin(cd, pitype), gridbase_);
+    }
+
+    //! Iterator to one past the last entity of given codim on level for partition type
+    template<int cd, PartitionIteratorType pitype>
+    typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator lend (int level) const
+    {
+    	assert(level == 0);
+    	return Dune::CurvGrid::CurvLevelIterator<cd, pitype, Grid>(gridbase_->entityDuneIndexEnd(cd, pitype), gridbase_);
+    }
+
+    //! version without second template parameter for convenience
+    template<int cd>
+    typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator lbegin (int level) const
+    {
+    	assert(level == 0);
+    	return Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, Grid>(gridbase_->entityDuneIndexBegin(cd, All_Partition), gridbase_);
+    }
+
+    //! version without second template parameter for convenience
+    template<int cd>
+    typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator lend (int level) const
+    {
+    	assert(level == 0);
+    	return Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, Grid>(gridbase_->entityDuneIndexEnd(cd, All_Partition), gridbase_);
+    }
+
+    //! return LeafIterator which points to the first entity in maxLevel
+    template<int cd, PartitionIteratorType pitype>
+    typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator leafbegin () const
+    {
+    	return Dune::CurvGrid::CurvLevelIterator<cd, pitype, Grid>(gridbase_->entityDuneIndexBegin(cd, pitype), gridbase_);
+    }
+
+    //! return LeafIterator which points behind the last entity in maxLevel
+    template<int cd, PartitionIteratorType pitype>
+    typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator leafend () const
+    {
+    	return Dune::CurvGrid::CurvLevelIterator<cd, pitype, Grid>(gridbase_->entityDuneIndexEnd(cd, pitype), gridbase_);
+    }
+
+    //! return LeafIterator which points to the first entity in maxLevel
+    template<int cd>
+    typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator leafbegin () const
+    {
+    	return Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, Grid>(gridbase_->entityDuneIndexBegin(cd, All_Partition), gridbase_);
+    }
+
+    //! return LeafIterator which points behind the last entity in maxLevel
+    template<int cd>
+    typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator leafend () const
+    {
+    	return Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, Grid>(gridbase_->entityDuneIndexEnd(cd, All_Partition), gridbase_);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     /** \name Parallel Data Distribution and Communication Methods
      *  \{ */
 
@@ -361,7 +457,7 @@ namespace Dune
      *
      *  \param[in]  codim  codimension for with the information is desired
      */
-    int ghostSize( int codim ) const  { return gridbase_.nEntity(codim, Dune::CurvilinearGridStorage<ct, dimworld>::EntityStructuralType::GhostElement); }
+    int ghostSize( int codim ) const  { return gridbase_->nEntity(codim, Dune::CurvilinearGridStorage<ct, dimworld>::EntityStructuralType::GhostElement); }
 
     /** \brief obtain size of overlap region for a grid level
      *
@@ -421,10 +517,10 @@ namespace Dune
                        CommunicationDirection direction ) const
     {
     	Dune::CurvGrid::Communication<Grid> communicator;
-    	if (dataHandle.contains(dimension, ELEMENT_CODIM)) { communicator.communicateWrapper<DataHandle, ELEMENT_CODIM>(dataHandle, interface, direction); }
-    	if (dataHandle.contains(dimension, FACE_CODIM))    { communicator.communicateWrapper<DataHandle, FACE_CODIM>(dataHandle, interface, direction); }
-    	if (dataHandle.contains(dimension, EDGE_CODIM))    { communicator.communicateWrapper<DataHandle, EDGE_CODIM>(dataHandle, interface, direction); }
-    	if (dataHandle.contains(dimension, VERTEX_CODIM))  { communicator.communicateWrapper<DataHandle, VERTEX_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dim, ELEMENT_CODIM)) { communicator.template communicateWrapper<DataHandle, ELEMENT_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dim, FACE_CODIM))    { communicator.template communicateWrapper<DataHandle, FACE_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dim, EDGE_CODIM))    { communicator.template communicateWrapper<DataHandle, EDGE_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dim, VERTEX_CODIM))  { communicator.template communicateWrapper<DataHandle, VERTEX_CODIM>(dataHandle, interface, direction); }
     }
 
     /** \brief obtain CollectiveCommunication object
@@ -492,13 +588,13 @@ namespace Dune
     /** \} */
 
 
-    const CurvGridBase & curvGridBase()  { return gridbase_; }
+    const GridBaseType & gridBaseType()  { return gridbase_; }
 
 
 
   private:
-    mutable CurvGridBase & gridbase_;
-    mutable MPIHelper & mpihelper_;
+    GridBaseType * gridbase_;
+    MPIHelper & mpihelper_;
 
     //mutable std::vector< LevelIndexSet *, typename Allocator::template rebind< LevelIndexSet * >::other > levelIndexSets_;
     mutable LeafIndexSet leafIndexSet_;

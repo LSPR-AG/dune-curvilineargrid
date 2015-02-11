@@ -54,6 +54,8 @@ class CurvilinearGridFactory
 {
   private:
 
+	typedef Dune::CurvilinearGrid<cdim, cdim, ctype>   GridType;
+
 	typedef FieldVector< ctype, cdim >                 VertexCoordinate;
 	typedef Dune::CurvilinearGridBase<ctype, cdim>     GridBaseType;
 
@@ -80,11 +82,12 @@ class CurvilinearGridFactory
     		bool verbose,
     		bool processVerbose,
     		MPIHelper &mpihelper) :
-    			gridbase_(withGhostElements, verbose, processVerbose, mpihelper),
     			verbose_(verbose),
     			processVerbose_(processVerbose),
     			mpihelper_(mpihelper)
     {
+    	gridbase_ = new GridBaseType(withGhostElements, verbose, processVerbose, mpihelper);
+
     	rank_ = mpihelper.rank();
     	size_ = mpihelper.size();
     }
@@ -93,7 +96,7 @@ class CurvilinearGridFactory
 
     void insertVertex ( const VertexCoordinate &pos, const GlobalIndexType globalId )
     {
-    	gridbase_.insertVertex(pos, globalId);
+    	gridbase_->insertVertex(pos, globalId);
     }
 
     void insertElement(
@@ -103,7 +106,7 @@ class CurvilinearGridFactory
       const int elemOrder,
       const int physicalTag)
     {
-    	gridbase_.insertElement(geometry, globalId, vertexIndexSet, elemOrder, physicalTag);
+    	gridbase_->insertElement(geometry, globalId, vertexIndexSet, elemOrder, physicalTag);
     }
 
     void insertBoundarySegment(
@@ -114,13 +117,14 @@ class CurvilinearGridFactory
         const LocalIndexType associatedElementIndex,
         const int physicalTag)
     {
-    	gridbase_.insertBoundarySegment(geometry, globalId, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag);
+    	gridbase_->insertBoundarySegment(geometry, globalId, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag);
     }
 
-    Dune::CurvilinearGrid<cdim, cdim, ctype> createGrid(int nVertexTotal, int nElementTotal)
+    GridType * createGrid(int nVertexTotal, int nElementTotal)
     {
-    	gridbase_.generateMesh(nVertexTotal, nElementTotal);
-    	return Dune::CurvilinearGrid<cdim, cdim, ctype>(gridbase_, mpihelper_);
+    	gridbase_->generateMesh(nVertexTotal, nElementTotal);
+    	GridType * grid = new GridType(gridbase_, mpihelper_);
+    	return grid;
     }
 
 
@@ -128,7 +132,7 @@ class CurvilinearGridFactory
     // -----------------------------------------------------------
   private:
 
-    GridBaseType gridbase_;
+    GridBaseType * gridbase_;
 
 
 

@@ -113,6 +113,10 @@ namespace Dune
     typedef CurvilinearGrid<dim, dimworld, ct> Grid;
     typedef GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGridFamily< dim, dimworld, ct > > Base;
 
+    template< int, int, class > friend class Dune::CurvGrid::CurvEntityBase;
+    template< int, int, class > friend class Dune::CurvGrid::CurvEntity;
+
+
   public:
 
     typedef Dune::CurvGridFamily< dim, dimworld, ct > GridFamily;
@@ -128,7 +132,11 @@ namespace Dune
     static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
 
-
+    template<int codim>
+    struct BaseCodim
+    {
+    	typedef Dune::CachedCurvilinearGeometry<ct, dim - codim, dimworld>  EntityGeometryImpl;
+    };
 
 
 
@@ -182,6 +190,9 @@ namespace Dune
     typedef typename Traits::GlobalIdSet    GlobalIdSet;
     typedef typename Traits::LocalIdSet     LocalIdSet;
 
+    typedef Dune::CurvGrid::CurvIndexSet<const Grid>    IndexSetImpl;
+    typedef Dune::CurvGrid::CurvIdSet<const Grid>       IdSetImpl;
+
     /** \} */
 
     /** \name Miscellaneous Types
@@ -204,7 +215,9 @@ namespace Dune
      */
     CurvilinearGrid (GridBaseType * gridbase, MPIHelper &mpihelper)
       : gridbase_(gridbase),
-        mpihelper_(mpihelper)
+        mpihelper_(mpihelper),
+        globalIdSet_(),
+        leafIndexSet_()
     {}
 
 
@@ -283,12 +296,7 @@ namespace Dune
     }
     /** \} */
 
-    const GlobalIdSet &globalIdSet () const
-    {
-        if( !globalIdSet_ )  { globalIdSet_ = GlobalIdSet(); }
-        assert( globalIdSet_ );
-        return globalIdSet_;
-    }
+    const GlobalIdSet &globalIdSet () const  { return globalIdSet_; }
 
     const LocalIdSet &localIdSet () const
     {
@@ -305,12 +313,7 @@ namespace Dune
         return leafIndexSet();
     }
 
-    const LeafIndexSet &leafIndexSet () const
-    {
-      if( !leafIndexSet_ )  { leafIndexSet_ = LeafIndexSet(*gridbase_); }
-      assert( leafIndexSet_ );
-      return leafIndexSet_;
-    }
+    const LeafIndexSet &leafIndexSet () const  { return leafIndexSet_; }
 
     // [TODO] Not Implemented yet
     void globalRefine ( int refCount )
@@ -367,7 +370,8 @@ namespace Dune
     typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator lbegin (int level) const
     {
     	assert(level == 0);
-    	return Dune::CurvGrid::CurvLevelIterator<cd, pitype, Grid>(gridbase_->entityDuneIndexBegin(cd, pitype), gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityDuneIndexBegin(cd, pitype), *gridbase_);
+    	return typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator(iterImpl);
     }
 
     //! Iterator to one past the last entity of given codim on level for partition type
@@ -375,7 +379,8 @@ namespace Dune
     typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator lend (int level) const
     {
     	assert(level == 0);
-    	return Dune::CurvGrid::CurvLevelIterator<cd, pitype, Grid>(gridbase_->entityDuneIndexEnd(cd, pitype), gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityDuneIndexEnd(cd, pitype), *gridbase_);
+    	return typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator(iterImpl);
     }
 
     //! version without second template parameter for convenience
@@ -383,7 +388,8 @@ namespace Dune
     typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator lbegin (int level) const
     {
     	assert(level == 0);
-    	return Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, Grid>(gridbase_->entityDuneIndexBegin(cd, All_Partition), gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityDuneIndexBegin(cd, All_Partition), *gridbase_);
+    	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator(iterImpl);
     }
 
     //! version without second template parameter for convenience
@@ -391,35 +397,40 @@ namespace Dune
     typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator lend (int level) const
     {
     	assert(level == 0);
-    	return Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, Grid>(gridbase_->entityDuneIndexEnd(cd, All_Partition), gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityDuneIndexEnd(cd, All_Partition), *gridbase_);
+    	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator(iterImpl);
     }
 
     //! return LeafIterator which points to the first entity in maxLevel
     template<int cd, PartitionIteratorType pitype>
     typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator leafbegin () const
     {
-    	return Dune::CurvGrid::CurvLevelIterator<cd, pitype, Grid>(gridbase_->entityDuneIndexBegin(cd, pitype), gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityDuneIndexBegin(cd, pitype), *gridbase_);
+    	return typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator(iterImpl);
     }
 
     //! return LeafIterator which points behind the last entity in maxLevel
     template<int cd, PartitionIteratorType pitype>
     typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator leafend () const
     {
-    	return Dune::CurvGrid::CurvLevelIterator<cd, pitype, Grid>(gridbase_->entityDuneIndexEnd(cd, pitype), gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityDuneIndexEnd(cd, pitype), *gridbase_);
+    	return typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator(iterImpl);
     }
 
     //! return LeafIterator which points to the first entity in maxLevel
     template<int cd>
     typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator leafbegin () const
     {
-    	return Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, Grid>(gridbase_->entityDuneIndexBegin(cd, All_Partition), gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityDuneIndexBegin(cd, All_Partition), *gridbase_);
+    	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator(iterImpl);
     }
 
     //! return LeafIterator which points behind the last entity in maxLevel
     template<int cd>
     typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator leafend () const
     {
-    	return Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, Grid>(gridbase_->entityDuneIndexEnd(cd, All_Partition), gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityDuneIndexEnd(cd, All_Partition), *gridbase_);
+    	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator(iterImpl);
     }
 
 
@@ -597,8 +608,8 @@ namespace Dune
     MPIHelper & mpihelper_;
 
     //mutable std::vector< LevelIndexSet *, typename Allocator::template rebind< LevelIndexSet * >::other > levelIndexSets_;
-    mutable LeafIndexSet leafIndexSet_;
-    mutable GlobalIdSet globalIdSet_;
+    IndexSetImpl leafIndexSet_;
+    IdSetImpl globalIdSet_;
   };
 
 

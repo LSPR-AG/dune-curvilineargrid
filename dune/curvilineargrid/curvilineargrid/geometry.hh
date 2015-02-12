@@ -28,18 +28,18 @@ namespace Dune
       typedef CurvGeometry< mydim, cdim, Grid > This;
 
       typedef typename remove_const< Grid >::type::Traits Traits;
-      typedef typename Traits::ctype ctype;
+      typedef typename remove_const< Grid >::type::ctype ctype;
 
       //template< int, int, class > friend class Geometry;
 
     public:
-      typedef Dune::CurvilinearGridBase<ctype,cdim>          GridBaseType;
+      typedef Dune::CurvilinearGridBase<ctype,cdim>            GridBaseType;
       typedef typename GridBaseType::InternalIndexType         InternalIndexType;
       typedef typename GridBaseType::InterpolatoryOrderType    InterpolatoryOrderType;
 
       static const int mydimension = mydim;
       static const int coorddimension = cdim;
-      static const int dimension = Traits::dimension;
+      static const int dimension = remove_const< Grid >::type::dimension;
       static const int codimension = dimension - mydimension;
 
     protected:
@@ -53,14 +53,8 @@ namespace Dune
       typedef typename BasicMapping::JacobianTransposed JacobianTransposed;
       typedef typename BasicMapping::JacobianInverseTransposed JacobianInverseTransposed;
 
-      typedef typename BasicMapping::Polynomial Polynomial;
-      typedef typename BasicMapping::PolynomialVector PolynomialVector;
-
-      // Types for subentity geometries
-
-      typedef typename BasicMapping::SubentityCachedGeometry SubentityCachedGeometry;
-      typedef typename BasicMapping::SubentityCachedGeometryVector SubentityCachedGeometryVector;
-      typedef typename BasicMapping::SubLocalCoordinate SubLocalCoordinate;
+      typedef typename BasicMapping::LocalPolynomial   Polynomial;
+      typedef typename BasicMapping::PolynomialVector  PolynomialVector;
 
 
       template< class Vertices >
@@ -95,7 +89,13 @@ namespace Dune
       GlobalCoordinate global ( const LocalCoordinate &local ) const { return mapping_->global( local ); }
       // Local returns true if the point is inside the element. Then localC is the corresponding local coordinate
       // Local returns false if the point is not inside the element. In this case local coordinate is not defined and localC is meaningless
-      bool local ( const GlobalCoordinate &globalC, LocalCoordinate & localC ) const { return mapping_->local(globalC, localC); }
+      LocalCoordinate local (const GlobalCoordinate &globalC) const
+      {
+    	  LocalCoordinate localC;
+    	  bool isInside = mapping_->local(globalC, localC);
+    	  if (!isInside)  { DUNE_THROW( IOError, "Failed to find requested global coordinate inside the entity" ); }
+    	  return localC;
+      }
 
       // Integration Elements
       ctype integrationElement ( const LocalCoordinate &local )  const { return mapping_->integrationElement( local ); }

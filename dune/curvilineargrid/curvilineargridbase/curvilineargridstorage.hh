@@ -44,6 +44,8 @@ class CurvilinearGridStorage
 
 public:
 
+	typedef Dune::CurvilinearGridStorage<ct, cdim>   This;
+
     // Grid Variable Types
     // ******************************************************************
 	typedef  int      GlobalIndexType;
@@ -153,6 +155,14 @@ public:
 
 		 //template< class C, class T >
 		 //std::basic_ostream< C, T > &operator<< ( std::basic_ostream< C, T > &, const Id & );
+
+
+		 // Printing of the Id
+		 friend inline std::ostream& operator<< (std::ostream& s, const IdType & x)
+		 {
+		 	s << "(" << x.id_.first << "," << x.id_.second << ")";
+		 	return s;
+		 }
 	};
 
 
@@ -317,6 +327,7 @@ public:
     }
 
 };
+
 
 
 } // namespace Dune

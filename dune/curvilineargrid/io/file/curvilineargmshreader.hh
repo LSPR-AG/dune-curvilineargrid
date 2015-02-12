@@ -1364,7 +1364,8 @@ namespace Dune
 
     // Grid Factory
     //Dune::GridFactory<GridType>& factory;
-    Dune::CurvilinearGridBaseFactory<GridType> & factory;
+    //Dune::CurvilinearGridBaseFactory<GridType> & factory;
+    FactoryType & factory;
 
     // Reading file
     std::string fileName;

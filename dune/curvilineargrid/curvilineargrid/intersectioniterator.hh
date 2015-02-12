@@ -18,11 +18,10 @@ namespace Dune
     template< class Grid >
     class CurvIntersectionIterator
     {
-      typedef typename remove_const< Grid >::type::Traits Traits;
-      typedef typename Traits::ctype ctype;
+      typedef typename remove_const< Grid >::type::Traits  Traits;
+      typedef typename remove_const< Grid >::type::ctype   ctype;
 
-      static const int dimension   = Traits::dimension;
-      static const int codimension = Traits::codimension;
+      static const int dimension   = remove_const< Grid >::type::dimension;
 
       typedef Dune::CurvilinearGridBase<ctype,dimension>    GridBaseType;
 
@@ -31,7 +30,8 @@ namespace Dune
       typedef typename GridBaseType::StructuralType             StructuralType;
       typedef typename GridBaseType::InterpolatoryOrderType     InterpolatoryOrderType;
 
-      typedef typename Traits::IntersectionImpl IntersectionImpl;
+      typedef Dune::CurvGrid::CurvIntersection<Grid>  IntersectionImpl;
+
 
     public:
       typedef Dune::Intersection< Grid, IntersectionImpl > Intersection;

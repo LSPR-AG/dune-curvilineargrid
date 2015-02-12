@@ -26,10 +26,10 @@ namespace Dune
       typedef typename remove_const< Grid >::type::Traits Traits;
 
     public:
-      typedef typename Traits::ctype ctype;
+      typedef typename remove_const< Grid >::type::ctype ctype;
 
-      static const int dimension = Traits::dimension;
-      static const int dimensionworld = Traits::dimensionworld;
+      static const int dimension = remove_const< Grid >::type::dimension;
+      static const int dimensionworld = remove_const< Grid >::type::dimensionworld;
 
       typedef Dune::CurvilinearGridStorage<ctype,dimension>    GridStorageType;
       typedef Dune::CurvilinearGridBase<ctype,dimension>       GridBaseType;
@@ -58,7 +58,7 @@ namespace Dune
 
     private:
 
-      typedef typename Traits::template Codim< ELEMENT_CODIM >::EntityPointerImpl EntityPointerImpl;
+      typedef typename Dune::CurvGrid::CurvEntityPointer<ELEMENT_CODIM, Grid>  EntityPointerImpl;
 
       typedef typename Traits::template Codim< FACE_CODIM >::GeometryImpl GeometryImpl;
       typedef typename Traits::template Codim< ELEMENT_CODIM >::GeometryImpl ElementGeometryImpl;
@@ -67,8 +67,8 @@ namespace Dune
       typedef Dune::FieldVector< ctype, dimensionworld >   GlobalCoordinate;
 
 
-      typedef typename Traits::template BaseCodim<ELEMENT_CODIM>::EntityGeometry  ElementBaseGeometry;
-      typedef typename Traits::template BaseCodim<FACE_CODIM>::EntityGeometry  FaceBaseGeometry;
+      typedef typename remove_const< Grid >::type::template BaseCodim<ELEMENT_CODIM>::EntityGeometryImpl  ElementBaseGeometry;
+      typedef typename remove_const< Grid >::type::template BaseCodim<FACE_CODIM>::EntityGeometryImpl     FaceBaseGeometry;
 
       const InterpolatoryOrderType LINEAR_ELEMENT_ORDER = 1;
 

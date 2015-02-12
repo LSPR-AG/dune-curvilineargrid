@@ -47,7 +47,7 @@ namespace Dune
 
     public:
 
-        CurvEntityPointer ( IndexSetIterator & iter, GridBaseType & gridbase, PartitionIteratorType pitype)
+        CurvEntityPointer ( const IndexSetIterator & iter, const GridBaseType & gridbase, PartitionIteratorType pitype)
           : entity_(EntityImpl(iter, gridbase, pitype))
         {}
 

@@ -232,7 +232,7 @@ public:
     template <int codim>
     struct Codim
     {
-    	typedef Dune::CurvilinearGeometry<ct, cdim - codim, cdim>    EntityGeometry;
+    	typedef Dune::CachedCurvilinearGeometry<ct, cdim - codim, cdim>    EntityGeometry;
     };
 
 

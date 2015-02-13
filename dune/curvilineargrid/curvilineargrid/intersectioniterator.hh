@@ -38,7 +38,6 @@ namespace Dune
 
       typedef typename Traits::template Codim< 0 >::EntityPointer EntityPointer;
 
-      template< class Entity >
       CurvIntersectionIterator (LocalIndexType localIndexInside,
     		  InternalIndexType subIndexInside,
     		  GridBaseType & gridbase)

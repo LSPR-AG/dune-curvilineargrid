@@ -76,47 +76,47 @@ namespace Dune
 
       operator bool () const { return bool( mapping_ ); }
 
-      bool           affine ()          const  { return mapping_->affine(); }
-      GeometryType   type ()            const  { return mapping_->type(); }
-      int order()                       const  { return mapping_->order(); }
-      int vertex (InternalIndexType i)  const  { return mapping_->vertex(i); }
-      int vertices ()                   const  { return mapping_->vertices(); }
-      int corners ()                    const  { return mapping_->corners(); }
+      bool           affine ()          const  { return mapping_.affine(); }
+      GeometryType   type ()            const  { return mapping_.type(); }
+      int order()                       const  { return mapping_.order(); }
+      int vertex (InternalIndexType i)  const  { return mapping_.vertex(i); }
+      int vertices ()                   const  { return mapping_.nVertex(); }
+      int corners ()                    const  { return mapping_.nCorner(); }
 
-      GlobalCoordinate corner ( const InternalIndexType i ) const { return mapping_->corner( i ); }
-      GlobalCoordinate center ()                            const { return mapping_->center(); }
+      GlobalCoordinate corner ( const InternalIndexType i ) const { return mapping_.corner( i ); }
+      GlobalCoordinate center ()                            const { return mapping_.center(); }
 
-      GlobalCoordinate global ( const LocalCoordinate &local ) const { return mapping_->global( local ); }
+      GlobalCoordinate global ( const LocalCoordinate &local ) const { return mapping_.global( local ); }
       // Local returns true if the point is inside the element. Then localC is the corresponding local coordinate
       // Local returns false if the point is not inside the element. In this case local coordinate is not defined and localC is meaningless
       LocalCoordinate local (const GlobalCoordinate &globalC) const
       {
     	  LocalCoordinate localC;
-    	  bool isInside = mapping_->local(globalC, localC);
+    	  bool isInside = mapping_.local(globalC, localC);
     	  if (!isInside)  { DUNE_THROW( IOError, "Failed to find requested global coordinate inside the entity" ); }
     	  return localC;
       }
 
       // Integration Elements
-      ctype integrationElement ( const LocalCoordinate &local )  const { return mapping_->integrationElement( local ); }
-      Polynomial JacobianDeterminantAnalytical()                 const { return mapping_->JacobianDeterminantAnalytical(); }
-      PolynomialVector NormalIntegrationElementAnalytical()      const { return mapping_->NormalIntegrationElementAnalytical(); }
-      Polynomial IntegrationElementSquaredAnalytical()           const { return mapping_->IntegrationElementSquaredAnalytical(); }
+      ctype integrationElement ( const LocalCoordinate &local )  const { return mapping_.integrationElement( local ); }
+      Polynomial JacobianDeterminantAnalytical()                 const { return mapping_.JacobianDeterminantAnalytical(); }
+      PolynomialVector NormalIntegrationElementAnalytical()      const { return mapping_.NormalIntegrationElementAnalytical(); }
+      Polynomial IntegrationElementSquaredAnalytical()           const { return mapping_.IntegrationElementSquaredAnalytical(); }
 
-      GlobalCoordinate subentityIntegrationNormal (InternalIndexType subIndex, LocalCoordinate localCoord)  const { return mapping_->subentityIntegrationNormal(subIndex, localCoord); }
-      GlobalCoordinate subentityNormal            (InternalIndexType subIndex, LocalCoordinate localCoord)  const { return mapping_->subentityNormal(subIndex, localCoord); }
-      GlobalCoordinate subentityUnitNormal        (InternalIndexType subIndex, LocalCoordinate localCoord)  const { return mapping_->subentityUnitNormal(subIndex, localCoord); }
+      GlobalCoordinate subentityIntegrationNormal (InternalIndexType subIndex, LocalCoordinate localCoord)  const { return mapping_.subentityIntegrationNormal(subIndex, localCoord); }
+      GlobalCoordinate subentityNormal            (InternalIndexType subIndex, LocalCoordinate localCoord)  const { return mapping_.subentityNormal(subIndex, localCoord); }
+      GlobalCoordinate subentityUnitNormal        (InternalIndexType subIndex, LocalCoordinate localCoord)  const { return mapping_.subentityUnitNormal(subIndex, localCoord); }
 
 
       // Explicit integrals
-      ctype integrateScalar(const Polynomial & P, double tolerance) const { return mapping_->integrateScalar(P, tolerance); }
+      ctype integrateScalar(const Polynomial & P, double tolerance) const { return mapping_.integrateScalar(P, tolerance); }
       template <typename Functor>
-      ctype integrateNumerical(const Functor & f, double tolerance) const { return mapping_->integrateNumerical(f, tolerance); }
-      ctype integrateAnalyticalDot(const PolynomialVector & PVec)   const { return mapping_->integrateAnalyticalDot(PVec); }
-      ctype volume () const  { return mapping_->volume(); }
+      ctype integrateNumerical(const Functor & f, double tolerance) const { return mapping_.integrateNumerical(f, tolerance); }
+      ctype integrateAnalyticalDot(const PolynomialVector & PVec)   const { return mapping_.integrateAnalyticalDot(PVec); }
+      ctype volume () const  { return mapping_.volume(); }
 
-      JacobianTransposed jacobianTransposed ( const LocalCoordinate &local )                const { return mapping_->jacobianTransposed( local ); }
-      JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local )  const { return mapping_->jacobianInverseTransposed( local ); }
+      JacobianTransposed jacobianTransposed ( const LocalCoordinate &local )                const { return mapping_.jacobianTransposed( local ); }
+      JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local )  const { return mapping_.jacobianInverseTransposed( local ); }
 
     private:
 

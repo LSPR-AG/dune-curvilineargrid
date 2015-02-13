@@ -72,7 +72,7 @@ namespace Dune
           return entity_.equals(other.dereference());
         }
 
-        const Entity &dereference () const  { return entity_; }
+        Entity &dereference () const  { return entity_; }
 
         int level () const { return 0; }
 
@@ -80,7 +80,7 @@ namespace Dune
         // EntityImpl &entityImpl () const  { return Grid::getRealImplementation( entity_ ); }
 
     private:
-      Entity entity_;
+      mutable Entity entity_;
 
     };
 

@@ -107,15 +107,22 @@ namespace Dune
 
 
   template <int dim, int dimworld, class ct>
-  class CurvilinearGrid: public GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGridFamily< dim, dimworld, ct > >
+  class CurvilinearGrid : public GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGridFamily< dim, dimworld, ct > >
       /** \endcond */
   {
     typedef CurvilinearGrid<dim, dimworld, ct> Grid;
     typedef GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGridFamily< dim, dimworld, ct > > Base;
 
-    template< int, int, class > friend class Dune::CurvGrid::CurvEntityBase;
-    template< int, int, class > friend class Dune::CurvGrid::CurvEntity;
-
+    template< int, int, class >                    friend class Dune::CurvGrid::CurvEntityBase;
+    template< int, int, class >                    friend class Dune::CurvGrid::CurvEntity;
+    template< int, class >                         friend class Dune::CurvGrid::CurvEntityPointer;
+    template< class >                              friend class Dune::CurvGrid::CurvIntersection;
+    template< class >                              friend class Dune::CurvGrid::CurvIntersectionIterator;
+    template< int, PartitionIteratorType , class>  friend class Dune::CurvGrid::CurvLevelIterator;
+    template< class >                              friend class Dune::CurvGrid::CurvHierarchicIterator;
+    template< class >                              friend class Dune::CurvGrid::CurvIdSet;
+    template< class >                              friend class Dune::CurvGrid::CurvIndexSet;
+    template< int, int, class >                    friend class Dune::CurvGrid::CurvGeometry;
 
   public:
 
@@ -213,11 +220,11 @@ namespace Dune
      *
      *  [FIXME] Must initialize levelIndexSets_
      */
-    CurvilinearGrid (GridBaseType * gridbase, MPIHelper &mpihelper)
-      : gridbase_(gridbase),
+    CurvilinearGrid (GridBaseType & gridbase, MPIHelper &mpihelper)
+      : gridbase_(&gridbase),
         mpihelper_(mpihelper),
         globalIdSet_(),
-        leafIndexSet_()
+        leafIndexSet_(gridbase)
     {}
 
 
@@ -468,7 +475,7 @@ namespace Dune
      *
      *  \param[in]  codim  codimension for with the information is desired
      */
-    int ghostSize( int codim ) const  { return gridbase_->nEntity(codim, Dune::CurvilinearGridStorage<ct, dimworld>::EntityStructuralType::GhostElement); }
+    int ghostSize( int codim ) const  { return gridbase_->nEntity(codim, GridStorageType::PartitionType::Ghost); }
 
     /** \brief obtain size of overlap region for a grid level
      *
@@ -592,8 +599,10 @@ namespace Dune
     typename Traits::template Codim< EntitySeed::codimension >::EntityPointer
     entityPointer ( const EntitySeed &seed ) const
     {
-      typedef typename Traits::template Codim< EntitySeed::codimension >::EntityPointerImpl EntityPointerImpl;
-      return EntityPointerImpl( seed );
+      typedef typename Traits::template Codim< EntitySeed::codimension >::EntityPointer        EntityPointer;
+      typedef typename Dune::CurvGrid::CurvEntityPointer<EntitySeed::codimension, const Grid>  EntityPointerImpl;
+
+      return EntityPointer(EntityPointerImpl( seed ));
     }
 
     /** \} */

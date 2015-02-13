@@ -24,6 +24,10 @@ namespace Dune
   template<class Grid >
   class CurvHierarchicIterator;
 
+  template<class Grid>
+  class CurvIntersectionIterator;
+
+
 
 
 
@@ -66,17 +70,17 @@ namespace Dune
 	    )
 	  	  :
 	  		gridbaseIndexIterator_(iter),
-	  	    gridbase_(gridbase),
+	  	    gridbase_(&gridbase),
 	  	    pitype_(pitype)
 	  {  }
 
 
 	  //! Copy constructor from an existing entity.
-	  CurvEntityBase(const CurvEntityBase& other)
+	  CurvEntityBase(const CurvEntityBase& other) :
+		  gridbaseIndexIterator_ (other.gridbaseIndexIterator_),
+		  gridbase_ (other.gridbase_),
+		  pitype_ (other.pitype_)
 	  {
-		  gridbaseIndexIterator_ = other.gridbaseIndexIterator_;
-		  gridbase_ = other.gridbase_;
-		  pitype_ = other.pitype_;
 	  }
 
 	  //! Move constructor from an existing entity.
@@ -84,7 +88,13 @@ namespace Dune
 
 
 	  //! Copy assignment operator from an existing entity.
-	  //CurvEntityBase& operator=(const CurvEntityBase& other)  { }
+	  CurvEntityBase& operator=(const CurvEntityBase& other)
+	  {
+	      gridbaseIndexIterator_ = other.gridbaseIndexIterator_;
+	      gridbase_ = other.gridbase_;
+	      pitype_ = other.pitype_;
+	      return *this;
+	  }
 
 	  //! Move assignment operator from an existing entity.
 	  //CurvEntityBase& operator=(CurvEntityBase&& other)  { realEntity = std::move(other.realEntity);  return *this; }
@@ -95,7 +105,7 @@ namespace Dune
 	  /** \brief compare two entities */
 	  bool equals ( const CurvEntityBase &other) const
 	  {
-		  return ((gridbaseIndexIterator_ == other.gridbaseIndexIterator_) && (gridbase_ == other.gridbase_));
+		  return ((gridbaseIndexIterator_ == other.gridbaseIndexIterator_) && (pitype_ == other.pitype_));
 	  }
 
 
@@ -103,27 +113,20 @@ namespace Dune
 	   *  \{ */
 
 	  /** \brief Return the name of the reference element. The type can be used to access the Dune::ReferenceElement. */
-	  GeometryType type () const { return gridbase_.entityGeometryType(codim, *gridbaseIndexIterator_); }
+	  GeometryType type () const { return gridbase_->entityGeometryType(codim, *gridbaseIndexIterator_); }
 
 	  /** \brief  Returns the (refinement) level of this entity */
-	  int level () const { return gridbase_.entityLevel(codim, *gridbaseIndexIterator_); }
+	  int level () const { return gridbase_->entityLevel(codim, *gridbaseIndexIterator_); }
 
 	  /** \brief obtain the partition type of this entity */
 	  PartitionType partitionType () const  {
-	  	StructuralType stype = gridbase_.entityStructuralType(codim, *gridbaseIndexIterator_);
-    	switch (stype)
-    	{
-    	  case GridBaseStorage::PartitionType::Internal          : return PartitionType::InteriorEntity;
-    	  case GridBaseStorage::PartitionType::DomainBoundary    : return PartitionType::InteriorEntity;
-    	  case GridBaseStorage::PartitionType::ProcessBoundary   : return PartitionType::BorderEntity;
-    	  case GridBaseStorage::PartitionType::Ghost             : return PartitionType::GhostEntity;
-    	  default : return 0;
-    	}
+	  	StructuralType stype = gridbase_->entityStructuralType(codim, *gridbaseIndexIterator_);
+	  	return gridbase_->structural2PartitionType(stype);
       }
 
 
 	  /** \brief obtain geometric realization of the entity */
-	  Geometry geometry () const { return Geometry(GeometryImpl(gridbase_.entityGeometry<codim>(*gridbaseIndexIterator_))); }
+	  Geometry geometry () const { return Geometry(GeometryImpl(gridbase_->template entityGeometry<codim>(*gridbaseIndexIterator_))); }
 
 
       /** \brief Additional method guaranteed to return local entity index as specified in CurvilinearGridBase */
@@ -138,18 +141,18 @@ namespace Dune
 	   *  \param[in]  codim        codimension of the subentity
 	   */
 	  int subIndex (int internalIndex, unsigned int subcodim ) const  {
-	      return gridbase_.subentityIndex(*gridbaseIndexIterator_, codimension, subcodim, internalIndex);
+	      return gridbase_->subentityLocalIndex(*gridbaseIndexIterator_, codimension, subcodim, internalIndex);
 	  }
 
 
 	  /** \brief obtain the entity's id from a host IdSet */
-	  IdType id () const  { return gridbase_.globalId(codim, *gridbaseIndexIterator_); }
+	  IdType id () const  { return gridbase_->globalId(codim, *gridbaseIndexIterator_); }
 
 
 	  IdType subId ( int internalIndex, unsigned int subcodim ) const
 	  {
 	      int subentityLocalIndex = subIndex(internalIndex, subcodim);
-	      return gridbase_.globalId(subcodim, subentityLocalIndex);
+	      return gridbase_->globalId(subcodim, subentityLocalIndex);
 	  }
 
 
@@ -165,7 +168,7 @@ namespace Dune
 
   protected:
 	    IndexSetIterator gridbaseIndexIterator_;
-	    GridBaseType & gridbase_;
+	    GridBaseType * gridbase_;
 	    Dune::PartitionType pitype_;
   };
 
@@ -173,7 +176,7 @@ namespace Dune
 
   /** Generic Entity class valid for all codim */
   template<int codim, int dim, class Grid>
-  class CurvEntity : CurvEntityBase<codim, dim, Grid>
+  class CurvEntity : public CurvEntityBase<codim, dim, Grid>
   {
 	    typedef CurvEntityBase<codim, dim, Grid>   Base;
 
@@ -195,7 +198,7 @@ namespace Dune
 
   /** Specialization of the entity class for elements (codim=0) */
   template<int dim, class Grid>
-  class CurvEntity <0, dim, Grid> : CurvEntityBase<0, dim, Grid>
+  class CurvEntity <0, dim, Grid> : public CurvEntityBase<0, dim, Grid>
   {
 	  typedef typename remove_const< Grid >::type::Traits  Traits;
 	  typedef typename remove_const< Grid >::type::ctype   ctype;						//! coordinate type of the grid
@@ -269,10 +272,17 @@ namespace Dune
      * Strictly speaking this method is redundant, because the same information can be obtained
      * from the corresponding reference element. It is here for efficiency reasons only.
      */
-    unsigned int subEntities(unsigned int subcodim) const
+    unsigned int subEntities(unsigned int codim) const
     {
-      return Dune::ReferenceElements<double, dim>::general().size(0, subcodim, subcodim);
+    	LocalIndexType entityLocalIndex = *gridbaseIndexIterator_;
+    	Dune::GeometryType gt = gridbase_->entityGeometryType(ELEMENT_CODIM, entityLocalIndex);
+
+        return Dune::ReferenceElements<double, dim>::general(gt).size(codim);
     }
+
+    template<int codim>
+    int count () const  { return subEntities(codim); }
+
 
     /** \brief Obtain a pointer to a subentity
      *
@@ -288,8 +298,9 @@ namespace Dune
     typename Traits::template Codim< subcodim >::Entity
     subEntity ( int i ) const
     {
-    	int subentityLocalIndex = gridbase_.subentityIndex(*gridbaseIndexIterator_, 0, subcodim, i);
-    	return Traits::template Codim< subcodim >::Entity(CurvEntity<dim - subcodim, dim, Grid>(subentityLocalIndex, gridbase_, pitype_));
+    	int subLocalIndex = gridbase_->subentityLocalIndex(*gridbaseIndexIterator_, 0, subcodim, i);
+    	IndexSetIterator subIterator = gridbase_->entityIndexDuneIterator(subcodim, All_Partition, subLocalIndex);
+    	return typename Traits::template Codim< subcodim >::Entity(CurvEntity<subcodim, dim, Grid>(subIterator, *gridbase_, pitype_));
     }
 
 
@@ -300,13 +311,13 @@ namespace Dune
     {
   	    InternalIndexType firstFaceSubIndex = 0;
   	    LocalIndexType elementLocalIndex = *gridbaseIndexIterator_;
-  	    LocalIndexType faceLocalIndex = gridbase_.subentityLocalIndex(elementLocalIndex, ELEMENT_CODIM, FACE_CODIM, firstFaceSubIndex);
+  	    LocalIndexType faceLocalIndex = gridbase_->subentityLocalIndex(elementLocalIndex, ELEMENT_CODIM, FACE_CODIM, firstFaceSubIndex);
 
-  	    IntersectionIteratorImpl iter (elementLocalIndex, firstFaceSubIndex, gridbase_);
+  	    IntersectionIteratorImpl iter (elementLocalIndex, firstFaceSubIndex, *gridbase_);
 
         // Iterator must not point at a Ghost face
         // If it does, increment it, it will automatically point at the next non-ghost face
-        if (gridbase_.entityStructuralType(FACE_CODIM, faceLocalIndex) == GridStorageType::PartitionType::Ghost)  { iter.increment(); }
+        if (gridbase_->entityStructuralType(FACE_CODIM, faceLocalIndex) == GridStorageType::PartitionType::Ghost)  { iter.increment(); }
 
         return iter;
     }
@@ -314,8 +325,10 @@ namespace Dune
     typename Traits::LevelIntersectionIterator ilevelend () const
     {
     	// Generate a face subentity index which is +1 to total number of faces, such that it is just 1 above all faces
-  	    InternalIndexType nSubentityFace = Dune::ReferenceElements<ctype, dimension>::general(entity.type()).size(FACE_CODIM);
-  	    return IntersectionIteratorImpl(entity.localIndex(), nSubentityFace, gridbase_);
+    	LocalIndexType entityLocalIndex = *gridbaseIndexIterator_;
+    	Dune::GeometryType gt = gridbase_->entityGeometryType(ELEMENT_CODIM, entityLocalIndex);
+  	    InternalIndexType nSubentityFace = Dune::ReferenceElements<ctype, dimension>::general(gt).size(FACE_CODIM);
+  	    return IntersectionIteratorImpl(entityLocalIndex, nSubentityFace, *gridbase_);
     }
 
     typename Traits::LeafIntersectionIterator ileafbegin () const
@@ -372,7 +385,7 @@ namespace Dune
     /** \brief Provides information how this element has been subdivided from its father element. */
     LocalGeometry geometryInFather () const {
     	DUNE_THROW(NotImplemented, "CurvilinearGrid-Element: method geometryInFather() not implemented, since there is no refinement");
-    	return Geometry(GeometryImpl(gridbase_.entityGeometry<0>(*gridbaseIndexIterator_)));
+    	return Geometry(GeometryImpl(gridbase_->template entityGeometry<0>(*gridbaseIndexIterator_)));
     }
 
     /**\brief Inter-level access to elements that resulted from (recursive) subdivision of this element.
@@ -382,9 +395,8 @@ namespace Dune
      */
     HierarchicIterator hbegin (int maxLevel) const
     {
-
     	return HierarchicIterator(HierarchicIteratorImpl(
-    			gridbase_.entityDuneIndexBegin(0, PartitionIteratorType::All_Partition), gridbase_)
+    			gridbase_->entityDuneIndexBegin(0, PartitionIteratorType::All_Partition), *gridbase_)
     	);
     }
 
@@ -410,10 +422,10 @@ namespace Dune
     {
     	for (InternalIndexType i = 0; i < 4; i++)
     	{
-    		LocalIndexType thisFaceIndex = gridbase_.subentityIndex(*gridbaseIndexIterator_, 0, 1, i);
-    		StructuralType thisStructType = gridbase_.entityStructuralType<1>(thisFaceIndex);
+    		LocalIndexType thisFaceIndex = gridbase_->subentityIndex(*gridbaseIndexIterator_, 0, 1, i);
+    		StructuralType thisStructType = gridbase_->entityStructuralType<1>(thisFaceIndex);
 
-    		if (thisStructType == GridBaseStorage::PartitionType::DomainBoundary)  { return true; }
+    		if (thisStructType == GridStorageType::PartitionType::DomainBoundary)  { return true; }
     	}
 
     	return false;

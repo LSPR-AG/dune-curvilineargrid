@@ -230,7 +230,7 @@ private:
     CurvilinearGridBase(const CurvilinearGridBase&);
 
     /** Assignment operator: private, undefined: disallow assignment */
-    CurvilinearGridBase& operator=(const CurvilinearGridBase&);
+    //CurvilinearGridBase& operator=(const CurvilinearGridBase&);
 
 public:
 
@@ -817,7 +817,7 @@ public:
     }
 
     // Iterator for entities of a given codimension and Dune partition type only
-    IndexSetIterator entityIndexDuneIterator(int codim, Dune::PartitionIteratorType pitype, LocalIndexType localIndex)
+    IndexSetIterator entityIndexDuneIterator(int codim, Dune::PartitionIteratorType pitype, LocalIndexType localIndex) const
     {
     	return entityIndexSetDuneSelect(codim, pitype).find(localIndex);
     }
@@ -835,14 +835,27 @@ public:
     IndexSetIterator entityIndexEnd(int codim, StructuralType structtype)    { return entityIndexSetSelect(codim, structtype).end(); }
 
 
-    IndexSetIterator entityDuneIndexBegin(int codim, Dune::PartitionIteratorType pitype)  { return entityIndexSetDuneSelect(codim, pitype).begin(); }
+    IndexSetIterator entityDuneIndexBegin(int codim, Dune::PartitionIteratorType pitype) const { return entityIndexSetDuneSelect(codim, pitype).begin(); }
 
-    IndexSetIterator entityDuneIndexEnd(int codim, Dune::PartitionIteratorType pitype)    { return entityIndexSetDuneSelect(codim, pitype).end(); }
+    IndexSetIterator entityDuneIndexEnd(int codim, Dune::PartitionIteratorType pitype)   const { return entityIndexSetDuneSelect(codim, pitype).end(); }
 
 
     /* ***************************************************************************
      * Section: Public Auxiliary Methods
      * ***************************************************************************/
+
+    Dune::PartitionType structural2PartitionType(StructuralType structtype)
+    {
+    	switch (structtype)
+    	{
+    	  case GridStorageType::PartitionType::Internal          : return PartitionType::InteriorEntity;
+    	  case GridStorageType::PartitionType::DomainBoundary    : return PartitionType::InteriorEntity;
+    	  case GridStorageType::PartitionType::ProcessBoundary   : return PartitionType::BorderEntity;
+    	  case GridStorageType::PartitionType::Ghost             : return PartitionType::GhostEntity;
+    	  default : return 0;
+    	}
+    }
+
 
     std::string PartitonTypeName(StructuralType structtype) const  { return gridstorage_.PartitonTypeName[structtype]; }
 
@@ -1034,7 +1047,7 @@ protected:
         std::vector<Vertex> entityVertices;
         for (int i = 0; i < thisData.vertexIndexSet.size(); i++) { entityVertices.push_back(gridstorage_.point_[thisData.vertexIndexSet[i]].coord); }
 
-        return Dune::CurvilinearGeometry<ct, cdim - codim, cdim> (thisData.geometryType, entityVertices, thisData.interpOrder);
+        return typename GridStorageType::template Codim<codim>::EntityGeometry (thisData.geometryType, entityVertices, thisData.interpOrder);
     }
 
 

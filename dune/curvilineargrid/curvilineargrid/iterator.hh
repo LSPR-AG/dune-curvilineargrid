@@ -29,7 +29,7 @@ namespace Dune
         void increment ()
         {
       	  // Access by reference the entity stored in entity pointer, and call its method next() to iterate the entity.
-      	  this->dereference().next();
+          Grid::getRealImplementation(this->dereference()).next();
         }
     };
 
@@ -53,7 +53,7 @@ namespace Dune
       void increment ()
       {
     	  // Access by reference the entity stored in entity pointer, and call its method next() to iterate the entity.
-    	  this->dereference().next();
+    	  Grid::getRealImplementation(this->dereference()).next();
       }
     };
 

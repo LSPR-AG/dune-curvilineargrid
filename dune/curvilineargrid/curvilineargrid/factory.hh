@@ -123,7 +123,7 @@ class CurvilinearGridFactory
     GridType * createGrid(int nVertexTotal, int nElementTotal)
     {
     	gridbase_->generateMesh(nVertexTotal, nElementTotal);
-    	GridType * grid = new GridType(gridbase_, mpihelper_);
+    	GridType * grid = new GridType(*gridbase_, mpihelper_);
     	return grid;
     }
 

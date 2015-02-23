@@ -45,16 +45,23 @@ namespace Dune
         typedef Dune::CurvilinearGridBase<ctype,dimension>    GridBaseType;
         typedef typename GridBaseType::IndexSetIterator       IndexSetIterator;
 
+        static  Entity seed2entity(const EntitySeed & seed)
+        {
+        	Dune::CurvGrid::CurvEntitySeed<codim, Grid> & seedImpl = seed.impl();
+        	IndexSetIterator iter = seedImpl.gridBase().entityIndexDuneIterator(codim, seedImpl.partitionIteratorType(), seedImpl.localIndex());
+        	return Entity(EntityImpl(iter, seedImpl.gridBase(), seedImpl.partitionIteratorType()));
+        }
+
     public:
 
         CurvEntityPointer ( const IndexSetIterator & iter, const GridBaseType & gridbase, PartitionIteratorType pitype)
           : entity_(EntityImpl(iter, gridbase, pitype))
         {}
 
-        CurvEntityPointer ( EntitySeed seed)
+        CurvEntityPointer ( const EntitySeed & seed)
+            : entity_(seed2entity(seed))
         {
-        	IndexSetIterator iter = seed.gridBase().entityIndexDuneIterator(codim, seed.partitionType(), seed.localIndex());
-        	entity_ = Entity(EntityImpl(iter, seed.gridBase(), seed.partitionType()));
+
         }
 
         CurvEntityPointer ( const EntityImpl &entity )
@@ -69,7 +76,7 @@ namespace Dune
 
         bool equals ( const CurvEntityPointer &other ) const
         {
-          return entity_.equals(other.dereference());
+          return entity_ == other.dereference();
         }
 
         Entity &dereference () const  { return entity_; }

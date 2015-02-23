@@ -81,10 +81,10 @@ namespace Dune
       template< class EntityType >
       bool contains ( const EntityType &entity ) const
       {
-    	  int localIndex = entity.localIndex();
+    	  int localIndex = Grid::getRealImplementation(entity).index();
     	  int globalIndex;
 
-    	  return gridbase_.findEntityGlobalIndex<EntityType::codimension>(localIndex, globalIndex);
+    	  return gridbase_.findEntityGlobalIndex(EntityType::codimension, localIndex, globalIndex);
       }
 
       const std::vector< GeometryType > &geomTypes ( int codim ) const

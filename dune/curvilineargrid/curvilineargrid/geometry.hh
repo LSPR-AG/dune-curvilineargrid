@@ -19,7 +19,8 @@ namespace Dune
   {
 
     // Geometry
-    // [TODO] Implement 2 Classes one for Geometry one for CachedGeometry. Introduce template parameter
+    // [TODO]  Implement 2 Classes one for Geometry one for CachedGeometry. Introduce template parameter
+    // [FIXME] Need a method to obtain RELATIVE_INTEGRAL_TOLERANCE from user. Ask Dune
     // --------------------------------------------------
 
     template<int mydim, int cdim, class Grid>
@@ -58,19 +59,36 @@ namespace Dune
 
 
       template< class Vertices >
-      CurvGeometry (const GeometryType &type, const Vertices &vertices, InterpolatoryOrderType order )
-      	  : mapping_ ( type, vertices, order )
+      CurvGeometry (
+          const GeometryType &type,
+          const Vertices &vertices,
+          InterpolatoryOrderType order,
+          const GridBaseType & gridbase)
+      	      : mapping_ (type, vertices, order),
+      	      gridbase_(&gridbase)
       {
           assert( int( type.dim() ) == mydimension );
       }
 
-      CurvGeometry ( const BasicMapping & mapping ) : mapping_ ( mapping )  { }
 
-      CurvGeometry ( const This &other ) : mapping_( other.mapping_ )  { }
+      CurvGeometry (
+          const BasicMapping & mapping,
+          const GridBaseType & gridbase)
+              : mapping_ ( mapping ),
+                gridbase_(&gridbase)
+      { }
+
+
+      CurvGeometry ( const This &other )
+          : mapping_( other.mapping_ ),
+            gridbase_(other.gridbase_)
+      { }
+
 
       const This &operator= ( const This &other )
       {
     	  mapping_ = other.mapping_;
+    	  gridbase_ = other.gridbase_;
     	  return *this;
       }
 
@@ -103,9 +121,9 @@ namespace Dune
       PolynomialVector NormalIntegrationElementAnalytical()      const { return mapping_.NormalIntegrationElementAnalytical(); }
       Polynomial IntegrationElementSquaredAnalytical()           const { return mapping_.IntegrationElementSquaredAnalytical(); }
 
-      GlobalCoordinate subentityIntegrationNormal (InternalIndexType subIndex, LocalCoordinate localCoord)  const { return mapping_.subentityIntegrationNormal(subIndex, localCoord); }
-      GlobalCoordinate subentityNormal            (InternalIndexType subIndex, LocalCoordinate localCoord)  const { return mapping_.subentityNormal(subIndex, localCoord); }
-      GlobalCoordinate subentityUnitNormal        (InternalIndexType subIndex, LocalCoordinate localCoord)  const { return mapping_.subentityUnitNormal(subIndex, localCoord); }
+      GlobalCoordinate subentityIntegrationNormal (InternalIndexType subIndex, const LocalCoordinate & localCoord)  const { return mapping_.subentityIntegrationNormal(subIndex, localCoord); }
+      GlobalCoordinate subentityNormal            (InternalIndexType subIndex, const LocalCoordinate & localCoord)  const { return mapping_.subentityNormal(subIndex, localCoord); }
+      GlobalCoordinate subentityUnitNormal        (InternalIndexType subIndex, const LocalCoordinate & localCoord)  const { return mapping_.subentityUnitNormal(subIndex, localCoord); }
 
 
       // Explicit integrals
@@ -113,13 +131,14 @@ namespace Dune
       template <typename Functor>
       ctype integrateNumerical(const Functor & f, double tolerance) const { return mapping_.integrateNumerical(f, tolerance); }
       ctype integrateAnalyticalDot(const PolynomialVector & PVec)   const { return mapping_.integrateAnalyticalDot(PVec); }
-      ctype volume () const  { return mapping_.volume(); }
+      ctype volume () const  { return mapping_.volume(gridbase_->geometryRelativeTolerance()); }
 
       JacobianTransposed jacobianTransposed ( const LocalCoordinate &local )                const { return mapping_.jacobianTransposed( local ); }
       JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local )  const { return mapping_.jacobianInverseTransposed( local ); }
 
     private:
 
+      const GridBaseType * gridbase_;
       BasicMapping mapping_;
     };
 

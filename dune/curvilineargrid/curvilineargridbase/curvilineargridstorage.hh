@@ -243,6 +243,11 @@ public:
     static const int   ELEMENT_CODIM  = 0;
 
 
+    // Curvilinear Grid User Constants
+    // ******************************************************************
+     double GEOMETRY_TOLERANCE;
+
+
 
     // Curvilinear Grid Storage Variables
     // ******************************************************************
@@ -318,7 +323,7 @@ public:
     	PartitonTypeName { "Internal", "ProcessBoundary", "DomainBoundary", "InternalBoundary", "FrontBoundary", "Ghost", "Overlap" },
     	octree_(0)
     {
-
+    	GEOMETRY_TOLERANCE = 1.0e-5;    // Default value for tolerance. Can be adjusted using gridbase.setGeometryTolerance(tolerance)
     }
 
     ~CurvilinearGridStorage()

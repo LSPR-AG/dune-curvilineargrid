@@ -41,10 +41,9 @@ namespace Dune
     class Communication
     {
     	typedef typename remove_const< Grid >::type::Traits Traits;
-    	typedef typename Traits::ctype ctype;
+    	typedef typename remove_const< Grid >::type::ctype ctype;
 
-        static const int dimension   = Traits::dimension;
-        static const int codimension = Traits::codimension;
+    	static const int dimension   = remove_const< Grid >::type::dimension;		 //! dimension of the grid
 
     	typedef Dune::CurvilinearGridStorage<ctype,dimension>       GridStorageType;
     	typedef Dune::CurvilinearGridBase<ctype,dimension>          GridBaseType;
@@ -55,6 +54,12 @@ namespace Dune
 
     	typedef typename GridBaseType::Local2LocalMap        Local2LocalMap;
     	typedef typename GridBaseType::Local2LocalIterator   Local2LocalIterator;
+
+
+    	static const int  InternalType        = GridStorageType::PartitionType::Internal;
+    	static const int  ProcessBoundaryType = GridStorageType::PartitionType::ProcessBoundaryType;
+    	static const int  DomainBoundaryType  = GridStorageType::PartitionType::DomainBoundary;
+    	static const int  GhostType           = GridStorageType::PartitionType::Ghost;
 
 
     	struct InterfaceSubsetType
@@ -75,9 +80,8 @@ namespace Dune
 
     public:
 
-    	Communication(const GridStorageType gridstorage, const GridBaseType & gridbase, MPIHelper & mpihelper)
+    	Communication(const GridBaseType & gridbase, MPIHelper & mpihelper)
     		: mpihelper_(mpihelper),
-    		  gridstorage_(gridstorage),
     		  gridbase_(gridbase)
     	{
     		rank_ = mpihelper.rank();
@@ -93,69 +97,59 @@ namespace Dune
     	template<class DataHandle, int codim>
     	void communicate(DataHandle& datahandle, InterfaceType iftype, CommunicationDirection dir) const
     	{
+    		// Communication protocol ProcessBoundary -> ProcessBoundary
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_ProcessBoundary))
     		{
     			communicateMain<DataHandle, codim>(
     				datahandle,
-    				gridstorage_.processBoundaryIndexMap_[codim],
-    				gridstorage_.PB2PBNeighborRank_[codim]
+    				gridbase_.selectCommMap(codim, ProcessBoundaryType),
+    				gridbase_.selectCommRankVector(codim, ProcessBoundaryType, ProcessBoundaryType)
     			);
     		}
 
+    		// Communication protocol ProcessBoundary -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_Ghost))
     		{
     			communicateMain<DataHandle, codim>(
     				datahandle,
-    				gridstorage_.processBoundaryIndexMap_[codim],
-    				gridstorage_.PB2GNeighborRank_[codim]
+    				gridbase_.selectCommMap(codim, ProcessBoundaryType),
+    				gridbase_.selectCommRankVector(codim, ProcessBoundaryType, GhostType)
     			);
     		}
 
+    		// Communication protocol BoundaryInternal -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Internal_Ghost))
     		{
     			communicateMain<DataHandle, codim>(
     				datahandle,
-    				gridstorage_.boundaryInternalEntityIndexMap_[codim],
-    				gridstorage_.BI2GNeighborRank_[codim]
+    				gridbase_.selectCommMap(codim, InternalType),
+    				gridbase_.selectCommRankVector(codim, InternalType, GhostType)
     			);
     		}
 
+    		// Communication protocol Ghost -> BoundaryInternal + ProcessBoundary
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Internal))
     		{
     			communicateMain<DataHandle, codim>(
     				datahandle,
-    				gridstorage_.ghostIndexMap_[codim],
-    				gridstorage_.G2BIPBNeighborRank_[codim]
+    				gridbase_.selectCommMap(codim, GhostType),
+    				gridbase_.selectCommRankVector(codim, GhostType, InternalType)
     			);
     		}
 
+    		// Communication protocol Ghost -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Ghost))
     		{
     			communicateMain<DataHandle, codim>(
     				datahandle,
-    				gridstorage_.ghostIndexMap_[codim],
-    				gridstorage_.G2GNeighborRank_[codim]
+    				gridbase_.selectCommMap(codim, GhostType),
+    				gridbase_.selectCommRankVector(codim, GhostType, GhostType)
     			);
     		}
     	}
 
 
     protected:
-
-    	Dune::PartitionType structural2partitionType(StructuralType structtype)
-    	{
-    		switch (structtype)
-    		{
-    		case GridStorageType::PartitionType::Internal           :  return Dune::PartitionType::InteriorEntity;  break;
-    		case GridStorageType::PartitionType::DomainBoundary     :  return Dune::PartitionType::InteriorEntity;  break;
-    		case GridStorageType::PartitionType::ProcessBoundary    :  return Dune::PartitionType::BorderEntity;    break;
-    		//case GridStorageType::PartitionType::InternalBoundary   :  return Dune::PartitionType::InteriorEntity;  break;
-    		case GridStorageType::PartitionType::FrontBoundary      :  return Dune::PartitionType::FrontEntity;     break;
-    		case GridStorageType::PartitionType::Ghost              :  return Dune::PartitionType::GhostEntity;     break;
-    		case GridStorageType::PartitionType::Overlap            :  return Dune::PartitionType::OverlapEntity;   break;
-    		}
-    	}
-
 
     	bool allowedInterfaceSubset(InterfaceType iftype, CommunicationDirection dir, InterfaceSubType istype)
     	{
@@ -244,8 +238,7 @@ namespace Dune
 
     			// Get Entity
     			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
-    			Dune::PartitionType thisPIType = structural2partitionType(thisEntityStructType);
-    			EntityType thisEntity (thisEntityLocalIndex, gridbase_, thisPIType);
+    			EntityType thisEntity (thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition);
 
     			// Get data sizes
     			for (int iProc = 0; iProc < ranklist[thisEntityLocalSubIndex].size(); iProc++)
@@ -282,9 +275,7 @@ namespace Dune
 
     			// Get Entity
     			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
-    			Dune::PartitionType thisPIType = structural2partitionType(thisEntityStructType);
-    			EntityType thisEntity (thisEntityLocalIndex, gridbase_, thisPIType);
-
+    			EntityType thisEntity (thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition);
     			datahandle.gather(gathermessagebuffer, thisEntity);
 
 
@@ -339,8 +330,7 @@ namespace Dune
     			if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex))  {  /* THROW ERROR */ }
 
     			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
-    			Dune::PartitionType thisPIType = structural2partitionType(thisEntityStructType);
-    			EntityType thisEntity (thisEntityLocalIndex, gridbase_, thisPIType);
+    			EntityType thisEntity (thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition);
 
     			// Scatter data
     			int thisNData = nDataPerEntityRecv[i];
@@ -354,8 +344,6 @@ namespace Dune
     	MPIHelper & mpihelper_;
     	int rank_;
     	int size_;
-
-    	const GridStorageType & gridstorage_;
 
     	const GridBaseType & gridbase_;
 

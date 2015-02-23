@@ -76,28 +76,37 @@ namespace Dune
       CurvIntersection (
     		  LocalIndexType localIndexInside,    // Index of the element wrt which this intersection is calculated
     		  InternalIndexType subIndexInside,   // Internal index of the face as the element subentity
-    		  GridBaseType & gridbase)
+    		  const GridBaseType & gridbase)
     	: localIndexInside_(localIndexInside),
     	  subIndexInside_(subIndexInside),
-    	  gridbase_(&gridbase)
+    	  gridbase_(&gridbase),
+    	  insideGeo_(gridbase.template entityGeometry<ELEMENT_CODIM>(localIndexInside), gridbase),
+    	  geo_(nullptr)
       {
     	  localFaceIndex_ = gridbase.subentityLocalIndex (localIndexInside, 0, 1, subIndexInside);
-    	  insideGeo_ = LocalGeometry(LocalNeighborGeometry(localIndexInside_, subIndexInside_));
-
     	  computeOutside();
       }
+
 
       CurvIntersection ( const CurvIntersection &other )
   	    : localIndexInside_(other.localIndexInside_),
   	      subIndexInside_(other.subIndexInside_),
   	      gridbase_(other.gridbase_),
-  	      insideGeo_(LocalNeighborGeometry(localIndexInside_, subIndexInside_)),
+  	      insideGeo_(other.gridbase_->template entityGeometry<ELEMENT_CODIM>(other.localIndexInside_), *other.gridbase_),
   	      localFaceIndex_(other.localFaceIndex_),
   	      localIndexOutside_(other.localIndexOutside_),
-  	      subIndexOutside_(other.subIndexOutside_)
+  	      subIndexOutside_(other.subIndexOutside_),
+  	      geo_(nullptr)
       {
 
       }
+
+
+      ~CurvIntersection()
+      {
+    	  delete geo_;
+      }
+
 
       const CurvIntersection &operator= ( const CurvIntersection &other )
       {
@@ -107,8 +116,9 @@ namespace Dune
   	      localFaceIndex_ = other.localFaceIndex_;
   	      localIndexOutside_ = other.localIndexOutside_;
   	      subIndexOutside_ = other.subIndexOutside_;
+    	  insideGeo_ = other.insideGeo_;
+    	  geo_ = nullptr;
 
-    	  insideGeo_ = LocalNeighborGeometry(localIndexInside_, subIndexInside_);
     	  return *this;
       }
 
@@ -162,14 +172,10 @@ namespace Dune
       }
 
       // Geometry of the intersection from within the inside element
-      LocalGeometry geometryInInside () const  {
-    	  return LocalGeometry(insideGeo_);
-      }
+      LocalGeometry geometryInInside () const  { return localGeometryFromNeighbor(localIndexInside_, subIndexInside_); }
 
       // Geometry of the intersection from within the outside element
-      LocalGeometry geometryInOutside () const  {
-    	  return LocalGeometry(LocalNeighborGeometry(localIndexOutside_, subIndexOutside_));
-      }
+      LocalGeometry geometryInOutside () const  { return localGeometryFromNeighbor(localIndexOutside_, subIndexOutside_); }
 
       // Geometry of this face
       Geometry geometry () const
@@ -177,17 +183,16 @@ namespace Dune
 
         if(!geo_)  {
         	InterpolatoryOrderType interporder = gridbase_->entityInterpolationOrder(ELEMENT_CODIM, localIndexInside_);
+        	ElementBaseGeometry entityGeometryBase = gridbase_->template entityGeometry<ELEMENT_CODIM>(localIndexInside_);
+        	FaceBaseGeometry faceGeometryBase = entityGeometryBase.template subentityGeometry<dimension - FACE_CODIM>(subIndexInside_);
 
-        	ElementBaseGeometry entityGeometryBase = gridbase_->entityGeometry(ELEMENT_CODIM, localIndexInside_);
-        	FaceBaseGeometry faceGeometryBase = entityGeometryBase.subentityGeometry(subIndexInside_);
-
-        	geo_ = GeometryImpl(faceGeometryBase);
+        	geo_ = new GeometryImpl(faceGeometryBase, *gridbase_);
         }
 
-        return Geometry( geo_ );
+        return Geometry( *geo_ );
       }
 
-      GeometryType type () const { return geo_.type(); }
+      GeometryType type () const { return geo_->type(); }
 
       // Face Subentity index as viewed from calling element
       InternalIndexType indexInInside () const  { return subIndexInside_; }
@@ -197,19 +202,22 @@ namespace Dune
 
       // All normals as viewed from the calling element
 
-      GlobalCoordinate integrationOuterNormal ( const LocalCoordinate &localCoord ) const
+      GlobalCoordinate integrationOuterNormal ( const LocalCoordinate &localFaceCoord ) const
       {
-        return insideGeo_.subentityIntegrationNormal( indexInInside(), localCoord );
+    	  GlobalCoordinate localElemCoord( geometryInInside().global( localFaceCoord ) );
+    	  return insideGeo_.subentityIntegrationNormal( indexInInside(), localElemCoord );
       }
 
-      GlobalCoordinate outerNormal ( const LocalCoordinate &localCoord ) const
+      GlobalCoordinate outerNormal ( const LocalCoordinate &localFaceCoord ) const
       {
-    	  return insideGeo_.subentityNormal( indexInInside(), localCoord );
+    	  GlobalCoordinate localElemCoord( geometryInInside().global( localFaceCoord ) );
+    	  return insideGeo_.subentityNormal( indexInInside(), localElemCoord );
       }
 
-      GlobalCoordinate unitOuterNormal ( const LocalCoordinate &localCoord ) const
+      GlobalCoordinate unitOuterNormal ( const LocalCoordinate &localFaceCoord ) const
       {
-    	  return insideGeo_.subentityUnitNormal( indexInInside(), localCoord );
+    	  GlobalCoordinate localElemCoord( geometryInInside().global( localFaceCoord ) );
+    	  return insideGeo_.subentityUnitNormal( indexInInside(), localElemCoord );
       }
 
       // TODO: This does not work in 2D
@@ -223,7 +231,7 @@ namespace Dune
       // Auxiliary methods
       // *******************************************************
 
-      LocalIndexType intersectionIndex() { return localFaceIndex_; }
+      LocalIndexType intersectionIndex() const  { return localFaceIndex_; }
 
       // Iterates over subentities of the inside entity by increasing the inside element subentity index
       // If intersection is a ghost intersection, skip it, because the intersection is not allowed to be of type ghost
@@ -271,14 +279,19 @@ namespace Dune
       }
 
 
-      ElementGeometryImpl LocalNeighborGeometry(LocalIndexType neighborIndex, InternalIndexType subentityIndex)
+      /** \brief Returns face geometry as seen from the neighbouring element
+       *  \param[in]  neighborIndex   neighbouring element index
+       *  \param[in]  subentityIndex  index of the face as seen from the neighbouring element
+       *
+       * */
+      LocalGeometry localGeometryFromNeighbor(LocalIndexType neighborIndex, InternalIndexType subentityIndex) const
       {
-    	  Dune::GeometryType gt = gridbase_->entityGeometryType(ELEMENT_CODIM, neighborIndex);
-    	  return GeometryImpl(type(), refCoord(gt, subentityIndex), LINEAR_ELEMENT_ORDER);
+    	  Dune::GeometryType elemGT = gridbase_->entityGeometryType(ELEMENT_CODIM, neighborIndex);
+    	  return LocalGeometry(GeometryImpl(type(), referenceElementFaceCoord(elemGT, subentityIndex), LINEAR_ELEMENT_ORDER, *gridbase_));
       }
 
       // Creates coordinates of a linear intersection as one of the faces of the reference element
-      std::vector<GlobalCoordinate> refCoord(Dune::GeometryType elemGT, InternalIndexType subentityIndex)
+      std::vector<GlobalCoordinate> referenceElementFaceCoord(Dune::GeometryType elemGT, InternalIndexType subentityIndex) const
 	  {
     	  std::vector<GlobalCoordinate> rez;
 
@@ -304,9 +317,10 @@ namespace Dune
       LocalIndexType      localIndexOutside_;
       InternalIndexType   subIndexInside_;
       InternalIndexType   subIndexOutside_;
-      GeometryImpl        geo_;
       ElementGeometryImpl insideGeo_;
       GridBaseType *      gridbase_;
+
+      mutable GeometryImpl * geo_;
     };
 
   } // namespace CurvGrid

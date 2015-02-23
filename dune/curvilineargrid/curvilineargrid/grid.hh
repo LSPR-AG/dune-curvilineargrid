@@ -130,13 +130,20 @@ namespace Dune
     typedef typename GridFamily::Traits Traits;                               //! type of the grid traits
 
     // Curvilinear Grid Implementation
+    // ************************************************************************************
     typedef Dune::CurvilinearGridBase<ct, dimworld>     GridBaseType;
     typedef Dune::CurvilinearGridStorage<ct, dimworld>  GridStorageType;
+
+    typedef typename GridStorageType::LocalIndexType     LocalIndexType;
+    typedef typename GridStorageType::GlobalIndexType    GlobalIndexType;
+    typedef typename GridStorageType::PhysicalTagType    PhysicalTagType;
+
 
     static const int   VERTEX_CODIM   = GridStorageType::VERTEX_CODIM;
     static const int   EDGE_CODIM     = GridStorageType::EDGE_CODIM;
     static const int   FACE_CODIM     = GridStorageType::FACE_CODIM;
     static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
+
 
 
     template<int codim>
@@ -225,7 +232,9 @@ namespace Dune
         mpihelper_(mpihelper),
         globalIdSet_(),
         leafIndexSet_(gridbase)
-    {}
+    {
+
+    }
 
 
     /** \brief destructor */
@@ -534,11 +543,11 @@ namespace Dune
                        InterfaceType interface,
                        CommunicationDirection direction ) const
     {
-    	Dune::CurvGrid::Communication<Grid> communicator;
-    	if (dataHandle.contains(dim, ELEMENT_CODIM)) { communicator.template communicateWrapper<DataHandle, ELEMENT_CODIM>(dataHandle, interface, direction); }
-    	if (dataHandle.contains(dim, FACE_CODIM))    { communicator.template communicateWrapper<DataHandle, FACE_CODIM>(dataHandle, interface, direction); }
-    	if (dataHandle.contains(dim, EDGE_CODIM))    { communicator.template communicateWrapper<DataHandle, EDGE_CODIM>(dataHandle, interface, direction); }
-    	if (dataHandle.contains(dim, VERTEX_CODIM))  { communicator.template communicateWrapper<DataHandle, VERTEX_CODIM>(dataHandle, interface, direction); }
+    	Dune::CurvGrid::Communication<Grid> communicator(*gridbase_, mpihelper_);
+    	if (dataHandle.contains(dim, ELEMENT_CODIM)) { communicator.template communicate<DataHandle, ELEMENT_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dim, FACE_CODIM))    { communicator.template communicate<DataHandle, FACE_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dim, EDGE_CODIM))    { communicator.template communicate<DataHandle, EDGE_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dim, VERTEX_CODIM))  { communicator.template communicate<DataHandle, VERTEX_CODIM>(dataHandle, interface, direction); }
     }
 
     /** \brief obtain CollectiveCommunication object
@@ -609,6 +618,23 @@ namespace Dune
 
 
     const GridBaseType & gridBaseType()  { return gridbase_; }
+
+
+
+
+
+    // Auxiliary Methods only existent in CurvilinearGeometry
+    // *******************************************************************
+
+    // User sets the relative error tolerance for computing volumes of curvilinear entities
+    void geometryRelativeTolerance(double tolerance)  { gridbase_->geometryRelativeTolerance(tolerance); }
+
+    // User gets the relative error tolerance for computing volumes of curvilinear entities
+    double geometryRelativeTolerance()                { return gridbase_->geometryRelativeTolerance(); }
+
+    // Obtains physical tag of the entity of specified codimension and local index
+    PhysicalTagType entityPhysicalTag(int codim, LocalIndexType localIndex) const  { return gridbase_->physicalTag(codim, localIndex); }
+
 
 
 

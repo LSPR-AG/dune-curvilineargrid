@@ -31,14 +31,25 @@ namespace Dune
       typedef typename GridBaseType::LocalIndexType         LocalIndexType;
 
       //! default construct an invalid entity seed
-      CurvEntitySeed (LocalIndexType index, Dune::PartitionType pitype, GridBaseType & gridbase)
-  	  	  : index_(index), pitype_(pitype), gridbase_(gridbase)
+      CurvEntitySeed (LocalIndexType index, Dune::PartitionIteratorType pitype, const GridBaseType & gridbase)
+  	  	  : index_(index), pitype_(pitype), gridbase_(&gridbase)
       {}
+
+
+	  //! Copy assignment operator from an existing seed.
+      CurvEntitySeed& operator=(const CurvEntitySeed& other)
+	  {
+    	  gridbase_ = other.gridbase_;
+    	  index_ = other.index_;
+    	  pitype_ = other.pitype_;
+	      return *this;
+	  }
+
 
       //! check whether the EntitySeed refers to a valid Entity
       bool isValid() const
       {
-    	  return !(gridbase_.entityIndexIterator(codim, localIndex) == gridbase_.entityIndexEnd(codim) );
+    	  return !(gridbase_->entityIndexIterator(codim, localIndex) == gridbase_->entityIndexEnd(codim) );
       }
 
       // Returns local index of the associated entity
@@ -46,15 +57,15 @@ namespace Dune
 
       // Returns partition type of the associated entity.
       // Not needed for entity itself, but needed for the range the entity would iterate over if necessary
-      Dune::PartitionType partitionType() const  { return pitype_; }
+      Dune::PartitionIteratorType partitionIteratorType() const  { return pitype_; }
 
       // Returns a reference to the grid base class
-      GridBaseType & gridBase() const  { return gridbase_; }
+      GridBaseType & gridBase() const  { return *gridbase_; }
 
     private:
-      GridBaseType & gridbase_;
+      GridBaseType * gridbase_;
       LocalIndexType index_;
-      Dune::PartitionType pitype_;
+      Dune::PartitionIteratorType pitype_;
     };
 
   } // namespace CurvGrid

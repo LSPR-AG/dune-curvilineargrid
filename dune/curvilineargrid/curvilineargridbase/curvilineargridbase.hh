@@ -351,6 +351,17 @@ public:
 
 
 
+    /* ***************************************************************************
+     * Section: Setting user constants
+     * ***************************************************************************/
+
+    // Sets the geometry tolerance
+    void   geometryRelativeTolerance(double tolerance)  { gridstorage_.GEOMETRY_TOLERANCE = tolerance; }
+
+    // Retrieves the geometry tolerance
+    double geometryRelativeTolerance() const            { return gridstorage_.GEOMETRY_TOLERANCE; }
+
+
 
     /****************************************************************************
      * Section: (Fake) Refinement Methods of the mesh
@@ -389,10 +400,10 @@ public:
     {
     	switch(codim)
     	{
-    	case 3 : return Dune::GeometryType(Dune::GenericGeometry::SimplexTopology<0>::type::id, 0);   break;
-    	case 2 : return Dune::GeometryType(Dune::GenericGeometry::SimplexTopology<1>::type::id, 1);   break;
-    	case 1 : return gridstorage_.face_[localIndex].geometryType;                                  break;
-    	case 0 : return gridstorage_.element_[localIndex].geometryType;                               break;
+    	case VERTEX_CODIM  : return Dune::GeometryType(Dune::GenericGeometry::SimplexTopology<0>::type::id, 0);   break;
+    	case EDGE_CODIM    : return Dune::GeometryType(Dune::GenericGeometry::SimplexTopology<1>::type::id, 1);   break;
+    	case FACE_CODIM    : return gridstorage_.face_[localIndex].geometryType;                                  break;
+    	case ELEMENT_CODIM : return gridstorage_.element_[localIndex].geometryType;                               break;
     	}
     }
 
@@ -402,10 +413,10 @@ public:
     {
     	switch(codim)
     	{
-    	case 3 : return 0;                                              break;
-    	case 2 : return 0;                                              break;
-    	case 1 : return gridstorage_.face_[localIndex].physicalTag;     break;
-    	case 0 : return gridstorage_.element_[localIndex].physicalTag;  break;
+    	case VERTEX_CODIM  : return 0;                                              break;
+    	case EDGE_CODIM    : return 0;                                              break;
+    	case FACE_CODIM    : return gridstorage_.face_[localIndex].physicalTag;     break;
+    	case ELEMENT_CODIM : return gridstorage_.element_[localIndex].physicalTag;  break;
     	}
     }
 
@@ -417,10 +428,10 @@ public:
 
     	switch(codim)
     	{
-    	case 3 : if (localIndex >= gridstorage_.point_.size())    { return false; }  else { globalIndex = gridstorage_.point_[localIndex].globalIndex; }    break;
-    	case 2 : if (localIndex >= gridstorage_.edge_.size())     { return false; }  else { globalIndex = gridstorage_.edge_[localIndex].globalIndex; }     break;
-    	case 1 : if (localIndex >= gridstorage_.face_.size())     { return false; }  else { globalIndex = gridstorage_.face_[localIndex].globalIndex; }     break;
-    	case 0 : if (localIndex >= gridstorage_.element_.size())  { return false; }  else { globalIndex = gridstorage_.element_[localIndex].globalIndex; }  break;
+    	case VERTEX_CODIM  : if (localIndex >= gridstorage_.point_.size())    { return false; }  else { globalIndex = gridstorage_.point_[localIndex].globalIndex; }    break;
+    	case EDGE_CODIM    : if (localIndex >= gridstorage_.edge_.size())     { return false; }  else { globalIndex = gridstorage_.edge_[localIndex].globalIndex; }     break;
+    	case FACE_CODIM    : if (localIndex >= gridstorage_.face_.size())     { return false; }  else { globalIndex = gridstorage_.face_[localIndex].globalIndex; }     break;
+    	case ELEMENT_CODIM : if (localIndex >= gridstorage_.element_.size())  { return false; }  else { globalIndex = gridstorage_.element_[localIndex].globalIndex; }  break;
     	}
     	return true;
     }
@@ -447,7 +458,7 @@ public:
     }
 
 
-    IdType globalId(int codim, LocalIndexType localIndex)
+    IdType globalId(int codim, LocalIndexType localIndex) const
     {
     	GlobalIndexType globalIndex;
     	if (! findEntityGlobalIndex(codim, localIndex, globalIndex))  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: requested local index does not point to an entity");  }
@@ -459,11 +470,11 @@ public:
 
 
     /** Get boundary segment index of this entity if it is a Domain Boundary Face */
-    LocalIndexType boundarySegmentIndex(LocalIndexType localIndex)
+    LocalIndexType boundarySegmentIndex(LocalIndexType localIndex) const
     {
     	StructuralType thisstructtype = entityStructuralType(FACE_CODIM, localIndex);
     	assert(thisstructtype == DomainBoundaryType);
-    	return gridstorage_.boundarySegmentIndexMap_[thisstructtype];
+    	return gridstorage_.boundarySegmentIndexMap_.at(thisstructtype);
     }
 
 
@@ -472,14 +483,15 @@ public:
     {
     	switch(codim)
     	{
-    	case 3 : return gridstorage_.point_[localIndex].structuralType;                       break;
-    	case 2 : return gridstorage_.edge_[localIndex].structuralType;                        break;
-    	case 1 : return gridstorage_.face_[localIndex].structuralType;                        break;
-    	case 0 : return gridstorage_.element_[localIndex].structuralType;                     break;
+    	case VERTEX_CODIM  : return gridstorage_.point_[localIndex].structuralType;    break;
+    	case EDGE_CODIM    : return gridstorage_.edge_[localIndex].structuralType;     break;
+    	case FACE_CODIM    : return gridstorage_.face_[localIndex].structuralType;     break;
+    	case ELEMENT_CODIM : return gridstorage_.element_[localIndex].structuralType;  break;
     	default :
     	{
     		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Unexpected subentity codimension=" + std::to_string(codim));
-    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected subentity codimension");  break;
+    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected subentity codimension");
+    		break;
     	}
     	}
     }
@@ -488,18 +500,18 @@ public:
     /** Get Interpolatory order of the entity */
     InterpolatoryOrderType entityInterpolationOrder(int codim, LocalIndexType localIndex) const
     {
-    	if (codim >= 3)  { return 0; }
+    	if (codim >= VERTEX_CODIM)  { return 0; }
 
     	LocalIndexType localAssocElementIndex;
 
     	switch (codim)
     	{
-    	case 0 : localAssocElementIndex = localIndex;  break;
-    	case 1 : localAssocElementIndex = gridstorage_.face[localIndex].element1Index;  break;
-    	case 2 : localAssocElementIndex = gridstorage_.edge[localIndex].elementIndex;  break;
+    	case ELEMENT_CODIM : localAssocElementIndex = localIndex;  break;
+    	case FACE_CODIM    : localAssocElementIndex = gridstorage_.face_[localIndex].element1Index;  break;
+    	case EDGE_CODIM    : localAssocElementIndex = gridstorage_.edge_[localIndex].elementIndex;  break;
     	}
 
-    	return gridstorage_.element[localAssocElementIndex].interpOrder;
+    	return gridstorage_.element_[localAssocElementIndex].interpOrder;
     }
 
 
@@ -508,20 +520,20 @@ public:
 	{
     	std::vector<LocalIndexType> rez;
 
-    	if (codim == 3)  { rez.push_back(entityLocalIndex);  return rez; }
+    	if (codim == VERTEX_CODIM)  { rez.push_back(entityLocalIndex);  return rez; }
 
     	LocalIndexType    localElementIndex;
     	InternalIndexType subentityIndex;
 
     	switch(codim)
     	{
-    	case 0 : localElementIndex = entityLocalIndex;  break;
-    	case 1 : {
+    	case ELEMENT_CODIM : localElementIndex = entityLocalIndex;  break;
+    	case FACE_CODIM : {
     		localElementIndex = gridstorage_.face_[entityLocalIndex].element1Index;
     		subentityIndex  = gridstorage_.face_[entityLocalIndex].element1SubentityIndex;
 
     	} break;
-    	case 2 : {
+    	case EDGE_CODIM : {
     		localElementIndex = gridstorage_.edge_[entityLocalIndex].elementIndex;
     		subentityIndex  = gridstorage_.edge_[entityLocalIndex].subentityIndex;
     	} break;
@@ -532,7 +544,7 @@ public:
         std::vector<LocalIndexType> elementCornerLocalIndexSet = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ct, 3>(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
 
         // If we are interested in corners of the element, we are interested in all corners
-        if (codim == 0)  { return elementCornerLocalIndexSet; }
+        if (codim == ELEMENT_CODIM)  { return elementCornerLocalIndexSet; }
 
         // Otherwise, we need to calculate the subset of corners wrt selected subentity
         Dune::GeometryType elemGT;  elemGT.makeSimplex(cdim);
@@ -595,7 +607,7 @@ public:
      *  Curvilinear interpolation vertices will not be accessible by this method
      *
      * */
-    LocalIndexType subentityLocalIndex (LocalIndexType entityIndex, int codim, int subcodim, InternalIndexType subentityInternalIndex)
+    LocalIndexType subentityLocalIndex (LocalIndexType entityIndex, int codim, int subcodim, InternalIndexType subentityInternalIndex) const
     {
     	// Stage 1) Find this subentity as an element subentity
     	// **************************************************************************
@@ -613,19 +625,19 @@ public:
 
     	switch (codim)
     	{
-    		case 0 :
+    		case ELEMENT_CODIM :
     		{
     			elementLocalIndex = entityIndex;
     			elementSubentityInternalIndex1 = subentityInternalIndex;
     		} break;
-    		case 1 :
+    		case FACE_CODIM :
     		{
     			InternalIndexType elementSubentityInternalIndex2 = gridstorage_.face_[entityIndex].element1SubentityIndex;
 
     			elementLocalIndex = gridstorage_.face_[entityIndex].element1Index;
     			elementSubentityInternalIndex1 = thisRefElement.subEntity(elementSubentityInternalIndex2, codim, subentityInternalIndex, subcodim);
     		} break;
-    		case 2 :
+    		case EDGE_CODIM :
     		{
     			InternalIndexType elementSubentityInternalIndex2 = gridstorage_.edge_[entityIndex].subentityIndex;
 
@@ -641,11 +653,11 @@ public:
     	switch (subcodim)
     	{
     		// Face
-    		case 1 :  return gridstorage_.elementSubentityCodim1_[elementLocalIndex][elementSubentityInternalIndex1];  break;
+    		case FACE_CODIM   :  return gridstorage_.elementSubentityCodim1_[elementLocalIndex][elementSubentityInternalIndex1];  break;
     		// Edge
-    		case 2 :  return gridstorage_.elementSubentityCodim2_[elementLocalIndex][elementSubentityInternalIndex1];  break;
+    		case EDGE_CODIM   :  return gridstorage_.elementSubentityCodim2_[elementLocalIndex][elementSubentityInternalIndex1];  break;
     		// Corner
-    		case 3 :
+    		case VERTEX_CODIM :
     		{
     			InterpolatoryOrderType interpolationOrder = gridstorage_.element_[elementLocalIndex].interpOrder;
     			InternalIndexType cornerInternalIndex = Dune::CurvilinearGeometryHelper::cornerIndex(tetrahedronGeometry, interpolationOrder, elementSubentityInternalIndex1);
@@ -705,10 +717,10 @@ public:
     {
     	switch (codim)
     	{
-    	case 3 : return pointData(localIndex);     break;
-    	case 2 : return edgeData(localIndex);      break;
-    	case 1 : return faceData(localIndex);      break;
-    	case 0 : return elementData(localIndex);   break;
+    	case VERTEX_CODIM  : return pointData(localIndex);     break;
+    	case EDGE_CODIM    : return edgeData(localIndex);      break;
+    	case FACE_CODIM    : return faceData(localIndex);      break;
+    	case ELEMENT_CODIM : return elementData(localIndex);   break;
     	default:
     	{
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Requested unexpected codim for entity data ");
@@ -844,7 +856,7 @@ public:
      * Section: Public Auxiliary Methods
      * ***************************************************************************/
 
-    Dune::PartitionType structural2PartitionType(StructuralType structtype)
+    Dune::PartitionType structural2PartitionType(StructuralType structtype) const
     {
     	switch (structtype)
     	{
@@ -852,7 +864,7 @@ public:
     	  case GridStorageType::PartitionType::DomainBoundary    : return PartitionType::InteriorEntity;
     	  case GridStorageType::PartitionType::ProcessBoundary   : return PartitionType::BorderEntity;
     	  case GridStorageType::PartitionType::Ghost             : return PartitionType::GhostEntity;
-    	  default : return 0;
+    	  default : DUNE_THROW(Dune::IOError, "CurvilinearGridBase: unexpected structural type for conversion");  break;
     	}
     }
 

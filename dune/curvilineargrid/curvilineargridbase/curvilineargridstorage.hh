@@ -147,22 +147,22 @@ public:
 	// Unique GlobalId for entities that possess GlobalIndex
 	struct IdType
 	{
-		std::pair<StructuralType, GlobalIndexType>  id_;
+	    std::pair<StructuralType, GlobalIndexType>  id_;
 
-		 bool operator== ( const IdType & other) { return ((id_.first == other.id_.first) && (id_.second == other.id_.second)); }
-		 bool operator!= ( const IdType & other) { return !(*this == other);  }
-		 bool operator<  ( const IdType & other) { return (id_.first == other.id_.first) ? (id_.second < other.id_.second) : (id_.first < other.id_.first); }
+		bool operator== ( const IdType & other) const { return ((id_.first == other.id_.first) && (id_.second == other.id_.second)); }
+		bool operator!= ( const IdType & other) const { return !(*this == other);  }
+		bool operator<  ( const IdType & other) const { return (id_.first == other.id_.first) ? (id_.second < other.id_.second) : (id_.first < other.id_.first); }
 
-		 //template< class C, class T >
-		 //std::basic_ostream< C, T > &operator<< ( std::basic_ostream< C, T > &, const Id & );
+		//template< class C, class T >
+		//std::basic_ostream< C, T > &operator<< ( std::basic_ostream< C, T > &, const Id & );
 
 
-		 // Printing of the Id
-		 friend inline std::ostream& operator<< (std::ostream& s, const IdType & x)
-		 {
-		 	s << "(" << x.id_.first << "," << x.id_.second << ")";
-		 	return s;
-		 }
+		// Printing of the Id
+		friend inline std::ostream& operator<< (std::ostream& s, const IdType & x)
+		{
+		    s << "(" << x.id_.first << "," << x.id_.second << ")";
+		    return s;
+		}
 	};
 
 

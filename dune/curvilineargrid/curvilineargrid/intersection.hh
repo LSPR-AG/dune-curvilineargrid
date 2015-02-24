@@ -76,7 +76,7 @@ namespace Dune
       CurvIntersection (
     		  LocalIndexType localIndexInside,    // Index of the element wrt which this intersection is calculated
     		  InternalIndexType subIndexInside,   // Internal index of the face as the element subentity
-    		  const GridBaseType & gridbase)
+    		  GridBaseType & gridbase)
     	: localIndexInside_(localIndexInside),
     	  subIndexInside_(subIndexInside),
     	  gridbase_(&gridbase),
@@ -301,7 +301,7 @@ namespace Dune
     	  for (int i = 0; i < nCornerPerFace; i++)
     	  {
     		  InternalIndexType cornerInd = ref.subEntity(subentityIndex, FACE_CODIM, i, VERTEX_CODIM);
-    		  GlobalCoordinate  coord = Dune::CurvilinearGeometryHelper::cornerInternalCoordinate(elemGT, cornerInd);
+    		  GlobalCoordinate  coord = Dune::CurvilinearGeometryHelper::cornerInternalCoordinate<ctype, dimensionworld>(elemGT, cornerInd);
     		  rez.push_back(coord);
     	  }
 

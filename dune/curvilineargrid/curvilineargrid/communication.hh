@@ -4,6 +4,7 @@
 #define DUNE_CURVGRID_COMMUNICATION_HH
 
 #include <dune/curvilineargrid/utility/allcommunication.hh>
+#include <dune/curvilineargrid/curvilineargrid/entity.hh>
 
 
 
@@ -57,7 +58,7 @@ namespace Dune
 
 
     	static const int  InternalType        = GridStorageType::PartitionType::Internal;
-    	static const int  ProcessBoundaryType = GridStorageType::PartitionType::ProcessBoundaryType;
+    	static const int  ProcessBoundaryType = GridStorageType::PartitionType::ProcessBoundary;
     	static const int  DomainBoundaryType  = GridStorageType::PartitionType::DomainBoundary;
     	static const int  GhostType           = GridStorageType::PartitionType::Ghost;
 
@@ -80,7 +81,7 @@ namespace Dune
 
     public:
 
-    	Communication(const GridBaseType & gridbase, MPIHelper & mpihelper)
+    	Communication(GridBaseType & gridbase, MPIHelper & mpihelper)
     		: mpihelper_(mpihelper),
     		  gridbase_(gridbase)
     	{
@@ -94,13 +95,13 @@ namespace Dune
     	// 1.1) Check if this codim is allowed by DataHandle
     	// 1.2) For each InterfaceSubset, check if it is consistent with InterfaceType and CommunicationDirection
     	// 1.3) If it is, call main communication protocol main_communicate(codim, mapSend, ranklistSend)
-    	template<class DataHandle, int codim>
-    	void communicate(DataHandle& datahandle, InterfaceType iftype, CommunicationDirection dir) const
+    	template<class DataHandle, class Data, int codim>
+    	void communicate(CommDataHandleIF< DataHandle, Data> & datahandle, InterfaceType iftype, CommunicationDirection dir) const
     	{
     		// Communication protocol ProcessBoundary -> ProcessBoundary
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_ProcessBoundary))
     		{
-    			communicateMain<DataHandle, codim>(
+    			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, ProcessBoundaryType),
     				gridbase_.selectCommRankVector(codim, ProcessBoundaryType, ProcessBoundaryType)
@@ -110,7 +111,7 @@ namespace Dune
     		// Communication protocol ProcessBoundary -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_Ghost))
     		{
-    			communicateMain<DataHandle, codim>(
+    			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, ProcessBoundaryType),
     				gridbase_.selectCommRankVector(codim, ProcessBoundaryType, GhostType)
@@ -120,7 +121,7 @@ namespace Dune
     		// Communication protocol BoundaryInternal -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Internal_Ghost))
     		{
-    			communicateMain<DataHandle, codim>(
+    			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, InternalType),
     				gridbase_.selectCommRankVector(codim, InternalType, GhostType)
@@ -130,7 +131,7 @@ namespace Dune
     		// Communication protocol Ghost -> BoundaryInternal + ProcessBoundary
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Internal))
     		{
-    			communicateMain<DataHandle, codim>(
+    			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, GhostType),
     				gridbase_.selectCommRankVector(codim, GhostType, InternalType)
@@ -140,7 +141,7 @@ namespace Dune
     		// Communication protocol Ghost -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Ghost))
     		{
-    			communicateMain<DataHandle, codim>(
+    			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, GhostType),
     				gridbase_.selectCommRankVector(codim, GhostType, GhostType)
@@ -151,7 +152,7 @@ namespace Dune
 
     protected:
 
-    	bool allowedInterfaceSubset(InterfaceType iftype, CommunicationDirection dir, InterfaceSubType istype)
+    	bool allowedInterfaceSubset(InterfaceType iftype, CommunicationDirection dir, InterfaceSubType istype) const
     	{
     		if (iftype == Dune::InteriorBorder_InteriorBorder_Interface)
     		{
@@ -191,14 +192,15 @@ namespace Dune
 
     	// [FIXME] Choose if we want entity or entityImpl
 
-    	template<class DataHandle, int codim>
-    	void communicateMain(DataHandle& datahandle,
+    	template<class DataHandle, class Data, int codim>
+    	void communicateMain(CommDataHandleIF< DataHandle, Data> & datahandle,
     		Local2LocalMap & mapSend,
 			std::vector< std::vector<int> > & ranklist
-    	)
+    	) const
     	{
-    		typedef typename DataHandle::DataType DataType;             // Type of data to be communicated
-    		typedef typename Traits::template Codim<codim>::Entity  EntityType;  // Type of the entity
+    		typedef typename DataHandle::DataType DataType;                                 // Type of data to be communicated
+    		typedef typename Traits::template Codim<codim>::Entity             Entity;      // Type of the entity
+    		typedef Dune::CurvGrid::CurvEntity<codim, dimension, const Grid>   EntityImpl;  // Type of the real entity
 
     		Dune::CurvGrid::AllCommunication allcommunicate(mpihelper_);
 
@@ -238,7 +240,7 @@ namespace Dune
 
     			// Get Entity
     			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
-    			EntityType thisEntity (thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition);
+    			Entity thisEntity( EntityImpl(thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition));
 
     			// Get data sizes
     			for (int iProc = 0; iProc < ranklist[thisEntityLocalSubIndex].size(); iProc++)
@@ -275,7 +277,7 @@ namespace Dune
 
     			// Get Entity
     			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
-    			EntityType thisEntity (thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition);
+    			Entity thisEntity = Entity(EntityImpl(thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition));
     			datahandle.gather(gathermessagebuffer, thisEntity);
 
 
@@ -330,13 +332,13 @@ namespace Dune
     			if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex))  {  /* THROW ERROR */ }
 
     			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
-    			EntityType thisEntity (thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition);
+    			Entity thisEntity = Entity(EntityImpl(thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition));
 
     			// Scatter data
     			int thisNData = nDataPerEntityRecv[i];
     			for (int j = 0; j < thisNData; j++)  { scattermessagebuffer.write(dataRecv[iData++]); }
 
-    			datahandle.scatter(scattermessagebuffer, thisEntity);
+    			datahandle.scatter(scattermessagebuffer, thisEntity, thisNData);
     		}
     	}
 
@@ -345,7 +347,7 @@ namespace Dune
     	int rank_;
     	int size_;
 
-    	const GridBaseType & gridbase_;
+    	GridBaseType & gridbase_;
 
 
     }; // Class

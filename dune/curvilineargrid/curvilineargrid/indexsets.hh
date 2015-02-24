@@ -23,7 +23,7 @@ namespace Dune
 
     template<class Grid>
     class CurvIndexSet
-      : public Dune::IndexSet< Grid, CurvIndexSet< Grid>, typename remove_const< Grid >::type::GridFamily::LocalIndexType >
+      : public Dune::IndexSet< Grid, CurvIndexSet< Grid>, typename remove_const< Grid >::type::LocalIndexType >
     {
     	typedef typename remove_const< Grid >::type::Traits Traits;
     	typedef typename remove_const< Grid >::type::ctype ctype;

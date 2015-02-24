@@ -76,11 +76,11 @@ namespace Dune
 	        CurvGrid::CurvIntersectionIterator,              // level intersection iter
 	        CurvGrid::CurvHierarchicIterator,
 	        CurvGrid::CurvLevelIterator,                                      // type used for the leaf(!) iterator
-	        CurvGrid::CurvIndexSet<GridType>,                  // level index set
-	        CurvGrid::CurvIndexSet<GridType>,                  // leaf index set
-	        CurvGrid::CurvIdSet<GridType>,
+	        CurvGrid::CurvIndexSet<const GridType>,                  // level index set
+	        CurvGrid::CurvIndexSet<const GridType>,                  // leaf index set
+	        CurvGrid::CurvIdSet<const GridType>,
 	        CurvIdType,
-	        CurvGrid::CurvIdSet<GridType>,
+	        CurvGrid::CurvIdSet<const GridType>,
 	        CurvIdType,
 	        CCType,
 	        DefaultLevelGridViewTraits,
@@ -116,6 +116,7 @@ namespace Dune
     template< int, int, class >                    friend class Dune::CurvGrid::CurvEntityBase;
     template< int, int, class >                    friend class Dune::CurvGrid::CurvEntity;
     template< int, class >                         friend class Dune::CurvGrid::CurvEntityPointer;
+    template< int, class >                         friend class Dune::CurvGrid::CurvEntitySeed;
     template< class >                              friend class Dune::CurvGrid::CurvIntersection;
     template< class >                              friend class Dune::CurvGrid::CurvIntersectionIterator;
     template< int, PartitionIteratorType , class>  friend class Dune::CurvGrid::CurvLevelIterator;
@@ -544,10 +545,10 @@ namespace Dune
                        CommunicationDirection direction ) const
     {
     	Dune::CurvGrid::Communication<Grid> communicator(*gridbase_, mpihelper_);
-    	if (dataHandle.contains(dim, ELEMENT_CODIM)) { communicator.template communicate<DataHandle, ELEMENT_CODIM>(dataHandle, interface, direction); }
-    	if (dataHandle.contains(dim, FACE_CODIM))    { communicator.template communicate<DataHandle, FACE_CODIM>(dataHandle, interface, direction); }
-    	if (dataHandle.contains(dim, EDGE_CODIM))    { communicator.template communicate<DataHandle, EDGE_CODIM>(dataHandle, interface, direction); }
-    	if (dataHandle.contains(dim, VERTEX_CODIM))  { communicator.template communicate<DataHandle, VERTEX_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dim, ELEMENT_CODIM)) { communicator.template communicate<DataHandle, Data, ELEMENT_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dim, FACE_CODIM))    { communicator.template communicate<DataHandle, Data, FACE_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dim, EDGE_CODIM))    { communicator.template communicate<DataHandle, Data, EDGE_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dim, VERTEX_CODIM))  { communicator.template communicate<DataHandle, Data, VERTEX_CODIM>(dataHandle, interface, direction); }
     }
 
     /** \brief obtain CollectiveCommunication object
@@ -611,7 +612,7 @@ namespace Dune
       typedef typename Traits::template Codim< EntitySeed::codimension >::EntityPointer        EntityPointer;
       typedef typename Dune::CurvGrid::CurvEntityPointer<EntitySeed::codimension, const Grid>  EntityPointerImpl;
 
-      return EntityPointer(EntityPointerImpl( seed ));
+      return EntityPointer(EntityPointerImpl( seed, *gridbase_ ));
     }
 
     /** \} */

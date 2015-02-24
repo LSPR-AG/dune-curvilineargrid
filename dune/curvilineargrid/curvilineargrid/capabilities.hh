@@ -63,13 +63,13 @@ namespace Dune
     template< int dim, int dimworld, class ctype>
     struct isLevelwiseConforming< Dune::CurvilinearGrid< dim , dimworld, ctype> >
     {
-      static const bool v = false;
+      static const bool v = true;
     };
 
     template< int dim, int dimworld, class ctype>
     struct isLeafwiseConforming< Dune::CurvilinearGrid< dim , dimworld, ctype> >
     {
-      static const bool v = false;
+      static const bool v = true;
     };
 
     template< int dim, int dimworld, class ctype>

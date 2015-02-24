@@ -40,7 +40,7 @@ namespace Dune
 
       CurvIntersectionIterator (LocalIndexType localIndexInside,
     		  InternalIndexType subIndexInside,
-    		  const GridBaseType & gridbase)
+    		  GridBaseType & gridbase)
         : intersection_( IntersectionImpl(localIndexInside, subIndexInside, gridbase))
       {}
 

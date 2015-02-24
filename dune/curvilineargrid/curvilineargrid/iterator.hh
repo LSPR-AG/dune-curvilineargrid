@@ -22,7 +22,14 @@ namespace Dune
         typedef typename Base::IndexSetIterator  IndexSetIterator;
 
     public:
-        CurvLevelIterator (const IndexSetIterator & iter, const GridBaseType & gridbase)
+
+        //! Fake constructor
+        CurvLevelIterator ()
+          : Base ()
+        { }
+
+
+        CurvLevelIterator (const IndexSetIterator & iter, GridBaseType & gridbase)
     	  : Base( iter, gridbase, pitype)
         {}
 
@@ -46,7 +53,14 @@ namespace Dune
         typedef typename Base::IndexSetIterator  IndexSetIterator;
 
     public:
-        CurvHierarchicIterator (const IndexSetIterator & iter, const GridBaseType & gridbase)
+
+      //! Fake constructor
+      CurvHierarchicIterator ()
+        : Base ()
+      { }
+
+
+      CurvHierarchicIterator (const IndexSetIterator & iter, GridBaseType & gridbase)
     	: Base( iter, gridbase, PartitionIteratorType::All_Partition)
       {}
 

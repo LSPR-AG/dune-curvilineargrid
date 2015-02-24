@@ -817,13 +817,13 @@ public:
 
     // Iterator based on local index of the entity
     // Iterator all entities of a given codimension
-    IndexSetIterator entityIndexIterator(int codim, LocalIndexType localIndex)
+    IndexSetIterator entityIndexIterator(int codim, LocalIndexType localIndex) const
     {
     	return gridstorage_.entityAllIndexSet_[codim].find(localIndex);
     }
 
     // Iterator for entities of a given codimension and structural type only
-    IndexSetIterator entityIndexIterator(int codim, StructuralType structtype, LocalIndexType localIndex)
+    IndexSetIterator entityIndexIterator(int codim, StructuralType structtype, LocalIndexType localIndex) const
     {
     	return entityIndexSetSelect(codim, structtype).find(localIndex);
     }

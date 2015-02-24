@@ -61,6 +61,7 @@ namespace Dune
 	  typedef Dune::CurvilinearGridStorage<ctype,dim>           GridBaseStorage;
 	  typedef Dune::CurvilinearGridBase<ctype,dim>              GridBaseType;
 	  typedef typename GridBaseStorage::IdType                  IdType;
+	  typedef typename GridBaseType::LocalIndexType             LocalIndexType;
 	  typedef typename GridBaseType::StructuralType             StructuralType;
 
 	  typedef typename GridBaseType::IndexSetIterator           IndexSetIterator;
@@ -69,13 +70,32 @@ namespace Dune
 		/** \name Construction, Initialization and Destruction
 		*  \{ */
 
+	  //! Fake constructor
+	  CurvEntityBase ()
+        : gridbase_(nullptr)
+      { }
+
+	  // Constructor that allows the iterator class to iterate over the entities
 	  CurvEntityBase (
 	    const IndexSetIterator & iter,
-	    const GridBaseType & gridbase,
+	    GridBaseType & gridbase,
 	    Dune::PartitionIteratorType pitype
 	    )
 	  	  :
 	  		gridbaseIndexIterator_(iter),
+	  	    gridbase_(&gridbase),
+	  	    pitype_(pitype)
+	  {  }
+
+
+	  // Constructor for when the iterator is irrelevant. Creates default iterator over all-partition
+	  CurvEntityBase (
+	    LocalIndexType localIndex,
+	    GridBaseType & gridbase,
+	    Dune::PartitionIteratorType pitype
+	    )
+	  	  :
+	  		gridbaseIndexIterator_(gridbase.entityIndexIterator(codim, localIndex)),
 	  	    gridbase_(&gridbase),
 	  	    pitype_(pitype)
 	  {  }
@@ -168,7 +188,7 @@ namespace Dune
 
 
 	  /** \brief Return the entity seed which contains sufficient information to generate the entity again and uses as little memory as possible */
-	  EntitySeed seed () const  { return EntitySeed(EntitySeedImpl(*gridbaseIndexIterator_, pitype_, *gridbase_)); }
+	  EntitySeed seed () const  { return EntitySeed(EntitySeedImpl(*gridbaseIndexIterator_, pitype_)); }
 
 
 	  /** \brief moves to the next entity within the base storage. Additional functionality used by iterators */
@@ -176,7 +196,7 @@ namespace Dune
 
   protected:
 	    IndexSetIterator gridbaseIndexIterator_;
-	    const GridBaseType * gridbase_;
+	    GridBaseType * gridbase_;
 	    Dune::PartitionIteratorType pitype_;
   };
 
@@ -191,14 +211,27 @@ namespace Dune
 	    typedef typename Base::IndexSetIterator  IndexSetIterator;
 	    typedef typename Base::GridBaseType      GridBaseType;
 
+	    typedef typename GridBaseType::LocalIndexType             LocalIndexType;
+
   public:
 
-	    CurvEntity (
-	        const IndexSetIterator & iter,
-	    	const GridBaseType & gridbase,
-	        Dune::PartitionIteratorType pitype)
-	  	  : Base(iter, gridbase, pitype)
-	    {}
+	  //! Fake constructor
+	  CurvEntity () : Base()  { }
+
+      CurvEntity (
+	      const IndexSetIterator & iter,
+	      GridBaseType & gridbase,
+	      Dune::PartitionIteratorType pitype)
+	  	      : Base(iter, gridbase, pitype)
+	  {}
+
+	  // Constructor for when the iterator is irrelevant. Creates default iterator over all-partition
+	  CurvEntity (
+          LocalIndexType localIndex,
+	      GridBaseType & gridbase,
+	      Dune::PartitionIteratorType pitype)
+	  	      :  Base(localIndex, gridbase, pitype)
+	  {  }
 
   };
 
@@ -267,12 +300,24 @@ namespace Dune
 
   public:
 
-	    CurvEntity (
-	        const IndexSetIterator & iter,
-	    	const GridBaseType & gridbase,
-	        Dune::PartitionIteratorType pitype)
-	  	  : Base(iter, gridbase, pitype)
-	    {}
+	  //! Fake constructor
+	  CurvEntity () : Base()  { }
+
+	  CurvEntity (
+	      const IndexSetIterator & iter,
+	      GridBaseType & gridbase,
+	      Dune::PartitionIteratorType pitype)
+	  	      : Base(iter, gridbase, pitype)
+	  {}
+
+
+	  // Constructor for when the iterator is irrelevant. Creates default iterator over all-partition
+	  CurvEntity (
+          LocalIndexType localIndex,
+	      GridBaseType & gridbase,
+	      Dune::PartitionIteratorType pitype)
+	  	      :  Base(localIndex, gridbase, pitype)
+	  {  }
 
 
    /**\brief Number of subentities with codimension <tt>codim</tt>.
@@ -312,9 +357,6 @@ namespace Dune
     }
 
 
-
-
-
     typename Traits::LevelIntersectionIterator ilevelbegin () const
     {
   	    InternalIndexType firstFaceSubIndex = 0;
@@ -348,14 +390,6 @@ namespace Dune
     {
     	return ilevelend();
     }
-
-
-
-
-
-
-
-
 
 
     /**\brief Inter-level access to father entity on the next-coarser grid.

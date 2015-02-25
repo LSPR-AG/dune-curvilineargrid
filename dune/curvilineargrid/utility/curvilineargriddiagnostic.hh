@@ -98,11 +98,6 @@ private:
     static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
     static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
 
-	const int VTK_INTERNAL          = Dune::VtkEntityStructuralType::Internal;
-	const int VTK_GHOST             = Dune::VtkEntityStructuralType::Ghost;
-	const int VTK_DOMAIN_BOUNDARY   = Dune::VtkEntityStructuralType::DomainBoundary;
-	const int VTK_PROCESS_BOUNDARY  = Dune::VtkEntityStructuralType::ProcessBoundary;
-
 	const int MASTER_PROCESS = 0;
 
 public:
@@ -162,47 +157,39 @@ public:
 	// [TODO] Use physicalTag=-1 for entities that do not have physicalTag
 	// [TODO] Use another scalar = "OwnerRank" for entities
 	void vtkWriteMesh (
-		bool withElements,
-		bool withGhostElements,
-		bool withInternalFaces,
-		bool withDBFaces,
-		bool withPBFaces,
-		bool withGhostFaces,
+		std::vector<bool> withElements,
+		std::vector<bool> withFaces,
+		std::vector<bool> withEdges,
 		int nDiscretizationPoints,
 		bool interpolate,
-		bool explode
+		bool explode,
+		bool writeVtkEdges,
+		bool writeVtkTriangles
 	)
 	{
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Grid to VTK");
 
     	Dune::CurvilinearVTKWriter<3> vtkCurvWriter(verbose_, processVerbose_, mpihelper_);
-    	bool VTK_WRITE_EDGES = false;         // Whether to write volume discretization edges to file
-    	bool VTK_WRITE_TRIANGLES = true;      // Whether to write surface discretization triangles to file
 
 
-    	// Writing Internal Elements
-    	if (withElements)       { addVTKentity<ELEMENT_CODIM>(vtkCurvWriter, InternalType, VTK_INTERNAL, nDiscretizationPoints, interpolate, explode, VTK_WRITE_EDGES, VTK_WRITE_TRIANGLES); }
+    	typedef typename GridStorageType::PartitionType  CurvPT;
+    	std::vector<StructuralType>  structTypeSet {InternalType, GhostType, DomainBoundaryType, ProcessBoundaryType};
 
-    	// Writing Ghost Elements
-    	if (withGhostElements)  { addVTKentity<ELEMENT_CODIM>(vtkCurvWriter, GhostType, VTK_GHOST, nDiscretizationPoints, interpolate, explode, VTK_WRITE_EDGES, VTK_WRITE_TRIANGLES); }
+    	for (int iType = 0; iType < structTypeSet.size(); iType++)
+    	{
+    		if (withEdges[iType])     { addVTKentity<EDGE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeVtkEdges, writeVtkTriangles); }
+    		if (withFaces[iType])     { addVTKentity<FACE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeVtkEdges, writeVtkTriangles); }
 
-		// Writing Internal Boundary Faces
-    	if (withInternalFaces)  { addVTKentity<FACE_CODIM>   (vtkCurvWriter, InternalType, VTK_INTERNAL, nDiscretizationPoints, interpolate, explode, VTK_WRITE_EDGES, VTK_WRITE_TRIANGLES); }
-
-    	// Writing Domain Boundary Faces
-    	if (withDBFaces)        { addVTKentity<FACE_CODIM>   (vtkCurvWriter, DomainBoundaryType, VTK_DOMAIN_BOUNDARY, nDiscretizationPoints, interpolate, explode, VTK_WRITE_EDGES, VTK_WRITE_TRIANGLES); }
-
-		// Writing Process Boundary Faces
-    	if (withPBFaces)        { addVTKentity<FACE_CODIM>   (vtkCurvWriter, ProcessBoundaryType, VTK_PROCESS_BOUNDARY, nDiscretizationPoints, interpolate, explode, VTK_WRITE_EDGES, VTK_WRITE_TRIANGLES); }
-
-		// Writing Ghost Boundary Faces
-    	if (withGhostFaces)     { addVTKentity<FACE_CODIM>   (vtkCurvWriter, GhostType, VTK_GHOST, nDiscretizationPoints, interpolate, explode, VTK_WRITE_EDGES, VTK_WRITE_TRIANGLES); }
+    		// For elements there is no Domain and Process boundaries, so only Internal and Ghost requests are processed
+    		if ((iType < 2) && (withElements[iType]))
+    		                          { addVTKentity<ELEMENT_CODIM> (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeVtkEdges, writeVtkTriangles); }
+    	}
 
 
 		// Writing Mesh
     	// *************************************************************************
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Writing VTK File");
-    	vtkCurvWriter.writeVTK("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
+    	//vtkCurvWriter.writeVTK("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
     	vtkCurvWriter.writeParallelVTU("./curvreader_output");
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Finished writing");
 	}
@@ -328,7 +315,6 @@ protected:
 	void addVTKentity(
 		Dune::CurvilinearVTKWriter<3> & vtkCurvWriter,
 		StructuralType structtype,
-		int vtkType,
 		int nDiscretizationPoints,
 		bool interpolate,
 		bool explode,
@@ -355,9 +341,9 @@ protected:
 			Dune::GeometryType       gt                = thisGeometry.type();
 			InterpolatoryOrderType   order             = thisGeometry.order();
 			std::vector<Vertex>      point             = thisGeometry.vertexSet();
-			std::vector<int>         tags  { physicalTag, vtkType, rank_ };
+			std::vector<int>         tags  { physicalTag, structtype, rank_ };
 
-	    	vtkCurvWriter.addCurvilinearElement(
+	    	vtkCurvWriter.template addCurvilinearElement<cdim - codim>(
 	    			gt,
 	    			point,
 	    			tags,

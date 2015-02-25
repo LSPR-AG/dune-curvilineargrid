@@ -55,15 +55,15 @@ int main(int argc, char** argv)
 
 
     // Assemble the file name
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD4;
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD5;
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
     typedef Dune::CurvilinearFakeGrid<3,3,double>  SimplexGridType;
 
     bool insertBoundarySegment = true;
     bool withGhostElements = true;
-    bool verbose = false;
-    bool processVerbose = false;
+    bool verbose = true;
+    bool processVerbose = true;
 
     bool writeReaderVTKFile = false;
 
@@ -98,35 +98,30 @@ int main(int argc, char** argv)
     // Perform diagnostics tests on the constructed grid
     Dune::CurvilinearGridDiagnostic<double, 3> diagnostic(verbose, processVerbose, mpihelper, *gridbase);
 
-	bool VTK_WRITE_ELEMENTS = true;
-	bool VTK_WRITE_GHOST_ELEMENTS = true;
+	std::vector<bool> withElements {false, false};                  // Whether to add elements to VTK: Internal / Ghost
+	std::vector<bool> withFaces    {false, false, false, false};    // Whether to add faces to VTK: Internal / Ghost / DomainBoundary / ProcessBoundary
+	std::vector<bool> withEdges    {true, true, true, true};      // Whether to add edges to VTK: Internal / Ghost / DomainBoundary / ProcessBoundary
 
-	bool VTK_WRITE_INTERNAL_FACE = false;
-	bool VTK_WRITE_DOMAIN_BOUNDARY_FACE = true;
-	bool VTK_WRITE_PROCESS_BOUNDARY_FACE = true;
-	bool VTK_WRITE_GHOST_FACE = false;
-
-	int  VTK_CURV_DISCRETIZATION = 2;       // 2=linear, minimal allowed discretization
+	int  VTK_CURV_DISCRETIZATION = 7;       // 2=linear, minimal allowed discretization
 	bool VTK_INTERPOLATE_DISCRETIZATION = true;
-	bool VTK_EXPLODE_ELEMENTS = false;
+	bool VTK_EXPLODE_ELEMENTS = true;
+	bool VTK_WRITE_DISCRETIZATION_EDGES     = true;
+	bool VTK_WRITE_DISCRETIZATION_TRIANGLES = false;
 
-
-	/*
     diagnostic.vtkWriteMesh(
-    	VTK_WRITE_ELEMENTS,
-    	VTK_WRITE_GHOST_ELEMENTS,
-    	VTK_WRITE_INTERNAL_FACE,
-    	VTK_WRITE_DOMAIN_BOUNDARY_FACE,
-    	VTK_WRITE_PROCESS_BOUNDARY_FACE,
-    	VTK_WRITE_GHOST_FACE,
+    	withElements,
+    	withFaces,
+    	withEdges,
     	VTK_CURV_DISCRETIZATION,
     	VTK_INTERPOLATE_DISCRETIZATION,
-    	VTK_EXPLODE_ELEMENTS);
+    	VTK_EXPLODE_ELEMENTS,
+    	VTK_WRITE_DISCRETIZATION_EDGES,
+    	VTK_WRITE_DISCRETIZATION_TRIANGLES
+    );
 
-*/
     diagnostic.vtkWriteOctree();
 
-    diagnostic.runAnalyticTest("curvilinearMeshAnalyticTest.txt");
+    //diagnostic.runAnalyticTest("curvilinearMeshAnalyticTest.txt");
 
 
 

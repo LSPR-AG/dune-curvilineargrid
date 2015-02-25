@@ -1089,8 +1089,6 @@ protected:
 		Local2LocalIterator iterGE = gridstorage_.ghostIndexMap_[codim].end();
 
 
-		std::cout << "process_" << rank_ << " has total G2G=" << gridstorage_.G2GNeighborRank_[codim].size() << std::endl;
-
 		for (Local2LocalIterator iter = iterGB; iter != iterGE; iter++)
 		{
 			LocalIndexType thisEntityGhostLocalIndex = (*iter).second;
@@ -1101,6 +1099,12 @@ protected:
 			//! No need to perform division, as it is assumed that only ghost entities were communicated,
 			//! if all the previous steps were done correctly
 		}
+
+
+		// For debugging purposes
+		std::vector<int> nNeighborG2G;
+		for (int iGhost = 0; iGhost < gridstorage_.G2GNeighborRank_[codim].size(); iGhost++)  { nNeighborG2G.push_back(gridstorage_.G2GNeighborRank_[codim][iGhost].size()); }
+		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Number of neighbors for ghost entities=" + Dune::VectorHelper::vector2string(nNeighborG2G));
 
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished Ghost-Ghost communication construction");
     }

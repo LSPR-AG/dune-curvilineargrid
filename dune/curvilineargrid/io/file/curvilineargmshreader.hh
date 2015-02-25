@@ -79,6 +79,7 @@ namespace Dune
   {
   protected:
 
+	typedef typename GridType::ctype  ctype;
 
     // static data
     static const int dim_ = GridType::dimension;
@@ -979,7 +980,7 @@ namespace Dune
             // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if (writeVtkFile_)
             {
-            	addElementToVTK(elemType, elementNodeVector, elemOrder, internalElementVector[i].physicalEntityTag_, false);
+            	addElementToVTK<dimWorld_>(elemType, elementNodeVector, elemOrder, internalElementVector[i].physicalEntityTag_, false);
 
             	log_string = "    * internal_element " + std::to_string(i) + " has been added to the VTK triangles  ";
             	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
@@ -1056,7 +1057,7 @@ namespace Dune
             // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if (writeVtkFile_)
             {
-            	addElementToVTK(boundaryType, elementNodeVector, boundaryOrder, boundaryElementVector[i].physicalEntityTag_, true);
+            	addElementToVTK<dimWorld_-1>(boundaryType, elementNodeVector, boundaryOrder, boundaryElementVector[i].physicalEntityTag_, true);
 
             	log_string = "    * boundary_element " + std::to_string(i) + " has been added to the VTK triangles  ";
             	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
@@ -1091,10 +1092,11 @@ namespace Dune
      *  \param[in]  isBoundary                Whether this is an internal or a boundary element
      *
      */
+    template<int mydim>
     void addElementToVTK(const GeometryType & elemType, const std::vector<GlobalVector> & elemNodeVector, const int elemOrder, const int physicalTag, const bool isBoundary)
     {
-    	const int VTK_INTERNAL = Dune::VtkEntityStructuralType::Internal;
-    	const int VTK_BOUNDARY = Dune::VtkEntityStructuralType::DomainBoundary;
+    	const int VTK_INTERNAL = Dune::CurvilinearGridStorage<ctype, dim_>::PartitionType::Internal;
+    	const int VTK_BOUNDARY = Dune::CurvilinearGridStorage<ctype, dim_>::PartitionType::DomainBoundary;
 
     	int VTK_DISCRETIZATION_POINTS = 2;    // Sampling frequency over curved element. min=2 is linear sampling
     	bool VTK_INTERPOLATE = true;          // Whether to use lagrange interpolation or intrinsic interpolatory vertices
@@ -1108,7 +1110,7 @@ namespace Dune
 
     	std::vector<int> elemTags  { physicalTag, VTK_ELEMENT_STRUCTURAL_TYPE, rank_ };
 
-    	vtkCurvWriter_.addCurvilinearElement(
+    	vtkCurvWriter_.template addCurvilinearElement<mydim>(
     			elemType,
     			elemNodeVector,
     			elemTags,

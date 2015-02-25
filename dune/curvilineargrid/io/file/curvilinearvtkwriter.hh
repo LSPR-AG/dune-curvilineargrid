@@ -35,30 +35,12 @@
 #include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 
 #include <dune/curvilineargrid/common/loggingmessage.hh>
-
+#include <dune/curvilineargrid/curvilineargridbase/curvilineargridstorage.hh>
 
 
 
 namespace Dune
 {
-
-  
-  struct VtkEntityStructuralType
-  {
-    enum {
-        Internal = 0,          // Elements internal to this process
-        DomainBoundary = 1,    // Faces on the boundary of the computational domain
-        ProcessBoundary = 2,   // Faces on the interprocessor boundary (not including overlap)
-        Ghost = 3,             // Elements borrowed from the neighboring process
-        Overlap = 4,           // Elements overlapping between processes
-        Front = 5,             // Faces on the overlap boundary
-        Periodic = 6           // Boundary faces which are periodic
-    };
-  };
-  
-  const std::vector<std::string> VtkEntityStructuralTypeName {"Internal", "DomainBoundary", "ProcessBoundary", "Ghost", "Overlap", "Front", "Periodic"};
-
-  
   
   template<int cdim>
   class CurvilinearVTKWriter
@@ -88,6 +70,13 @@ namespace Dune
       // Logging Message Typedefs
       static const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
       static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
+
+      // Typedefs from GridBase
+      typedef Dune::CurvilinearGridStorage<double, cdim>       GridStorageType;
+      static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
+      static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
+      static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
+      static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
 
 
       // Methods
@@ -123,6 +112,41 @@ namespace Dune
           rez /= cornerVector.size();
           return rez;
       }
+
+
+      /** \brief Connects discretization points of a curvilinear edge using linear edges, adds these edges for writing to VTK
+       *
+       *  \param[in]  edgeEnumeratorReduced          A vector of keys that enumerate triangular discretization points.
+       *                                             Reduced means that enumerator's points-per-edge is one less than the number used to discretize the element.
+       *  \param[in]  nInterval                      Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
+       *  \param[in]  thisElmPhysTag                 Physical Tag of the element being discretized
+       *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
+       *
+       */
+      void addEdgeInterpolationEdgeSet(
+              ElemGridEnumerate & edgeEnumeratorReduced,
+              int nInterval,
+              std::vector<int> & thisElmTagSet,
+              LocalCoordinate2GlobalIdMap & parametricToIndex)
+      {
+          // Construct all edges and add them to the edge array
+          for (int i = 0; i < edgeEnumeratorReduced.size(); i++)
+          {
+              int x = edgeEnumeratorReduced[i][0];
+
+              // Construct triangle (123)
+              std::vector<int> parUV_0 {x};
+              std::vector<int> parUV_1 {x + 1};
+
+              std::vector<int> edge01;
+              edge01.push_back(parametricToIndex[parUV_0]);
+              edge01.push_back(parametricToIndex[parUV_1]);
+
+              // Add all edges
+              addDiscretizationEdge(edge01, thisElmTagSet);
+          }
+      }
+
 
       /** \brief Connects discretization points of a curvilinear triangle using linear edges, adds these edges for writing to VTK
        *
@@ -160,6 +184,7 @@ namespace Dune
               addDiscretizationEdge(edge20, thisElmTagSet);
           }
       }
+
 
       /** \brief Connects discretization points of a curvilinear tetrahedron using linear edges, adds these edges for writing to VTK
        *
@@ -397,6 +422,7 @@ namespace Dune
           {
               switch (mydim)
               {
+              case 1:  addEdgeInterpolationEdgeSet(simplexEnumerateReduced, nInterval, thisElmTagSet, parametricToIndex);  break;
               case 2:  addTriangularInterpolationEdgeSet(simplexEnumerateReduced, nInterval, thisElmTagSet, parametricToIndex);  break;
               case 3:  addTetrahedralInterpolationEdgeSet(simplexEnumerateReduced, nInterval, thisElmTagSet, parametricToIndex);  break;
               }
@@ -460,6 +486,7 @@ namespace Dune
      *  ****
      *  *****
      */
+    template<int mydim>
     void addCurvilinearElement(
             const Dune::GeometryType & thisElmType,
             const std::vector<GlobalVector> & thisElmNodeSet,
@@ -473,6 +500,8 @@ namespace Dune
 
             )
     {
+    	const std::string PartitonTypeName[7] = {"Internal", "ProcessBoundary", "DomainBoundary", "InternalBoundary", "FrontBoundary", "Ghost", "Overlap"};
+
         int thisElmPhysTag        = (thisElmTagSet.size() > 0 ) ? thisElmTagSet[0] : 0;
         int thisElmStructuralType = (thisElmTagSet.size() > 1 ) ? thisElmTagSet[1] : 0;
         int thisElmProcessRank    = (thisElmTagSet.size() > 2 ) ? thisElmTagSet[2] : 0;
@@ -481,14 +510,16 @@ namespace Dune
         double shrinkMagnitude = explode ? 0.2 : 0.0;
 
         // Expand all domain boundary surfaces a little bit so that they do not interlay with element surfaces
-        double boundaryMagnification = (thisElmStructuralType == VtkEntityStructuralType::DomainBoundary) ? 1.2 : 1.0;
+        double boundaryMagnification = (thisElmStructuralType == DomainBoundaryType) ? 1.2 : 1.0;
 
+        // It is not possible to write triangle data for edges
+        if (mydim == 1)  { writeTriangleData = false; }
 
         std::stringstream log_message;
         log_message << "VTK_WRITER: Adding a curvilinear element Type=" << Dune::CurvilinearGeometryHelper::geometryName(thisElmType);
         log_message << " Order="               << thisElmOrder;
         log_message << " PhysicalTag="         << thisElmPhysTag;
-        log_message << " StructuralType="      << Dune::VtkEntityStructuralTypeName[thisElmStructuralType];
+        log_message << " StructuralType="      << PartitonTypeName[thisElmStructuralType];
         log_message << " ProcessRank="         << thisElmProcessRank;
         log_message << " nDiscretization="     << nDiscretizationPoints;
         log_message << " useInterpolation="    << interpolate;
@@ -498,13 +529,7 @@ namespace Dune
         log_message << " writeVTK_triangles="  << writeTriangleData;
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_message.str());
 
-
-        if (thisElmType.isTriangle())          { addCurvilinearSimplex<2>(thisElmType, thisElmNodeSet, thisElmTagSet, thisElmOrder, nDiscretizationPoints, shrinkMagnitude, boundaryMagnification, interpolate, writeEdgeData, writeTriangleData); }
-        else if (thisElmType.isTetrahedron())  { addCurvilinearSimplex<3>(thisElmType, thisElmNodeSet, thisElmTagSet, thisElmOrder, nDiscretizationPoints, shrinkMagnitude, boundaryMagnification, interpolate, writeEdgeData, writeTriangleData); }
-        else
-        {
-            DUNE_THROW(Dune::IOError, "CURVILINEAR_VTK_WRITER: only implemented elements are triangles and tetrahedra at the moment");
-        }
+        addCurvilinearSimplex<mydim>(thisElmType, thisElmNodeSet, thisElmTagSet, thisElmOrder, nDiscretizationPoints, shrinkMagnitude, boundaryMagnification, interpolate, writeEdgeData, writeTriangleData);
     }
 
 

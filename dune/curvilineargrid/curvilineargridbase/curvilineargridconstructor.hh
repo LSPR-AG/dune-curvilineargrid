@@ -457,7 +457,7 @@ public:
 
         // Construct OCTree
         // ************************************************************
-        constructOctree();
+        //constructOctree();
     }
 
 
@@ -1518,7 +1518,7 @@ protected:
         MPI_Alltoallv (processFaceKeyRequested.data(), processNComplicatedFaceRequested.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processFaceKeyToSend.data()), processNComplicatedFaceToSend.data(), rdispls.data(), MPI_INT, comm );
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated complicated face FaceKeys");
 
-        std::cout << "process_" << rank_ << "stage 3) sendcounts=" << Dune::VectorHelper::vector2string(processNComplicatedFaceRequested) << " recvcounts=" << Dune::VectorHelper::vector2string(processNComplicatedFaceToSend) <<" send=" << Dune::VectorHelper::vector2string(processFaceKeyRequested) << " recv=" << Dune::VectorHelper::vector2string(processFaceKeyToSend) << std::endl;
+        //std::cout << "process_" << rank_ << "stage 3) sendcounts=" << Dune::VectorHelper::vector2string(processNComplicatedFaceRequested) << " recvcounts=" << Dune::VectorHelper::vector2string(processNComplicatedFaceToSend) <<" send=" << Dune::VectorHelper::vector2string(processFaceKeyRequested) << " recv=" << Dune::VectorHelper::vector2string(processFaceKeyToSend) << std::endl;
 
 
         // 4) Communicate to each process whether requested faces exist on this process

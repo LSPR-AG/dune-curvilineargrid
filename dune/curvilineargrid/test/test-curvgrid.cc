@@ -35,12 +35,12 @@ struct CurvFactory
     const std::string CURVILINEARGRID_TEST_GRID_PATH = std::string(DUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH) + "curvilinear/";
     const std::string GMSH_FILE_NAME[5] {"sphere32.msh", "sphere32ord2.msh", "sphere32ord3.msh", "sphere32ord4.msh", "sphere32ord5.msh"};
 
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME[order + 1];
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME[order - 1];
 
     bool insertBoundarySegment = true;
     bool withGhostElements = true;
-    bool verbose = false;
-    bool processVerbose = false;
+    bool verbose = true;
+    bool processVerbose = true;
     bool writeReaderVTKFile = false;
 
     Dune::CurvilinearGridFactory<ctype, cdim> factory(withGhostElements, verbose, processVerbose, mpihelper);
@@ -73,7 +73,7 @@ struct CurvFactory
 
 template <class ctype, int cdim>
 void check_grid(Dune::CurvilinearGrid<cdim, cdim, ctype> & grid) {
-  std::cout << std::endl << "CurvGrid<" << cdim << ">";
+  std::cout << std::endl << "CurvGrid<" << cdim << ">" << std::endl;
 
 
   gridcheck(grid);

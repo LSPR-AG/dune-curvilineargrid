@@ -6,17 +6,17 @@ set(TESTS
   test-diagnostics
   test-allcommunicate
   test-vectorhelper
-#  test-curvgrid
+  test-curvgrid
 )
 
 add_executable(test-diagnostics test-diagnostics.cc)
 add_executable(test-allcommunicate test-allcommunicate.cc)
 add_executable(test-vectorhelper test-vectorhelper.cc)
-#add_executable(test-curvgrid test-curvgrid.cc)
+add_executable(test-curvgrid test-curvgrid.cc)
 target_link_libraries(test-diagnostics dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-allcommunicate dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-vectorhelper dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-#target_link_libraries(test-curvgrid dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-curvgrid dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 
 
 # We do not want want to build the tests during make all,
@@ -34,13 +34,13 @@ if(HAVE_MPI)
     add_dune_mpi_flags(test-diagnostics)
     add_dune_mpi_flags(test-allcommunicate)
     add_dune_parmetis_flags(test-diagnostics)
-#    add_dune_parmetis_flags(test-curvgrid)
+    add_dune_parmetis_flags(test-curvgrid)
 endif(HAVE_MPI)
 
 # Add boost
 if(Boost_FOUND)
    target_link_libraries(test-diagnostics ${Boost_LIBRARIES})
-#   target_link_libraries(test-curvgrid ${Boost_LIBRARIES})
+   target_link_libraries(test-curvgrid ${Boost_LIBRARIES})
 endif()
 
 

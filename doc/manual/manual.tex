@@ -1,0 +1,203 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% objective - CSCS small project proposal
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%\documentclass[a4paper,twocolumn]{article}
+\documentclass[a4paper,10pt]{article}
+\usepackage[sort&compress,super]{natbib}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+%\usepackage{subfigure}                                %% for creating nested figures within figures
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{array}
+\usepackage{algorithm,algorithmic}
+\usepackage{tikz}
+\usepackage{url}  
+\usetikzlibrary{arrows}
+\usetikzlibrary{mindmap,trees}
+\usepackage[overlay,absolute]{textpos}
+%\usepackage[latin1]{inputenc}
+\usepackage{wrapfig}
+\usepackage{makeidx}
+
+
+
+
+%\usepackage[colorlinks,linkcolor=blue,anchorcolor=blue,citecolor=green]{hyperref} % hyper reference to contents 
+
+\citestyle{plain}
+
+\makeindex
+
+
+
+
+
+
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+    
+\noindent \textsc{{\Large Dune-CurvilinearGrid}}
+
+\vspace{5mm}
+
+\noindent \textbf{\textsc{{\Large Parallel grid for unstructured tetrahedral curvilinear meshes}}}
+  
+\vspace{2mm}
+    
+{\large
+    
+\noindent Aleksejs Fomins$^{\mathrm{a,b}}$ and Dr. Benedikt Oswald$^{\mathrm{b}}$
+
+  }
+
+\vspace{1mm}
+
+\noindent $^{\mathrm{a}}$ Nanophotonics and Metrology Laboratory (\texttt{nam.epfl.ch})
+\noindent Ecole Polytechnique F\'ederale de Lausanne (EPFL)
+  
+\vspace{1mm}
+
+\noindent $^{\mathrm{b}}$ LSPR AG, Technopark Z\"urich, Technoparkstrasse 1, CH-8005 Z\"urich
+\noindent phone +41 43 366 90 74 - email: \texttt{aleksejs.fomins@lspr.ch}
+
+\vspace{2mm}
+
+\end{center}
+
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% BEGIN OF ABSTRACT
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+\noindent \textbf{\textsc{ABSTRACT}} - sdjfgsdjfgdsgfjksdgkfgkjsdgfjdsjfsd
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% END OF ABSTRACT
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{titlepage}
+
+
+
+
+\setlength{\topmargin}{-25mm}
+\setlength{\footskip}{12mm}
+\setlength{\oddsidemargin}{-14mm}
+\setlength{\evensidemargin}{-14mm}
+\setlength{\textwidth}{185mm}
+\setlength{\textheight}{260mm}
+
+
+
+\pagebreak
+\setlength{\textwidth}{170mm}
+%\renewcommand{\baselinestretch}{1}
+
+\section{Introduction}
+
+\section{Outline}
+\subsection{Capabilities}
+
+\noindent
+Currently the curvilinear grid supports the following functionality.
+\begin{itemize}
+	\item Self-consistent grid manager supporting 3D tetrahedral curvilinear grids.
+	\item GMSH input files of curvilinear orders 1-5. Usual linear geometries also supported
+	\item Parallel mesh reader with scalability for large meshes and processors
+	\item Mesh partitioning using ParMetis \textbf{CITE}
+	\item Unique physical tag for each element and domain boundary. Read from GMSH file and accessible via grid methods.
+	\item Unique global index for entities of all codimensions.
+	\item Ghost elements of all codimensions (optional)
+	\item Communication protocols for all codimensions
+\end{itemize}
+
+\noindent
+The following functionality is currently NOT supported. As seen below, some of this functionality will be implemented in the nearest future, some other is not currently foreseen. We welcome contributions from the community
+\begin{itemize}
+	\item $[1-2 months]$ Location of containing element by global coordinate (via OCTree)
+	\item $[1/2 year]$  Does NOT support global and local refinement
+	\item $[1/2 year]$  Does NOT support hanging nodes
+	\item $[1/2 year]$  Does NOT support periodic boundaries at the moment
+	\item $[1 year]$    Does Not support curvilinear meshes of non-uniform order
+	\item $[Undefined]$ Does NOT support 1D and 2D geometries. 
+	\item $[Undefined]$ Does NOT support non-tetrahedral meshes.
+	\item $[Undefined]$ Does NOT support front/overlap elements at the moment
+\end{itemize}
+
+\subsection{Design decisions}
+
+\begin{itemize}
+	\item User must provide globalId's for vertices and elements. [Automatically implemented by GMSH]
+	\item User must provide all boundary segments inside GMSH file.
+\end{itemize}
+
+
+\subsection{Internal Structure}
+
+\begin{itemize}
+	\item CurvilinearGMSHReader
+	\item CurvilinearVTKWriter
+	\item CurvilinearGridBase
+		\subitem CurvilinearGridStorage
+		\subitem CurvilinearGridConstructor
+	\item CurvilinearGrid
+	\item CurvilinearGridHowto
+	
+\end{itemize}
+
+
+
+
+
+
+
+
+
+
+
+\section{Usage (Curvilinear Grid How-to)}
+In order to learn the workings of curvilinear grid it is easiest to study the source code of relevant tutorials \index{tutorial} provided inside the curvilinear grid module.
+
+
+\section{Diagnostics tools}
+\subsection{Mesh statistics}
+\subsection{Visualisation}
+
+\section{Implementation details}
+\subsection{Parallel GMSH reader}
+\subsection{Partitioning}
+\subsection{Global index construction}
+\subsection{Ghost element construction}
+\subsection{Communication interface construction}
+
+%\bibliographystyle{plainnat}
+%\bibliography{oswald,numerical_libraries,molecular_plasmonics,finite_element_method,electromagnetic}
+
+
+\printindex
+
+\end{document}

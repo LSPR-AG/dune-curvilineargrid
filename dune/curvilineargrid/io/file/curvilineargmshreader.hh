@@ -990,9 +990,6 @@ namespace Dune
 
             //Insert internal element
             //****************************************************
-
-            internalElement2PhysicalEntityIndex.push_back(internalElementVector[i].physicalEntityTag_);
-            // Insert element to factory
             factory.insertElement(elemType, internalElementVector[i].elementIndex_, localDofVector, elemOrder, internalElementVector[i].physicalEntityTag_);
 
 
@@ -1072,9 +1069,6 @@ namespace Dune
             if (insertBoundarySegment)
             {
                 factory.insertBoundarySegment(boundaryType, boundaryElementVector[i].elementIndex_, localDofVector, boundaryOrder, linkedElementLocalIndexSet[i][0], boundaryElementVector[i].physicalEntityTag_);
-
-                // Adding physical tag
-                boundaryElement2PhysicalEntityIndex.push_back(boundaryElementVector[i].physicalEntityTag_);
 
                 log_string = "    * boundary_element " + std::to_string(i) + " has been added to the Geometry Factory ";
                 Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
@@ -1168,9 +1162,6 @@ namespace Dune
 
     int totalInternalElement()   { return nInternalElementTotal_; }
 
-    std::vector<int> & boundaryIdMap()   { return boundaryElement2PhysicalEntityIndex; }
-
-    std::vector<int> & elementIndexMap() { return internalElement2PhysicalEntityIndex; }
 
     // This reads the GMSH format to parse the node and element structure
     void read (const std::string& f)
@@ -1375,8 +1366,6 @@ namespace Dune
 
     // Boundary element indexing
     bool insertBoundarySegment;
-    std::vector<int> boundaryElement2PhysicalEntityIndex;
-    std::vector<int> internalElement2PhysicalEntityIndex;
 
     // Total data about the mesh
     int nVertexTotal_ = 0;
@@ -1434,8 +1423,6 @@ namespace Dune
     static void read (FactoryType & factory,
                       const std::string& fileName,
                       MPIHelper &mpihelper,
-                      std::vector<int>& boundaryElement2PhysicalEntityIndex,
-                      std::vector<int>& internalElement2PhysicalEntityIndex,
                       int & nVertexTotal,
                       int & nElementTotal,
                       bool verbose,
@@ -1447,9 +1434,6 @@ namespace Dune
         // create parse object
         CurvilinearGmshReaderParser<Grid, FactoryType> parser(factory,verbose, processVerbose, insertBoundarySegment, writeVTKFile, mpihelper);
         parser.read(fileName);
-
-        boundaryElement2PhysicalEntityIndex.swap(parser.boundaryIdMap());
-        internalElement2PhysicalEntityIndex.swap(parser.elementIndexMap());
 
         nVertexTotal = parser.totalVertex();
         nElementTotal = parser.totalInternalElement();

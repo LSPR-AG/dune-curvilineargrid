@@ -46,18 +46,12 @@ struct CurvFactory
     Dune::CurvilinearGridFactory<ctype, cdim> factory(withGhostElements, verbose, processVerbose, mpihelper);
 
 
-    /** \brief open the GMSH formatted tetrahedral mesh file into a grid factory */
-    std::vector<int> boundaryId2physicalEntity;
-    std::vector<int> elementIndex2PhysicalEntity;
-
     int nVertexTotal;
     int nElementTotal;
 
     Dune::CurvilinearGmshReader< GridType >::read(factory,
                                                             filename,
                                                             mpihelper,
-                                                            boundaryId2physicalEntity,
-                                                            elementIndex2PhysicalEntity,
                                                             nVertexTotal,
                                                             nElementTotal,
                                                             verbose,

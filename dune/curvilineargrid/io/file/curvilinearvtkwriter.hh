@@ -414,6 +414,8 @@ namespace Dune
               //std::cout << "* coords " << parUV[0] << ", " << parUV[1] << ", in the map cooresponds to " << parametricToIndex[parUV] << std::endl;
           }
 
+          std::cout << "brrrrraaaa " <<  vtkPoint_.size() <<std::endl;
+
 
           // *******************************************************************************
           // Step 3: Write edges discretizing this element to VTK
@@ -667,6 +669,8 @@ namespace Dune
 
         int nVertices = vtkPoint_.size();
         int nElements = vtkEdgeVertexIndex_.size() + vtkTriangleVertexIndex_.size();
+
+        std::cout << "dslfsjkfd " << vtkPoint_.size() << std::endl;
 
         // Compute offsets which is a general way to determine the number of vertices per element
         std::vector<int> offsets;

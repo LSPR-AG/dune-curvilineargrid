@@ -66,13 +66,15 @@ public:
     static std::string vector2string(const T & V)
     {
         std::stringstream tmp_stream;
+        tmp_stream << "(";
 
         int nEntry = V.size();
         if (nEntry == 0)  { tmp_stream << "Null"; }
         for (int i = 0; i < nEntry; i++) {
         	tmp_stream << V[i];
-        	if (i != nEntry - 1) { tmp_stream << " "; }
+        	if (i != nEntry - 1) { tmp_stream << ", "; }
         }
+        tmp_stream << ")";
         return tmp_stream.str();
     }
 

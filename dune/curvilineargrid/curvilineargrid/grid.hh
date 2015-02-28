@@ -135,9 +135,11 @@ namespace Dune
     typedef Dune::CurvilinearGridBase<ct, dimworld>     GridBaseType;
     typedef Dune::CurvilinearGridStorage<ct, dimworld>  GridStorageType;
 
-    typedef typename GridStorageType::LocalIndexType     LocalIndexType;
-    typedef typename GridStorageType::GlobalIndexType    GlobalIndexType;
-    typedef typename GridStorageType::PhysicalTagType    PhysicalTagType;
+    typedef typename GridStorageType::LocalIndexType          LocalIndexType;
+    typedef typename GridStorageType::GlobalIndexType         GlobalIndexType;
+    typedef typename GridStorageType::PhysicalTagType         PhysicalTagType;
+    typedef typename GridStorageType::StructuralType          StructuralType;
+    typedef typename GridStorageType::InterpolatoryOrderType  InterpolatoryOrderType;
 
 
     static const int   VERTEX_CODIM   = GridStorageType::VERTEX_CODIM;
@@ -633,8 +635,43 @@ namespace Dune
     // User gets the relative error tolerance for computing volumes of curvilinear entities
     double geometryRelativeTolerance()                { return gridbase_->geometryRelativeTolerance(); }
 
-    // Obtains physical tag of the entity of specified codimension and local index
-    PhysicalTagType entityPhysicalTag(int codim, LocalIndexType localIndex) const  { return gridbase_->physicalTag(codim, localIndex); }
+
+    // Obtains global index of an entity
+    template<int codim>
+    GlobalIndexType entityGlobalIndex(const typename Traits::template Codim< codim >::Entity &entity)
+    {
+    	GlobalIndexType globalIndex;
+    	bool exist = gridbase_->findEntityGlobalIndex(codim, leafIndexSet().index(entity), globalIndex);
+    	assert(exist);  // Check if the index exists for self-consistency
+    	return globalIndex;
+    }
+
+
+    // Obtains physical tag of an entity
+    template<int codim>
+    PhysicalTagType entityPhysicalTag(const typename Traits::template Codim< codim >::Entity &entity)
+    {
+    	return gridbase_->physicalTag(codim, leafIndexSet().index(entity));
+    }
+
+    // Obtain interpolation order of an entity
+    template<int codim>
+    InterpolatoryOrderType entityInterpolationOrder (const typename Traits::template Codim< codim >::Entity &entity)
+    {
+    	return gridbase_->entityInterpolationOrder(codim, leafIndexSet().index(entity));
+    }
+
+    template<int codim>
+    StructuralType entityStructuralType (const typename Traits::template Codim< codim >::Entity &entity)
+    {
+    	return gridbase_->entityStructuralType(codim, leafIndexSet().index(entity));
+    }
+
+    template<int codim>
+    typename BaseCodim<codim>::EntityGeometryImpl entityBaseGeometry (const typename Traits::template Codim< codim >::Entity &entity)
+    {
+    	return gridbase_->template entityGeometry<codim>(leafIndexSet().index(entity));
+    }
 
 
 

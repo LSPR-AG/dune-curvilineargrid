@@ -233,6 +233,14 @@ namespace Dune
 	  	      :  Base(localIndex, gridbase, pitype)
 	  {  }
 
+	  // Constructor from a seed
+	  template <class Seed>
+	  CurvEntity(Seed & seed, GridBaseType & gridbase)
+	     : Base(seed.localIndex(), gridbase, seed.partitionIteratorType())
+	  {
+
+	  }
+
   };
 
 
@@ -243,6 +251,8 @@ namespace Dune
   {
 	  typedef typename remove_const< Grid >::type::Traits  Traits;
 	  typedef typename remove_const< Grid >::type::ctype   ctype;						//! coordinate type of the grid
+
+	  typedef  CurvEntity <0, dim, Grid>  This;
 
   public:
 
@@ -255,6 +265,7 @@ namespace Dune
 	  /** \} */
 
 
+	  typedef typename Traits::template Codim< 0 >::Entity   Entity;
 	  /** \brief The geometry type of this entity */
 	  typedef typename Traits::template Codim< 0 >::Geometry Geometry;
 
@@ -318,6 +329,14 @@ namespace Dune
 	      Dune::PartitionIteratorType pitype)
 	  	      :  Base(localIndex, gridbase, pitype)
 	  {  }
+
+	  // Constructor from a seed
+	  template <class Seed>
+	  CurvEntity(Seed & seed, GridBaseType & gridbase)
+	     : Base(seed.localIndex(), gridbase, seed.partitionIteratorType())
+	  {
+
+	  }
 
 
    /**\brief Number of subentities with codimension <tt>codim</tt>.
@@ -401,10 +420,10 @@ namespace Dune
              or implemented in general.
              For some grids it might be available, though.
      */
-    CurvEntity<0, dim, Grid> father () const
+    Entity father () const
     {
     	DUNE_THROW(NotImplemented, "CurvilinearGrid-Element: method father() not implemented, since there is no refinement");
-    	return *this;
+    	return Entity(This());
     }
 
     /**\brief Return true if entity has a father entity which can be accessed

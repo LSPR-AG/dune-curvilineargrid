@@ -615,7 +615,8 @@ public:
     	tetrahedronGeometry.makeTetrahedron();
     	const Dune::ReferenceElement<ct,cdim> & thisRefElement = Dune::ReferenceElements<ct,cdim>::general(tetrahedronGeometry);
 
-    	if (subcodim <= codim) {
+    	if (subcodim == codim)  { return entityIndex; }  // In this case return itself as own subentity
+    	if (subcodim < codim) {                          // Wrong by definition
     		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair = (" + std::to_string(codim) + "," + std::to_string(subcodim) + ")");
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair");
     	}
@@ -686,6 +687,8 @@ public:
     LocalIndexType faceNeighbor(LocalIndexType localIndex, InternalIndexType internalNeighborIndex) const
     {
     	LocalIndexType rez;
+
+    	assert(localIndex < gridstorage_.face_.size());
 
         switch(internalNeighborIndex)
         {

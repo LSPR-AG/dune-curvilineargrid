@@ -67,26 +67,36 @@ struct CurvFactory
 
 template <class ctype, int cdim>
 void check_grid(Dune::CurvilinearGrid<cdim, cdim, ctype> & grid) {
-  std::cout << std::endl << "CurvGrid<" << cdim << ">" << std::endl;
+  std::cout << "CurvGrid<" << cdim << ">" << std::endl;
 
 
+  std::cout << "-- Running Base GridCheck" << std::endl;
   gridcheck(grid);
 
+  std::cout << "-- Checking LeafGridView" << std::endl;
   checkIterators ( grid.leafGridView() );
+
+  std::cout << "-- Checking LevelGridView" << std::endl;
   checkIterators ( grid.levelGridView(0) );
 
   // check communication interface
+  std::cout << "-- Checking Communication" << std::endl;
   checkCommunication(grid, -1, Dune::dvverb);
   for(int l=0; l<=grid.maxLevel(); ++l)  { checkCommunication(grid,l,Dune::dvverb); }
 
-  // check geometry lifetime
+  std::cout << "-- Checking Geometry Lifetime" << std::endl;
   checkGeometryLifetime( grid.leafGridView() );
-  // check the method geometryInFather()
+
+  std::cout << "-- Checking Geometry in Father" << std::endl;
   checkGeometryInFather(grid);
-  // check the intersection iterator and the geometries it returns
+
+  std::cout << "-- Checking Intersection Iterator" << std::endl;
   checkIntersectionIterator(grid);
-  // check grid adaptation interface
+
+  std::cout << "-- Checking Adaptive Refinement" << std::endl;
   checkAdaptRefinement(grid);
+
+  std::cout << "-- Checking Partition Type of LeafGridView" << std::endl;
   checkPartitionType( grid.leafGridView() );
 
 }

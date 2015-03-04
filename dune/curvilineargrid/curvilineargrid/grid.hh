@@ -617,6 +617,22 @@ namespace Dune
       return EntityPointer(EntityPointerImpl( seed, *gridbase_ ));
     }
 
+
+    /** \brief obtain Entity from EntitySeed. */
+    template< class EntitySeed >
+    typename Traits::template Codim< EntitySeed::codimension >::Entity
+    entity ( const EntitySeed &seed ) const
+    {
+      typedef typename Traits::template Codim< EntitySeed::codimension >::Entity Entity;
+      typedef Dune::CurvGrid::CurvEntity<EntitySeed::codimension, dim, const Grid>  EntityImpl;
+      typedef Dune::CurvGrid::CurvEntitySeed<EntitySeed::codimension, const Grid>   SeedImpl;
+
+      SeedImpl seedImpl = Grid::getRealImplementation(seed);
+
+      return Entity(EntityImpl( seedImpl, *gridbase_ ));
+    }
+
+
     /** \} */
 
 

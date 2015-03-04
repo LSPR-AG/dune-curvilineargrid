@@ -42,7 +42,7 @@
 namespace Dune
 {
   
-  template<int cdim>
+  template<int cdim, bool isCached>
   class CurvilinearVTKWriter
   {
 
@@ -72,7 +72,7 @@ namespace Dune
       static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
 
       // Typedefs from GridBase
-      typedef Dune::CurvilinearGridStorage<double, cdim>       GridStorageType;
+      typedef Dune::CurvilinearGridStorage<double, cdim, isCached>  GridStorageType;
       static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
       static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
       static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;

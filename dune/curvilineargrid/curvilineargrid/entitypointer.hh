@@ -42,8 +42,8 @@ namespace Dune
 
         typedef Dune::CurvGrid::CurvEntity<codim, dimension, Grid>  EntityImpl;
 
-        typedef Dune::CurvilinearGridBase<ctype,dimension>    GridBaseType;
-        typedef typename GridBaseType::IndexSetIterator       IndexSetIterator;
+  	    typedef typename remove_const< Grid >::type::GridBaseType   GridBaseType;
+        typedef typename GridBaseType::IndexSetIterator             IndexSetIterator;
 
         static  Entity seed2entity(const EntitySeed & seed, GridBaseType & gridbase)
         {

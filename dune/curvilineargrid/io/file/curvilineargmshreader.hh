@@ -82,9 +82,12 @@ namespace Dune
 	typedef typename GridType::ctype  ctype;
 
     // static data
-    static const int dim_ = GridType::dimension;
+    static const bool isCached = GridType::is_cached;
+	static const int dim_      = GridType::dimension;
     static const int dimWorld_ = GridType::dimensionworld;
     static_assert( (dimWorld_ <= 3), "GmshReader requires dimWorld <= 3." );
+
+
 
     // Logging Message Typedefs
     static const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
@@ -1089,8 +1092,8 @@ namespace Dune
     template<int mydim>
     void addElementToVTK(const GeometryType & elemType, const std::vector<GlobalVector> & elemNodeVector, const int elemOrder, const int physicalTag, const bool isBoundary)
     {
-    	const int VTK_INTERNAL = Dune::CurvilinearGridStorage<ctype, dim_>::PartitionType::Internal;
-    	const int VTK_BOUNDARY = Dune::CurvilinearGridStorage<ctype, dim_>::PartitionType::DomainBoundary;
+    	const int VTK_INTERNAL = GridType::GridStorageType::PartitionType::Internal;
+    	const int VTK_BOUNDARY = GridType::GridStorageType::PartitionType::DomainBoundary;
 
     	int VTK_DISCRETIZATION_POINTS = 2;    // Sampling frequency over curved element. min=2 is linear sampling
     	bool VTK_INTERPOLATE = true;          // Whether to use lagrange interpolation or intrinsic interpolatory vertices
@@ -1378,7 +1381,7 @@ namespace Dune
     std::vector< std::vector< int > > tetrahedralInterpolatoryVertexGmsh2DuneMap;
 
     // Testing capabilities for writing to VTK.
-    CurvilinearVTKWriter<dimWorld_> vtkCurvWriter_;
+    CurvilinearVTKWriter<dimWorld_, isCached> vtkCurvWriter_;
 
 
 
@@ -1423,8 +1426,6 @@ namespace Dune
     static void read (FactoryType & factory,
                       const std::string& fileName,
                       MPIHelper &mpihelper,
-                      int & nVertexTotal,
-                      int & nElementTotal,
                       bool verbose,
                       bool processVerbose,
                       bool writeVTKFile,
@@ -1435,8 +1436,9 @@ namespace Dune
         CurvilinearGmshReaderParser<Grid, FactoryType> parser(factory,verbose, processVerbose, insertBoundarySegment, writeVTKFile, mpihelper);
         parser.read(fileName);
 
-        nVertexTotal = parser.totalVertex();
-        nElementTotal = parser.totalInternalElement();
+        // Insert compulsory total number of vertices and elements into the curvilinear factory
+        factory.insertNVertexTotal(parser.totalVertex());
+        factory.insertNElementTotal(parser.totalInternalElement());
     }
   };
 

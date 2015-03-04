@@ -61,12 +61,12 @@
 
 namespace Dune {
 
-template <class ct, int cdim>
+template <class ct, int cdim, bool isCached>
 class CurvilinearGridDiagnostic
 {
 private:
-	typedef Dune::CurvilinearGridBase<ct, cdim>          GridBaseType;
-	typedef Dune::CurvilinearGridStorage<ct, cdim>       GridStorageType;
+	typedef Dune::CurvilinearGridBase<ct, cdim, isCached>          GridBaseType;
+	typedef Dune::CurvilinearGridStorage<ct, cdim, isCached>       GridStorageType;
 
     typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
     typedef typename GridStorageType::LocalIndexType            LocalIndexType;
@@ -169,7 +169,7 @@ public:
 	{
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Grid to VTK");
 
-    	Dune::CurvilinearVTKWriter<3> vtkCurvWriter(verbose_, processVerbose_, mpihelper_);
+    	Dune::CurvilinearVTKWriter<3, isCached> vtkCurvWriter(verbose_, processVerbose_, mpihelper_);
 
 
     	typedef typename GridStorageType::PartitionType  CurvPT;
@@ -313,7 +313,7 @@ protected:
 
 	template <int codim>
 	void addVTKentity(
-		Dune::CurvilinearVTKWriter<3> & vtkCurvWriter,
+		Dune::CurvilinearVTKWriter<3, isCached> & vtkCurvWriter,
 		StructuralType structtype,
 		int nDiscretizationPoints,
 		bool interpolate,

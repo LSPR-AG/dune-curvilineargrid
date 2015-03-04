@@ -131,7 +131,7 @@ namespace Dune {
 
 
 
-template <class ct, int cdim>
+template <class ct, int cdim, bool isCached>
 class CurvilinearGridBase {
 public:
 
@@ -150,9 +150,9 @@ public:
 
     /* public types
      * *******************************************************************/
-    typedef Dune::CurvilinearGridBase<ct, cdim>          GridBaseType;
-    typedef Dune::CurvilinearGridStorage<ct, cdim>       GridStorageType;
-    typedef Dune::CurvilinearGridConstructor<ct, cdim>   GridConstructorType;
+    typedef Dune::CurvilinearGridBase<ct, cdim, isCached>         GridBaseType;
+    typedef Dune::CurvilinearGridStorage<ct, cdim, isCached>      GridStorageType;
+    typedef Dune::CurvilinearGridConstructor<ct, cdim, isCached>  GridConstructorType;
 
     typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
     typedef typename GridStorageType::LocalIndexType            LocalIndexType;
@@ -181,9 +181,18 @@ public:
     typedef typename GridStorageType::NodeType                  NodeType;
     typedef typename GridStorageType::CurvilinearLooseOctree    CurvilinearLooseOctree;
 
-    typedef typename GridStorageType::template Codim<0>::EntityGeometry    ElementGeometry;
-
     typedef typename GridStorageType::EntityNeighborRankVector  EntityNeighborRankVector;
+
+    // Defines the Elementary geometry
+    template <int codim>
+    struct Codim
+    {
+    	typedef typename std::conditional<
+    	  isCached,
+    	  Dune::CachedCurvilinearGeometry<ct, cdim - codim, cdim>,
+    	  Dune::CurvilinearGeometry<ct, cdim - codim, cdim>
+    	>::type  EntityGeometry;
+    };
 
 
     // Logging Message Typedefs
@@ -296,6 +305,13 @@ public:
     }
 
 
+    /** \brief Compulsory: insert the total number of vertices in the mesh before constructing the grid */
+    void insertNVertexTotal(int nVertexTotal)  { gridstorage_.nEntityTotal_[VERTEX_CODIM] = nVertexTotal; }
+
+    /** \brief Compulsory: insert the total number of elements in the mesh before constructing the grid */
+    void insertNElementTotal(int nElementTotal)  { gridstorage_.nEntityTotal_[ELEMENT_CODIM] = nElementTotal; }
+
+
     /* ***************************************************************************
      * Section: Constructing the mesh
      * ***************************************************************************/
@@ -304,13 +320,13 @@ public:
      *  Note: It is expected, that all necessary data (vertices, elements and boundary segments) have been added before this function is called.
      * */
 
-    void generateMesh(int nVertexTotalMesh, int nElementTotalMesh) {
+    void generateMesh() {
     	assertStage(Stage::GRID_CONSTRUCTION);
     	gridstage_ = Stage::GRID_OPERATION;
 
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridBase: Initializing mesh");
 
-        gridconstructor_.generateMesh(nVertexTotalMesh, nElementTotalMesh);
+        gridconstructor_.generateMesh();
 
         // Diagnostics output
         std::stringstream log_stream;
@@ -734,7 +750,7 @@ public:
 
 
     template<int codim>
-    typename GridStorageType::template Codim<codim>::EntityGeometry
+    typename Codim<codim>::EntityGeometry
     entityGeometry(LocalIndexType localIndex) const
     {
     	return entityGeometryConstructor<codim>(entityData(codim, localIndex));
@@ -791,7 +807,7 @@ public:
 
             // Loop over candidate elements and search for local coordinate using internal Geometry mechanism
             for (int i = 0; i < elementIndices.size(); i++) {
-                ElementGeometry thisGeometry = entityGeometry<0>(elementIndices[i]);
+            	typename Codim<ELEMENT_CODIM>::EntityGeometry thisGeometry = entityGeometry<ELEMENT_CODIM>(elementIndices[i]);
 
                 Vertex thisLocalC;
                 bool isInside = thisGeometry.local( globalC, thisLocalC );
@@ -1056,13 +1072,13 @@ protected:
     // TODO: assert mydim == element geometry type dim
 
     template<int codim>
-    typename GridStorageType::template Codim<codim>::EntityGeometry
+    typename Codim<codim>::EntityGeometry
     entityGeometryConstructor(EntityStorage thisData) const
     {
         std::vector<Vertex> entityVertices;
         for (int i = 0; i < thisData.vertexIndexSet.size(); i++) { entityVertices.push_back(gridstorage_.point_[thisData.vertexIndexSet[i]].coord); }
 
-        return typename GridStorageType::template Codim<codim>::EntityGeometry (thisData.geometryType, entityVertices, thisData.interpOrder);
+        return typename Codim<codim>::EntityGeometry (thisData.geometryType, entityVertices, thisData.interpOrder);
     }
 
 

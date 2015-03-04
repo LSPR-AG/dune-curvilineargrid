@@ -23,10 +23,13 @@
 #include <dune/grid/test/checkpartition.cc>
 
 
+const bool isGeometryCached = true;
+
+
 template<class ctype, int cdim, int order >
 struct CurvFactory
 {
-  typedef Dune::CurvilinearGrid<cdim, cdim, ctype> GridType;
+  typedef Dune::CurvilinearGrid<cdim, cdim, ctype, isGeometryCached> GridType;
 
   static GridType * buildGrid(Dune::MPIHelper & mpihelper)
   {
@@ -43,30 +46,24 @@ struct CurvFactory
     bool processVerbose = true;
     bool writeReaderVTKFile = false;
 
-    Dune::CurvilinearGridFactory<ctype, cdim> factory(withGhostElements, verbose, processVerbose, mpihelper);
-
-
-    int nVertexTotal;
-    int nElementTotal;
+    Dune::CurvilinearGridFactory<ctype, cdim, isGeometryCached> factory(withGhostElements, verbose, processVerbose, mpihelper);
 
     Dune::CurvilinearGmshReader< GridType >::read(factory,
                                                             filename,
                                                             mpihelper,
-                                                            nVertexTotal,
-                                                            nElementTotal,
                                                             verbose,
                                                             processVerbose,
                                                             writeReaderVTKFile,
                                                             insertBoundarySegment);
 
-    return factory.createGrid(nVertexTotal, nElementTotal);
+    return factory.createGrid();
   }
 
 };
 
 
-template <class ctype, int cdim>
-void check_grid(Dune::CurvilinearGrid<cdim, cdim, ctype> & grid) {
+template <class ctype, int cdim, bool isCached>
+void check_grid(Dune::CurvilinearGrid<cdim, cdim, ctype, isCached> & grid) {
   std::cout << "CurvGrid<" << cdim << ">" << std::endl;
 
 
@@ -106,7 +103,7 @@ int main (int argc , char **argv) {
   try {
     // Initialize MPI, if present
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
-	typedef Dune::CurvilinearGrid<3, 3, double> GridType;
+	typedef Dune::CurvilinearGrid<3, 3, double, isGeometryCached> GridType;
 
 	{
 		GridType * grid32ord1 = CurvFactory<double, 3, 1>::buildGrid(mpihelper);

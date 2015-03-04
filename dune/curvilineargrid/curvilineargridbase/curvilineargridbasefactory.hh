@@ -44,14 +44,18 @@ namespace Dune
 
 
 
-template <int dim, int dimworld, class ct>
+template <int dim, int dimworld, class ct, bool isCached>
 class CurvilinearFakeGrid
 {
 public:
 
 	typedef  ct            ctype;
-	enum      { dimension = dim};
-	enum      { dimensionworld = dimworld };
+	static const int dimension = dim;
+	static const int dimensionworld = dimworld;
+	static const int is_cached = isCached;
+
+
+	typedef Dune::CurvilinearGridStorage<ct, dim, isCached>  GridStorageType;
 
 	CurvilinearFakeGrid() {}
 };
@@ -69,11 +73,13 @@ class CurvilinearGridBaseFactory
 	// Typedefs and const variables
 	// -----------------------------------------------------------
 	typedef typename GridType::ctype      ctype;
-    static const int dimension = GridType::dimension;
+
+	static const bool  iscached     = GridType::is_cached;
+    static const int dimension      = GridType::dimension;
     static const int dimensionworld = GridType::dimensionworld;
 
-	typedef FieldVector< ctype, dimensionworld >                 VertexCoordinate;
-	typedef Dune::CurvilinearGridBase<ctype, dimensionworld>     GridBaseType;
+	typedef FieldVector< ctype, dimensionworld >                           VertexCoordinate;
+	typedef Dune::CurvilinearGridBase<ctype, dimensionworld, iscached>     GridBaseType;
 
 	typedef int VertexGlobalId;
 	typedef int VertexLocalIndex;
@@ -137,9 +143,16 @@ class CurvilinearGridBaseFactory
     	gridbase_->insertBoundarySegment(geometry, globalId, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag);
     }
 
-    GridBaseType * createGrid(int nVertexTotal, int nElementTotal)
+
+
+    void insertNVertexTotal(int nVertexTotal)  { gridbase_->insertNVertexTotal(nVertexTotal); }
+
+    void insertNElementTotal(int nElementTotal)  { gridbase_->insertNElementTotal(nElementTotal); }
+
+
+    GridBaseType * createGrid()
     {
-    	gridbase_->generateMesh(nVertexTotal, nElementTotal);
+    	gridbase_->generateMesh();
     	return gridbase_;
     }
 

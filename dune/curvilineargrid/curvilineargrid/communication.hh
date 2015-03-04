@@ -46,8 +46,8 @@ namespace Dune
 
     	static const int dimension   = remove_const< Grid >::type::dimension;		 //! dimension of the grid
 
-    	typedef Dune::CurvilinearGridStorage<ctype,dimension>       GridStorageType;
-    	typedef Dune::CurvilinearGridBase<ctype,dimension>          GridBaseType;
+  	    typedef typename remove_const< Grid >::type::GridStorageType  GridStorageType;
+  	    typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
 
     	typedef typename GridBaseType::LocalIndexType        LocalIndexType;
     	typedef typename GridBaseType::GlobalIndexType       GlobalIndexType;

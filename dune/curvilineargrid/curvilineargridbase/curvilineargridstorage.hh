@@ -39,13 +39,13 @@ namespace Dune {
 
 
 
-template <class ct, int cdim>
+template <class ct, int cdim, bool isCached>
 class CurvilinearGridStorage
 {
 
 public:
 
-	typedef Dune::CurvilinearGridStorage<ct, cdim>   This;
+	typedef Dune::CurvilinearGridStorage<ct, cdim, isCached>   This;
 
     // Grid Variable Types
     // ******************************************************************
@@ -227,14 +227,8 @@ public:
 
     typedef std::vector<std::vector <int> >             EntityNeighborRankVector;
 
-    typedef Dune::CurvilinearOctreeNode<ct, cdim>                 NodeType;
+    typedef Dune::CurvilinearOctreeNode<ct, cdim, isCached>       NodeType;
     typedef Dune::CurvilinearLooseOctree<ct, cdim, NodeType>      CurvilinearLooseOctree;
-
-    template <int codim>
-    struct Codim
-    {
-    	typedef Dune::CachedCurvilinearGeometry<ct, cdim - codim, cdim>    EntityGeometry;
-    };
 
 
     // Codimensions of entity types for better code readability

@@ -24,62 +24,62 @@ namespace Dune
     // ---------------------------
 
   	// Note: At the moment curvilinear grid only capable of dealing with tetrahedral meshes
-    template< int dim, int dimworld, class ctype>
-    struct hasSingleGeometryType< Dune::CurvilinearGrid< dim , dimworld, ctype> >
+    template< int dim, int dimworld, class ctype, bool isCached>
+    struct hasSingleGeometryType< Dune::CurvilinearGrid< dim , dimworld, ctype, isCached> >
     {
         static const bool v = true;
         static const unsigned int topologyId = GenericGeometry::SimplexTopology<3>::type::id;
     };
 
 
-    template< int dim, int dimworld, class ctype, int codim >
-    struct hasEntity< Dune::CurvilinearGrid< dim , dimworld, ctype>, codim >
+    template< int dim, int dimworld, class ctype, bool isCached, int codim >
+    struct hasEntity< Dune::CurvilinearGrid< dim , dimworld, ctype, isCached>, codim >
     {
     	static const bool v = true;
     };
 
 
-    template< int dim, int dimworld, class ctype>
-    struct isParallel< Dune::CurvilinearGrid< dim , dimworld, ctype> >
+    template< int dim, int dimworld, class ctype, bool isCached>
+    struct isParallel< Dune::CurvilinearGrid< dim , dimworld, ctype, isCached> >
     {
     	static const bool v = true;
     };
 
 
     // FIXME: Do I need to specialize this for all codimensions to avoid, say, 4D grid requests?
-    template< int dim, int dimworld, class ctype, int codim >
-    struct canCommunicate< Dune::CurvilinearGrid< dim , dimworld, ctype>, codim >
+    template< int dim, int dimworld, class ctype, bool isCached, int codim >
+    struct canCommunicate< Dune::CurvilinearGrid< dim , dimworld, ctype, isCached>, codim >
     {
     	static const bool v = true;
     };
 
 
-    template< int dim, int dimworld, class ctype>
-    struct hasBackupRestoreFacilities< Dune::CurvilinearGrid< dim , dimworld, ctype> >
+    template< int dim, int dimworld, class ctype, bool isCached>
+    struct hasBackupRestoreFacilities< Dune::CurvilinearGrid< dim , dimworld, ctype, isCached> >
     {
       static const bool v = false;
     };
 
-    template< int dim, int dimworld, class ctype>
-    struct isLevelwiseConforming< Dune::CurvilinearGrid< dim , dimworld, ctype> >
+    template< int dim, int dimworld, class ctype, bool isCached>
+    struct isLevelwiseConforming< Dune::CurvilinearGrid< dim , dimworld, ctype, isCached> >
     {
       static const bool v = true;
     };
 
-    template< int dim, int dimworld, class ctype>
-    struct isLeafwiseConforming< Dune::CurvilinearGrid< dim , dimworld, ctype> >
+    template< int dim, int dimworld, class ctype, bool isCached>
+    struct isLeafwiseConforming< Dune::CurvilinearGrid< dim , dimworld, ctype, isCached> >
     {
       static const bool v = true;
     };
 
-    template< int dim, int dimworld, class ctype>
-    struct threadSafe< Dune::CurvilinearGrid< dim , dimworld, ctype> >
+    template< int dim, int dimworld, class ctype, bool isCached>
+    struct threadSafe< Dune::CurvilinearGrid< dim , dimworld, ctype, isCached> >
     {
       static const bool v = false;
     };
 
-    template< int dim, int dimworld, class ctype>
-    struct viewThreadSafe< Dune::CurvilinearGrid< dim , dimworld, ctype> >
+    template< int dim, int dimworld, class ctype, bool isCached>
+    struct viewThreadSafe< Dune::CurvilinearGrid< dim , dimworld, ctype, isCached> >
     {
       static const bool v = false;
     };

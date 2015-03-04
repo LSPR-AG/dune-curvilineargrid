@@ -59,21 +59,21 @@ namespace Dune {
 
 
 // Forward declaration
-template <class ct, int cdim>
+template <class ct, int cdim, bool isCached>
 class CurvilinearGridStorage;
 
-template <class ct, int cdim>
+template <class ct, int cdim, bool isCached>
 class CurvilinearGridBase;
 
 
 
-template <class ct, int cdim>
+template <class ct, int cdim, bool isCached>
 class CurvilinearPostConstructor {
 public:
 
     /* public types */
-    typedef Dune::CurvilinearGridStorage<ct, cdim>        GridStorageType;
-    typedef Dune::CurvilinearGridBase<ct, cdim>           GridBaseType;
+    typedef Dune::CurvilinearGridStorage<ct, cdim, isCached>    GridStorageType;
+    typedef Dune::CurvilinearGridBase<ct, cdim, isCached>       GridBaseType;
 
     typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
     typedef typename GridStorageType::LocalIndexType            LocalIndexType;

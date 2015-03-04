@@ -42,6 +42,8 @@ const std::string    GMSH_FILE_NAME_SPHEREINSPHERE100_ORD1  =    "sphere-in-sphe
 
 
 
+const bool isGeometryCached = true;
+
 
 
 /**\brief Test program which visualizes the base functions on a dgf mesh to
@@ -58,7 +60,7 @@ int main(int argc, char** argv)
     std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD5;
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
-    typedef Dune::CurvilinearFakeGrid<3,3,double>  SimplexGridType;
+    typedef Dune::CurvilinearFakeGrid<3,3,double, isGeometryCached>  SimplexGridType;
 
     bool insertBoundarySegment = true;
     bool withGhostElements = true;
@@ -72,25 +74,20 @@ int main(int argc, char** argv)
     Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
 
 
-    int nVertexTotal;
-    int nElementTotal;
-
     Dune::CurvilinearGmshReader< SimplexGridType >::read(factory,
                                                             filename,
                                                             mpihelper,
-                                                            nVertexTotal,
-                                                            nElementTotal,
                                                             verbose,
                                                             processVerbose,
                                                             writeReaderVTKFile,
                                                             insertBoundarySegment);
 
-    Dune::CurvilinearGridBase<double, 3> * gridbase = factory.createGrid(nVertexTotal, nElementTotal);
+    Dune::CurvilinearGridBase<double, 3, isGeometryCached> * gridbase = factory.createGrid();
 
 
 
     // Perform diagnostics tests on the constructed grid
-    Dune::CurvilinearGridDiagnostic<double, 3> diagnostic(verbose, processVerbose, mpihelper, *gridbase);
+    Dune::CurvilinearGridDiagnostic<double, 3, isGeometryCached> diagnostic(verbose, processVerbose, mpihelper, *gridbase);
 
 	std::vector<bool> withElements {false, false};                  // Whether to add elements to VTK: Internal / Ghost
 	std::vector<bool> withFaces    {false, false, false, false};    // Whether to add faces to VTK: Internal / Ghost / DomainBoundary / ProcessBoundary

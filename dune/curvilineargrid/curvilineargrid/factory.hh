@@ -49,16 +49,16 @@ namespace Dune
 {
 
 
-template< class ctype, int cdim >
+template< class ctype, int cdim, bool isCached >
 class CurvilinearGridFactory
 {
   private:
 
-	typedef Dune::CurvilinearGrid<cdim, cdim, ctype>   GridType;
+	typedef Dune::CurvilinearGrid<cdim, cdim, ctype, isCached>   GridType;
 
 	typedef FieldVector< ctype, cdim >                 VertexCoordinate;
-	typedef Dune::CurvilinearGridBase<ctype, cdim>     GridBaseType;
 
+	typedef typename GridType::GridBaseType            GridBaseType;
 	typedef typename GridBaseType::LocalIndexType      LocalIndexType;
 	typedef typename GridBaseType::GlobalIndexType     GlobalIndexType;
 
@@ -120,9 +120,14 @@ class CurvilinearGridFactory
     	gridbase_->insertBoundarySegment(geometry, globalId, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag);
     }
 
-    GridType * createGrid(int nVertexTotal, int nElementTotal)
+    void insertNVertexTotal(int nVertexTotal)  { gridbase_->insertNVertexTotal(nVertexTotal); }
+
+    void insertNElementTotal(int nElementTotal)  { gridbase_->insertNElementTotal(nElementTotal); }
+
+
+    GridType * createGrid()
     {
-    	gridbase_->generateMesh(nVertexTotal, nElementTotal);
+    	gridbase_->generateMesh();
     	GridType * grid = new GridType(*gridbase_, mpihelper_);
     	return grid;
     }

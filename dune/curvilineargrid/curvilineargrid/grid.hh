@@ -34,7 +34,7 @@ namespace Dune
 	// ****************************************************************************************
 	template <int dim, int dimworld, class ct>                          class CurvilinearGrid;
 	template< int mydim, int cdim, class GridImp >                      class CurvGeometry;
-	template< int codim, int dim, class GridImp>                        class CurvEntity;
+	template< int codim, int dim,  class GridImp>                       class CurvEntity;
 	template< int codim, class GridImp >                                class CurvEntityPointer;
 	template< int codim, class GridImp >                                class CurvEntitySeed;
 	template< int codim, PartitionIteratorType pitype, class GridImp >  class CurvLevelIterator;
@@ -48,7 +48,7 @@ namespace Dune
 
 	// GridFamily
 	// ****************************************************************************************
-	template<int dim, int dimworld, class ct>
+	template<int dim, int dimworld, class ct, bool isCached>
 	struct CurvGridFamily
 	{
 #if HAVE_MPI
@@ -59,9 +59,9 @@ namespace Dune
 
 	    typedef ct  ctype;
 
-	    typedef Dune::CurvilinearGrid<dim, dimworld, ct>  GridType;
-	    typedef typename Dune::CurvilinearGridStorage<ct, dimworld>::LocalIndexType  LocalIndexType;
-	    typedef typename Dune::CurvilinearGridStorage<ct, dimworld>::IdType          CurvIdType;
+	    typedef Dune::CurvilinearGrid<dim, dimworld, ct, isCached>  GridType;
+	    typedef typename Dune::CurvilinearGridStorage<ct, dimworld, isCached>::LocalIndexType  LocalIndexType;
+	    typedef typename Dune::CurvilinearGridStorage<ct, dimworld, isCached>::IdType          CurvIdType;
 
 	    typedef GridTraits<dim,                                     // dimension of the grid
 	        dimworld,                                               // dimension of the world space
@@ -93,28 +93,15 @@ namespace Dune
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-  template <int dim, int dimworld, class ct>
-  class CurvilinearGrid : public GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGridFamily< dim, dimworld, ct > >
+  template <int dim, int dimworld, class ct, bool isCached>
+  class CurvilinearGrid : public GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGridFamily< dim, dimworld, ct, isCached > >
       /** \endcond */
   {
-    typedef CurvilinearGrid<dim, dimworld, ct> Grid;
-    typedef GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGridFamily< dim, dimworld, ct > > Base;
+    typedef CurvilinearGrid<dim, dimworld, ct, isCached> Grid;
+    typedef GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGridFamily< dim, dimworld, ct, isCached > > Base;
 
     template< int, int, class >                    friend class Dune::CurvGrid::CurvEntityBase;
-    template< int, int, class >                    friend class Dune::CurvGrid::CurvEntity;
+    template< int, class >                         friend class Dune::CurvGrid::CurvEntity;
     template< int, class >                         friend class Dune::CurvGrid::CurvEntityPointer;
     template< int, class >                         friend class Dune::CurvGrid::CurvEntitySeed;
     template< class >                              friend class Dune::CurvGrid::CurvIntersection;
@@ -127,13 +114,15 @@ namespace Dune
 
   public:
 
-    typedef Dune::CurvGridFamily< dim, dimworld, ct > GridFamily;
+    typedef Dune::CurvGridFamily< dim, dimworld, ct, isCached > GridFamily;
     typedef typename GridFamily::Traits Traits;                               //! type of the grid traits
+
+    static const bool is_cached = isCached;
 
     // Curvilinear Grid Implementation
     // ************************************************************************************
-    typedef Dune::CurvilinearGridBase<ct, dimworld>     GridBaseType;
-    typedef Dune::CurvilinearGridStorage<ct, dimworld>  GridStorageType;
+    typedef Dune::CurvilinearGridBase<ct, dimworld, isCached>     GridBaseType;
+    typedef Dune::CurvilinearGridStorage<ct, dimworld, isCached>  GridStorageType;
 
     typedef typename GridStorageType::LocalIndexType          LocalIndexType;
     typedef typename GridStorageType::GlobalIndexType         GlobalIndexType;
@@ -146,14 +135,6 @@ namespace Dune
     static const int   EDGE_CODIM     = GridStorageType::EDGE_CODIM;
     static const int   FACE_CODIM     = GridStorageType::FACE_CODIM;
     static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
-
-
-
-    template<int codim>
-    struct BaseCodim
-    {
-    	typedef Dune::CachedCurvilinearGeometry<ct, dim - codim, dimworld>  EntityGeometryImpl;
-    };
 
 
 
@@ -623,7 +604,7 @@ namespace Dune
     typename Traits::template Codim< EntitySeed::codimension >::Entity
     entity ( const EntitySeed &seed ) const
     {
-      typedef typename Traits::template Codim< EntitySeed::codimension >::Entity Entity;
+      typedef typename Traits::template Codim< EntitySeed::codimension >::Entity    Entity;
       typedef Dune::CurvGrid::CurvEntity<EntitySeed::codimension, dim, const Grid>  EntityImpl;
       typedef Dune::CurvGrid::CurvEntitySeed<EntitySeed::codimension, const Grid>   SeedImpl;
 
@@ -684,7 +665,7 @@ namespace Dune
     }
 
     template<int codim>
-    typename BaseCodim<codim>::EntityGeometryImpl entityBaseGeometry (const typename Traits::template Codim< codim >::Entity &entity)
+    typename Codim<codim>::EntityGeometryMappingImpl entityBaseGeometry (const typename Traits::template Codim< codim >::Entity &entity)
     {
     	return gridbase_->template entityGeometry<codim>(leafIndexSet().index(entity));
     }
@@ -706,11 +687,14 @@ namespace Dune
   // CurvilinearGrid::Codim
   // -------------------
 
-  template<int dim, int dimworld, class ct>
+  template<int dim, int dimworld, class ct, bool isCached>
   template< int codim >
-  struct CurvilinearGrid< dim, dimworld, ct>::Codim
+  struct CurvilinearGrid< dim, dimworld, ct, isCached>::Codim
     : public Base::template Codim< codim >
   {
+
+	typedef typename GridBaseType::template Codim<codim>::EntityGeometry  EntityGeometryMappingImpl;
+
     /** \name Entity and Entity Pointer Types
      *  \{ */
 

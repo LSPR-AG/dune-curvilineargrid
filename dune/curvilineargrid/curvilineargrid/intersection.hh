@@ -31,8 +31,8 @@ namespace Dune
       static const int dimension = remove_const< Grid >::type::dimension;
       static const int dimensionworld = remove_const< Grid >::type::dimensionworld;
 
-      typedef Dune::CurvilinearGridStorage<ctype,dimension>    GridStorageType;
-      typedef Dune::CurvilinearGridBase<ctype,dimension>       GridBaseType;
+	  typedef typename remove_const< Grid >::type::GridStorageType  GridStorageType;
+	  typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
 
       // Codimensions of entity types for better code readability
       static const int   VERTEX_CODIM   = GridStorageType::VERTEX_CODIM;
@@ -67,8 +67,8 @@ namespace Dune
       typedef Dune::FieldVector< ctype, dimensionworld >   GlobalCoordinate;
 
 
-      typedef typename remove_const< Grid >::type::template BaseCodim<ELEMENT_CODIM>::EntityGeometryImpl  ElementBaseGeometry;
-      typedef typename remove_const< Grid >::type::template BaseCodim<FACE_CODIM>::EntityGeometryImpl     FaceBaseGeometry;
+      typedef typename remove_const< Grid >::type::template Codim<ELEMENT_CODIM>::EntityGeometryMappingImpl  ElementBaseGeometry;
+      typedef typename remove_const< Grid >::type::template Codim<FACE_CODIM>::EntityGeometryMappingImpl     FaceBaseGeometry;
 
       const InterpolatoryOrderType LINEAR_ELEMENT_ORDER = 1;
 

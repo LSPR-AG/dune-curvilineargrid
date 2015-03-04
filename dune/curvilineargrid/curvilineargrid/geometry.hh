@@ -34,7 +34,7 @@ namespace Dune
       //template< int, int, class > friend class Geometry;
 
     public:
-      typedef Dune::CurvilinearGridBase<ctype,cdim>            GridBaseType;
+	  typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
       typedef typename GridBaseType::InternalIndexType         InternalIndexType;
       typedef typename GridBaseType::InterpolatoryOrderType    InterpolatoryOrderType;
 
@@ -44,7 +44,7 @@ namespace Dune
       static const int codimension = dimension - mydimension;
 
     protected:
-      typedef Dune::CachedCurvilinearGeometry< ctype, mydimension, coorddimension > BasicMapping;
+      typedef typename remove_const< Grid >::type::template Codim<codimension>::EntityGeometryMappingImpl   BasicMapping;
 
 
     public:

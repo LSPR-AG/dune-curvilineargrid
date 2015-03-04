@@ -58,9 +58,9 @@ namespace Dune
 	  typedef typename Traits::template Codim< codimension >::Geometry      Geometry;	    //! type of corresponding geometry
 	  typedef typename Traits::template Codim< codimension >::GeometryImpl  GeometryImpl;
 
-	  typedef Dune::CurvilinearGridStorage<ctype,dim>           GridBaseStorage;
-	  typedef Dune::CurvilinearGridBase<ctype,dim>              GridBaseType;
-	  typedef typename GridBaseStorage::IdType                  IdType;
+	  typedef typename remove_const< Grid >::type::GridStorageType  GridStorageType;
+	  typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
+	  typedef typename GridStorageType::IdType                  IdType;
 	  typedef typename GridBaseType::LocalIndexType             LocalIndexType;
 	  typedef typename GridBaseType::StructuralType             StructuralType;
 
@@ -258,10 +258,11 @@ namespace Dune
 
 	  /** \name Attributes
 	   *  \{ */
-	  static const int codimension    = 0;		//! codimensioon of the entity
-	  static const int dimension      = dim;	//! dimension of the grid
-	  static const int mydimension    = dim;	//! dimension of the entity
-	  static const int dimensionworld = dim;	//! dimension of the world
+
+	  static const int codimension    = 0;		                                //! codimensioon of the entity
+	  static const int dimension      = remove_const< Grid >::type::dimension;	//! dimension of the grid
+	  static const int mydimension    = dimension;                              //! dimension of the entity
+	  static const int dimensionworld = remove_const< Grid >::type::dimensionworld;                                    //! dimension of the world
 	  /** \} */
 
 
@@ -285,8 +286,8 @@ namespace Dune
 	  typedef Dune::CurvGrid::CurvIntersectionIterator<Grid>   IntersectionIteratorImpl;
 
 
-	  typedef Dune::CurvilinearGridStorage<ctype,dim>           GridStorageType;
-	  typedef Dune::CurvilinearGridBase<ctype,dim>              GridBaseType;
+	  typedef typename remove_const< Grid >::type::GridStorageType  GridStorageType;
+	  typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
 
 	  typedef typename GridBaseType::GlobalIndexType           GlobalIndexType;
 	  typedef typename GridBaseType::LocalIndexType            LocalIndexType;
@@ -302,8 +303,8 @@ namespace Dune
       static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
 
-	  typedef CurvEntityBase<0, dim, Grid>                  Base;
-	  typedef typename Base::IndexSetIterator               IndexSetIterator;
+	  typedef CurvEntityBase<0, dim, Grid>             Base;
+	  typedef typename Base::IndexSetIterator          IndexSetIterator;
 
 	  using Base::gridbaseIndexIterator_;
 	  using Base::pitype_;
@@ -349,7 +350,7 @@ namespace Dune
     	LocalIndexType entityLocalIndex = *gridbaseIndexIterator_;
     	Dune::GeometryType gt = gridbase_->entityGeometryType(ELEMENT_CODIM, entityLocalIndex);
 
-        return Dune::ReferenceElements<double, dim>::general(gt).size(codim);
+        return Dune::ReferenceElements<double, dimension>::general(gt).size(codim);
     }
 
     template<int codim>
@@ -372,7 +373,7 @@ namespace Dune
     {
     	int subLocalIndex = gridbase_->subentityLocalIndex(*gridbaseIndexIterator_, 0, subcodim, i);
     	IndexSetIterator subIterator = gridbase_->entityIndexDuneIterator(subcodim, All_Partition, subLocalIndex);
-    	return typename Traits::template Codim< subcodim >::Entity(CurvEntity<subcodim, dim, Grid>(subIterator, *gridbase_, pitype_));
+    	return typename Traits::template Codim< subcodim >::Entity(CurvEntity<subcodim, dimension, Grid>(subIterator, *gridbase_, pitype_));
     }
 
 

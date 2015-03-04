@@ -5,8 +5,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+
 %\documentclass[a4paper,twocolumn]{article}
-\documentclass[a4paper,10pt]{article}
+%\documentclass[a4paper,10pt]{article}
+\documentclass[12pt]{article}
+
 \usepackage[sort&compress,super]{natbib}
 \usepackage[english]{babel}
 \usepackage{amsmath}
@@ -26,7 +29,18 @@
 %\usepackage[latin1]{inputenc}
 \usepackage{wrapfig}
 \usepackage{makeidx}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{xcolor}
 
+
+
+% Rounded boxes functionality
+\usepackage[framemethod=tikz]{mdframed}
+\definecolor{mycolor}{rgb}{0.122, 0.435, 0.698}
+
+\newmdenv[innerlinewidth=0.5pt, roundcorner=4pt,linecolor=mycolor, backgroundcolor=lightgray, innerleftmargin=6pt,
+innerrightmargin=6pt,innertopmargin=6pt,innerbottommargin=6pt]{mybox}
 
 
 
@@ -38,13 +52,25 @@
 
 
 
-
+% The following parameters seem to provide a reasonable page setup.
+\topmargin 0.0cm
+\oddsidemargin 0.2cm
+\textwidth 16.1cm 
+\textheight 21cm
+\footskip 1.0cm
 
 
 
 \begin{document}
 
+\lstset{language=C++, breaklines=true}
+
+
+
 \begin{titlepage}
+
+
+
 
 \begin{center}
     
@@ -89,7 +115,7 @@
 % BEGIN OF ABSTRACT
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
+\vfill
 
 \noindent \textbf{\textsc{ABSTRACT}} - We introduce the \texttt{dune-curvilineargrid} module. The module provides the self-contained, parallel
 grid manager \texttt{dune-curvilineargrid} for curvilinear tetrahedral elements up to $5^{\mathrm{th}}$  order and conforms to the \text{DUNE} grid API.
@@ -144,19 +170,6 @@ may become interesting for the implementation of hybrid finite-element-boundary-
 
 
 
-
-\setlength{\topmargin}{-25mm}
-\setlength{\footskip}{12mm}
-\setlength{\oddsidemargin}{-14mm}
-\setlength{\evensidemargin}{-14mm}
-\setlength{\textwidth}{185mm}
-\setlength{\textheight}{260mm}
-
-
-
-\pagebreak
-\setlength{\textwidth}{170mm}
-%\renewcommand{\baselinestretch}{1}
 
 \section{Introduction}
 
@@ -222,6 +235,61 @@ The following functionality is currently NOT supported. As seen below, some of t
 
 \section{Usage (Curvilinear Grid How-to)}
 In order to learn the workings of curvilinear grid it is easiest to study the source code of relevant tutorials \index{tutorial} provided inside the curvilinear grid module.
+
+\subsection{Tutorial 1 - Getting started}
+
+In this tutorial we will create a Curvilinear Grid by reading it from a GMSH file. This and all other tutorials can be run both in serial and in parallel.
+First we define the grid \\
+
+\begin{mybox}
+\begin{lstlisting}
+  typedef Dune::CurvilinearGrid<dim, dimworld, ctype> GridType;
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+where $dim=3$ and $dimworld=3$ are dimensions of the grid and the world containing the grid. Currently this is the only allowed setup. \\
+
+\noindent
+Afterwards, we construct the Curvilinear Grid Factory \\
+
+\begin{mybox}
+\begin{lstlisting}
+  Dune::CurvilinearGridFactory<ctype, dimworld> factory(withGhostElements, verbose, processVerbose, mpihelper);
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+where $bool\ withGhostElements$ defines whether the Ghost Elements will be constructed. $bool\ verbose,\ processVerbose$ determine the master process and all other processes would write the debug output. \\
+
+\noindent
+Then the Parallel Curvilinear GMSH Reader is used to read the mesh into the factory. \\
+
+\begin{mybox}
+\begin{lstlisting}
+    Dune::CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper, verbose, processVerbose, writeReaderVTKFile, insertBoundarySegment); 
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+where $filename$ is the name of the $.msh$ file. $bool\ writeReaderVTKFile$ option allows to write the mesh to parallel VTU files immediately after reading. $bool\ insertBoundarySegment$ enables inserting boundary segments from the GMSH file. Currently the switch must be true, and $.msh$ file must contain all boundary segments for the grid to work. \\
+
+\noindent
+Finally, the factory is used to create the grid and return a pointer to it
+\begin{mybox}
+\begin{lstlisting}
+  factory.createGrid();
+\end{lstlisting}
+\end{mybox}
+
+
+\subsection{Tutorial 2 - Traverse}
+
+\subsection{Tutorial 3 - Visualisation}
+
+
+
+
 
 
 \section{Diagnostics tools}

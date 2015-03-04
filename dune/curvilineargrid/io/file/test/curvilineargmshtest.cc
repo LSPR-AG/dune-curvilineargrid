@@ -123,9 +123,10 @@ int main(int argc, char** argv)
     //typedef Dune::LeafMultipleCodimMultipleGeomTypeMapper<Dune::GridSelector::GridType,P3Layout> NodeMapper;
 
 
+    const bool isCached = true;
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
-    typedef Dune::CurvilinearFakeGrid<3,3,double>  SimplexGridType;
+    typedef Dune::CurvilinearFakeGrid<3,3,double,isCached>  SimplexGridType;
 
     bool insertBoundarySegment = true;
     bool withGhostElements = true;
@@ -139,14 +140,9 @@ int main(int argc, char** argv)
     //Dune::GridFactory<ALUSimplexGridType> factory;
     Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
 
-    int nVertexTotal;
-    int nElementTotal;
-
     Dune::CurvilinearGmshReader< SimplexGridType >::read(factory,
                                                             filename,
                                                             mpihelper,
-                                                            nVertexTotal,
-                                                            nElementTotal,
                                                             verbose,
                                                             processVerbose,
                                                             writeReaderVTKFile,

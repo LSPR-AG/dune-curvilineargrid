@@ -68,22 +68,22 @@ namespace Dune {
 
 // Forwards-declatation of the base class
 // **********************************************
-template <class ct, int cdim>
+template <class ct, int cdim, bool isCached>
 class CurvilinearGridBase;
 
 
 // Constructor class
 // **********************************************
-template <class ct, int cdim>
+template <class ct, int cdim, bool isCached>
 class CurvilinearGridConstructor {
 public:
 
     /* public types */
-    typedef Dune::CurvilinearGridStorage<ct, cdim>        GridStorageType;
-    typedef Dune::CurvilinearGridBase<ct, cdim>           GridBaseType;
+    typedef Dune::CurvilinearGridStorage<ct, cdim, isCached>    GridStorageType;
+    typedef Dune::CurvilinearGridBase<ct, cdim, isCached>       GridBaseType;
 
-    typedef Dune::CurvilinearGhostConstructor<ct,cdim>     GridGhostConstructor;
-    typedef Dune::CurvilinearPostConstructor<ct,cdim>      GridPostConstructor;
+    typedef Dune::CurvilinearGhostConstructor<ct,cdim, isCached> GridGhostConstructor;
+    typedef Dune::CurvilinearPostConstructor<ct,cdim, isCached>  GridPostConstructor;
 
 
     typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
@@ -375,16 +375,14 @@ public:
     // 6) Generate Ghost Elements
     // 7) Construct OCTree
 
-    void generateMesh(int nVertexTotalMesh, int nElementTotalMesh) {
+    void generateMesh() {
 
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Initializing mesh");
 
         // Construct missing parts of the mesh
         // ************************************************************
-        gridstorage_.nEntityTotal_[VERTEX_CODIM] = nVertexTotalMesh;
         gridstorage_.nEntityTotal_[EDGE_CODIM] = 0;  // Will be updated later
         gridstorage_.nEntityTotal_[FACE_CODIM] = 0;  // Will be updated later
-        gridstorage_.nEntityTotal_[ELEMENT_CODIM] = nElementTotalMesh;
 
         computeProcessBoundingBox();
         generateEdges();

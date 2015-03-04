@@ -58,7 +58,7 @@
     
 {\large
     
-\noindent Aleksejs Fomins$^{\mathrm{a,b}}$ and Dr. Benedikt Oswald$^{\mathrm{b}}$
+\noindent Aleksejs Fomins$^{\mathrm{a,b}}$ and Benedikt Oswald$^{\mathrm{b}}$
 
   }
 
@@ -70,7 +70,7 @@
 \vspace{1mm}
 
 \noindent $^{\mathrm{b}}$ LSPR AG, Technopark Z\"urich, Technoparkstrasse 1, CH-8005 Z\"urich
-\noindent phone +41 43 366 90 74 - email: \texttt{aleksejs.fomins@lspr.ch}
+\noindent phone +41 43 366 90 74 - email: \texttt{aleksejs.fomins@lspr.ch} and \texttt{benedikt.oswald@lspr.ch}
 
 \vspace{2mm}
 
@@ -91,7 +91,48 @@
 
 
 
-\noindent \textbf{\textsc{ABSTRACT}} - sdjfgsdjfgdsgfjksdgkfgkjsdgfjdsjfsd
+\noindent \textbf{\textsc{ABSTRACT}} - We introduce the \texttt{dune-curvilineargrid} module. The module provides the self-contained, parallel
+grid manager \texttt{dune-curvilineargrid} for curvilinear tetrahedral elements up to $5^{\mathrm{th}}$  order and conforms to the \text{DUNE} grid API.
+%%
+In particular, \texttt{dune-curvilineargrid} is a grid manager in its own right which offers this functionality:
+%%
+%%
+\textbf{(1)} fully parallel mesh input in the \texttt{Gmsh} mesh format, thus we achieve the scalable input of very large meshes;
+i.e. when a large mesh is read from disk, every process in the parallel context reads a small piece of the mesh; thus, we avoid the
+scalability bottleneck that would arise if the whole mesh were read on the master process and then communicated to other processes;
+the latter approach would inevitably lead to memory congestion on the master node and crash the program;
+%%
+%%
+\textbf{(2)} once the mesh has been read from disk, it is partitioned using the \texttt{Parmetis} graph partitioning tool;
+%%
+%%
+\textbf{(3)} \texttt{dune-curvilineargrid} manages meshes that consist of tetrahedra with curvilinear faces and edges, up to
+$5^{\mathrm{th}}$ order; the curvilinear mesh geometry is modelled through \textit{Lagrange} polynomials of the respective order;
+%%
+%%
+\textbf{(4)} since \texttt{dune-curvilineargrid} is a fully parallel grid manager for distributed memory architectures, it provides
+globally unique indices over all processes in the parallel context.
+%%
+%%
+\textbf{(5)} the \texttt{dune-curvilineargrid} fully parallel grid manager provides ghost elements associated with the interprocessor
+boundaries;
+%%
+%%
+\textbf{(5)} the \texttt{dune-curvilineargrid} grid manager provides communication protocols via the standard
+\text{DUNE} data handle interface for all codimensions; i.e. data associated with vertices, edges, faces and volumes can
+be communicated.
+%%
+%%
+The \texttt{dune-curvilineargrid} fully parallel grid manager is publicly available via \texttt{Github}
+and free software based on the GPLv2 license. Other licenses can be negotiated through
+\texttt{benedikt.oswald@lspr.ch}.
+%%
+%%
+The \texttt{dune-curvilineargrid} grid manager is continously developed and improved. Among other things, we are working
+on local refinement, modelling hanging nodes, non-uniform curvilinear order, periodicity and internal boundaries which
+may become interesting for the implementation of hybrid finite-element-boundary-integral (FEBI) discretisation schemes.
+
+
 
 
 

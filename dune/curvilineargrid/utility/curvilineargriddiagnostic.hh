@@ -61,12 +61,17 @@
 
 namespace Dune {
 
-template <class ct, int cdim, bool isCached>
+template <class GridType>
 class CurvilinearGridDiagnostic
 {
 private:
-	typedef Dune::CurvilinearGridBase<ct, cdim, isCached>          GridBaseType;
-	typedef Dune::CurvilinearGridStorage<ct, cdim, isCached>       GridStorageType;
+
+	typedef typename  GridType::ctype            ctype;
+	typedef typename  GridType::GridStorageType  GridStorageType;
+	typedef typename  GridType::GridBaseType     GridBaseType;
+
+	static const int  cdim     = GridType::dimension;
+	static const bool isCached = GridType::is_cached;
 
     typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
     typedef typename GridStorageType::LocalIndexType            LocalIndexType;
@@ -85,8 +90,8 @@ private:
 	typedef typename GridStorageType::LocalIndexSet         LocalIndexSet;
 	typedef typename GridStorageType::IndexSetIterator      IndexSetIterator;
 
-	typedef typename GridStorageType::template Codim<FACE_CODIM>::EntityGeometry     GridFaceGeometry;
-	typedef typename GridStorageType::template Codim<ELEMENT_CODIM>::EntityGeometry     GridElementGeometry;
+	typedef typename GridBaseType::template Codim<FACE_CODIM>::EntityGeometry        GridFaceGeometry;
+	typedef typename GridBaseType::template Codim<ELEMENT_CODIM>::EntityGeometry     GridElementGeometry;
 
     // Logging Message Typedefs
     static const unsigned int LOG_PHASE_DEV       = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
@@ -169,7 +174,7 @@ public:
 	{
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Grid to VTK");
 
-    	Dune::CurvilinearVTKWriter<3, isCached> vtkCurvWriter(verbose_, processVerbose_, mpihelper_);
+    	Dune::CurvilinearVTKWriter<GridType> vtkCurvWriter(verbose_, processVerbose_, mpihelper_);
 
 
     	typedef typename GridStorageType::PartitionType  CurvPT;
@@ -313,7 +318,7 @@ protected:
 
 	template <int codim>
 	void addVTKentity(
-		Dune::CurvilinearVTKWriter<3, isCached> & vtkCurvWriter,
+		Dune::CurvilinearVTKWriter<GridType> & vtkCurvWriter,
 		StructuralType structtype,
 		int nDiscretizationPoints,
 		bool interpolate,
@@ -322,7 +327,7 @@ protected:
 		bool VTK_WRITE_TRIANGLES
 	)
 	{
-		typedef typename GridStorageType::template Codim<codim>::EntityGeometry     EntityGeometry;
+		typedef typename GridBaseType::template Codim<codim>::EntityGeometry     EntityGeometry;
 
 		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearDiagnostics: Started writing entities codim=" + std::to_string(codim) + " type=" + gridbase_.PartitonTypeName(structtype));
 
@@ -361,7 +366,7 @@ protected:
 
 
 	// Initializes a FieldVector in 1 line
-	Vertex initVector(ct a, ct b, ct c)
+	Vertex initVector(ctype a, ctype b, ctype c)
 	{
 		Vertex rez;
 		rez[0] = a;
@@ -372,7 +377,7 @@ protected:
 
 	// Dot product between FieldVectors
 	// [TODO] Replace with existing Dune functionality if found
-	ct GridVectorDot(Vertex a, Vertex b)  { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+	ctype GridVectorDot(Vertex a, Vertex b)  { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
 
 	// Cross product between FieldVectors
 	// [TODO] Replace with existing Dune functionality if found

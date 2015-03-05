@@ -87,17 +87,17 @@ int main(int argc, char** argv)
 
 
     // Perform diagnostics tests on the constructed grid
-    Dune::CurvilinearGridDiagnostic<double, 3, isGeometryCached> diagnostic(verbose, processVerbose, mpihelper, *gridbase);
+    Dune::CurvilinearGridDiagnostic<SimplexGridType> diagnostic(verbose, processVerbose, mpihelper, *gridbase);
 
 	std::vector<bool> withElements {false, false};                  // Whether to add elements to VTK: Internal / Ghost
-	std::vector<bool> withFaces    {false, false, false, false};    // Whether to add faces to VTK: Internal / Ghost / DomainBoundary / ProcessBoundary
-	std::vector<bool> withEdges    {true, true, true, true};      // Whether to add edges to VTK: Internal / Ghost / DomainBoundary / ProcessBoundary
+	std::vector<bool> withFaces    {true, true, true, true};    // Whether to add faces to VTK: Internal / Ghost / DomainBoundary / ProcessBoundary
+	std::vector<bool> withEdges    {false, false, false, false};      // Whether to add edges to VTK: Internal / Ghost / DomainBoundary / ProcessBoundary
 
 	int  VTK_CURV_DISCRETIZATION = 7;       // 2=linear, minimal allowed discretization
 	bool VTK_INTERPOLATE_DISCRETIZATION = true;
 	bool VTK_EXPLODE_ELEMENTS = true;
-	bool VTK_WRITE_DISCRETIZATION_EDGES     = true;
-	bool VTK_WRITE_DISCRETIZATION_TRIANGLES = false;
+	bool VTK_WRITE_DISCRETIZATION_EDGES     = false;
+	bool VTK_WRITE_DISCRETIZATION_TRIANGLES = true;
 
     diagnostic.vtkWriteMesh(
     	withElements,

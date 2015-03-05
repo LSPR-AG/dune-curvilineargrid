@@ -193,7 +193,7 @@ namespace Dune
       {
 
         if(!geo_)  {
-        	InterpolatoryOrderType interporder = gridbase_->entityInterpolationOrder(ELEMENT_CODIM, localIndexInside_);
+        	//InterpolatoryOrderType interporder = gridbase_->entityInterpolationOrder(ELEMENT_CODIM, localIndexInside_);
         	ElementBaseGeometry entityGeometryBase = gridbase_->template entityGeometry<ELEMENT_CODIM>(localIndexInside_);
         	FaceBaseGeometry faceGeometryBase = entityGeometryBase.template subentityGeometry<dimension - FACE_CODIM>(subIndexInside_);
 

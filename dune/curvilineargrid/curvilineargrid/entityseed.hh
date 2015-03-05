@@ -33,12 +33,14 @@ namespace Dune
       typedef typename GridBaseType::IndexSetIterator       IndexSetIterator;
 
       //! default construct an invalid entity seed
-      CurvEntitySeed()
-      {}
+      CurvEntitySeed() : valid(0)
+      {
+
+      }
 
 
       CurvEntitySeed (LocalIndexType index, Dune::PartitionIteratorType pitype)
-  	  	  : index_(index), pitype_(pitype)
+  	  	  : index_(index), pitype_(pitype), valid(index >= 0)
       {}
 
 
@@ -57,7 +59,7 @@ namespace Dune
       //! check whether the EntitySeed refers to a valid Entity
       bool isValid() const
       {
-    	  return index_ > 0;
+    	  return valid;
     	  //return !(gridbase_->entityIndexIterator(codim, localIndex) == gridbase_->entityIndexEnd(codim) );
       }
 
@@ -73,6 +75,7 @@ namespace Dune
 
     private:
       //GridBaseType * gridbase_;
+      bool valid;
       LocalIndexType index_;
       Dune::PartitionIteratorType pitype_;
     };

@@ -39,8 +39,8 @@
 \usepackage[framemethod=tikz]{mdframed}
 \definecolor{mycolor}{rgb}{0.122, 0.435, 0.698}
 
-\newmdenv[innerlinewidth=0.5pt, roundcorner=4pt,linecolor=mycolor, backgroundcolor=lightgray, innerleftmargin=6pt,
-innerrightmargin=6pt,innertopmargin=6pt,innerbottommargin=6pt]{mybox}
+\newmdenv[innerlinewidth=0.5pt, roundcorner=4pt,linecolor=mycolor, backgroundcolor=lightgray, innerleftmargin=4pt,
+innerrightmargin=4pt,innertopmargin=2pt,innerbottommargin=2pt]{mybox}
 
 
 
@@ -255,7 +255,7 @@ Afterwards, we construct the Curvilinear Grid Factory \\
 
 \begin{mybox}
 \begin{lstlisting}
-  Dune::CurvilinearGridFactory<ctype, dimworld> factory(withGhostElements, verbose, processVerbose, mpihelper);
+  Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
 \end{lstlisting}
 \end{mybox}
 
@@ -275,7 +275,7 @@ Then the Parallel Curvilinear GMSH Reader is used to read the mesh into the fact
 where $filename$ is the name of the $.msh$ file. $bool\ writeReaderVTKFile$ option allows to write the mesh to parallel VTU files immediately after reading. $bool\ insertBoundarySegment$ enables inserting boundary segments from the GMSH file. Currently the switch must be true, and $.msh$ file must contain all boundary segments for the grid to work. \\
 
 \noindent
-Finally, the factory is used to create the grid and return a pointer to it
+Finally, the factory is used to create the grid and return a pointer to it \\
 \begin{mybox}
 \begin{lstlisting}
   factory.createGrid();
@@ -284,6 +284,33 @@ Finally, the factory is used to create the grid and return a pointer to it
 
 
 \subsection{Tutorial 2 - Traverse}
+
+This tutorial repeats the procedure from tutorial 1 to create the grid, after which it iterates over the grid and extracts relevant information from the curvilinear entities. Currently, there is no refinement, so only leaf iterators are available, which are defined the usual Dune way given a codimension $codim$ of the entities\\
+
+\begin{mybox}
+\begin{lstlisting}
+  typedef typename LeafGridView::template Codim<codim>::Iterator EntityLeafIterator;
+  EntityLeafIterator ibegin = leafView.template begin<codim>();
+  EntityLeafIterator iend   = leafView.template end<codim>();
+  
+  for (EntityLeafIterator it = ibegin; it != iend; ++it) {...}
+\end{lstlisting}
+\end{mybox}
+
+
+Now we would like to extract some relevant information from the iterator \\
+\begin{mybox}
+\begin{lstlisting}
+  Dune::GeometryType gt              = it->type();
+  LocalIndexType  localIndex         = grid.leafIndexSet().index(*it);
+  GlobalIndexType globalIndex        = grid.template entityGlobalIndex<codim>(*it);
+  PhysicalTagType physicalTag        = grid.template entityPhysicalTag<codim>(*it);
+  InterpolatoryOrderType interpOrder = grid.template entityInterpolationOrder<codim>(*it);
+\end{lstlisting}
+\end{mybox}
+
+The $GeometryType$ and $LocalIndex$ are standard in Dune. $GlobalIndex$ provides a unique integer for each entity of a given codimension, over all processes. $PhysicalTag$ is the tag associated with the entity as defined in GMSH. It can be used to relate to the material property of the entity, or to emphasize its belonging to a particular subdomain. Originally this information was only available for extraction through the reader directly. $InterpolatoryOrder$ is an integer denoting the polynomial interpolation order of the geometry of the entity. It is allowed to take values 1 to 5.
+
 
 \subsection{Tutorial 3 - Visualisation}
 

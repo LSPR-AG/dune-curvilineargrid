@@ -46,7 +46,7 @@ struct CurvFactory
     bool processVerbose = true;
     bool writeReaderVTKFile = false;
 
-    Dune::CurvilinearGridFactory<ctype, cdim, isGeometryCached> factory(withGhostElements, verbose, processVerbose, mpihelper);
+    Dune::CurvilinearGridFactory< GridType > factory(withGhostElements, verbose, processVerbose, mpihelper);
 
     Dune::CurvilinearGmshReader< GridType >::read(factory,
                                                             filename,
@@ -111,7 +111,7 @@ int main (int argc , char **argv) {
 		delete grid32ord1;
 
 	}
-
+	/*
 	{
 		GridType * grid32ord2 = CurvFactory<double, 3, 2>::buildGrid(mpihelper);
 		check_grid(*grid32ord2);
@@ -135,6 +135,7 @@ int main (int argc , char **argv) {
 		check_grid(*grid32ord5);
 		delete grid32ord5;
 	}
+	*/
 
 
   } catch (Dune::Exception &e) {

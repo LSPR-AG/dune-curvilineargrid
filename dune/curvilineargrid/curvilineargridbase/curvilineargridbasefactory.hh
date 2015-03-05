@@ -56,6 +56,7 @@ public:
 
 
 	typedef Dune::CurvilinearGridStorage<ct, dim, isCached>  GridStorageType;
+	typedef Dune::CurvilinearGridBase<ct, dim, isCached>     GridBaseType;
 
 	CurvilinearFakeGrid() {}
 };

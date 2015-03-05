@@ -42,7 +42,7 @@
 namespace Dune
 {
   
-  template<int cdim, bool isCached>
+  template<class GridType>
   class CurvilinearVTKWriter
   {
 
@@ -59,7 +59,11 @@ namespace Dune
 
 
   protected:
-      typedef FieldVector< double, cdim >      GlobalVector;
+
+      static const int dimension = GridType::dimension;
+      static const bool isCached = GridType::is_cached;
+
+      typedef FieldVector< double, dimension >      GlobalVector;
       typedef std::vector<int>                 IndexVector;
       typedef std::vector<int>                 TagVector;
       typedef std::map<std::vector<int>, int>  LocalCoordinate2GlobalIdMap;
@@ -72,7 +76,7 @@ namespace Dune
       static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
 
       // Typedefs from GridBase
-      typedef Dune::CurvilinearGridStorage<double, cdim, isCached>  GridStorageType;
+      typedef Dune::CurvilinearGridStorage<double, dimension, isCached>  GridStorageType;
       static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
       static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
       static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
@@ -357,7 +361,7 @@ namespace Dune
       {
           typedef FieldVector< double, mydim >      LocalVector;
 
-          CurvilinearElementInterpolator<double, mydim, cdim> thisElementInt(thisElmType, thisElmNodeSet, thisElmOrder);
+          CurvilinearElementInterpolator<double, mydim, dimension> thisElementInt(thisElmType, thisElmNodeSet, thisElmOrder);
 
 
           // *******************************************************************************
@@ -401,7 +405,7 @@ namespace Dune
                   // If we interpolate, then all points will be taken from new sample grid
                   // Otherwise we take the intrinsic interpolation point grid which has the same shape
                   GlobalVector tmpPoint = interpolate ? thisElementInt.realCoordinate(simplexLocalGrid[i]) : thisElmNodeSet[i];
-                  for (int d = 0; d < cdim; d++)  {
+                  for (int d = 0; d < dimension; d++)  {
                       tmpPoint[d] = (tmpPoint[d] + (CoM[d] - tmpPoint[d]) * shrinkMagnitude) * boundaryMagnification;
                   }
 
@@ -552,7 +556,7 @@ namespace Dune
 
         // Write all points
         for (int i = 0; i < vtkPoint_.size(); i++ ) {
-            for (int d = 0; d < cdim; d++)  { fprintf(vtkFile, "%lg ", vtkPoint_[i][d]); }
+            for (int d = 0; d < dimension; d++)  { fprintf(vtkFile, "%lg ", vtkPoint_[i][d]); }
             fprintf(vtkFile, "\n");
         }
 
@@ -727,7 +731,7 @@ namespace Dune
 
         // Write all points
         for (int i = 0; i < vtkPoint_.size(); i++ ) {
-            for (int d = 0; d < cdim; d++)  { fprintf(vtuFile, "%lg ", vtkPoint_[i][d]); }
+            for (int d = 0; d < dimension; d++)  { fprintf(vtuFile, "%lg ", vtkPoint_[i][d]); }
             fprintf(vtuFile, "\n");
         }
 

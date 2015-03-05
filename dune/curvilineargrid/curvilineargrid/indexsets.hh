@@ -49,10 +49,23 @@ namespace Dune
 
       typedef LocalIndexType   IndexType;
 
-      CurvIndexSet (GridBaseType & gridbase) : gridbase_(gridbase)
-      { }
+      CurvIndexSet (GridBaseType & gridbase)
+          : gridbase_(gridbase),
+      	    geomtypes_
+      	    {
+  		      std::vector<GeometryType> (1, GeometryType ( Dune::GenericGeometry::SimplexTopology<3>::type::id, 3)),
+  		      std::vector<GeometryType> (1, GeometryType ( Dune::GenericGeometry::SimplexTopology<2>::type::id, 2)),
+  		      std::vector<GeometryType> (1, GeometryType ( Dune::GenericGeometry::SimplexTopology<1>::type::id, 1)),
+  		      std::vector<GeometryType> (1, GeometryType ( Dune::GenericGeometry::SimplexTopology<0>::type::id, 0))
+      	    }
+      {
 
-      CurvIndexSet ( const This &other ) : gridbase_(other.gridbase_) { }
+      }
+
+      CurvIndexSet ( const This &other )
+        : gridbase_(other.gridbase_),
+          geomtypes_(other.geomtypes_)
+      { }
 
       const This &operator= ( const This &other )  { return *this; }
 
@@ -90,24 +103,14 @@ namespace Dune
     	  return gridbase_.findEntityGlobalIndex(EntityType::codimension, localIndex, globalIndex);
       }
 
-      const std::vector< GeometryType > &geomTypes ( int codim ) const
-      {
-    	  std::vector<GeometryType>  rez;
+      std::vector< GeometryType > types ( int codim ) const  { return geomtypes_[codim]; }
 
-    	  switch (codim)
-    	  {
-    	  case 0 :  rez.push_back( Dune::GeometryType ( Dune::GenericGeometry::SimplexTopology<3>::type::id, 3) );  break;
-    	  case 1 :  rez.push_back( Dune::GeometryType ( Dune::GenericGeometry::SimplexTopology<2>::type::id, 2) );  break;
-    	  case 2 :  rez.push_back( Dune::GeometryType ( Dune::GenericGeometry::SimplexTopology<1>::type::id, 1) );  break;
-    	  case 3 :  rez.push_back( Dune::GeometryType ( Dune::GenericGeometry::SimplexTopology<0>::type::id, 0) );  break;
-    	  }
-
-    	  return rez;
-      }
+      const std::vector< GeometryType > &geomTypes ( int codim ) const  { return geomtypes_[codim]; }
 
     private:
 
       GridBaseType & gridbase_;
+      std::vector<std::vector< GeometryType > > geomtypes_;
     };
 
   } // namespace CurvGrid

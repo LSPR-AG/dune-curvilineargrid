@@ -49,18 +49,18 @@ namespace Dune
 {
 
 
-template< class ctype, int cdim, bool isCached >
+template< class GridType >
 class CurvilinearGridFactory
 {
   private:
 
-	typedef Dune::CurvilinearGrid<cdim, cdim, ctype, isCached>   GridType;
-
-	typedef FieldVector< ctype, cdim >                 VertexCoordinate;
-
+	typedef typename GridType::ctype  ctype;
 	typedef typename GridType::GridBaseType            GridBaseType;
 	typedef typename GridBaseType::LocalIndexType      LocalIndexType;
 	typedef typename GridBaseType::GlobalIndexType     GlobalIndexType;
+
+	static const int dimension = GridType::dimension;
+	typedef FieldVector< ctype, dimension >                 VertexCoordinate;
 
     bool verbose_;
     bool processVerbose_;

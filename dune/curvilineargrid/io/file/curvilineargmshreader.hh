@@ -1381,7 +1381,7 @@ namespace Dune
     std::vector< std::vector< int > > tetrahedralInterpolatoryVertexGmsh2DuneMap;
 
     // Testing capabilities for writing to VTK.
-    CurvilinearVTKWriter<dimWorld_, isCached> vtkCurvWriter_;
+    CurvilinearVTKWriter<GridType> vtkCurvWriter_;
 
 
 

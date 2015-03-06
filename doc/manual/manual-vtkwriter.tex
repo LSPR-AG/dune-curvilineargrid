@@ -1,0 +1,45 @@
+\section{Implementation Details - Curvilinear VTK Writer}
+
+\subsection{Implementation}
+
+\begin{enumerate}
+  \item For each tetrahedron, define interpolation class, which gives its global curved coordinates based on local parametric coordinates and interpolation points.
+      \subitem - the interpolation points are passed only once when initialising the class
+  \item parametrically Loop over all surfaces of the tetrahedron
+      \subitem - Shrink the surfaces by a little bit for better visibility
+      \subitem - Calculate a fixed number of equally spaced points on each face using square mesh, add all points to a map, which notes which points have already been added. This can be done either by using the interpolation class to get the interpolated points, or simply re-using the interpolation points not to invoke the interpolation process at all thus testing it.
+      \subitem - Split each square into 2 triangles and add them to the triangle list. If the square is at the edge, it produces only 1 triangle.
+  \item Write a .VTK file which has all triangles
+\end{enumerate}
+
+
+\subsection{Optimal Sampling Rate}
+
+Here we would like to discuss how many sampling points are required to represent the bounded curve using linear interpolation. This is necessary, for example, for visualisation. For a line segment, interpolating the curve bounded by 2 points, the analytic error is bounded by
+\begin{equation}
+	\epsilon = |f(x) - g(x)| \leq \frac{1}{8} \max_{z \in [x_a, x_b]} \{ g''(z)  \} (x_a - x_b)^2
+\end{equation}
+\noindent
+where $f(x)$ is the line segment, $g(x)$ is the original function. $x_a$ and $x_b$ are arguments of the endpoints of the interval. \\
+
+\noindent
+Given a large interval $L$ which we split into $N$ equal segments such that $x_b - x_a = L/N$, the maximal error over all interpolated intervals is bounded by
+\begin{equation}
+	\epsilon_{\max} \leq \frac{L^2}{8 N^2} \max_{z \in L} \{ g''(z) \}
+\end{equation}
+\noindent
+This can be rewritten to obtain the necessary interval number per edge
+\begin{equation}
+	N = \biggl \lceil \alpha \sqrt{ \max_{z \in L} \{ g''(z) \} } \biggr \rceil
+\end{equation}
+\noindent
+where $\alpha$ depends on precision and length of the interval. We observe that there is a problem with this formula, namely that if $g''(z) = 0$ we get 0 intervals, and if $g''(z)$ is small, we get 1 interval, and we would like 2, because there is at least some curvature, and it should be emphasized that the case is different from just straight line. Therefore we empirically modify the formula
+\begin{equation}
+	N = \biggl \lceil \alpha \sqrt{ \max_{z \in L} \{ g''(z) \} } + 1 \biggr \rceil
+\end{equation}
+
+\noindent
+Finally, since this equation is not exactly accurate for surfaces, and it is rather hard to make sense of optimal relative error, it is much easier to choose $\alpha$ empirically. We will generally operate with unit length edges ($L = 1$), and would like to, for example, have 5 points per edge with standard quadratic curvature $g(x) = x^2$. We obtain that $\alpha \approx 2.8$. \\
+
+\noindent
+As a rule of thumb, we can calculate the expected number of intervals for a standard function $g(x) = \sum_i x^i$ using this formula. The first 5 orders will produce edge intervals $\{ 1, 5, 9, 17, 35\}$, which will correspond to the number of vertices per edge $\{ 2, 6, 10, 18, 36\}$, and thus the number of surface vertices ($i(i+1)/2$) will be given by $\{3, 21, 55, 171, 666\}$.

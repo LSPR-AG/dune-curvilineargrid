@@ -1,0 +1,49 @@
+\section{Outline}
+\subsection{Capabilities}
+
+\noindent
+Currently the curvilinear grid supports the following functionality.
+\begin{itemize}
+	\item Self-consistent grid manager supporting 3D tetrahedral curvilinear grids.
+	\item GMSH input files of curvilinear orders 1-5. Usual linear geometries also supported
+	\item Parallel mesh reader with scalability for large meshes and processors
+	\item Mesh partitioning using ParMetis \textbf{CITE}
+	\item Unique physical tag for each element and domain boundary. Read from GMSH file and accessible via grid methods.
+	\item Unique global index for entities of all codimensions.
+	\item Ghost elements of all codimensions (optional)
+	\item Communication protocols for all codimensions
+\end{itemize}
+
+\noindent
+The following functionality is currently NOT supported. As seen below, some of this functionality will be implemented in the nearest future, some other is not currently foreseen. We welcome contributions from the community
+\begin{itemize}
+	\item $[1-2 months]$ Location of containing element by global coordinate (via OCTree)
+	\item $[1/2 year]$  Does NOT support global and local refinement
+	\item $[1/2 year]$  Does NOT support hanging nodes
+	\item $[1/2 year]$  Does NOT support periodic boundaries at the moment
+	\item $[1 year]$    Does Not support curvilinear meshes of non-uniform order
+	\item $[Undefined]$ Does NOT support 1D and 2D geometries. 
+	\item $[Undefined]$ Does NOT support non-tetrahedral meshes.
+	\item $[Undefined]$ Does NOT support front/overlap elements at the moment
+\end{itemize}
+
+\subsection{Design decisions}
+
+\begin{itemize}
+	\item User must provide globalId's for vertices and elements. [Automatically implemented by GMSH]
+	\item User must provide all boundary segments inside GMSH file.
+\end{itemize}
+
+
+\subsection{Internal Structure}
+
+\begin{itemize}
+	\item CurvilinearGMSHReader
+	\item CurvilinearVTKWriter
+	\item CurvilinearGridBase
+		\subitem CurvilinearGridStorage
+		\subitem CurvilinearGridConstructor
+	\item CurvilinearGrid
+	\item CurvilinearGridHowto
+	
+\end{itemize}

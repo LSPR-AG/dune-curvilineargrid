@@ -32,8 +32,13 @@
 \usepackage{listings}
 \usepackage{color}
 \usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage[normalem]{ulem}
+\usepackage{mathtools}
 
 
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+\DeclarePairedDelimiter{\floor}{\lfloor}{\rfloor}
 
 % Rounded boxes functionality
 \usepackage[framemethod=tikz]{mdframed}
@@ -197,62 +202,59 @@ may become interesting for the implementation of hybrid finite-element-boundary-
 \end{titlepage}
 
 
-
-
-\section{Introduction}
-
-\section{Outline}
-\subsection{Capabilities}
-
-\noindent
-Currently the curvilinear grid supports the following functionality.
-\begin{itemize}
-	\item Self-consistent grid manager supporting 3D tetrahedral curvilinear grids.
-	\item GMSH input files of curvilinear orders 1-5. Usual linear geometries also supported
-	\item Parallel mesh reader with scalability for large meshes and processors
-	\item Mesh partitioning using ParMetis \textbf{CITE}
-	\item Unique physical tag for each element and domain boundary. Read from GMSH file and accessible via grid methods.
-	\item Unique global index for entities of all codimensions.
-	\item Ghost elements of all codimensions (optional)
-	\item Communication protocols for all codimensions
-\end{itemize}
-
-\noindent
-The following functionality is currently NOT supported. As seen below, some of this functionality will be implemented in the nearest future, some other is not currently foreseen. We welcome contributions from the community
-\begin{itemize}
-	\item $[1-2 months]$ Location of containing element by global coordinate (via OCTree)
-	\item $[1/2 year]$  Does NOT support global and local refinement
-	\item $[1/2 year]$  Does NOT support hanging nodes
-	\item $[1/2 year]$  Does NOT support periodic boundaries at the moment
-	\item $[1 year]$    Does Not support curvilinear meshes of non-uniform order
-	\item $[Undefined]$ Does NOT support 1D and 2D geometries. 
-	\item $[Undefined]$ Does NOT support non-tetrahedral meshes.
-	\item $[Undefined]$ Does NOT support front/overlap elements at the moment
-\end{itemize}
-
-\subsection{Design decisions}
-
-\begin{itemize}
-	\item User must provide globalId's for vertices and elements. [Automatically implemented by GMSH]
-	\item User must provide all boundary segments inside GMSH file.
-\end{itemize}
-
-
-\subsection{Internal Structure}
-
-\begin{itemize}
-	\item CurvilinearGMSHReader
-	\item CurvilinearVTKWriter
-	\item CurvilinearGridBase
-		\subitem CurvilinearGridStorage
-		\subitem CurvilinearGridConstructor
-	\item CurvilinearGrid
-	\item CurvilinearGridHowto
-	
-\end{itemize}
+\tableofcontents
 
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Introduction
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\include{manual-introduction}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Curvilinear Grid Outline - Section on capabilities of the Grid
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\include{manual-outline}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Curvilinear Grid Howto - Section on tutorials
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\include{manual-tutorials}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Curvilinear Grid Diagnostics - Section on mesh statistics and visualisation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\include{manual-diagnostics}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Implementation Details - Curvilinear GMSH Reader
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\include{manual-gmshwriter-impl}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Implementation Details - Curvilinear Grid Constructor
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\include{manual-constructor}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Implementation Details - Curvilinear VTK Writer
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\include{manual-vtkwriter}
 
 
 
@@ -261,112 +263,8 @@ The following functionality is currently NOT supported. As seen below, some of t
 
 
 
-\section{Usage (Curvilinear Grid How-to)}
-In order to learn the workings of curvilinear grid it is easiest to study the source code of relevant tutorials \index{tutorial} provided inside the curvilinear grid module.
-
-\subsection{Tutorial 1 - Getting started}
-
-In this tutorial we will create a Curvilinear Grid by reading it from a GMSH file. This and all other tutorials can be run both in serial and in parallel.
-First we define the grid \\
-
-\begin{mybox}
-\begin{lstlisting}
-  typedef Dune::CurvilinearGrid<dim, dimworld, ctype> GridType;
-\end{lstlisting}
-\end{mybox}
-
-\noindent
-where $dim=3$ and $dimworld=3$ are dimensions of the grid and the world containing the grid. Currently this is the only allowed setup. \\
-
-\noindent
-Afterwards, we construct the Curvilinear Grid Factory \\
-
-\begin{mybox}
-\begin{lstlisting}
-  Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
-\end{lstlisting}
-\end{mybox}
-
-\noindent
-where $bool\ withGhostElements$ defines whether the Ghost Elements will be constructed. $bool\ verbose,\ processVerbose$ determine the master process and all other processes would write the debug output. \\
-
-\noindent
-Then the Parallel Curvilinear GMSH Reader is used to read the mesh into the factory. \\
-
-\begin{mybox}
-\begin{lstlisting}
-    Dune::CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper, verbose, processVerbose, writeReaderVTKFile, insertBoundarySegment); 
-\end{lstlisting}
-\end{mybox}
-
-\noindent
-where $filename$ is the name of the $.msh$ file. $bool\ writeReaderVTKFile$ option allows to write the mesh to parallel VTU files immediately after reading. $bool\ insertBoundarySegment$ enables inserting boundary segments from the GMSH file. Currently the switch must be true, and $.msh$ file must contain all boundary segments for the grid to work. \\
-
-\noindent
-Finally, the factory is used to create the grid and return a pointer to it \\
-\begin{mybox}
-\begin{lstlisting}
-  factory.createGrid();
-\end{lstlisting}
-\end{mybox}
 
 
-\subsection{Tutorial 2 - Traverse}
-
-This tutorial repeats the procedure from tutorial 1 to create the grid, after which it iterates over the grid and extracts relevant information from the curvilinear entities. Currently, there is no refinement, so only leaf iterators are available, which are defined the usual Dune way given a codimension $codim$ of the entities\\
-
-\begin{mybox}
-\begin{lstlisting}
-  typedef typename LeafGridView::template Codim<codim>::Iterator EntityLeafIterator;
-  EntityLeafIterator ibegin = leafView.template begin<codim>();
-  EntityLeafIterator iend   = leafView.template end<codim>();
-  
-  for (EntityLeafIterator it = ibegin; it != iend; ++it) {...}
-\end{lstlisting}
-\end{mybox}
-
-
-Now we would like to extract some relevant information from the iterator \\
-\begin{mybox}
-\begin{lstlisting}
-  Dune::GeometryType gt              = it->type();
-  LocalIndexType  localIndex         = grid.leafIndexSet().index(*it);
-  GlobalIndexType globalIndex        = grid.template entityGlobalIndex<codim>(*it);
-  PhysicalTagType physicalTag        = grid.template entityPhysicalTag<codim>(*it);
-  InterpolatoryOrderType interpOrder = grid.template entityInterpolationOrder<codim>(*it);
-\end{lstlisting}
-\end{mybox}
-
-The $GeometryType$ and $LocalIndex$ are standard in Dune. $GlobalIndex$ provides a unique integer for each entity of a given codimension, over all processes. $PhysicalTag$ is the tag associated with the entity as defined in GMSH. It can be used to relate to the material property of the entity, or to emphasize its belonging to a particular subdomain. Originally this information was only available for extraction through the reader directly. $InterpolatoryOrder$ is an integer denoting the polynomial interpolation order of the geometry of the entity. It is allowed to take values 1 to 5. \\
-
-
-
-
-
-
-\subsection{Tutorial 3 - Visualisation}
-
-Curvilinear VTK writer is a tool capable of writing curvilinear geometries to VTK, VTU and PVTU files. It has the following features
-\begin{itemize}
-	\item Works in serial and parallel
-	\item Writes curvilinear edges, triangles and tetrahedra
-	\item Curvilinear entities are discretized into sets of linear edges / triangles, which are then written
-	
-\end{itemize}
-
-
-
-
-\section{Diagnostics tools}
-\subsection{Mesh statistics}
-\subsection{Visualisation}
-
-\section{Implementation details}
-\subsection{Parallel GMSH reader}
-\subsection{Partitioning}
-\subsection{Global index construction}
-\subsection{Ghost element construction}
-\subsection{Communication interface construction}
 
 %\bibliographystyle{plainnat}
 %\bibliography{oswald,numerical_libraries,molecular_plasmonics,finite_element_method,electromagnetic}

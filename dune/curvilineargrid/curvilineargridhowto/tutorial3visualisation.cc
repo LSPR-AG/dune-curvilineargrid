@@ -76,6 +76,7 @@ void writeVTKentities (
 	std::set<typename GridType::StructuralType > typeset)
 {
   const int dim =  GridType::dimension;
+  const int mydim = dim - codim;
   typedef typename GridType::ctype ct;
   typedef typename GridType::LeafGridView LeafGridView;
 
@@ -116,7 +117,7 @@ void writeVTKentities (
 	  {
 		std::vector<int>         tags  { physicalTag, structType, mpihelper.rank() };
 
-    	vtkCurvWriter.template addCurvilinearElement<dim - codim>(
+    	vtkCurvWriter.template addCurvilinearElement<mydim>(
     			gt,
     			interpVertices,
     			tags,

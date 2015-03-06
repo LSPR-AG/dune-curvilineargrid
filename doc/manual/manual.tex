@@ -309,12 +309,16 @@ Now we would like to extract some relevant information from the iterator \\
 \end{lstlisting}
 \end{mybox}
 
-The $GeometryType$ and $LocalIndex$ are standard in Dune. $GlobalIndex$ provides a unique integer for each entity of a given codimension, over all processes. $PhysicalTag$ is the tag associated with the entity as defined in GMSH. It can be used to relate to the material property of the entity, or to emphasize its belonging to a particular subdomain. Originally this information was only available for extraction through the reader directly. $InterpolatoryOrder$ is an integer denoting the polynomial interpolation order of the geometry of the entity. It is allowed to take values 1 to 5.
+The $GeometryType$ and $LocalIndex$ are standard in Dune. $GlobalIndex$ provides a unique integer for each entity of a given codimension, over all processes. $PhysicalTag$ is the tag associated with the entity as defined in GMSH. It can be used to relate to the material property of the entity, or to emphasize its belonging to a particular subdomain. Originally this information was only available for extraction through the reader directly. $InterpolatoryOrder$ is an integer denoting the polynomial interpolation order of the geometry of the entity. It is allowed to take values 1 to 5. \\
+
+
+
+
 
 
 \subsection{Tutorial 3 - Visualisation}
 
-
+Curvilinear 
 
 
 

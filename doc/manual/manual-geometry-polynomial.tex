@@ -1,0 +1,35 @@
+\section{Polynomial Class}
+
+\noindent
+Arbitrary polynomial of order up to $n$ with $d$ parameters can be represented in its expanded form as
+\[ p(\vec{u}) = \sum_i A_i \prod_{j = 0}^d u_j^{\mathrm{pow}_{i,j}},  \]
+for example in 3D this can be written as
+\[ p(\vec{u}) = \sum_i A_i u^{pow_{u,i}} v^{pow_{v,i}} w^{pow_{w, i}},  \]
+
+\noindent
+Therefore, we define a PolySummand class, which stores a constant multiplier $A$ and powers vector $pow$, and Polynomial class
+which stores a vector of PolySummands, and does required operations on them. Below we describe the implemented functionality
+
+\subsection{Methods}
+
+\begin{itemize}
+	\item \uline{Initialization}: empty or with a single summand
+	\item \uline{Operators}: adding, subtracting or multiplying 2 polynomials or polynomial and a scalar.
+		\subitem - to multiply by constant, need to loop and multiply each $A_i$ by constant
+		\subitem - to add or subtract 2 polynomials, merge the summand vectors and compactify
+		\subitem - to multiply 2 polynomials, constructing a new polynomial from pairwise products of all summands, and compactify
+	\item \uline{Evaluate}: evaluates all summand and adds them up.
+	\item \uline{Take derivative}: lowers the corresponding power for each summand, multiplies prefactor by that power, and removes the summands that differentiate to 0
+	\item \uline{Compactify}: adds up all summands with the same power. Sorts the summands by $(x_1,y_1,z_1) < (x_2, y_2, z_2)$, where $x$ has the highest priority and $z$ has the lowest priority. Then all of the repeating powers will be consecutive. Simply loop over sorted polynomial, and to a new polynomial add the sums of all consecutive repeating polynomials.
+	\item \uline{Integrate}: Integration of a polynomial over a reference simplex. Naturally, it is the sum of integrals of summands. It can be shown that
+		\subitem - 1D integral over the reference edge is $A \frac{1}{pow_u + 1}$
+		\subitem - 2D integral over the reference triangle is $A \frac{pow_u! pow_v!}{(pow_u + pow_v + 2)!}$
+		\subitem - 3D integral over the reference tetrahedron is $A \frac{pow_u! pow_v! pow_w!}{(pow_u + pow_v + pow_w + 3)!}$
+\end{itemize}
+
+\subsection{Tests}
+
+\noindent
+Currently the tests are only for 1, 2 and 3 dimensions. Most of the tests use intrinsic functionality like polynomial operators and derivatives to construct polynomials and print them to the screen, and request the user to to verify manually if they match the expected polynomials which are also printed. For each dimension there is one test which integrates a non-linear polynomial over simplex and prints out the result which is also compared manually. \\
+
+\textbf{TODO:} These tests can and should be automatized in the future using integer string comparison. The test program should throw an error if a test fails

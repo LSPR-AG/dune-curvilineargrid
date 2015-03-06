@@ -1,0 +1,37 @@
+\section{Proof for polynomial summand integrals}
+\noindent
+Note that the series for beta-function can be written as
+\[B(a+1,b+1) = \int_0^1 x^a (1-x)^b dx = \int_0^1 x^a \sum_{i=0}^b C_b^i (-1)^i x^i = \sum_{i=0}^b \frac{(-1)^i C_b^i}{a+1+i}\]
+
+\noindent
+where $C_b^i = \frac{b!}{i!(b-i)!}$ is the combinations number.
+
+\subsection{1D}
+
+\begin{equation}
+	I_{1D} = \int_0^1 x^{\alpha} dx = \frac{x^{a + 1}}{a + 1} \biggr |_0^1 = \frac{1}{a + 1}
+\end{equation}
+
+\subsection{2D}
+
+\begin{eqnarray*}
+	I_{2D} = \int_0^1 \int_0^{1-x} x^{a} y^{b} dx dy
+	& = & \frac{1}{b+1} \int_0^1 x^{a} (1-x)^{b+1} dx = \frac{1}{b+1} \beta(a + 1, b + 2) \\
+	& = & \frac{1}{b+1} \frac{a!(b+1)!}{(a+b+2)!} = \frac{a!b!}{(a+b+2)!}
+\end{eqnarray*}
+
+\subsection{3D}
+
+\begin{eqnarray*}
+	I_{3D}
+	& = & \int_0^1 \int_0^{1-x} \int_0^{1-x-y} x^a y^b z^c dx dy dz \\
+	& = & \frac{1}{c+1} \int_0^1 \int_0^{1-x} x^a y^b (1-x-y)^{c+1} dx dy \\
+	& = & \frac{1}{c+1} \int_0^1 \int_0^{1-x} x^a y^b \sum_{i=0}^{c+1} C_{c+1}^i (-1)^i y^i (1-x)^{c+1-i} dx dy \\
+	& = & \sum_{i=0}^{c+1} \frac{C_{c+1}^i (-1)^i}{c+1} \int_0^1 \ x^a (1-x)^{c+1-i} \int_0^{1-x} y^{b+i} dx dy \\
+	& = & \sum_{i=0}^{c+1} \frac{C_{c+1}^i (-1)^i}{(c+1)(b+1+i)} \int_0^1 \ x^a (1-x)^{c+1-i} (1-x)^{b+1+i} dx \\
+	& = & \sum_{i=0}^{c+1} \frac{C_{c+1}^i (-1)^i}{(c+1)(b+1+i)} \int_0^1 \ x^a (1-x)^{b+c+2} dx \\
+	& = & \sum_{i=0}^{c+1} \frac{C_{c+1}^i (-1)^i}{(c+1)(b+1+i)} \beta(a+1, b+c+3) \\
+	& = & \frac{1}{c+1} \beta(b+1,c+2) \beta(a+1, b+c+3) \\
+	& = & \frac{1}{c+1} \frac{b!(c+1)!}{(b+c+2)!} \frac{a! (b+c+2)!}{(a+b+c+3)!} \\
+	& = &  \frac{a! b! c!}{(a+b+c+3)!}
+\end{eqnarray*}

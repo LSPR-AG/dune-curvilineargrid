@@ -1,0 +1,88 @@
+\section{Integration}
+
+It is necessary to integrate scalar and vector functions over an element. \\
+
+\noindent
+In original strategy (Multilinear Geometry using Gaussian quadrature), the geometry only needed to provide an integration element, the integration itself was performed in dervied classes outside DUNE. However, for the special case of integrating a polynomial function over the element, the resulting integral is frequently possible to calculate analytically. Such integration requires polynomial functionality, and therefore it is more comfortable to implement within DUNE, than to re-implement by the user every time.
+
+
+\subsection{Overview of available numerical methods}
+
+\noindent
+Below is presented a short summary of integration method types known to us: \\
+
+\noindent
+\textbf{Gaussian Quadrature}: The method available in DUNE.
+\begin{itemize}
+	\item This method calculates the integral as a linear product of the integrand $f(\vec{r})$ values at specific precomputed points $\vec{r}_i$ with specific precomputed weights $w_i$, namely $I = \sum_i w_i f(\vec{r}_i)$. Thus the main advantage of this method is its computational cost, which is small for low order polynomial integrands.
+	\item Optimal quadrature points are only available for small dimensions. Finding such point sets for high dimension polynomials is very involved and is known to suffer from finite precision of floating point arithmetic. Alternatively, a suboptimal point distribution can be obtained from a tensor product space of 1D point distributions, whose size grows exponentially with integration dimension.
+	\item Gaussian Quadrature is constructed with the idea of calculating exact integrals for integrands being polynomial up to a given order. However, when integrating over a curved boundary, thte integration elemen is a square root of a polynomial, and polynomials really badly approximate square root, especially for small arguments, which can easily happen for highly curved elements. Not to mention that one, in principle, could with to integrate arbitrary (within reason) functions over the element. Thus
+		\subitem - Can GQ estimate integration error for non-polynomial functions?
+		\subitem - Can it be made hierarchical to have control over error by refinement?
+		\subitem - What would be the convergence rate to compare with other methods?
+\end{itemize}
+
+\noindent
+\textbf{Interpolatory adaptive refinement}: The method currently implemented in LagrangeGeometry subclass
+\begin{itemize}
+	\item - Evaluates integral over element, approximating the integrand by an interpolatory polymomials of two hierarchical orders (2 and 4 at the moment) \textbf{[IMAGE HERE]}
+	\item - The running integration error is approximated by the difference between the analytical integrals calculated from these two interpolatory polynomials.
+	\item - The higher order element is split into into sub-elements of lower order, and the integration proceeds recursively.
+	\item - Every time an element is split, its previous running error is subtracted from the total error, and the running errors of the sub-elements are added to the total error. Thus, the integration is terminated when total approximated error is below selected tolerance. 	
+		\subitem - using heap structure ordered by the approximate error of the element. This way avoids recursion, and at every iteration selects the element which has worst error, then refines it.
+		\subitem - When splitting, the previously calculated points are not re-calculated but hierarchically re-used by sub-elements. The sub-element only needs to be refined to a higher hierarchical order, by adding more points.
+	\item \textit{Possible improvement - Performance}. As the the refined element does not check if the neighboring elements are also being refined, so they both sample on the boundary twice. Does there exist a method to store/find intersection refinements faster than just compute 2nd time. Using order 4 for every new refined triangle we sample 9 new points, out of which 2 are being wasted, thus $22\%$ inefficient.
+\end{itemize}
+
+\noindent
+\textbf{Monte-Carlo integration} - according to above mentioned paper, good for dimensions 7 and above.
+\begin{itemize}
+	\item Randomly samples function over element, integral is approximated by the average over the sample
+	\item natural error estimate using sample standard deviation
+	\item Stratified Sampling: if after a set number of iterations sample error is larger than expected, then function is highly non-uniform. Split element in equal parts and continue recursively.
+	\item Markov Chain Monte Carlo (MCMC): Uses random walk to sample the integrand, thus concentrating the sample points where the function varies most. Can use Metropolis-Hastings to also adapt the sampling distribution.
+\end{itemize}
+
+\noindent
+\textbf{Interpolatory Spline integration} - this is just another idea...
+\begin{itemize}
+	\item Makes grid over element, cubic-interpolates all consecutive partially-overlapping segments, integrates analytically over each segment.
+		\subitem -tricky part 1: when interpolatory segments intersect, with what weights to take the intersecting parts
+		\subitem -tricky part 2: how well does this method interpolate boundaries of the element (being close to edges and faces)
+		\subitem -tricky part 3: how to estimate error of integration and necessary grid step?
+		\subitem - Any way to do the refinement or error-control?
+\end{itemize}
+
+
+
+
+\subsection{Integration Element - Vector}
+
+When integrating vector functions we are mostly interested in the integrals over boundary surfaces and edges, namely $\int_{\partial V} \vec{f}(\vec{r}) \cdot \vec{n}(\vec{r}) d(\partial V)$. For an edge in 2D the following expression for the tangential and normal integration elements (up to a sign convention) can be found:
+\[ d\vec{l}_{\parallel} = (\partial_u p_x, \partial_u p_y)du \; \; \; \; \; d\vec{l}_{\perp} = (\partial_u p_y, -\partial_u p_x)du  \]
+
+\noindent
+For a vector in 3D the tangential integration element is not defined, but the normal integration element is
+\[ d\vec{S} = (\partial_u \vec{p} \times \partial_v \vec{p})du \; dv  \]
+
+\noindent
+Thus, given polynomial vector basis functions $\vec{f}$ and polynomial interpolation, the scalar (and, if necessary, vector) products $\vec{f}(u) \cdot d\vec{l}(u)$ and $\vec{f}(u,v) \cdot d\vec{S}(u,v)$ are also polynomial, and can be integrated exactly using analytic polynomial integration code.
+
+
+
+
+\subsection{Integration Element - Scalar}
+
+In its most general form a scalar integral over an element can be written as \[\int f(\vec{r}) d^{\dim} x = \int f(\vec{r}) \mu(\vec{r}) d^{\dim} r,\] where the integration element $\mu(\vec{r})$ can most generally be written as \[\mu(\vec{r}) = \sqrt{\det(J J^T)},\] where $J$ is the Jacobian matrix. \\
+
+\noindent
+In the case of matching element and space dimension (like volume in 3D, and area in 2D), the integration element simplifies to $|\det J|$. Even though absolute value is not a polynomial function, it can be observed that $\det J$ is not allowed to change sign over the element for any sensible non-self-intersecting geometries. Even if $\det J = 0$ somewhere within the element, it would mean that a finite volume element inside reference element is mapped to a 0 volume in real space, which should be avoided by GMSH at the stage of selecting interpolation points. Therefore, in this case, $\det J$ will always have the same sign. It remains to evaluate it anywhere inside the element, and multiply by -1 if it is negative. Then the integration of scalar polynomial function over this integration element is done analytically. \\
+
+\noindent
+In the case of mismatching dimensions (like area in 3D, and length in 2D and 3D), the expression for $\mu(\vec{r})$ can not be simplified, and therefore is an integral of the form \[\int f(\vec{r}) \sqrt{g(\vec{r})} d(\partial V),\] where $f$ and $g$ are polynomials. This integral cannot be done analytically, and therefore requires a numerical method.
+
+\noindent
+According to \textbf{[PAPER]} best results in low-dimensional numerical integration are achieved by adaptive quadrature of high degree, whereas Monte-Carlo methods are best for high-dimensional integrals. I propose to integrate into Dune one of the opensource adaptive quadrature routines, for example the GSL extension from \url{http://ab-initio.mit.edu/wiki/index.php/Cubature}. These are based on Clenshaw–Curtis quadrature, which has the advantage of being Hierarchical, and thus can be refined to iteratively improve precision withouth having to sacrifice previous sample points. \\
+
+\noindent
+At the moment we have constructed an adaptive interpolation integrator class within DUNE to deal with calculating curved edge lengths and face areas, when their dimension is smaller than the world dimension. If we want to provide such information, having an integrated numerical integrator is inevitable.

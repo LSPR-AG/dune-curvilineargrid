@@ -8,7 +8,7 @@
 
 %\documentclass[a4paper,twocolumn]{article}
 %\documentclass[a4paper,10pt]{article}
-\documentclass[12pt]{article}
+\documentclass[12pt]{report}
 
 \usepackage[sort&compress,super]{natbib}
 \usepackage[english]{babel}
@@ -35,6 +35,8 @@
 \usepackage{enumitem}
 \usepackage[normalem]{ulem}
 \usepackage{mathtools}
+\usepackage{lscape}
+\usepackage{hyperref}
 
 
 \DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
@@ -258,12 +260,8 @@ may become interesting for the implementation of hybrid finite-element-boundary-
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Introduction
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\include{manual-introduction}
-
+\chapter{Introduction}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Curvilinear Grid Outline - Section on capabilities of the Grid
@@ -272,6 +270,15 @@ may become interesting for the implementation of hybrid finite-element-boundary-
 \include{manual-outline}
 
 
+
+
+
+
+
+
+
+\chapter{Usage}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Curvilinear Grid Howto - Section on tutorials
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -279,12 +286,74 @@ may become interesting for the implementation of hybrid finite-element-boundary-
 \include{manual-tutorials}
 
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Curvilinear Grid Diagnostics - Section on mesh statistics and visualisation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \include{manual-diagnostics}
+
+
+
+
+
+
+
+
+
+\chapter{Interface - Curvilinear Geometry}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Implementation of Polynomial Class
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-geometry-polynomial}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Implementation of Interpolator Class
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-geometry-interpolation}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Implementation of Recursive Integration
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-geometry-recursiveintegration}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Implementation of Curvilinear Geometry
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-geometry-curvilineargeometry}
+
+
+
+
+
+\chapter{Interface - Curvilinear Grid}
+
+
+
+
+
+
+\chapter{Theory}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Theory for Lagrange Polynomials
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-geometry-theory-lagrange}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Theory for global and local mappings
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-geometry-theory-mapping}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Theory for integration over curvilinear entities
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-geometry-theory-integration}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -308,6 +377,22 @@ may become interesting for the implementation of hybrid finite-element-boundary-
 \include{manual-vtkwriter}
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Theory for point location (OCTree)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-octree}
+
+
+
+
+\appendix
+
+\chapter{Proofs}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Proof of polynomial integral over simplex
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-geometry-appendix-polynomialintegralproof}
 
 
 
@@ -315,6 +400,11 @@ may become interesting for the implementation of hybrid finite-element-boundary-
 
 
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Bibliography
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %\bibliographystyle{plainnat}

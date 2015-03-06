@@ -1,0 +1,37 @@
+\section{Coordinate transformation}
+
+\subsection{Jacobian and JacobianInverse}
+
+From the ElementInterpolation class one can request a complete analytical interpolatory polynomial for each of the coordinates $x,y,z$. Then one uses the polynomial methods differentiate and evaluate to calculate $J_{ij} = \partial_i p_j (u,v,w) |_{u_0, v_0, w_0}$. The inverse and determinant are obtained using JacobianInverse class, which uses MatrixHelper to invert matrix and calculate the pseudodeterminant $\sqrt{\det(JJ^T)}$. \\
+
+\subsection{Local-to-Global mapping}
+
+The global coordinate is obtained by calling the corresponding method $realCoordinate()$ of the Interpolator class. It evaluates a linear combination of lagrange polynomials for each coordinate.
+
+\subsection{Global-to-Local mapping}
+
+This method finds local coordinate within this element from a given global coordinate. The $is\_inside()$ method is part of this method, as it returns false if the point is not within the element, and true + the local coordinate, if the point is. \\
+
+\noindent
+After a discussion the following was agreed on:
+\begin{itemize}
+	\item $local()$ method is not defined outside the element. Even for most simple polynomial maps, there exist global coordinates which do not correspond to any local coordinate at all. For example, $x^2$ is a perfectly valid local-to-global map for an edge defined on $[0,1]$, however, no local coordinate at all corresponds to the global coordinate $-1$. Therefore, if we have high evidence that a point is located outside the element, we only report that it is outside and do not report any local coordinate. As the local coordinate is found using an iterative process, it needs to have a termination condition, because, given that a local coordinate of interest does not exist, the method will not converge.
+	\item $local()$ method is only defined when $(dim_{elem} = dim_{world})$. For inequal dimensions, disregarding the question being a challenging computational task, it is also meaningless. The probability that a randomly selected point would belong to a manifold of dimension lower than the world dimension is negligibly small. If the point is non-random, it must have been generated using a local-to-global map of one of the elements, in which case there are much more cost-efficient ways of tracing it back, for example, by storing the local coordinate mapped.
+\end{itemize}
+
+\noindent
+Even considering the two above simplifications, this is still a very tricky problem. Since the map from local to global is polynomial, it is in principle non-invertible, at least not in terms of standard functions \\
+
+\noindent
+It can be guaranteed that the map is one-to-one within the element, otherwise the the real element geometry would be self-intersecting, which should be ensured by GMSH when selecting interpolation points. However, there are no obvious reasons why the geometry should not be self-intersecting outside the element, which means that the map need not be one-to-one outside the element. \\
+
+\noindent
+For obvious reasons we will not solve the problem directly, as searching for roots of a system of polynomial equations with several parameters is a very challenging task. Instead we minimize the two-norm \[\vec{r} = \mathrm{argmin} \{ |\vec{p}(\vec{r}) - \vec{p}_0 |^2 \}. \] We think that the problem should not have local extrema inside the element, because that is equivalent to having $\det J = 0$. However, it will most likely have local extrema outside the element (especially for higher orders). The solutions proposed:
+\begin{itemize}
+	\item Currently Dune uses Newton's method \[\vec{r}_{n+1} = \vec{r}_n + \mathrm{LinSolve}(J(\vec{r}_n), \vec{p}(\vec{r}_n) ). \] Since the mapping is 1-to-1 inside the element, it should definitely not have minima and maxima, not sure about extrema. Therefore Newton's method should converge to the right solution if the starting point is selected inside the element, for example its center.
+	
+	\item Termination condition:
+		- The iterative solution should not be strongly outside the element for some iteration, if the true solution is inside. Therefore, we terminate if at any point $|\vec{p}_{CoM} - \vec{p}|_2 > 4 R_{lin}$, using the notation from $is\_inside()$ descriotion.
+	
+	\item This method may fail if there indeed is an extrema inside the element, and after an unlucky step it is thrown out of the element even though the correct solution is inside. Thus, if the method fails to find the point within the element and its neighbors this way, it may make sense to try several starting locations within each tetrahedron hoping to avoid the extrema.
+\end{itemize}

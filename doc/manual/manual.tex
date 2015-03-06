@@ -346,7 +346,13 @@ The $GeometryType$ and $LocalIndex$ are standard in Dune. $GlobalIndex$ provides
 
 \subsection{Tutorial 3 - Visualisation}
 
-Curvilinear 
+Curvilinear VTK writer is a tool capable of writing curvilinear geometries to VTK, VTU and PVTU files. It has the following features
+\begin{itemize}
+	\item Works in serial and parallel
+	\item Writes curvilinear edges, triangles and tetrahedra
+	\item Curvilinear entities are discretized into sets of linear edges / triangles, which are then written
+	
+\end{itemize}
 
 
 

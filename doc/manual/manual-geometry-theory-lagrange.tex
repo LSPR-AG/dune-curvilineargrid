@@ -1,19 +1,30 @@
 \section{Lagrange Polynomial Interpolation}
 
-Here we describe how to construct a curvilinear 3D object (edge, triangle or tetrahedron) which is interpolated over a set of points. \\
-
-\subsection{Interpolatory Points}
+This general theory describes construction of polynomial interpolatory basis for simplex geometries. \textbf{[wiki-lagrange]}. The general idea is to describe the real geometry of the curved entity in global coordinates as a mapping $\vec{p}(\vec{r})$ of its local geometry, which is a basic linear geometry called a reference element. \\
 
 \noindent
-We start by assuming a parameterization of the reference entity, namely
+Using the Dune-convention, a reference simplices are defined by
+\begin{itemize}
+	\item $\Delta_0 : \{ \}$
+	\item $\Delta_1 : \{ 0\}, \{ 1\}$
+	\item $\Delta_2 : \{ 0, 0 \}, \{ 1, 0 \}, \{ 0, 1 \}$
+	\item $\Delta_3 : \{ 0, 0, 0 \}, \{ 1, 0, 0 \}, \{ 0, 1, 0 \}, \{ 0, 0, 1 \}$
+\end{itemize}
+
+\noindent
+Local simplex geometries can be parameterized using the local coordinate vector $\vec{r}$:
 \begin{itemize}
 	\item edge:			$\vec{r}=(u)$,		such that $u \in [0,1]$
 	\item triangle: 	$\vec{r}=(u,v)$,	such that $u \in [0,1]$ and $v \in [0, 1-u]$
 	\item tetrahedron:	$\vec{r}=(u,v,w)$,	such that $u \in [0,1]$, $v \in [0, 1-u]$ and $w \in [0, 1-u-v]$ 
 \end{itemize}
 
+\subsection{Interpolatory Vertices}
+
 \noindent
-Next, we provide a set of real geometry points $\vec{p}_i(\vec{r}_i)$ over which the 3D object is interpolated. By convention, we choose a rectangular grid in the parametric space, namely providing a real geometry point for each $\vec{r}_{i,j,k} = \Delta (i,j,k)$, where $i,j,k$ are integers, $\Delta = 1 / (Ord - 1)$ is the parametric step size, and $Ord$ is the interpolation order of the surface. The parametric coordinates and their order determine the Lagrange Interpolatory polynomials and must be kept track of. Although the above convention is used in this writeup, the formalism itself can be applied to any set of interpolatory points, as long as their amount is preserved. In particular, for higher orders it should be beneficial to switch to Chebyshev sampling in order to minimize the Runge phenomenon. \\
+In order to define the curvilinear geometry, a set of real geometry points $\vec{p}_i(\vec{r}_i)$ is provided, over which the real geometry is interpolated. By convention, the real geometry is sampled over a rectangular grid over the reference simplex, namely
+\[\vec{r}_{i,j,k} = \frac{(i,j,k)}{Ord}, \;\;\; i=[0..Ord], \;\;\; j=[0..Ord-i], \;\;\; k=[0..Ord-i-j]\]
+where $Ord$ is the interpolation order of the surface. Thus, points from this uniform grid in local coordinates are mapped to arbitrary points in global coordinates. It is the job of the meshing software (in our case GMSH) to ensure that the global geometry is non-singular / non-self-intersecting. The uniform convention is taken by GMSH mostly because polynomial orders remain rather low. If higher orders would be required, a non-uniform (e.g. Chebyshev) sampling grid would have to be used in order to minimize the Runge phenomenon. \\
 
 \noindent
 It is easy to verify that the above discretization generates the following number of interpolatory points as a function of interpolatory order (starting with 1, mentioning first 5 orders)
@@ -27,7 +38,7 @@ It is easy to verify that the above discretization generates the following numbe
 \label{section-interppoly}
 
 \noindent
-Also, it is easy to verify, that the numbers of interpolatory points above exactly match the numbers of independent polynomials of all orders up to and including $Ord$. Let us define the functions $z^{(1,i)}(u)$, $z^{(2,i)}(u,v)$ and $z^{(3,i)}(u,v,w)$ as the set of all such polynomials, where the first number is dimension of the object, and the 2nd is the order:
+It is easy to verify, that the number of interpolatory points above exactly matches the total number of monomials necessary to construct a complete polynomial of order $Ord$ or less. Define the functions $z^{(1,i)}(u)$, $z^{(2,i)}(u,v)$ and $z^{(3,i)}(u,v,w)$ as the set of all monomials of corresponding order, where the first parameter is dimension of the entity, and the 2nd is the polynomial order:
 \begin{itemize}
 	\item edge: \\
 		$z^{(1,1)}(u) = \{1, u\}$, \\
@@ -47,10 +58,10 @@ Also, it is easy to verify, that the numbers of interpolatory points above exact
 \end{itemize}
 
 \noindent
-This means that we are able to use complete polynomials of given order for our interpolation. If one interpolates over other entities, for example, rectangles, one has to either use an incomplete basis of certain order in order to keep the rectangular sampling grid convention, or change the sampling convention to have exact number of interpolatory points for a certain order. $[Volakis2010]$ choose the first approach, thus interpolating a 9 node 2nd order rectangle with 4th order incomplete polynomial which has a convenient separable dimension product form. \\
+This means that using such grid sampling allows using complete polynomials of a given order for interpolation. If one interpolates over other entities, for example, rectangles, one has to either use an incomplete basis of certain order in order to keep using the rectangular sampling grid convention, or change the sampling convention to have exact number of interpolatory points for a certain order. \textbf{[Volakis2010]} choose the first approach, thus interpolating a 9 node 2nd order rectangle with 4th order incomplete polynomial which has a convenient separable tensor product form. \\
 
 \noindent
-Now, \textbf{the idea of Lagrange Interpolation} is to generate a polynomial vector function $\vec{p}(\vec{r})$, which would correspond to a real point $\vec{p}_i = \vec{p}(\vec{r}_i)$ for each parametric coordinate $\vec{r}_i$ corresponding to a point in the reference element. It can be easily seen that such function must take the form
+\textbf{The main idea of Lagrange Polynomials} is to generate a polynomial vector function $\vec{p}(\vec{r})$, which would correspond to a correct global coordinate $\vec{p}_i = \vec{p}(\vec{r}_i)$ for each local coordinate $\vec{r}_i$. It can be easily seen that such function is unique and must take the form
 \begin{equation}
 	\vec{p}(\vec{r}) = \sum_j L_j(\vec{r})\vec{p}_j 
 \end{equation}
@@ -61,7 +72,7 @@ where the Lagrange Polynomials $L_j$ are defined by their interpolatory property
 	L_j(\vec{r}_i) = \delta_{ij}
 \end{equation}
 \noindent
-for all interpolatory points $\vec{r}_i$. It is easy to see that in general case there must be as many Lagrange Polynomials as there are interpolatory points $N_{Ord}$, and, the amount of free parameters within each polynomial must also be equal to that number, such that it can uniquely interpolate a set of $N_{Ord}$ points ($N_{Ord} - 1$ zeroes and 1 one). As we have discussed above, this is indeed the case.
+for all interpolatory points $\vec{r}_i$. It is easy to see that the amount of free parameters of each Lagrange Polynomial must be equal to the number of interpolatory points, such that each of them can uniquely interpolate a set of $N_{Ord}$ points ($N_{Ord} - 1$ zeroes and 1 one). As we have discussed above, this is indeed the case, as the number of free parameters of a Lagrange polynomial is equal to the number of monomials \\
 
 \noindent
 Next, one slightly tricky part, and then we are done. We would like to prove that the following equation holds:
@@ -70,7 +81,7 @@ Next, one slightly tricky part, and then we are done. We would like to prove tha
 	z_i(\vec{r}) = \sum_j L_j(\vec{r}) z_i (\vec{r}_j) 
 \end{equation}
 \noindent
-where $z_i$ is a vector of standard polynomials defined above. This equation should hold for all $z^{(\dim, Ord)}$, where $\dim = \{1,2,3\}$. For $\dim < 3$ where $z$ is defined for less than 3 parameters, simply ignore the extra parameters in $\vec{r}$. \\
+where $z_i$ is a vector of monomials defined above. This equation should hold for all $z^{(\dim, Ord)}$, where $\dim = \{1,2,3\}$. For $\dim < 3$ where $z$ is defined for less than 3 parameters, simply ignore the extra parameters in $\vec{r}$. \\
 
 \noindent
 The proof is quite simple. Both LHS and RHS are polynomials of order at most $Ord$, which means that they have at most $N_{Ord}$ free parameters, and therefore, if we can show that the equation holds for $N_{Ord}$ different parameter sets, then it holds for all others as well. And indeed, \eqref{equation-lagrangepol-basis-link} holds for all $\vec{r} = \vec{r}_k$ because of \eqref{equation-lagrangepol-interpolatory-property}. \\

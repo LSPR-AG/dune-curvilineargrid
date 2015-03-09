@@ -90,8 +90,8 @@ void check_grid(Dune::CurvilinearGrid<cdim, cdim, ctype, isCached> & grid) {
   std::cout << "-- Checking Intersection Iterator" << std::endl;
   checkIntersectionIterator(grid);
 
-  std::cout << "-- Checking Adaptive Refinement" << std::endl;
-  checkAdaptRefinement(grid);
+  //std::cout << "-- Checking Adaptive Refinement" << std::endl;
+  //checkAdaptRefinement(grid);
 
   std::cout << "-- Checking Partition Type of LeafGridView" << std::endl;
   checkPartitionType( grid.leafGridView() );

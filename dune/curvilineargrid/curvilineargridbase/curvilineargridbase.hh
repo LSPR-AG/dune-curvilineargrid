@@ -490,7 +490,7 @@ public:
     {
     	StructuralType thisstructtype = entityStructuralType(FACE_CODIM, localIndex);
     	assert(thisstructtype == DomainBoundaryType);
-    	return gridstorage_.boundarySegmentIndexMap_.at(thisstructtype);
+    	return gridstorage_.boundarySegmentIndexMap_.at(localIndex);
     }
 
 

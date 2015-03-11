@@ -144,6 +144,8 @@ namespace Dune
 
       EntityPointer inside () const
       {
+    	  std::cout << "inside" << std::endl;
+
     	  IndexSetIterator thisIter = gridbase_->entityIndexIterator(ELEMENT_CODIM, localIndexInside_);
     	  StructuralType structtype = gridbase_->entityStructuralType(ELEMENT_CODIM, localIndexInside_);
     	  return EntityPointer(EntityPointerImpl(thisIter, *gridbase_, All_Partition));
@@ -151,6 +153,8 @@ namespace Dune
 
       EntityPointer outside () const
       {
+    	  std::cout << "outside" << std::endl;
+
     	  if (!neighbor())  { DUNE_THROW(Dune::IOError, "Intersection: entityPointer of non-existing outside entity requested"); }
 
     	  IndexSetIterator thisIter = gridbase_->entityIndexIterator(ELEMENT_CODIM, localIndexOutside_);
@@ -160,6 +164,8 @@ namespace Dune
 
       // By dune-convention, domain and periodic boundaries are considered boundaries
       bool boundary () const {
+    	  std::cout << "boundary" << std::endl;
+
     	  StructuralType structtype = gridbase_->entityStructuralType(FACE_CODIM, localFaceIndex_);
     	  return (structtype == GridStorageType::PartitionType::DomainBoundary);
       }
@@ -172,10 +178,13 @@ namespace Dune
       // By dune-convention, everything has a neighbour, except domain boundaries, and (process boundaries in serial case)
       bool neighbor () const
       {
+    	  std::cout << "neighbor" << std::endl;
     	  StructuralType structtype = gridbase_->entityStructuralType(FACE_CODIM, localFaceIndex_);
 
     	  if (structtype == GridStorageType::PartitionType::DomainBoundary)  { return false; }
     	  if (structtype == GridStorageType::PartitionType::ProcessBoundary) { return !gridbase_->isSerial(); }
+
+    	  std::cout << "finished neighbor" << std::endl;
 
     	  return true;
       }
@@ -234,6 +243,9 @@ namespace Dune
       GlobalCoordinate integrationOuterNormal ( const LocalCoordinate &localFaceCoord ) const
       {
     	  GlobalCoordinate localElemCoord( geometryInInside().global( localFaceCoord ) );
+
+    	  std::cout << "integrationOuterNormal faceCoord=" << localFaceCoord << " elemCoord=" << localElemCoord << std::endl;
+
     	  return insideGeo_.subentityIntegrationNormal( indexInInside(), localElemCoord );
       }
 
@@ -267,10 +279,12 @@ namespace Dune
       // If next() is called beyond the allowed size, throw error
       void next()
       {
+    	  std::cout << "next" << std::endl;
+
     	  // When iterating over intersections, current intersection geometry becomes invalid
-    	  delete geo_;           geo_ = nullptr;
-          delete geoInInside_;   geoInInside_ = nullptr;
-          delete geoInOutside_;  geoInOutside_ = nullptr;
+    	  if (geo_)           { delete geo_; }           geo_ = nullptr;
+          if (geoInInside_)   { delete geoInInside_; }   geoInInside_ = nullptr;
+          if (geoInOutside_)  { delete geoInOutside_; }  geoInOutside_ = nullptr;
 
     	  const int SUBENTITY_SIZE = 4;
 
@@ -278,15 +292,21 @@ namespace Dune
 
     	  // Increase iterator until find a non-ghost face or reach the end
     	  bool inc = true;
+    	  subIndexInside_++;
     	  while( inc && (subIndexInside_ < SUBENTITY_SIZE) )
     	  {
-    		  subIndexInside_++;
     		  localFaceIndex_ = gridbase_->subentityLocalIndex (localIndexInside_, ELEMENT_CODIM, FACE_CODIM, subIndexInside_);
+
+    		  std::cout << "brrr localIndexInside_=" << localIndexInside_ << " subIndexInside_=" << subIndexInside_ << " localFaceIndex_=" << localFaceIndex_ << std::endl;
+
     		  inc = (gridbase_->entityStructuralType(FACE_CODIM, localFaceIndex_) == GridStorageType::PartitionType::Ghost);
+    		  if (inc) { subIndexInside_++; }
     	  }
 
     	  // If this is not the end, update contents of the intersection
     	  if (subIndexInside_ != SUBENTITY_SIZE)  { computeOutside(); }
+
+    	  std::cout << "finished next" << std::endl;
       }
 
       // Finds outside entity local index, and this face subentity index
@@ -320,13 +340,19 @@ namespace Dune
       // [TODO] Currently assumes same geometry type on both sides
       void generateLocalGeometries() const
       {
+    	  std::cout << "Intersection: started generating local geometries" << std::endl;
+
     	  Dune::GeometryType elemGT = insideGeo_.type();
+
+
+    	  std::cout << "aaa" << std::endl;
 
     	  // Find number of corners per face
     	  const Dune::ReferenceElement<ctype, dimension> & ref = Dune::ReferenceElements<ctype, dimension>::general(elemGT);
     	  int nCornerPerFace = ref.size(0, FACE_CODIM, VERTEX_CODIM);
 
 
+    	  std::cout << "bbb" << std::endl;
 
     	  // Generate GeometryInInside
     	  // *******************************************************8
@@ -336,19 +362,28 @@ namespace Dune
 		  // 1) Produce corner internal coordinates for inside and outside
 		  // 2) Produce corner local coordinates
 
+    	  std::cout << "ccc" << std::endl;
+
     	  for (int i = 0; i < nCornerPerFace; i++)
     	  {
     		  insideCornerInternalIndex. push_back(ref.subEntity(subIndexInside_,  FACE_CODIM, i, VERTEX_CODIM));
     		  insideCornerLocalIndex. push_back(gridbase_->subentityLocalIndex(localIndexInside_,  ELEMENT_CODIM, VERTEX_CODIM, insideCornerInternalIndex[i]));
     	  }
 
+    	  std::cout << "ddd" << std::endl;
+
     	  // 3) Find local coordinates of outside in inside, flip internal coordinates of outside accordingly
     	  std::vector<GlobalCoordinate> inCoord;
     	  for (int i = 0; i < nCornerPerFace; i++)  { inCoord.push_back(Dune::CurvilinearGeometryHelper::cornerInternalCoordinate<ctype, dimensionworld>(elemGT, insideCornerInternalIndex[i]));
     	  }
+
+    	  std::cout << "eee attempt to construct with coords=" << Dune::VectorHelper::vector2string(inCoord) << std::endl;
+
     	  geoInInside_  = new LocalGeometry(GeometryImpl(type(), inCoord,  LINEAR_ELEMENT_ORDER, *gridbase_));
 
 
+
+    	  std::cout << " ** done with inside, checking outside with neighbor=" << neighbor() << std::endl;
 
     	  if (neighbor())
     	  {
@@ -386,6 +421,8 @@ namespace Dune
         	  for (int i = 0; i < nCornerPerFace; i++)  { outCoord.push_back(Dune::CurvilinearGeometryHelper::cornerInternalCoordinate<ctype, dimensionworld>(elemGT, outsideCornerInternalIndexNew[i])); }
         	  geoInOutside_ = new LocalGeometry(GeometryImpl(type(), outCoord, LINEAR_ELEMENT_ORDER, *gridbase_));
     	  }
+
+    	  std::cout << "Intersection: finished generating local geometries" << std::endl;
       }
 
 

@@ -1,0 +1,47 @@
+\section{Curvilinear Grid Factory}
+
+This section will discuss the information that needs to be provided in order to construct a curvilinear grid. \\
+
+\begin{mybox}
+\begin{lstlisting}
+  Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+A vertex must be inserted using its coordinate and a global index. It is not possible to insert a vertex without knowing its global index. All vertices belonging to this process must be inserted this way. \\
+
+\begin{mybox}
+\begin{lstlisting}
+  insertVertex ( const VertexCoordinate &pos, const GlobalIndexType globalIndex )
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+A curvilinear element must be inserted using its geometry type, interpolatory vertex local index vector, interpolatory order and physical tag. Currently only 3D simplex elements are supported. All elements present on this process must be inserted. One should not insert elements not present on this process. The local index of an interpolatory vertex corresponds to the order the vertices were inserted into the grid. The order in which the vertices appear within the vector is according to the dune convention discussed in section \ref{impl-gmsh-numbering-convention}. Currently available interpolation orders are 1-5. The interpolation order must correspond to the number of interpolatory vertices. Currently, physical tag is an integer corresponding to the material property of the entity or otherwise.   \\
+
+\begin{mybox}
+\begin{lstlisting}
+  void insertElement(GeometryType &geometry, const std::vector< LocalIndexType > &vertexIndexSet, const InterpolatoryOrderType elemOrder, const PhysicalTagType physicalTag)
+\end{lstlisting}
+\end{mybox}
+
+
+\noindent
+A curvilinear boundary segment must be inserted using its geometry type, interpolatory vertex local index vector, interpolatory order, associated element local index and physical tag. Currently only 2D simplex boundary segments are supported. Currently all boundary segments present on this process must be inserted. One should not insert boundary segments not present on this process. Associated element index is the index of the element neighbouring this boundary segment, its insertion index. In future this parameter requirement may be lifted.     \\
+
+\begin{mybox}
+\begin{lstlisting}
+  void insertBoundarySegment(GeometryType &geometry, const std::vector< LocalIndexType > &vertexIndexSet, const InterpolatoryOrderType elemOrder, const LocalIndexType associatedElementIndex, const PhysicalTagType physicalTag)
+\end{lstlisting}
+\end{mybox}
+
+
+\noindent
+Same as standard dune factories, after the creation of a grid a pointer to that grid is returned. It is the duty of the user to delete the grid before the end of program.
+
+\begin{mybox}
+\begin{lstlisting}
+  GridType * createGrid()
+\end{lstlisting}
+\end{mybox}

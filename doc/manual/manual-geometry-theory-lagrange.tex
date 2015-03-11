@@ -1,4 +1,5 @@
 \section{Lagrange Polynomial Interpolation}
+\label{theory-lagrange}
 
 This general theory describes construction of polynomial interpolatory basis for simplex geometries. \textbf{[wiki-lagrange]}. The general idea is to describe the real geometry of the curved entity in global coordinates as a mapping $\vec{p}(\vec{r})$ of its local geometry, which is a basic linear geometry called a reference element. \\
 
@@ -20,6 +21,7 @@ Local simplex geometries can be parameterized using the local coordinate vector 
 \end{itemize}
 
 \subsection{Interpolatory Vertices}
+\label{theory-lagrange-vertices}
 
 \noindent
 In order to define the curvilinear geometry, a set of real geometry points $\vec{p}_i(\vec{r}_i)$ is provided, over which the real geometry is interpolated. By convention, the real geometry is sampled over a rectangular grid over the reference simplex, namely
@@ -35,7 +37,7 @@ It is easy to verify that the above discretization generates the following numbe
 \end{itemize}
 
 \subsection{Interpolatory Polynomials}
-\label{section-interppoly}
+\label{theory-lagrange-polynomials}
 
 \noindent
 It is easy to verify, that the number of interpolatory points above exactly matches the total number of monomials necessary to construct a complete polynomial of order $Ord$ or less. Define the functions $z^{(1,i)}(u)$, $z^{(2,i)}(u,v)$ and $z^{(3,i)}(u,v,w)$ as the set of all monomials of corresponding order, where the first parameter is dimension of the entity, and the 2nd is the polynomial order:

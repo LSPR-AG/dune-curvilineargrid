@@ -1,7 +1,10 @@
 \section{Usage (Curvilinear Grid How-to)}
+\label{usage-howto}
+
 In order to learn the workings of curvilinear grid it is easiest to study the source code of relevant tutorials \index{tutorial} provided inside the curvilinear grid module.
 
 \subsection{Tutorial 1 - Getting started}
+\label{usage-howto-tutorial-gettingstarted}
 
 In this tutorial we will create a Curvilinear Grid by reading it from a GMSH file. This and all other tutorials can be run both in serial and in parallel.
 First we define the grid \\
@@ -49,6 +52,7 @@ Finally, the factory is used to create the grid and return a pointer to it \\
 
 
 \subsection{Tutorial 2 - Traverse}
+\label{usage-howto-tutorial-traverse}
 
 This tutorial repeats the procedure from tutorial 1 to create the grid, after which it iterates over the grid and extracts relevant information from the curvilinear entities. Currently, there is no refinement, so only leaf iterators are available, which are defined the usual Dune way given a codimension $codim$ of the entities\\
 
@@ -82,6 +86,7 @@ The $GeometryType$ and $LocalIndex$ are standard in Dune. $GlobalIndex$ provides
 
 
 \subsection{Tutorial 3 - Visualisation}
+\label{usage-howto-tutorial-visualisation}
 
 Curvilinear VTK writer is a tool capable of writing curvilinear geometries to VTK, VTU and PVTU files. It has the following features
 \begin{itemize}
@@ -139,9 +144,17 @@ The first two would write the output into the specified VTK and VTU files corres
 
 
 \subsection{Tutorial 4 - Recursive Numerical Integration}
+\label{usage-howto-tutorial-integration-recursive}
+
 \subsection{Tutorial 5 - Polynomial Manipulation and Integration}
+\label{usage-howto-tutorial-polynomial}
+
 \subsection{Tutorial 6 - Communication}
+\label{usage-howto-tutorial-communication}
+
+
 \subsection{Tutorial 7 - Point Location - OCTree}
+\label{usage-howto-tutorial-octree}
 
 
 

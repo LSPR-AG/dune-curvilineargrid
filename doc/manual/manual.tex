@@ -307,6 +307,8 @@ may become interesting for the implementation of hybrid finite-element-boundary-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \include{manual-geometry-polynomial}
 
+\section{CurvilinearGeometryHelper}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of Interpolator Class
@@ -331,54 +333,37 @@ may become interesting for the implementation of hybrid finite-element-boundary-
 
 \chapter{Interface - Curvilinear Grid}
 
-\section{Curvilinear Grid}
-
-This section will discuss the new methods available to the curvilinear grid, which extend the dune-grid interface.
-
-\section{Curvilinear GMSH Reader}
-
-This section will precisely discuss the access to the factory and GMSH Reader
-
-\begin{mybox}
-\begin{lstlisting}
-  Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
-\end{lstlisting}
-\end{mybox}
-
-\begin{mybox}
-\begin{lstlisting}
-    Dune::CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper, verbose, processVerbose, writeReaderVTKFile, insertBoundarySegment); 
-\end{lstlisting}
-\end{mybox}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Interface of Curvilinear Grid Factory
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-interface-curvilineargrid}
 
 
-
-\section{Curvilinear VTK Writer}
-
-This section will precisely discuss the VTK writer
-
-\begin{mybox}
-\begin{lstlisting}
-  Dune::CurvilinearVTKWriter<GridType> vtkCurvWriter(verbose, processVerbose, mpihelper);
-\end{lstlisting}
-\end{mybox}
-
-\begin{mybox}
-\begin{lstlisting}
-  std::vector<int> tags  { physicalTag, structType, mpihelper.rank() };
-\end{lstlisting}
-\end{mybox}
-
-\begin{mybox}
-\begin{lstlisting}
-  vtkCurvWriter.template addCurvilinearElement<mydim>(gt, interpVertices, tags, interpOrder, N_DISCRETIZATION_POINTS, interpolate, explode, WRITE_VTK_EDGES, WRITE_VTK_TRIANGLES);
-\end{lstlisting}
-\end{mybox}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Interface of Curvilinear Grid Factory
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-interface-factory}
 
 
-\section{AllCommunicate}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Interface of Curvilinear GMSH Reader
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-interface-curvilineargmshreader}
 
-This section will discuss the templated MPI communication and the nearest neighbor communication.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Interface of Curvilinear VTK Writer
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-interface-vtkwriter}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Interface of AllCommunication 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-interface-allcommunicate}
+
+
+
 
 
 
@@ -418,6 +403,20 @@ This section will discuss the templated MPI communication and the nearest neighb
 \chapter{Implementation Details}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Implementation Details - Curvilinear Element Interpolator
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\include{manual-impl-geometry-interpolation}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Implementation Details - Curvilinear Geometry
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\include{manual-impl-geometry-curvilineargeometry}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation Details - Curvilinear GMSH Reader
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -436,6 +435,9 @@ This section will discuss the templated MPI communication and the nearest neighb
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \include{manual-vtkwriter}
+
+
+
 
 
 

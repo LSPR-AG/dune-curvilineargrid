@@ -105,19 +105,22 @@ int main (int argc , char **argv) {
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
 	typedef Dune::CurvilinearGrid<3, 3, double, isGeometryCached> GridType;
 
+
+	/*
 	{
 		GridType * grid32ord1 = CurvFactory<double, 3, 1>::buildGrid(mpihelper);
 		check_grid(*grid32ord1);
 		delete grid32ord1;
 
 	}
-	/*
+	*/
+
 	{
 		GridType * grid32ord2 = CurvFactory<double, 3, 2>::buildGrid(mpihelper);
 		check_grid(*grid32ord2);
 		delete grid32ord2;
 	}
-
+	/*
 	{
 		GridType * grid32ord3 = CurvFactory<double, 3, 3>::buildGrid(mpihelper);
 		check_grid(*grid32ord3);

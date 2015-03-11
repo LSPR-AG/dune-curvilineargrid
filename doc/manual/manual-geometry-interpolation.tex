@@ -1,35 +1,55 @@
 \section{Polynomial Interpolator Class}
+\label{interface-interpolator}
 
-\subsection{Methods}
+The interpolator class is designed to provide the mapping from local coordinates of a reference entity to its global coordinates. This mapping is constructed via Lagrange polynomials as given in section \ref{theory-lagrange}. Construction requires reference element/GeometryType, interpolatory vertex vector and interpolation order.  The correct order of interpolatory vertices is discussed in \ref{impl-gmsh-numbering-convention}. \\
 
-\begin{itemize}
-	\item \uline{Initialization:} Requires reference element/GeometryType, interpolatory vertex vector and interpolation order
-	\item \uline{dofPerOrder:} Number of interpolatory vertices required for a given element type, dimension and interpolation order. For a simplex this quantity is
-	\[ {DoF}_{dim}^{ord} = \{ \{ 2,3,4,5,6 \}, \{ 3,6,10,15,21 \}, \{ 4,10,20,35,56 \} \} \]
-	\item \uline{cornerID:} The id number of a corner in the interpolatory vertex vector. For the simplices is calculated as follows:
-		\subitem -for edge $\{ 0, \; ord \}$
-		\subitem -for triangle $\{0, \; ord, \; {DoF}_{dim}^{ord} - 1\}$
-		\subitem -for tetrahedron $\{0, \; ord, \; ord (ord + 3) / 2, \; {DoF}_{dim}^{ord} - 1\}$
-	\item \uline{simplexGrid:} These 3 methods implement the functionality discussed in section \ref{subsection-simplexgrid}. They return a vector of indices which the grid points take in the d-dimensional matrix, and that vector divided by the interpolation order, which is exactly the local coordinates of the reference simplex grid.
-	\item \uline{lagrangePolynomial:} Evaluates the i-th Lagrange Polynomial $L_i(\vec{r})$ for a given $i$ and a given local coordinate. Lagrange polynomials in this case are given explicitly for all orders to accellerate computation.
-	\item \uline{realCoordinate:} Evaluates the global coordinate given a local coordinate. Computes the scalar product $\vec{p}(\vec{r}) = \sum_i \vec{p}_i L_i (\vec{r})$.
-	\item \uline{interpolatoryVectorAnalytical:} Produces an analytical map from local to global coordinates in terms of polynomial vector.
-		\subitem 0) Constructs local grid points $\vec{r}_i$ as given in \ref{subsection-simplexgrid}.		
-		\subitem 1) Constructs monomial basis $\vec{z}^{ord}(\vec{r})$ as given in the beginning of section \ref{section-interppoly}
-		\subitem 2) Evaluates all monomials $\vec{z}^{ord}(\vec{r})$ at all local grid points $\vec{r}_i$, assembling the DynamicMatrix V
-		\subitem 3) Computes all lagrange polynomials using $\vec{L}(\vec{r}) = V^{-1} \vec{z}^{ord}(\vec{r})$
-		\subitem 4) Computes the analytical map $\vec{p}(\vec{r}) = \sum_i \vec{p}_i L_i (\vec{r})$.
-	\item \uline{SubentityInterpolators} Constructs Interpolator classes for each $\dim - 1$ subentity of the given element. Only allowed for elements of dimensions 2 and 3.
-		\subitem - At the moment a rather crude algorithm is employed. To find the vertices corresponding to a given boundary, the order numbers of simplexGrid are written in a $(ord + 1) \times (ord + 1) \times (ord + 1)$ matrix, which is then used to easier locate the indices of the boundary interpolatory points in the vertex vector.
-		\subitem - Certain orientation convention is chosen for the provided sub-entitiy interpolators, to simplify the future calculation of the outwards normals. The convention for edge orientations for a triangle $(012)$ are $(01)$, $(12)$ and $(20)$. The convention for triangle orientations for a tetrahedron $(0123)$ are $(012)$, $(023)$, $(213)$ and $(031)$.
-\end{itemize}
+\begin{mybox}
+\begin{lstlisting}
+  CurvilinearElementInterpolator(const ReferenceElement &refElement, const std::vector<GlobalVector> & point, InterpolatoryOrderType order)
+  CurvilinearElementInterpolator(Dune::GeometryType gt, const std::vector<GlobalVector> & point, InterpolatoryOrderType order)
+\end{lstlisting}
+\end{mybox}
 
-\begin{figure}[hp]
-    \centering
-    \includegraphics[scale=0.5]{doc-pics/pic-subentity-interpolators-method.png}
-    %\caption{Awesome Image}
-    %\label{fig:awesome_image}
-\end{figure}
+\noindent
+The following functions provide basic information about the curvilinear entity: its interpolatory order, geometry type, number of degrees of freedom (aka number of interpolatory vertices), number of corners and vertices, as well extracting the coordinate of a vertex or a corner by its internal index. It is also possible to extract the vector of all interpolatory vertices in one go. Note that interpolatory vertices include corners and internal interpolatory vertices. Corners are the interpolatory vertices that correspond to the corners of the reference entity. \\
+
+\begin{mybox}
+\begin{lstlisting}
+  InterpolatoryOrderType order()
+  Dune::GeometryType type ()
+  int dofPerOrder()
+  GlobalVector vertex(InternalIndexType vertexIndex)
+  std::vector<GlobalVector> vertexSet()
+  int nCorner()
+  GlobalVector corner(InternalIndexType cornerLinearIndex)
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+The most essential part of the interpolator, the local-to-global mapping is available in both explicit and analytical form. In the first method, given a local coordinate, the global coordinate is calculated using the hard-coded Lagrange polynomials to save time. In the second method, the user is provided with an analytical vector of polynomials representing the map, which can afterwards be evaluated for any coordinate, as well as used as a polynomial in further analytical computations. The local-to-global map is given by $\vec{p}(\vec{r}) = \sum_i \vec{p}_i L_i (\vec{r})$ and is further discussed in \ref{theory-lagrange}. \\
+
+\begin{mybox}
+\begin{lstlisting}
+  double lagrangePolynomial(InternalIndexType vertexIndex, const LocalVector &local)
+  PolynomialVector interpolatoryVectorAnalytical()
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+Finally, it is essential for grid functionality to be able to obtain subentity interpolators of this entity. The below method constructs the interpolator class for a subentity given its dimension ($subdim$) and its internal index. The implementation of this method is a little tricky, it is discussed in section 
+\ref{impl-geometry-subentity-interpolator}
+
+\begin{mybox}
+\begin{lstlisting}
+  template<int subdim>
+  CurvilinearElementInterpolator< ctype, subdim, cdim > SubentityInterpolator(InternalIndexType subentityNo)
+\end{lstlisting}
+\end{mybox}
+
+
+
+
+
 
 
 \subsection{Tests}

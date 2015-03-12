@@ -6,14 +6,18 @@ set(TESTS
 	tutorial1gettingstarted
 	tutorial2traversal
 	tutorial3visualisation
+	tutorial3visualisation
+	tutorial4andHalfgausslaw
 )
 
 add_executable(tutorial1gettingstarted tutorial1gettingstarted.cc)
 add_executable(tutorial2traversal tutorial2traversal.cc)
 add_executable(tutorial3visualisation tutorial3visualisation.cc)
+add_executable(tutorial4andHalfgausslaw tutorial4andHalfgausslaw.cc)
 target_link_libraries(tutorial1gettingstarted dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial2traversal dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial3visualisation dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial4andHalfgausslaw dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 
 
 # We do not want want to build the tests during make all,
@@ -31,9 +35,11 @@ if(HAVE_MPI)
     add_dune_mpi_flags(tutorial1gettingstarted)
     add_dune_mpi_flags(tutorial2traversal)
     add_dune_mpi_flags(tutorial3visualisation)
+    add_dune_mpi_flags(tutorial4andHalfgausslaw)
     add_dune_parmetis_flags(tutorial1gettingstarted)
     add_dune_parmetis_flags(tutorial2traversal)
     add_dune_parmetis_flags(tutorial3visualisation)
+    add_dune_parmetis_flags(tutorial4andHalfgausslaw)
 endif(HAVE_MPI)
 
 # Add boost
@@ -41,4 +47,5 @@ if(Boost_FOUND)
    target_link_libraries(tutorial1gettingstarted ${Boost_LIBRARIES})
    target_link_libraries(tutorial2traversal ${Boost_LIBRARIES})
    target_link_libraries(tutorial3visualisation ${Boost_LIBRARIES})
+   target_link_libraries(tutorial4andHalfgausslaw ${Boost_LIBRARIES})
 endif()

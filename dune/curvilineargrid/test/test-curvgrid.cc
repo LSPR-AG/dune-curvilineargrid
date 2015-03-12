@@ -105,8 +105,8 @@ int main (int argc , char **argv) {
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
 	typedef Dune::CurvilinearGrid<3, 3, double, isGeometryCached> GridType;
 
-
 	/*
+
 	{
 		GridType * grid32ord1 = CurvFactory<double, 3, 1>::buildGrid(mpihelper);
 		check_grid(*grid32ord1);
@@ -114,7 +114,6 @@ int main (int argc , char **argv) {
 
 	}
 	*/
-
 	{
 		GridType * grid32ord2 = CurvFactory<double, 3, 2>::buildGrid(mpihelper);
 		check_grid(*grid32ord2);

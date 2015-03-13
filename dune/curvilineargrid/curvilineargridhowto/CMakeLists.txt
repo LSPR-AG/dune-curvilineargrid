@@ -13,11 +13,17 @@ set(TESTS
 add_executable(tutorial1gettingstarted tutorial1gettingstarted.cc)
 add_executable(tutorial2traversal tutorial2traversal.cc)
 add_executable(tutorial3visualisation tutorial3visualisation.cc)
+<<<<<<< HEAD
 add_executable(tutorial4andHalfgausslaw tutorial4andHalfgausslaw.cc)
 target_link_libraries(tutorial1gettingstarted dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial2traversal dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial3visualisation dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial4andHalfgausslaw dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+=======
+target_link_libraries(tutorial1gettingstarted dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
+target_link_libraries(tutorial2traversal dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
+target_link_libraries(tutorial3visualisation dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
+>>>>>>> b545c927b308d6aa8b54ceffef98f88308db1378
 
 
 # We do not want want to build the tests during make all,

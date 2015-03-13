@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8.6)
 project(dune-curvilineargrid CXX)
 
 
+find_package(ParMETIS)
 #find_package(ParMETIS 4.0.3 COMPONENTS system REQUIRED)
 #target_link_libraries(target ${ParMETIS_LIBRARIES})
 

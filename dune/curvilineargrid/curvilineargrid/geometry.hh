@@ -141,8 +141,14 @@ namespace Dune
       ctype integrateAnalyticalDot(const PolynomialVector & PVec)   const { return mapping_.integrateAnalyticalDot(PVec); }
       ctype volume () const  { return mapping_.volume(gridbase_->geometryRelativeTolerance()); }
 
-      JacobianTransposed jacobianTransposed ( const LocalCoordinate &local )                const { return mapping_.jacobianTransposed( local ); }
-      JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local )  const { return mapping_.jacobianInverseTransposed( local ); }
+      JacobianTransposed jacobianTransposed ( const LocalCoordinate &local )                const {
+    	  //if (mydim == 0) { std::cout << "Jacobian transposed called for mydim=0" << std::endl; }
+    	  return mapping_.jacobianTransposed( local );
+      }
+      JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local )  const {
+    	  //if (mydim == 0) { std::cout << "Jacobian inverse transposed called for mydim=0" << std::endl; }
+    	  return mapping_.jacobianInverseTransposed( local );
+      }
 
     private:
 

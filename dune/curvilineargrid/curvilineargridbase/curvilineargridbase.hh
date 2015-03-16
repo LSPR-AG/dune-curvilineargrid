@@ -499,10 +499,10 @@ public:
     {
     	switch(codim)
     	{
-    	case VERTEX_CODIM  : return gridstorage_.point_[localIndex].structuralType;    break;
-    	case EDGE_CODIM    : return gridstorage_.edge_[localIndex].structuralType;     break;
-    	case FACE_CODIM    : return gridstorage_.face_[localIndex].structuralType;     break;
-    	case ELEMENT_CODIM : return gridstorage_.element_[localIndex].structuralType;  break;
+    	case VERTEX_CODIM  : assert(localIndex < gridstorage_.point_.size());    return gridstorage_.point_[localIndex].structuralType;    break;
+    	case EDGE_CODIM    : assert(localIndex < gridstorage_.edge_.size());     return gridstorage_.edge_[localIndex].structuralType;     break;
+    	case FACE_CODIM    : assert(localIndex < gridstorage_.face_.size());     return gridstorage_.face_[localIndex].structuralType;     break;
+    	case ELEMENT_CODIM : assert(localIndex < gridstorage_.element_.size());  return gridstorage_.element_[localIndex].structuralType;  break;
     	default :
     	{
     		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Unexpected subentity codimension=" + std::to_string(codim));
@@ -791,6 +791,7 @@ public:
      * TODO: PBE file allows femaxx to count time. Use alternative in Dune?
      * */
     bool locateCoordinate(const Vertex & globalC, std::vector<int> & containerIndex, std::vector<Vertex> & localC) const {
+    	DUNE_THROW(Dune::IOError, "Using non-initialised OCTree");
 
         // If the point is not even in the process bounding box, then the coordinate is definitely not on this process
         if (isInsideProcessBoundingBoxGracious(globalC))
@@ -1009,6 +1010,7 @@ protected:
 
     EntityStorage pointData(LocalIndexType localIndex) const
     {
+    	assert(localIndex < gridstorage_.point_.size());
     	const VertexStorage & thisPointData =  gridstorage_.point_[localIndex];
 
         EntityStorage thisPoint;
@@ -1024,6 +1026,7 @@ protected:
 
     EntityStorage edgeData(LocalIndexType localIndex) const
     {
+    	assert(localIndex < gridstorage_.edge_.size());
     	const EdgeStorage & thisEdgeData =    gridstorage_.edge_[localIndex];
         const EntityStorage & assocElement =  gridstorage_.element_[thisEdgeData.elementIndex];
 
@@ -1046,7 +1049,9 @@ protected:
 
     EntityStorage faceData(LocalIndexType localIndex) const
     {
+    	assert(localIndex < gridstorage_.face_.size());
     	const FaceStorage & thisFaceData = gridstorage_.face_[localIndex];
+    	assert(thisFaceData.element1Index < gridstorage_.element_.size());
         const EntityStorage & assocElement = gridstorage_.element_[thisFaceData.element1Index];
 
         EntityStorage thisFace;
@@ -1066,7 +1071,10 @@ protected:
         return thisFace;
     }
 
-    EntityStorage elementData(LocalIndexType localIndex) const { return gridstorage_.element_[localIndex]; }
+    EntityStorage elementData(LocalIndexType localIndex) const {
+    	assert(localIndex < gridstorage_.element_.size());
+    	return gridstorage_.element_[localIndex];
+    }
 
 
     // Get curved geometry of an entity
@@ -1076,6 +1084,8 @@ protected:
     typename Codim<codim>::EntityGeometry
     entityGeometryConstructor(EntityStorage thisData) const
     {
+    	assert(thisData.geometryType.dim() == cdim - codim);
+
     	std::cout << "started geom constructor " << thisData.geometryType << " " << thisData.interpOrder << std::endl;
 
         std::vector<Vertex> entityVertices;

@@ -199,6 +199,7 @@ namespace Dune
       // Geometry of the intersection from within the inside element
       LocalGeometry geometryInInside () const  {
     	  if (!geoInInside_)  { generateLocalGeometries(); }
+    	  assert(geoInInside_);
     	  return *geoInInside_;
       }
 
@@ -207,6 +208,7 @@ namespace Dune
       LocalGeometry geometryInOutside () const  {
     	  if (!neighbor())  { DUNE_THROW(Dune::IOError, "Intersection: geometry of non-existing outside entity requested"); }
     	  if (!geoInOutside_)  { generateLocalGeometries(); }
+    	  assert(geoInOutside_);
     	  return *geoInOutside_;
       }
 
@@ -229,11 +231,13 @@ namespace Dune
 
         //std::cout << "finished geometry" << std::endl;
 
+        assert(geo_);
         return Geometry( *geo_ );
       }
 
       GeometryType type () const {
     	  if (!geo_)  { geometry(); }
+    	  assert(geo_);
     	  return geo_->type();
       }
 
@@ -348,6 +352,9 @@ namespace Dune
       // [TODO] Currently assumes same geometry type on both sides
       void generateLocalGeometries() const
       {
+    	  assert(!geoInInside_);
+    	  assert(!geoInOutside_);
+
     	  //std::cout << "Intersection: started generating local geometries" << std::endl;
 
     	  Dune::GeometryType elemGT = insideGeo_.type();

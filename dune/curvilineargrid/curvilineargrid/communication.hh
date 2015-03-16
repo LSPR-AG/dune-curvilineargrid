@@ -3,6 +3,7 @@
 #ifndef DUNE_CURVGRID_COMMUNICATION_HH
 #define DUNE_CURVGRID_COMMUNICATION_HH
 
+#include <queue>
 #include <dune/curvilineargrid/utility/allcommunication.hh>
 #include <dune/curvilineargrid/curvilineargrid/entity.hh>
 
@@ -19,18 +20,21 @@ namespace Dune
     class CurvilinearMessageBuffer
     {
     public:
-    	CurvilinearMessageBuffer()  { readpos_ = 0; }
+    	CurvilinearMessageBuffer()  { }
 
     	// Stores data
-        void write(const DataType & val)  { buff_.push_back(val); }
+        void write(const DataType & val)  { buff_.push(val); }
 
         // Retrieves data from storage
-        // if (readpos_ > buff_.size())  { THROW ERROR; }
-        void read(DataType & val)    { val = buff_[readpos_++]; }
+        void read(DataType & val)
+        {
+        	assert(!buff_.empty());    // Should not attempt to read empty buffer
+        	val = buff_.front();       // Retrieve first element of the queue
+        	buff_.pop();               // Remove read element from the queue
+        }
 
     private:
-    	int readpos_;
-    	std::vector<DataType> buff_;
+    	std::queue<DataType> buff_;
     };
 
 
@@ -98,6 +102,8 @@ namespace Dune
     	template<class DataHandle, class Data, int codim>
     	void communicate(CommDataHandleIF< DataHandle, Data> & datahandle, InterfaceType iftype, CommunicationDirection dir) const
     	{
+    		std::cout << "started communication for codim " << codim << std::endl;
+
     		// Communication protocol ProcessBoundary -> ProcessBoundary
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_ProcessBoundary))
     		{
@@ -111,6 +117,8 @@ namespace Dune
     		// Communication protocol ProcessBoundary -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_Ghost))
     		{
+    			std::cout << " *** started pb-pb communication" << std::endl;
+
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, ProcessBoundaryType),
@@ -204,6 +212,7 @@ namespace Dune
 
     		Dune::CurvGrid::AllCommunication allcommunicate(mpihelper_);
 
+    		// [FIXME] May have error due to non-refreshing buffer
     		CurvilinearMessageBuffer<DataType> gathermessagebuffer;
     		CurvilinearMessageBuffer<DataType> scattermessagebuffer;
 
@@ -329,7 +338,10 @@ namespace Dune
     			// Get Entity
     			GlobalIndexType thisEntityGlobalIndex = globalIndexRecv[i];
     			LocalIndexType thisEntityLocalIndex;
-    			if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex))  {  /* THROW ERROR */ }
+    			if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex))  {
+    				std::cout << " Communication: Local index of received entity with global index " << thisEntityGlobalIndex << " not found" << std::endl;
+    				DUNE_THROW( GridError, " Communication: Local index of received entity with global index " << thisEntityGlobalIndex << " not found" );
+    			}
 
     			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
     			Entity thisEntity = Entity(EntityImpl(thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition));

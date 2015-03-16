@@ -652,24 +652,30 @@ namespace Dune
         //for (int i = 0; i < baseElementVector.size(); i++) { std::cout << baseElementVector[i].elementIndex_ << " "; }
         //std::cout << std::endl;
 
+        if (size_ > 1)
+        {
 #if HAVE_MPI
-        // Partition the elements
-        // Communicate the partitioning
-        // Fill the element set
-        // *************************************************************
-    	std::vector<unsigned> part(baseElementVector.size());
-    	partitionCompute(part, baseElementVector);
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Finished computing partition");
+        	// Partition the elements
+        	// Communicate the partitioning
+        	// Fill the element set
+        	// *************************************************************
+        	std::vector<unsigned> part(baseElementVector.size(), 0);
+    		partitionCompute(part, baseElementVector);
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Finished computing partition");
 
-    	partitionCommunicate(part, baseElementVector, thisProcessElementIndexSet);
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Finished communicating partition");
+    		partitionCommunicate(part, baseElementVector, thisProcessElementIndexSet);
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " Finished communicating partition");
 
-    	std::vector<int> test2 (thisProcessElementIndexSet.begin(), thisProcessElementIndexSet.end());
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " elements after partition: " + Dune::VectorHelper::vector2string(test2));
-#else
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "No MPI found! Running sequential case without partitioning");
-    	for (int i = 0; i < baseElementVector.size(); i++) { thisProcessElementIndexSet.insert(baseElementVector[i].elementIndex_); }
+        	std::vector<int> test2 (thisProcessElementIndexSet.begin(), thisProcessElementIndexSet.end());
+        	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " elements after partition: " + Dune::VectorHelper::vector2string(test2));
 #endif
+        } else
+        {
+        	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "No MPI found! Running sequential case without partitioning");
+        	for (int i = 0; i < baseElementVector.size(); i++) { thisProcessElementIndexSet.insert(baseElementVector[i].elementIndex_); }
+        }
+
+
         // Finish reading file
         // *************************************************************
         fscanf(file, "%s\n", buf_);

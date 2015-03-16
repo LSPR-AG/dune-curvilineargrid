@@ -156,8 +156,7 @@ public: /* public methods */
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
 
-        std::string log_string = "Initialized CurvilinearGridConstructor withGhostElements=" + std::to_string(gridstorage.withGhostElements_);
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "Initialized CurvilinearGridConstructor");
     }
 
 

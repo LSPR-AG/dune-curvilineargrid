@@ -323,7 +323,7 @@ public:
 
     ~CurvilinearGridStorage()
     {
-    	delete octree_;
+    	if (octree_) { delete octree_; }
     }
 
 };

@@ -42,6 +42,7 @@
 \DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
 \DeclarePairedDelimiter{\floor}{\lfloor}{\rfloor}
 
+
 % Rounded boxes functionality
 \usepackage[framemethod=tikz]{mdframed}
 \definecolor{mycolor}{rgb}{0.122, 0.435, 0.698}
@@ -348,6 +349,7 @@ may become interesting for the implementation of hybrid finite-element-boundary-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \include{manual-interface-curvilineargrid}
 
+\section{Curvilinear Grid Base Implementation}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Interface of Curvilinear Grid Factory
@@ -398,6 +400,10 @@ may become interesting for the implementation of hybrid finite-element-boundary-
 \include{manual-geometry-theory-integration}
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Theory for point location (OCTree)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-octree}
 
 
 
@@ -408,13 +414,6 @@ may become interesting for the implementation of hybrid finite-element-boundary-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation Details - Curvilinear Element Interpolator
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\include{manual-impl-geometry-interpolation}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Implementation Details - Curvilinear Geometry
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \include{manual-impl-geometry-curvilineargeometry}
@@ -432,12 +431,6 @@ may become interesting for the implementation of hybrid finite-element-boundary-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \include{manual-constructor}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Theory for point location (OCTree)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-octree}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

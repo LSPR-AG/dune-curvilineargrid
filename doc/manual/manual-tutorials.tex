@@ -143,8 +143,93 @@ The first two would write the output into the specified VTK and VTU files corres
 
 
 
-\subsection{Tutorial 4 - Recursive Numerical Integration}
-\label{usage-howto-tutorial-integration-recursive}
+\subsection{Tutorial 4 - Quadrature Integration Tutorial}
+\label{usage-howto-tutorial-integration-quadrature}
+
+Here we demonstrate a way to integrate a function over the boundary of the domain. In this example we are going to check Gauss law by computing the surface integral of the electric field of a unit point charge across the domain boundary of the mesh enclosing that charge. The tutorial will demonstrate that changing the curvature of the domain boundary does not affect the result. \\
+
+\noindent
+We would like to compute the integral
+\[\int_{\delta \Omega} \vec{E}(\vec{x}) \cdot d\vec{S} = \int_{\delta \Omega} \vec{E}(\vec{x}(\vec{u})) \cdot \vec{n}(\vec{u}) \Delta J(\vec{u}) d^2 u \]
+\noindent
+where $\vec{x}$ is the global coordinate, $\vec{u}$ is the coordinate local to the surface finite element, $\vec{E}(\vec{x}) = |\vec{x}|^{-2} \vec{e}_r$ is the electric field of a unit charge located at the origin of global coordinates, $\vec{n}(\vec{u})$ is the surface outer normal in global coordinates as function of local coordinate and $\Delta J(\vec{u}) = \sqrt{\det [ J^T(\vec{u}) J(\vec{u}) ]}$ is the generalized integration element which comes from conversion of the integral from global to local coordinates. \\
+
+\noindent
+Below we present a functor which calculates the integrand for the above integral for a given boundary face. We initialize it with the intersection class, as it contains all the necessary information to perform the calculation. The function $ChargeField(x)$ calculates $\vec{E}(\vec{x})$. The important is the $operator()(x)$, which calculates the integrand. Given a local coordinate, it first finds integration outer normal at that point, which is equivalent to $\vec{n}(\vec{u}) \Delta J(\vec{u})$. Then it calculates the associated global coordinate and the field at that global coordinate. Finally, it returns the scalar product between the integration normal and the field \\
+
+
+\begin{mybox}
+\begin{lstlisting}
+  template<class Grid, int mydim>
+  struct GaussFunctor
+  {
+    typedef Dune::FieldVector<double, mydim>  LocalCoordinate;
+    typedef typename Grid::Traits::LeafIntersection               Intersection;
+
+    Intersection I_;
+
+    GaussFunctor(const Intersection & I) : I_(I)  {}
+
+    static GlobalCoordinate ChargeField(const GlobalCoordinate & x)
+    {
+      GlobalCoordinate rez = x;
+      rez /= pow(x.two_norm2(), 1.5);
+      return rez;
+    }
+
+    double operator()(const LocalCoordinate & x) const
+    {
+      GlobalCoordinate integrnormal = I_.integrationOuterNormal(x);
+      GlobalCoordinate global = I_.geometry().global(x);
+      GlobalCoordinate field = ChargeField(global);
+
+      double rez = 0;
+      for (int i = 0; i < 3; i++) { rez += integrnormal[i] * field[i]; }
+      return rez;
+    }
+  };
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+Now, in order to calculate the Gauss law integral, the above functor needs to be calculated for all domain boundary segments and integrated over the reference element (reference triangle for simplex meshes). Thus, the code iterates over all elements of the mesh, then over all intersections, then constructs the above functor using each intersection that does not have a neighbour, and integrates it over the reference element using the gradually approximating quadrature as given in \ref{interface-integrator-quadrature}. \\
+
+\begin{mybox}
+\begin{lstlisting}
+  double gaussintegral = 0.0;
+  double rel_tol = 1.0e-5;
+
+  LeafGridView leafView = grid.leafGridView();
+  EntityLeafIterator ibegin = leafView.template begin<0>();
+  EntityLeafIterator iend   = leafView.template end<0>();
+
+  for (EntityLeafIterator it = ibegin; it != iend; ++it)
+  {
+    const Entity &entity = *it;
+    const IntersectionIterator nend = leafView.iend(entity);
+    for( IntersectionIterator nit = leafView.ibegin(entity); nit != nend; ++nit )
+    {
+      const Intersection &intersection = *nit;
+
+      if (!intersection.neighbor())
+      {
+        Dune::GeometryType gt = intersection.type();
+        GaussFunctor<GridType, 2> f(intersection);
+        Dune::QuadratureIntegrator<double, 2> qInt;
+        double thisIntegral = qInt.integrateRecursive(gt, f, rel_tol).second;
+        gaussintegral += thisIntegral;
+      }
+    }
+  }
+\end{lstlisting}
+\end{mybox}
+
+
+
+
+
+%\subsection{Tutorial 4 - Recursive Numerical Integration}
+%\label{usage-howto-tutorial-integration-recursive}
 
 \subsection{Tutorial 5 - Polynomial Manipulation and Integration}
 \label{usage-howto-tutorial-polynomial}

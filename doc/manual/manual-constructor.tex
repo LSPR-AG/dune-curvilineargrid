@@ -1,4 +1,222 @@
 \section{Implementation Details - Grid Constructor}
+\label{impl-grid-constructor}
+
+
+
+The Curvilinear Grid is constructed using \lstinline|Dune::CurvilinearGridConstructor|, which is wrapped by
+\lstinline|CurvilinearGridFactory| $\rightarrow$
+\lstinline|CurvilinearGrid| $\rightarrow$
+\lstinline|CurvilinearGridBase| $\rightarrow$ \\
+\noindent
+\lstinline|CurvilinearGridConstructor|. The grid is constructed by first inserting all the vertices, elements and boundary segments, and then calling \lstinline|generateMesh()| as given in \ref{interface-grid-factory}. \\
+
+\noindent
+Afterwards, the construction of the grid goes according to following plan
+\begin{itemize}
+	\item Construction of entities - internal, process boundary and domain boundary edges and faces.
+	\item Construction of the global index
+	\item Construction of Ghost elements
+	\item Construction of Iteration sets
+	\item Construction of communication maps
+	\item Construction of OCTree for hierarchical element location	
+\end{itemize}
+
+
+\subsection{Storage}
+
+\noindent
+The fundamental idea of the curvilinear grid is to store all of the information about the grid in a single class, namely \lstinline|CurvilinearGridStorage|. The following information is stored:
+
+\begin{itemize}
+	\item Number of entities over all processes, for each codim:  \lstinline|int nEntityTotal_[4]|
+	\item Information about each entity stored in a vector, eg  \lstinline|std::vector<VertexStorage> point_;|. The index of the vector is the local index of the entity. Only elements store the indices of the corresponding interpolatory vertices, faces and edges do not. Instead, they store the index of the element they are the subentity of, and thus the corresponding vertices are extracted from the element when needed.
+
+\begin{mybox}
+\begin{lstlisting}
+  Storage structures here
+\end{lstlisting}
+\end{mybox}	
+	
+	\item A vector of local indices of subentities of an element, as indexed by the local index of the element. Subentities are stored in the order corresponding to the way they are indexed in the \lstinline|Dune::ReferenceElement|
+	
+\begin{mybox}
+\begin{lstlisting}
+  std::vector< std::vector<LocalIndexType> > elementSubentityCodim1_;
+  std::vector< std::vector<LocalIndexType> > elementSubentityCodim2_;	
+\end{lstlisting}
+\end{mybox}
+
+	\item Local to global mapping is stored in a single map for all entities of each codimension.
+	
+\begin{mybox}
+\begin{lstlisting}
+  Global2LocalMap entityIndexMap_[4];
+\end{lstlisting}
+\end{mybox}
+
+    \item For the purposes of iterating over certain entity types without having to iterate over all entities of a given codim, the below local index sets are stored:
+        \subitem - All entities of a given codimension
+        \subitem - Internal entities of a given codimension
+        \subitem - Process boundary entities of a given codimension
+        \subitem - Domain boundary entities of a given codimension
+        \subitem - Ghost entities of a given codimension
+        
+        \subitem - Interior entities of a given codimension (As given in Dune - internal + domain boundaries)
+        \subitem - Interior Border entities of a given codimension (As given in Dune - internal + domain boundaries + process boundaries)
+        
+\begin{mybox}
+\begin{lstlisting}
+  LocalIndexSet  entityAllIndexSet_[4];
+  LocalIndexSet  entityInternalIndexSet_[4];
+  LocalIndexSet  entityProcessBoundaryIndexSet_[4];
+  LocalIndexSet  entityDomainBoundaryIndexSet_[4];
+  LocalIndexSet  entityGhostIndexSet_[4];
+    
+  LocalIndexSet  entityDuneInteriorIndexSet_[4];
+  LocalIndexSet  entityDuneInteriorBorderIndexSet_[4];
+\end{lstlisting}
+\end{mybox}
+
+    \item For communication purposes, all entities that can communicate to other processes require their own local index. The below maps allow finding the associated special local index of the entity given its usual index:
+        \subitem - boundary segments (faces only)
+        \subitem - process boundary entities of all codimensions except 0, 
+        \subitem - boundary internal entities of all codimensions (internal and domain boundary entities that neighbour the process boundaries )
+        \subitem - ghost entities of all codimensions
+        
+\begin{mybox}
+\begin{lstlisting}
+    Local2LocalMap  boundarySegmentIndexMap_;
+    Local2LocalMap  processBoundaryIndexMap_[4];
+    Local2LocalMap  boundaryInternalEntityIndexMap_[4];
+    Local2LocalMap  ghostIndexMap_[4];
+\end{lstlisting}
+\end{mybox}
+
+
+    \item For communication purposes, all communicating entities need to store a vector of process ranks among which these entities are shared. These are further partitioned into possible communication protocols:
+        \subitem - rocess Boundary $\rightarrow$ Process Boundary
+        \subitem - Process Boundary $\rightarrow$ Ghost
+        \subitem - Interior $\rightarrow$ Ghost
+        \subitem - Ghost $\rightarrow$ Interior Border
+        \subitem - Ghost $\rightarrow$ Ghost        
+
+\begin{mybox}
+\begin{lstlisting}
+    EntityNeighborRankVector BI2GNeighborRank_[4];
+    EntityNeighborRankVector PB2PBNeighborRank_[4];
+    EntityNeighborRankVector PB2GNeighborRank_[4];
+    EntityNeighborRankVector G2BIPBNeighborRank_[4];
+    EntityNeighborRankVector G2GNeighborRank_[4];
+\end{lstlisting}
+\end{mybox}
+
+
+
+\end{itemize}
+
+
+\subsection{Entity construction}
+\label{impl-grid-constructor-entity}
+
+Entities are constructed in the following order
+\begin{itemize}
+	\item Insertion of vertices, elements and boundary segments by user. All inserted vertices and elements are marked as Internal. Boundary segments are marked as faces with StructuralType = DomainBoundary.
+	\item Generation of edges as subentities of elements
+	\item Generation of faces as subentities of elements. Faces with one neighbour become ProcessBoundaries, with two Internal.
+	\item Vertices and edges that are subentities of Domain and Process Boundary faces are marked with same StructuralType.
+	\item Generate unique local index for all Process Boundaries of each codim, to be further used for communication
+\end{itemize}
+
+Main ideas
+\begin{itemize}
+	\item All edges and faces store index of one parent element, as well as their internal index inside that element.
+	\item Each element stores a list of local indices of all its subentity edges and faces in the order, given by Dune::ReferenceElement.
+	\item Each element stores a list of local indices of all its interpolatory vertices as given in \ref{impl-gmsh-numbering-convention}
+	\item Edges and faces do not store indices of associated vertices to save space. This information is obtained through parent element.
+	\item All interpolatory vertices are considered subentities of corresponding elements, faces and edges. However, only entity corners possess unique process boundary index.
+	\item For internal construction and interprocessor communication purposes, all entities are identified by associated keys. A key of an entity is a vector of global indices of all consisting corners, sorted in ascending order. Since the vertex global index is supplied by the user (GMSH), such keys are available for all entities at the beginning of grid construction.
+\end{itemize}
+
+
+
 \subsection{Global index construction}
+\label{impl-grid-constructor-globalindex}
+
+\noindent
+The challenge in computing the global index comes from the fact that originally each process does not have any information about other processes, most importantly that it does not know its neighbours. Therefore, this necessary information is also computed. The algorithm is as follows
+
+\begin{enumerate}
+	\item Communicate neighbour ranks associated with each process boundary corner. Currently, all processes communicate all their process boundary corner global indices to all other processes. Thus, from the received global indices, each process can deduce all other processes sharing each of its corners. This algorithm is inefficient and does not scale with high process number. The ultimate hope would be to find this information only through nearest neighbour communication, however, the algorithm is not obvious. The reason to expect that a more optimal algorithm is available is because the following considerations are not used
+	  \subitem - for most process boundary points, there should be exactly 1 neighbor, all other cases are progressively more rare
+	  \subitem - for most process boundary points, the surrounding points are very likely to be shared by the same processes
+	\item Compute (provisional) neighbour ranks of PB edges and faces by intersection of ranks of associated PB corners
+      \subitem - Sometimes, an entity does not exist on a neighbouring process, even though all associated PB corners are present. This only happens if the (provisional) number of neighbors is larger than 1 (complicated PB entity), because each PB entity must have at least 1 neighbour.
+       \subitem - For each complicated PB entity (edge/face), communicate EdgeKeys and FaceKeys to all provisional neighbours
+       \subitem - For each received key, reply to sender if such entity exists on this process or not
+       \subitem - Remove neighbour ranks mapping to non-existing entities
+    \item Find ownership of each edge and face. A shared entity is owned by the process with lowest rank
+    \item Communicate number of edges and faces owned by each process to all
+    \item Locally enumerate all edges, faces and elements owned by this process. That is, to assign them a global index
+       \subitem - Global index for edges starts at nVertexTotal+nEdgesOwnedBeforeMe.
+       \subitem - Global index for faces starts at nVertexTotal+nEdgeTotal+nFacesOwnedBeforeMe.
+       \subitem - Global index for elements starts at nVertexTotal+nEdgesTotal+nFacesTotal+nElementsOwnedBeforeMe. Note that each process owns all its elements since they are not shared.
+    \item Communicate globalIndices of entities owned by this process to all other processes sharing it.
+       \subitem - By analysing entity neighbours, each process can compute how many how many global indices it needs to send and to receive to each other process
+       \subitem - Each process sends to each neighbour the shared entity global indices enumerated by this process and receives those enumerated by the neighbour process
+    \item Fill in Global2Local maps. They are required for user functionality and for construction of GhostElements
+
+	
+\end{enumerate}
+
+     * [TODO] MinRank-Ownership paradigm non-uniform. If ever becomes bottleneck, replace by XORRank-Ownership
+
+
+
+
+
+
+
+
 \subsection{Ghost element construction}
+\label{impl-grid-constructor-ghost}
+
+
 \subsection{Communication interface construction}
+\label{impl-grid-constructor-comm}
+
+
+\subsection{Iteration set construction}
+\label{impl-grid-constructor-iterator}
+
+
+\subsection{OCTree construction}
+\label{impl-grid-constructor-octree}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

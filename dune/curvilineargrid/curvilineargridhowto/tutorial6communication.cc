@@ -112,8 +112,15 @@ public:
   template<class MessageBuffer, class EntityType>
   void gather (MessageBuffer& buff, const EntityType& e) const
   {
-  	DataIter iter = in_.find(indexset_.index(e));
-  	assert(iter != in_.end());
+	IndexType ind = indexset_.index(e);
+	DataIter iter = in_.find(ind);
+
+    if (iter == in_.end())
+    {
+    	std::cout << " Error: DataHandleConstant: sending data from unexpected entity index=" << ind << std::endl;
+    	DUNE_THROW( Dune::GridError, " DataHandleConst: sending data from entity that is not supposed to communicate" );
+    }
+
   	buff.write((*iter).second);
   }
 
@@ -127,12 +134,11 @@ public:
 	IndexType ind = indexset_.index(e);
     DataIter iter = out_.find(ind);
 
-    if (iter != out_.end())
+    if (iter == out_.end())
     {
     	std::cout << " Error: DataHandleConstant: received data from entity index=" << ind << " which was not found" << std::endl;
-    	assert(iter != out_.end());
+    	DUNE_THROW( Dune::GridError, " DataHandleConst: received data from entity not present on this process" );
     }
-
 
     ValueType x;
     buff.read(x);
@@ -150,7 +156,7 @@ private:
 };
 
 
-// [FIXME] Check if the entity has neighbor of that comm type before adding it
+// [FIXME] Check if the entity has neighbour of that comm type before adding it
 template<class IndexType, class GridType>
 bool checkSend(int codim, IndexType ind, Dune::InterfaceType iftype, Dune::CommunicationDirection dir, GridType & grid)
 {
@@ -173,8 +179,8 @@ bool checkSend(int codim, IndexType ind, Dune::InterfaceType iftype, Dune::Commu
   case Dune::InterfaceType::InteriorBorder_InteriorBorder_Interface  :  return entityType == ProcessBoundaryType;  break;
   case Dune::InterfaceType::InteriorBorder_All_Interface  :
   {
-	if (dir == Dune::CommunicationDirection::ForwardCommunication)  { return (entityType == InternalType) || (entityType == GhostType); }
-	else                                                            { return (entityType == ProcessBoundaryType) || (entityType == InternalType) || (entityType == GhostType); }
+	if (dir == Dune::CommunicationDirection::ForwardCommunication)  { return (entityType == InternalType) || (entityType == ProcessBoundaryType); }
+	else                                                            { return (entityType == ProcessBoundaryType) || (entityType == GhostType); }
   } break;
   default :  DUNE_THROW( Dune::IOError, "Attempt to use illegal comm protocol" ); break;
   }
@@ -189,6 +195,9 @@ bool checkRecv(int codim, IndexType ind, Dune::InterfaceType iftype, Dune::Commu
 }
 
 
+/* This class runs simple grid communication of selected codim and interface
+ * It then checks that exactly the entities that were supposed to participate in the communication participated in it
+ *   */
 template<class GridType, int codim>
 void communicateConst(Dune::InterfaceType iftype, Dune::CommunicationDirection dir, Dune::MPIHelper & mpihelper, GridType & grid)
 {
@@ -223,11 +232,9 @@ void communicateConst(Dune::InterfaceType iftype, Dune::CommunicationDirection d
 	  {
 		// Get entities that participate in comm - thus assemble in and out maps
 		IndexType ind = indset.index(*it);
-
-		//std::cout << "checking index="<< ind << std::endl;
-
-		if (checkSend(codim, ind, iftype, dir, grid))  { in[ind] = TMP; }
-		if (checkRecv(codim, ind, iftype, dir, grid))  { out[ind] = 0; }
+		//std::cout << "--- checking entity index=" << ind << " of type " << grid.gridbase().entityStructuralType(codim, ind) << std::endl;
+		if (checkSend(codim, ind, iftype, dir, grid))  { in[ind] = TMP; }// std::cout << "-----mark send" << std::endl; }
+		if (checkRecv(codim, ind, iftype, dir, grid))  { out[ind] = 0;  }// std::cout << "-----mark recv" << std::endl; }
 	  }
 	  int recvSize = out.size();
 
@@ -278,13 +285,30 @@ int main (int argc , char **argv) {
 	// Create Grid
 	GridType * grid = createGrid<GridType>(mpihelper);
 
-	// Traverse all entities of the grid and write information about each entity
-	Dune::InterfaceType thisiftype = Dune::InterfaceType::InteriorBorder_InteriorBorder_Interface;
-	Dune::CommunicationDirection thisdir = Dune::CommunicationDirection::ForwardCommunication;
-	communicateConst<GridType, 0>(thisiftype, thisdir, mpihelper, *grid);  // Elements
-	communicateConst<GridType, 1>(thisiftype, thisdir, mpihelper, *grid);  // Faces
-	communicateConst<GridType, 2>(thisiftype, thisdir, mpihelper, *grid);  // Edges
-	communicateConst<GridType, 3>(thisiftype, thisdir, mpihelper, *grid);  // Vertices
+	// Construct all interfaces we are interested to test
+	// That is, IB->IB, IB->ALL, ALL->IB and ALL->ALL
+	Dune::InterfaceType interfType[4] {
+		Dune::InterfaceType::InteriorBorder_InteriorBorder_Interface,
+		Dune::InterfaceType::InteriorBorder_All_Interface,
+		Dune::InterfaceType::InteriorBorder_All_Interface,
+		Dune::InterfaceType::All_All_Interface
+	};
+
+	Dune::CommunicationDirection interfDir[4] {
+		Dune::CommunicationDirection::ForwardCommunication,
+		Dune::CommunicationDirection::ForwardCommunication,
+		Dune::CommunicationDirection::BackwardCommunication,
+		Dune::CommunicationDirection::ForwardCommunication
+	};
+
+	// For each interface and codimension, perform simple communication test given by communicateConst
+	for (int i = 0; i < 4; i++)
+	{
+		communicateConst<GridType, 0>(interfType[i], interfDir[i], mpihelper, *grid);  // Elements
+		communicateConst<GridType, 1>(interfType[i], interfDir[i], mpihelper, *grid);  // Faces
+		communicateConst<GridType, 2>(interfType[i], interfDir[i], mpihelper, *grid);  // Edges
+		communicateConst<GridType, 3>(interfType[i], interfDir[i], mpihelper, *grid);  // Vertices
+	}
 
 
     // Delete the grid

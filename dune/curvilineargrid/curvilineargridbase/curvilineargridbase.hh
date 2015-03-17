@@ -377,6 +377,11 @@ public:
     // Retrieves the geometry tolerance
     double geometryRelativeTolerance() const            { return gridstorage_.GEOMETRY_TOLERANCE; }
 
+    bool verbose() const  { return verbose_; }
+
+    bool processVerbose() const  { return processVerbose_; }
+
+
 
 
     /****************************************************************************

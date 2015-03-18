@@ -758,7 +758,7 @@ public:
     typename Codim<codim>::EntityGeometry
     entityGeometry(LocalIndexType localIndex) const
     {
-    	std::cout << "attempting to create a codim " << codim << " entity with localIndex=" << localIndex << std::endl;
+    	//std::cout << "attempting to create a codim " << codim << " entity with localIndex=" << localIndex << std::endl;
     	return entityGeometryConstructor<codim>(entityData(codim, localIndex));
     }
 
@@ -1091,7 +1091,7 @@ protected:
     {
     	assert(thisData.geometryType.dim() == cdim - codim);
 
-    	std::cout << "started geom constructor " << thisData.geometryType << " " << thisData.interpOrder << std::endl;
+    	//std::cout << "started geom constructor " << thisData.geometryType << " " << thisData.interpOrder << std::endl;
 
         std::vector<Vertex> entityVertices;
         for (int i = 0; i < thisData.vertexIndexSet.size(); i++) { entityVertices.push_back(gridstorage_.point_[thisData.vertexIndexSet[i]].coord); }

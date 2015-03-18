@@ -180,7 +180,7 @@ namespace Dune
     			else                                    { return "ALL->IB"; }
     		}
     		else if (iftype == Dune::All_All_Interface)  { return "ALL->ALL"; }
-    		else                                         { DUNE_THROW( GridError, " Communication: Unexpected interface" ); }
+    		else                                         { return "(unknown interface)"; }
     	}
 
     protected:

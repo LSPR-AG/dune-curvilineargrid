@@ -146,20 +146,16 @@ Main ideas
 The challenge in computing the global index comes from the fact that originally each process does not have any information about other processes, most importantly that it does not know its neighbours. Therefore, this necessary information is also computed. The algorithm is as follows
 
 \begin{enumerate}
-	\item Communicate neighbour ranks associated with each process boundary corner. Currently, all processes communicate all their process boundary corner global indices to all other processes. Thus, from the received global indices, each process can deduce all other processes sharing each of its corners. This algorithm is inefficient and does not scale with high process number. The ultimate hope would be to find this information only through nearest neighbour communication, however, the algorithm is not obvious. The reason to expect that a more optimal algorithm is available is because the following considerations are not used
-	  \subitem - for most process boundary points, there should be exactly 1 neighbor, all other cases are progressively more rare
-	  \subitem - for most process boundary points, the surrounding points are very likely to be shared by the same processes
+	\item Communicate neighbour ranks associated with each Process Boundary (PB) corner. Currently, all processes communicate all their process boundary corner global indices to all other processes. Thus, from the received global indices, each process can deduce all other processes sharing each of its corners. This algorithm is inefficient and does not scale with high process number. The ultimate hope would be to find this information only through nearest neighbour communication, however, the algorithm is not obvious. The reason to expect that a more optimal algorithm is available is because the following considerations are not used
+	  \subitem - for most PB points, there should be exactly 1 neighbor, all other cases are progressively more rare
+	  \subitem - for most PB points, the surrounding points are very likely to be shared by the same processes
 	\item Compute (provisional) neighbour ranks of PB edges and faces by intersection of ranks of associated PB corners
       \subitem - Sometimes, an entity does not exist on a neighbouring process, even though all associated PB corners are present. This only happens if the (provisional) number of neighbors is larger than 1 (complicated PB entity), because each PB entity must have at least 1 neighbour.
        \subitem - For each complicated PB entity (edge/face), communicate EdgeKeys and FaceKeys to all provisional neighbours
        \subitem - For each received key, reply to sender if such entity exists on this process or not
        \subitem - Remove neighbour ranks mapping to non-existing entities
-    \item Find ownership of each edge and face. A shared entity is owned by the process with lowest rank
-    \item Communicate number of edges and faces owned by each process to all
-    \item Locally enumerate all edges, faces and elements owned by this process. That is, to assign them a global index
-       \subitem - Global index for edges starts at nVertexTotal+nEdgesOwnedBeforeMe.
-       \subitem - Global index for faces starts at nVertexTotal+nEdgeTotal+nFacesOwnedBeforeMe.
-       \subitem - Global index for elements starts at nVertexTotal+nEdgesTotal+nFacesTotal+nElementsOwnedBeforeMe. Note that each process owns all its elements since they are not shared.
+    \item For each PB edge and face, determine if it is owned by this process. A shared entity is owned by the process with lowest rank. Communicate the number of elements, edges and faces owned by each process to all other processes. Note that each process owns all its elements since they are not shared.
+    \item Locally enumerate all edges, faces and elements owned by this process. Each process starts enumeration of global index of owned entities of a particular codim with the total number of entities of that codim owned by all processes with rank lower than this process. It then enumerates all its owned entities with consecutive integers. 
     \item Communicate globalIndices of entities owned by this process to all other processes sharing it.
        \subitem - By analysing entity neighbours, each process can compute how many how many global indices it needs to send and to receive to each other process
        \subitem - Each process sends to each neighbour the shared entity global indices enumerated by this process and receives those enumerated by the neighbour process
@@ -180,13 +176,98 @@ The challenge in computing the global index comes from the fact that originally 
 \subsection{Ghost element construction}
 \label{impl-grid-constructor-ghost}
 
+\noindent
+Ghost entities are the subentities of the element on the other side of the process boundary face, including the element itself. The process boundary entities are not considered ghost entities. Thus, the ghost entities are the internal/domain boundary entities of another process, borrowed by this process. Construction of ghost entities involves communicating all the information associated with the entities to the neighbouring processes, and then incorporating the ghost elements into the grid on the receiving side. \\
+
+\noindent
+Since for every PB face the neighbouring process rank has already been determined in the previous section, and the global index is already known, there is nothing fundamentally tricky about this part of the grid construction. It is just very tedious. The algorithm is given below:
+
+
+\begin{enumerate}
+	\item Compute number of process boundaries shared with each process, as well as and the exact interpolation orders of Ghost Elements
+		\subitem - Note that a ghost element can have more than 1 process boundary face associated to it, so a set of faces needs to be stored
+		\subitem - Note that for this reason it is not possible to know in advance how many ghosts will be received from a neighbor, so it has to be communicated
+	\item All2AllCommunication - communicate to each process a list of interpolation orders of the Ghost Elements it is going to receive
+	\item All2AllCommunication - Package and send element global index, physical tag, all subentity global indices, all internal indices of PB faces of this element
+	\item Add all ghost elements to the mesh. Calculate which vertices are missing from which processes
+	\item All2AllCommunication - Communicates to each process the number of missing vertices out of the ones it had communicated.
+		\subitem - Communicate the globalIndices's of all missing vertices
+		\subitem - Communicate the vertex coordinates corresponding to received global indices
+	\item Distrubute vertex coordinates and add received coordinates to the mesh	
+\end{enumerate}
+
+\noindent
+Notes: 
+
+\begin{itemize}
+	\item Only supports tetrahedral ghost elements at the moment
+	\item Ghost elements can have different interpolation order 
+\end{itemize}
+
+
+
+
 
 \subsection{Communication interface construction}
 \label{impl-grid-constructor-comm}
 
+Communication implies that all entities would send some information to their copies on other processors. Depending on the communication protocol, only entities of a particular structural type will communicate on the sending and receiving end. In this section we will use shorthands
+\begin{itemize}
+	\item PB - Process boundaries, that is, process boundary faces and their subentities
+	\item I - Internal elements, which neighbour a process boundary, and subentities of such elements, including domain boundaries but excluding the process boundary entities.
+	\item G - Ghost elements and their subentities, excluding process boundaries
+\end{itemize}
+
+\noindent
+The below table presents the communication interfaces used by Dune, and explains how it translates to communication between entities of above specified structural types \\
+
+\noindent
+\begin{tabular}{ | l | l | l | l | l | l | l | l | }
+  \hline
+  Interface & Direction &
+      \lstinline|PB_PB| &
+      \lstinline|PB_G| &
+      \lstinline|I_G| &
+      \lstinline|G_I| &
+      \lstinline|G_PB| &
+      \lstinline|G_G| \\ \hline
+  \lstinline|InteriorBorder_InteriorBorder| & ---      & Y & N & N & N & N & N \\ \hline
+  \lstinline|InteriorBorder_All|            & Forward  & Y & Y & Y & N & N & N \\ \hline
+  \lstinline|InteriorBorder_All|            & Backward & Y & N & N & Y & Y & N \\ \hline
+  \lstinline|All_All|                       & ---      & Y & Y & Y & Y & Y & Y \\ \hline
+\end{tabular} \\
+
+\noindent
+The aim of this constructor is to generate unique index maps for the sets PB, I and G (the set PB already has a unique index map, it will be reused). Then, for every communicating entity, for every possible structural type pair, we require an array of ranks of the processes with which such communication is possible. Note that the map for protocol $PB\rightarrow PB$ already exists, it is constructed in the very beginning of grid construction to enable construction of global indices and ghost elements. The algorithm is as follows
+
+\begin{enumerate}
+	\item Create unique index for sets I and G, by iterating over PB faces and adding corresponding subentities of neighbouring elements. Also, mark the neighbour rank of the associated PB for all I and G entities visited this way, thus enabling the protocols $I \rightarrow G$ and $G \rightarrow I$. Note that entities of all (!!) codimensions can have more than one neighbour rank obtained this way.
+		\subitem - During the marking, may encounter elements with two or more process boundaries from different processes. In that case, for each process boundary entity we mark the rank of the other process boundary, thus providing some information for the future construction of the protocol $PB \rightarrow G$.
+	\item After the above, all entities that can be communicated over should be associated an array of ranks of all other processes over which this entity is shared. What remains is to finish the protocol $PB \rightarrow G$, and calculate the remaining protocols $G \rightarrow I$, $G \rightarrow PB$ and $G \rightarrow G$.
+	\item Iterate over all PB entities
+		\subitem divide provisional $PB \rightarrow G$ set by $PB\rightarrow PB$ set to ensure that the same process has not been added by accident
+		\subitem Mark number of real $PB \rightarrow G$ candidates for each process
+	\item For all PB entities having non-zero $PB \rightarrow G$, communicate G to all neighbouring PB
+	\item For all PB append received G by using union on them - This completes $PB \rightarrow G$ (hopefully)
+	\item For all PB entities having non-zero $PB \rightarrow G$, communicate self to all G of ($PB \rightarrow G$)
+	\item For all G append received PB by using union on them - This completes $G \rightarrow PB$  (hopefully)
+	\item For all PB entities having non-zero $PB \rightarrow G$, communicate to all G all remaining G
+		\subitem Optimization - do this only if you are lowest rank among all PB-neighbors
+		\subitem Further optimization - do this only if you are modulus-rank among all PB-neighbors
+	\item For all G append received G by using union on them - This completes $G \rightarrow G$ (hopefully)	
+\end{enumerate}
+    
+
+
+
+
+
+
 
 \subsection{Iteration set construction}
 \label{impl-grid-constructor-iterator}
+
+Construction of the iterator sets involves simply iterating over all entities, and filling the sets with local indices based on the entity structural type.
 
 
 \subsection{OCTree construction}

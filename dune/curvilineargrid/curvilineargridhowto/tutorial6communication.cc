@@ -195,6 +195,34 @@ bool checkRecv(int codim, IndexType ind, Dune::InterfaceType iftype, Dune::Commu
 }
 
 
+template<class GridType, class DataMap>
+void mark_subentity(
+  const typename GridType::Traits::template Codim< 0 >::Entity & entity,
+  DataMap & in,
+  DataMap & out,
+  int codim,
+  Dune::InterfaceType iftype,
+  Dune::CommunicationDirection dir,
+  GridType & grid,
+  int TMP) const
+{
+	typedef typename GridType::LeafIndexSet   LeafIndexSet;
+	const LeafIndexSet & indset = grid.leafIndexSet();
+	// Get index set
+
+	int nSub = entity.subEntities(codim);
+	for (int i = 0; i < nSub; i++)
+	{
+		// get index
+		auto subentity = entity.template subEntity<codim>(i);
+		int ind = indset.index(subentity);
+
+		if (checkSend(codim, ind, iftype, dir, grid))  { in[ind] = TMP; }
+		if (checkRecv(codim, ind, iftype, dir, grid))  { out[ind] = 0;  }
+	}
+}
+
+
 /* This class runs simple grid communication of selected codim and interface
  * It then checks that exactly the entities that were supposed to participate in the communication participated in it
  *   */
@@ -208,6 +236,8 @@ void communicateConst(Dune::InterfaceType iftype, Dune::CommunicationDirection d
 
 	  typedef typename GridType::LeafGridView   LeafGridView;
 	  typedef typename GridType::LeafIndexSet   LeafIndexSet;
+	  typedef typename LeafGridView::IntersectionIterator IntersectionIterator;
+	  typedef typename IntersectionIterator :: Intersection Intersection;
 
 	  typedef typename LeafIndexSet::IndexType  IndexType;
 	  typedef int                               ValueType;
@@ -230,11 +260,27 @@ void communicateConst(Dune::InterfaceType iftype, Dune::CommunicationDirection d
 	  std::cout << " -- creating send-arrays" << std::endl;
 	  for (EntityLeafIterator it = ibegin; it != iend; ++it)
 	  {
-		// Get entities that participate in comm - thus assemble in and out maps
-		IndexType ind = indset.index(*it);
-		//std::cout << "--- checking entity index=" << ind << " of type " << grid.gridbase().entityStructuralType(codim, ind) << std::endl;
-		if (checkSend(codim, ind, iftype, dir, grid))  { in[ind] = TMP; }// std::cout << "-----mark send" << std::endl; }
-		if (checkRecv(codim, ind, iftype, dir, grid))  { out[ind] = 0;  }// std::cout << "-----mark recv" << std::endl; }
+		typedef typename LeafGridView::template Codim< 0 >::Entity Entity;
+		const Entity &entity = *it;
+
+		std::cout << "-accessing entity " << indset.index(entity) << std::endl;
+
+		bool marked_this = false;
+
+        const IntersectionIterator nend = leafView.iend(entity);
+		for( IntersectionIterator nit = leafView.ibegin(entity); nit != nend; ++nit )
+		{
+		  const Intersection &intersection = *nit;
+		  const Entity & entityOut = *intersection.outside();
+
+		  if (entityOut.partitionType() == Dune::PartitionType::GhostEntity)
+		  {
+			  if (!marked_this)  { mark_subentity(entity,    in, out, codim, iftype, dir, grid, TMP); }
+			  if (withGhosts)    { mark_subentity(entityOut, in, out, codim, iftype, dir, grid, TMP);  }
+
+			  marked_this = true;
+		  }
+		}
 	  }
 	  int recvSize = out.size();
 

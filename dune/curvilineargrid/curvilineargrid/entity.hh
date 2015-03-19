@@ -383,11 +383,7 @@ namespace Dune
   	    LocalIndexType elementLocalIndex = *gridbaseIndexIterator_;
   	    LocalIndexType faceLocalIndex = gridbase_->subentityLocalIndex(elementLocalIndex, ELEMENT_CODIM, FACE_CODIM, firstFaceSubIndex);
 
-  	    IntersectionIteratorImpl iter (elementLocalIndex, firstFaceSubIndex, *gridbase_);
-
-        // Iterator must not point at a Ghost face
-        // If it does, increment it, it will automatically point at the next non-ghost face
-        if (gridbase_->entityStructuralType(FACE_CODIM, faceLocalIndex) == GridStorageType::PartitionType::Ghost)  { iter.increment(); }
+  	    IntersectionIteratorImpl iter (elementLocalIndex, firstFaceSubIndex, *gridbase_, true);
 
         return iter;
     }

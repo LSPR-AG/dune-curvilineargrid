@@ -79,6 +79,31 @@ public:
     }
 
 
+    // Converts an arbitrary vector into string by sticking all of the entries together
+    // Whitespace separated
+	template<typename T>
+    static std::string map2string(const T & M)
+    {
+		typedef typename T::const_iterator  MapIter;
+
+        std::stringstream tmp_stream;
+        tmp_stream << "(";
+
+        int nEntry = M.size();
+        if (nEntry == 0)  { tmp_stream << "Null"; }
+
+        MapIter iterB = M.begin();
+        MapIter iterE = M.end();
+
+        for (MapIter iter = iterB; iter != iterE; iter++) {
+        	if (iter != iterB) { tmp_stream << ", "; }
+        	tmp_stream << "[" << (*iter).first << ";" << (*iter).second << "]";
+        }
+        tmp_stream << ")";
+        return tmp_stream.str();
+    }
+
+
     // Takes two sorted arrays with non-repeating entries
     // Returns an array which only has entries found in both input arrays
 	template<typename T>

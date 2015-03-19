@@ -58,7 +58,8 @@ namespace Dune
 
     private:
 
-      typedef typename Dune::CurvGrid::CurvEntityPointer<ELEMENT_CODIM, Grid>  EntityPointerImpl;
+      typedef typename Dune::CurvGrid::CurvEntity<ELEMENT_CODIM, dimension, Grid>   EntityImpl;
+      typedef typename Dune::CurvGrid::CurvEntityPointer<ELEMENT_CODIM, Grid>       EntityPointerImpl;
 
       typedef typename Traits::template Codim< FACE_CODIM >::GeometryImpl GeometryImpl;
       typedef typename Traits::template Codim< ELEMENT_CODIM >::GeometryImpl ElementGeometryImpl;
@@ -76,7 +77,9 @@ namespace Dune
       CurvIntersection (
     		  LocalIndexType localIndexInside,    // Index of the element wrt which this intersection is calculated
     		  InternalIndexType subIndexInside,   // Internal index of the face as the element subentity
-    		  GridBaseType & gridbase)
+    		  GridBaseType & gridbase,
+    		  bool ghostcheck = false             // If ghostcheck=true, then subIndex should be the first index that does not point to a ghost
+      )
     	: localIndexInside_(localIndexInside),
     	  subIndexInside_(subIndexInside),
     	  gridbase_(&gridbase),
@@ -91,7 +94,20 @@ namespace Dune
     	  if (subIndexInside_ < 4)
     	  {
         	  localFaceIndex_ = gridbase.subentityLocalIndex (localIndexInside, 0, 1, subIndexInside);
-        	  computeOutside();
+
+        	  std::cout << "Constructing Intersection elementIndex=" << localIndexInside << " internal index=" << subIndexInside << " gets face index=" << localFaceIndex_ << std::endl;
+
+        	  StructuralType faceType = gridbase.entityStructuralType(FACE_CODIM, localFaceIndex_);
+
+        	  if (faceType == GridStorageType::PartitionType::Ghost)
+        	  {
+        		  if (ghostcheck)  { next(); }
+        		  else
+        		  {
+        			  std::cout << "Error: Intersection: Attempt to construct an intersection for a ghost face" << std::endl;
+        			  DUNE_THROW(Dune::IOError, "Intersection: geometry of non-existing outside entity requested");
+        		  }
+        	  } else  { computeOutside(); }
     	  }
       }
 
@@ -142,24 +158,27 @@ namespace Dune
       }
 
 
-      EntityPointer inside () const
+      Entity inside () const
       {
     	  //std::cout << "inside" << std::endl;
 
     	  IndexSetIterator thisIter = gridbase_->entityIndexIterator(ELEMENT_CODIM, localIndexInside_);
     	  StructuralType structtype = gridbase_->entityStructuralType(ELEMENT_CODIM, localIndexInside_);
-    	  return EntityPointer(EntityPointerImpl(thisIter, *gridbase_, All_Partition));
+    	  return Entity(EntityImpl(thisIter, *gridbase_, All_Partition));
       }
 
-      EntityPointer outside () const
+      Entity outside () const
       {
     	  //std::cout << "outside" << std::endl;
 
-    	  if (!neighbor())  { DUNE_THROW(Dune::IOError, "Intersection: entityPointer of non-existing outside entity requested"); }
+    	  if (!neighbor())  {
+    		  std::cout << "Error: Intersection: entityPointer of non-existing outside entity requested" << std::endl;
+    		  DUNE_THROW(Dune::IOError, "Intersection: entityPointer of non-existing outside entity requested");
+    	  }
 
     	  IndexSetIterator thisIter = gridbase_->entityIndexIterator(ELEMENT_CODIM, localIndexOutside_);
     	  StructuralType structtype = gridbase_->entityStructuralType(ELEMENT_CODIM, localIndexOutside_);
-    	  return EntityPointer(EntityPointerImpl(thisIter, *gridbase_, All_Partition));
+    	  return Entity(EntityImpl(thisIter, *gridbase_, All_Partition));
       }
 
       // By dune-convention, domain and periodic boundaries are considered boundaries
@@ -300,7 +319,10 @@ namespace Dune
 
     	  const int SUBENTITY_SIZE = 4;
 
-    	  if (subIndexInside_ >= SUBENTITY_SIZE) { DUNE_THROW(Dune::IOError, "intersection: next() called with unexpected subentity index"); }
+    	  if (subIndexInside_ >= SUBENTITY_SIZE) {
+    		  std::cout << "Error: Intersection: next() called with unexpected subentity index" << std::endl;
+    		  DUNE_THROW(Dune::IOError, "intersection: next() called with unexpected subentity index");
+    	  }
 
     	  // Increase iterator until find a non-ghost face or reach the end
     	  bool inc = true;
@@ -336,7 +358,11 @@ namespace Dune
         	  bool found_face = false;
         	  while (!found_face)
         	  {
-        		  if (iFace >= 4)  { DUNE_THROW(Dune::IOError, "Intersection: Not found face as its outside-element subentity"); }
+        		  if (iFace >= 4)  {
+        			  std::cout << "*** when searching faceIndex=" << localFaceIndex_ << " of structural type" << gridbase_->entityStructuralType(FACE_CODIM, localFaceIndex_) <<" of outsideIndex=" << localIndexOutside_ << std::endl;
+        			  std::cout << "Error: Intersection: Not found face as its outside-element subentity" << std::endl;
+        			  DUNE_THROW(Dune::IOError, "Intersection: Not found face as its outside-element subentity");
+        		  }
 
         		  if (localFaceIndex_ == gridbase_->subentityLocalIndex(localIndexOutside_, ELEMENT_CODIM, FACE_CODIM, iFace))
         		  {

@@ -23,7 +23,7 @@
 #include <dune/grid/test/checkpartition.cc>
 
 
-const bool isGeometryCached = true;
+const bool isGeometryCached = false;
 
 
 template<class ctype, int cdim, int order >

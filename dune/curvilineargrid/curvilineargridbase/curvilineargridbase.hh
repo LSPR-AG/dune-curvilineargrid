@@ -381,6 +381,8 @@ public:
 
     bool processVerbose() const  { return processVerbose_; }
 
+    bool withGhostElements() const { return gridstorage_.withGhostElements_; }
+
 
 
 
@@ -510,8 +512,8 @@ public:
     	case ELEMENT_CODIM : assert(localIndex < gridstorage_.element_.size());  return gridstorage_.element_[localIndex].structuralType;  break;
     	default :
     	{
-    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Unexpected subentity codimension=" + std::to_string(codim));
-    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected subentity codimension");
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridBase: unexpected codim " + std::to_string(codim));
+    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codimension");
     		break;
     	}
     	}
@@ -1009,7 +1011,11 @@ protected:
     	case DuneIBPartition    : return gridstorage_.entityDuneInteriorBorderIndexSet_[codim];    break;
     	case DuneGPartition     : return gridstorage_.entityGhostIndexSet_[codim];                 break;
     	case DuneAllPartition   : return gridstorage_.entityAllIndexSet_[codim];                   break;
-    	default: DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected dune-pitype");         break;
+    	default:
+    	{
+    		std::cout << "CurvilinearGridBase: Unexpected dune-pitype" << std::endl;
+    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected dune-pitype");         break;
+    	}
     	}
     }
 

@@ -85,6 +85,7 @@ public:
 	assert(gtVec.size() == 1);
 
 	std::cout << "expecting to communicate " << in_.size() << " of " << indexset_.size(gtVec[0]) << " entities" << std::endl;
+	std::cout << "the expected send-indices are " << Dune::VectorHelper::map2string(in_) << std::endl;
   }
 
   //! returns true if data for this codim should be communicated
@@ -161,28 +162,28 @@ template<class IndexType, class GridType>
 bool checkSend(int codim, IndexType ind, Dune::InterfaceType iftype, Dune::CommunicationDirection dir, GridType & grid)
 {
   typedef typename GridType::GridStorageType  GridStorageType;
-  typedef typename GridType::GridBaseType     GridBaseType;
-  const GridBaseType & gridbase = grid.gridbase();
-
   typedef typename GridStorageType::StructuralType  StructuralType;
   const int InternalType        = GridStorageType::PartitionType::Internal;
   const int ProcessBoundaryType = GridStorageType::PartitionType::ProcessBoundary;
   const int DomainBoundaryType  = GridStorageType::PartitionType::DomainBoundary;
   const int GhostType           = GridStorageType::PartitionType::Ghost;
 
-  StructuralType entityType = gridbase.entityStructuralType(codim, ind);
+  StructuralType entityType = grid.gridbase().entityStructuralType(codim, ind);
 
   switch (iftype)
   {
-  case Dune::InterfaceType::All_All_Interface  :
-	return (entityType == ProcessBoundaryType) || (entityType == InternalType) || (entityType == GhostType);  break;
+  case Dune::InterfaceType::All_All_Interface  :  return true;   break;
   case Dune::InterfaceType::InteriorBorder_InteriorBorder_Interface  :  return entityType == ProcessBoundaryType;  break;
   case Dune::InterfaceType::InteriorBorder_All_Interface  :
   {
-	if (dir == Dune::CommunicationDirection::ForwardCommunication)  { return (entityType == InternalType) || (entityType == ProcessBoundaryType); }
+	if (dir == Dune::CommunicationDirection::ForwardCommunication)  { return (entityType == DomainBoundaryType) || (entityType == InternalType) || (entityType == ProcessBoundaryType); }
 	else                                                            { return (entityType == ProcessBoundaryType) || (entityType == GhostType); }
   } break;
-  default :  DUNE_THROW( Dune::IOError, "Attempt to use illegal comm protocol" ); break;
+  default :
+  {
+    std::cout << "Attempt to use an illegal protocol" << std::endl;
+    DUNE_THROW( Dune::IOError, "Attempt to use illegal comm protocol" ); break;
+  }
   }
 }
 
@@ -195,16 +196,15 @@ bool checkRecv(int codim, IndexType ind, Dune::InterfaceType iftype, Dune::Commu
 }
 
 
-template<class GridType, class DataMap>
+template<class GridType, class DataMap, int codim>
 void mark_subentity(
   const typename GridType::Traits::template Codim< 0 >::Entity & entity,
   DataMap & in,
   DataMap & out,
-  int codim,
   Dune::InterfaceType iftype,
   Dune::CommunicationDirection dir,
   GridType & grid,
-  int TMP) const
+  int TMP)
 {
 	typedef typename GridType::LeafIndexSet   LeafIndexSet;
 	const LeafIndexSet & indset = grid.leafIndexSet();
@@ -252,9 +252,9 @@ void communicateConst(Dune::InterfaceType iftype, Dune::CommunicationDirection d
 	  int TMP = 5;
 
 	  // Iterate over entities of this codimension
-	  typedef typename LeafGridView::template Codim<codim>::Iterator EntityLeafIterator;
-	  EntityLeafIterator ibegin = leafView.template begin<codim>();
-	  EntityLeafIterator iend   = leafView.template end<codim>();
+	  typedef typename LeafGridView::template Codim<0>::Iterator EntityLeafIterator;
+	  EntityLeafIterator ibegin = leafView.template begin<0>();
+	  EntityLeafIterator iend   = leafView.template end<0>();
 
 
 	  std::cout << " -- creating send-arrays" << std::endl;
@@ -267,18 +267,26 @@ void communicateConst(Dune::InterfaceType iftype, Dune::CommunicationDirection d
 
 		bool marked_this = false;
 
+		int iIntersect = 0;
         const IntersectionIterator nend = leafView.iend(entity);
 		for( IntersectionIterator nit = leafView.ibegin(entity); nit != nend; ++nit )
 		{
+		  std::cout << "--accessing intersect " << iIntersect++ << std::endl;
 		  const Intersection &intersection = *nit;
-		  const Entity & entityOut = *intersection.outside();
 
-		  if (entityOut.partitionType() == Dune::PartitionType::GhostEntity)
+		  if (intersection.neighbor())
 		  {
-			  if (!marked_this)  { mark_subentity(entity,    in, out, codim, iftype, dir, grid, TMP); }
-			  if (withGhosts)    { mark_subentity(entityOut, in, out, codim, iftype, dir, grid, TMP);  }
+			  const Entity & entityOut = *intersection.outside();
 
-			  marked_this = true;
+			  if (entityOut.partitionType() == Dune::PartitionType::GhostEntity)
+			  {
+				  bool withGhosts = grid.gridbase().withGhostElements();
+
+				  if (!marked_this)  { mark_subentity<GridType, DataMap, codim>(entity,    in, out, iftype, dir, grid, TMP); }
+				  if (withGhosts)    { mark_subentity<GridType, DataMap, codim>(entityOut, in, out, iftype, dir, grid, TMP);  }
+
+				  marked_this = true;
+			  }
 		  }
 		}
 	  }

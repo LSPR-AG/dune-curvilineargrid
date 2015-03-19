@@ -33,22 +33,18 @@ typedef Dune::FieldVector<double, 3>  GlobalCoordinate;
 template<class Grid, int mydim>
 struct GaussFunctor
 {
-	typedef Dune::FieldVector<double, mydim>  LocalCoordinate;
+	static const int DIM_SCALAR = 1;
+
+	typedef Dune::FieldVector<double, mydim>       LocalCoordinate;
+	typedef Dune::FieldVector<double, DIM_SCALAR>  ResultType;
 
 	typedef typename Grid::Traits::LeafIntersection               Intersection;
 	typedef typename Grid::Traits::template Codim<1>::Geometry    FaceGeometry;
 
 	Intersection I_;
-	FaceGeometry G_;
 
-	// Instantiate with Intersection of interest. Also store geometry,
-	// so that need not recalculate it at every sample point
-    GaussFunctor(const Intersection & I)
-	  : I_(I),
-	    G_(I_.geometry())
-	{
-
-	}
+	// Instantiate with Intersection of interest.
+    GaussFunctor(const Intersection & I) : I_(I)  { }
 
     // Calculates EM field vector of a single charge assuming the charge is at the origin of global coordinates
     // Also assuming dielectric permittivity epsilon = 1
@@ -64,17 +60,42 @@ struct GaussFunctor
     // 2) Finds the associated global coordinate
     // 3) Finds the EM field at that coordinate
     // 4) returns scalar product between the normal and the field, thus the integrand for reference integration
-    double operator()(const LocalCoordinate & x) const
+    ResultType operator()(const LocalCoordinate & x) const
     {
     	GlobalCoordinate integrnormal = I_.integrationOuterNormal(x);
-    	GlobalCoordinate global = G_.global(x);
+    	GlobalCoordinate global = I_.geometry().global(x);
     	GlobalCoordinate field = ChargeField(global);
 
     	double rez = 0;
     	for (int i = 0; i < 3; i++) { rez += integrnormal[i] * field[i]; }
-    	return rez;
+    	return ResultType(rez);
     }
 };
+
+
+// Calculates the outer normal to the intersection times the integration element
+template<class Grid, int mydim>
+struct NormalFunctor
+{
+	typedef Dune::FieldVector<double, mydim>       LocalCoordinate;
+	typedef typename Grid::Traits::LeafIntersection               Intersection;
+
+	Intersection I_;
+
+	NormalFunctor(const Intersection & I) : I_(I)  { }
+
+	// Calculates the outer normal to the intersection times the integration element
+	GlobalCoordinate operator()(const LocalCoordinate & x) const
+    {
+    	return I_.integrationOuterNormal(x);
+    }
+};
+
+
+
+
+
+
 
 
 
@@ -88,7 +109,7 @@ GridType * createGrid(Dune::MPIHelper & mpihelper)
     const std::string GMSH_FILE_NAME[5] {"sphere32.msh", "sphere32ord2.msh", "sphere32ord3.msh", "sphere32ord4.msh", "sphere32ord5.msh"};
 
     // Choice of file name
-    int interpOrder = 3;
+    int interpOrder = 5;
     std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME[interpOrder - 1];
 
     // Additional constants
@@ -144,8 +165,13 @@ void gaussIntegral (GridType& grid)
   typedef typename LeafGridView::template Codim<0>::Iterator EntityLeafIterator;
   typedef typename LeafGridView::template Codim<1>::Geometry FaceGeometry;
 
+  typedef Dune::QuadratureIntegrator<double, 2, 1>  Integrator2DScalar;
+  typedef Dune::QuadratureIntegrator<double, 2, 3>  Integrator2DVector;
+  typedef Dune::FieldVector<double, 1>              ResultType;
 
-  double gaussintegral = 0.0;
+
+  ResultType        gaussintegral(0.0);
+  GlobalCoordinate  normalintegral(0.0);
   double rel_tol = 1.0e-5;
 
   // Iterate over entities of this codimension
@@ -158,26 +184,39 @@ void gaussIntegral (GridType& grid)
 
 	  std::cout << "-accessing entity " << indexSet.index(entity) << std::endl;
 
+	  const IntersectionIterator nbegin = leafView.ibegin(entity);
 	  const IntersectionIterator nend = leafView.iend(entity);
-	  for( IntersectionIterator nit = leafView.ibegin(entity); nit != nend; ++nit )
+
+	  std::cout << "-- made intersiters" << std::endl;
+
+	  for( IntersectionIterator nit = nbegin; nit != nend; ++nit )
 	  {
 		  const Intersection &intersection = *nit;
 
 		  if (!intersection.neighbor())
 		  {
+			  std::cout << "===started gt" << std::endl;
 			  Dune::GeometryType gt = intersection.type();
-			  GaussFunctor<GridType, 2> f(intersection);
-			  Dune::QuadratureIntegrator<double, 2> qInt;
-			  double thisIntegral = qInt.integrateRecursive(gt, f, rel_tol).second;
+			  std::cout << "===finished gt" << std::endl;
 
-			  std::cout << "-- adding contribution from " << gt << "  " << thisIntegral << std::endl;
+			  GaussFunctor<GridType, 2> g(intersection);
+			  NormalFunctor<GridType, 2> n(intersection);
 
-			  gaussintegral += thisIntegral;
+			  Integrator2DScalar::StatInfo thisIntegralG = Integrator2DScalar::integrateRecursive(gt, g, rel_tol);
+			  std::cout << "-- adding gauss contribution from " << gt << "  " << thisIntegralG.second << ". Needed order " << thisIntegralG.first << std::endl;
+
+			  Integrator2DVector::StatInfo thisIntegralN = Integrator2DVector::integrateRecursive(gt, n, rel_tol);
+			  std::cout << "-- adding normal contribution from " << gt << "  " << thisIntegralN.second << ". Needed order " << thisIntegralN.first << std::endl;
+
+			  gaussintegral += thisIntegralG.second;
+			  normalintegral += thisIntegralN.second;
 		  }
 	  }
   }
 
-  std::cout << "Gauss integral amounted to " << gaussintegral << std::endl;
+  std::cout << "Gauss integral amounted to " << gaussintegral[0] << std::endl;
+  std::cout << "Normal integral amounted to " << normalintegral << std::endl;
+
 }
 
 

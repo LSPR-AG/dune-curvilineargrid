@@ -187,26 +187,22 @@ void gaussIntegral (GridType& grid)
 	  const IntersectionIterator nbegin = leafView.ibegin(entity);
 	  const IntersectionIterator nend = leafView.iend(entity);
 
-	  std::cout << "-- made intersiters" << std::endl;
-
 	  for( IntersectionIterator nit = nbegin; nit != nend; ++nit )
 	  {
 		  const Intersection &intersection = *nit;
 
 		  if (!intersection.neighbor())
 		  {
-			  std::cout << "===started gt" << std::endl;
 			  Dune::GeometryType gt = intersection.type();
-			  std::cout << "===finished gt" << std::endl;
 
 			  GaussFunctor<GridType, 2> g(intersection);
 			  NormalFunctor<GridType, 2> n(intersection);
 
 			  Integrator2DScalar::StatInfo thisIntegralG = Integrator2DScalar::integrateRecursive(gt, g, rel_tol);
-			  std::cout << "-- adding gauss contribution from " << gt << "  " << thisIntegralG.second << ". Needed order " << thisIntegralG.first << std::endl;
+			  std::cout << "---- adding gauss contribution from " << gt << "  " << thisIntegralG.second << ". Needed order " << thisIntegralG.first << std::endl;
 
 			  Integrator2DVector::StatInfo thisIntegralN = Integrator2DVector::integrateRecursive(gt, n, rel_tol);
-			  std::cout << "-- adding normal contribution from " << gt << "  " << thisIntegralN.second << ". Needed order " << thisIntegralN.first << std::endl;
+			  std::cout << "---- adding normal contribution from " << gt << "  " << thisIntegralN.second << ". Needed order " << thisIntegralN.first << std::endl;
 
 			  gaussintegral += thisIntegralG.second;
 			  normalintegral += thisIntegralN.second;

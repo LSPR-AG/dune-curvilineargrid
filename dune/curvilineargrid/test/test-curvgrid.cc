@@ -38,7 +38,7 @@ struct CurvFactory
     const std::string CURVILINEARGRID_TEST_GRID_PATH = std::string(DUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH) + "curvilinear/";
     const std::string GMSH_FILE_NAME[5] {"sphere32.msh", "sphere32ord2.msh", "sphere32ord3.msh", "sphere32ord4.msh", "sphere32ord5.msh"};
 
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + "sphere2000ord3.msh";  // GMSH_FILE_NAME[order - 1];
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME[order - 1]; // "sphere2000ord3.msh";  //
 
     bool insertBoundarySegment = true;
     bool withGhostElements = true;
@@ -112,7 +112,7 @@ int main (int argc , char **argv) {
 		delete grid32ord1;
 
 	}
-	*/
+*/
 	{
 		GridType * grid32ord2 = CurvFactory<double, 3, 2>::buildGrid(mpihelper);
 		check_grid(*grid32ord2);
@@ -137,7 +137,6 @@ int main (int argc , char **argv) {
 		delete grid32ord5;
 	}
 	*/
-
 
   } catch (Dune::Exception &e) {
     std::cerr << e << std::endl;

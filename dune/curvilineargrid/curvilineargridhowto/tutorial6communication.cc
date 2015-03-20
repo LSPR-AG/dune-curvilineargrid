@@ -276,7 +276,7 @@ void communicateConst(Dune::InterfaceType iftype, Dune::CommunicationDirection d
 
 		  if (intersection.neighbor())
 		  {
-			  const Entity & entityOut = *intersection.outside();
+			  const Entity & entityOut = intersection.outside();
 
 			  if (entityOut.partitionType() == Dune::PartitionType::GhostEntity)
 			  {

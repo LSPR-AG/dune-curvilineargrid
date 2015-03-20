@@ -38,6 +38,9 @@ namespace Dune
 
       typedef typename Traits::template Codim< 0 >::EntityPointer EntityPointer;
 
+      // Default constructor. DO NOT USE
+      CurvIntersectionIterator() {}
+
       CurvIntersectionIterator (LocalIndexType localIndexInside,
     		  InternalIndexType subIndexInside,
     		  GridBaseType & gridbase,

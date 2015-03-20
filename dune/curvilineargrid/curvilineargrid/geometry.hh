@@ -105,6 +105,7 @@ namespace Dune
       GlobalCoordinate center ()                            const { return mapping_.center(); }
 
       GlobalCoordinate global ( const LocalCoordinate &local ) const { return mapping_.global( local ); }
+
       // Local returns true if the point is inside the element. Then localC is the corresponding local coordinate
       // Local returns false if the point is not inside the element. In this case local coordinate is not defined and localC is meaningless
       LocalCoordinate local (const GlobalCoordinate &globalC) const
@@ -112,15 +113,12 @@ namespace Dune
     	  LocalCoordinate localC;
     	  bool isInside = mapping_.local(globalC, localC);
 
-    	  return localC;
-
-    	  /*
     	  if (!isInside)  {
     		  std::cout << "searching for global coordinate " << globalC << " in the element given by " << Dune::VectorHelper::vector2string(mapping_.vertexSet()) << std::endl;
     		  DUNE_THROW( IOError, "Failed to find requested global coordinate inside the entity" );
     	  }
-    	  */
 
+    	  return localC;
       }
 
       // Integration Elements
@@ -128,6 +126,14 @@ namespace Dune
       Polynomial JacobianDeterminantAnalytical()                 const { return mapping_.JacobianDeterminantAnalytical(); }
       PolynomialVector NormalIntegrationElementAnalytical()      const { return mapping_.NormalIntegrationElementAnalytical(); }
       Polynomial IntegrationElementSquaredAnalytical()           const { return mapping_.IntegrationElementSquaredAnalytical(); }
+
+      // Subentity geometry wrapper for Geometry
+      // Return pointer to save computation time inside intersection class
+      template<int subdim>
+      CurvGeometry<subdim, cdim, Grid> * subentityGeometry(InternalIndexType subentityIndex)
+      {
+          return new CurvGeometry<subdim, cdim, Grid>(mapping_.template subentityGeometry<subdim>(subentityIndex), *gridbase_);
+      }
 
       GlobalCoordinate subentityIntegrationNormal (InternalIndexType subIndex, const LocalCoordinate & localCoord)  const { return mapping_.subentityIntegrationNormal(subIndex, localCoord); }
       GlobalCoordinate subentityNormal            (InternalIndexType subIndex, const LocalCoordinate & localCoord)  const { return mapping_.subentityNormal(subIndex, localCoord); }
@@ -141,14 +147,8 @@ namespace Dune
       ctype integrateAnalyticalDot(const PolynomialVector & PVec)   const { return mapping_.integrateAnalyticalDot(PVec); }
       ctype volume () const  { return mapping_.volume(gridbase_->geometryRelativeTolerance()); }
 
-      JacobianTransposed jacobianTransposed ( const LocalCoordinate &local )                const {
-    	  //if (mydim == 0) { std::cout << "Jacobian transposed called for mydim=0" << std::endl; }
-    	  return mapping_.jacobianTransposed( local );
-      }
-      JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local )  const {
-    	  //if (mydim == 0) { std::cout << "Jacobian inverse transposed called for mydim=0" << std::endl; }
-    	  return mapping_.jacobianInverseTransposed( local );
-      }
+      JacobianTransposed jacobianTransposed ( const LocalCoordinate &local )                const { return mapping_.jacobianTransposed( local ); }
+      JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local )  const { return mapping_.jacobianInverseTransposed( local ); }
 
     private:
 

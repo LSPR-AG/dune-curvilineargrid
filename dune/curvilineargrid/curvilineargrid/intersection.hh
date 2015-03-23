@@ -99,7 +99,7 @@ namespace Dune
     	  {
         	  localFaceIndex_ = gridbase.subentityLocalIndex (localIndexInside, 0, 1, subIndexInside);
 
-        	  std::cout << "Constructing Intersection elementIndex=" << localIndexInside << " internal index=" << subIndexInside << " gets face index=" << localFaceIndex_ << std::endl;
+        	  //std::cout << "Constructing Intersection elementIndex=" << localIndexInside << " internal index=" << subIndexInside << " gets face index=" << localFaceIndex_ << std::endl;
 
         	  StructuralType faceType = gridbase.entityStructuralType(FACE_CODIM, localFaceIndex_);
 

@@ -8,19 +8,22 @@ set(TESTS
 	tutorial3visualisation
 	tutorial3visualisation
 	tutorial4andHalfgausslaw
-	tutorial6communication
+	tutorial6CommunicationConstant
+	tutorial6CommunicationGlobalIndex
 )
 
 add_executable(tutorial1gettingstarted tutorial1gettingstarted.cc)
 add_executable(tutorial2traversal tutorial2traversal.cc)
 add_executable(tutorial3visualisation tutorial3visualisation.cc)
 add_executable(tutorial4andHalfgausslaw tutorial4andHalfgausslaw.cc)
-add_executable(tutorial6communication tutorial6communication.cc)
+add_executable(tutorial6CommunicationConstant tutorial6CommunicationConstant.cc)
+add_executable(tutorial6CommunicationGlobalIndex tutorial6CommunicationGlobalIndex.cc)
 target_link_libraries(tutorial1gettingstarted dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
 target_link_libraries(tutorial2traversal dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
 target_link_libraries(tutorial3visualisation dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
 target_link_libraries(tutorial4andHalfgausslaw dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
-target_link_libraries(tutorial6communication dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
+target_link_libraries(tutorial6CommunicationConstant dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
+target_link_libraries(tutorial6CommunicationGlobalIndex dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
 
 
 # We do not want want to build the tests during make all,
@@ -39,12 +42,14 @@ if(HAVE_MPI)
     add_dune_mpi_flags(tutorial2traversal)
     add_dune_mpi_flags(tutorial3visualisation)
     add_dune_mpi_flags(tutorial4andHalfgausslaw)
-    add_dune_mpi_flags(tutorial4andHalfgausslaw)
+    add_dune_mpi_flags(tutorial6CommunicationConstant)
+    add_dune_mpi_flags(tutorial6CommunicationGlobalIndex)
     add_dune_parmetis_flags(tutorial1gettingstarted)
     add_dune_parmetis_flags(tutorial2traversal)
     add_dune_parmetis_flags(tutorial3visualisation)
     add_dune_parmetis_flags(tutorial4andHalfgausslaw)
-    add_dune_parmetis_flags(tutorial6communication)
+    add_dune_parmetis_flags(tutorial6CommunicationConstant)
+    add_dune_parmetis_flags(tutorial6CommunicationGlobalIndex)
 endif(HAVE_MPI)
 
 # Add boost
@@ -53,5 +58,6 @@ if(Boost_FOUND)
    target_link_libraries(tutorial2traversal ${Boost_LIBRARIES})
    target_link_libraries(tutorial3visualisation ${Boost_LIBRARIES})
    target_link_libraries(tutorial4andHalfgausslaw ${Boost_LIBRARIES})
-   target_link_libraries(tutorial6communication ${Boost_LIBRARIES})
+   target_link_libraries(tutorial6CommunicationConstant ${Boost_LIBRARIES})
+   target_link_libraries(tutorial6CommunicationGlobalIndex ${Boost_LIBRARIES})
 endif()

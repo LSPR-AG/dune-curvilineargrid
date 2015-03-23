@@ -436,7 +436,9 @@ public:
         // Find neighbor ranks for all entities that can be communicated over
         // ************************************************************
         GridPostConstructor postConstructor(verbose_, processVerbose_, gridstorage_, gridbase_, mpihelper_);
+        postConstructor.generateCornerIndex();
         postConstructor.generateIteratorSets();
+
 
 
         // The PB-PB communication interface is available by default. The below procedures enable the communication interfaces

@@ -481,14 +481,12 @@ public:
     }
 
 
+    /** Returns the globalId of the entity  */
     IdType globalId(int codim, LocalIndexType localIndex) const
     {
     	GlobalIndexType globalIndex;
     	if (! findEntityGlobalIndex(codim, localIndex, globalIndex))  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: requested local index does not point to an entity");  }
-
-    	IdType thisId;
-    	thisId.id_ = std::pair<StructuralType, GlobalIndexType>( entityStructuralType(codim, localIndex),  globalIndex );
-    	return thisId;
+    	return IdType(globalIndex);
     }
 
 
@@ -538,7 +536,28 @@ public:
     }
 
 
-    /** Get vertex global coordinate */
+    /** Get unique local index that enumerates only corners, disregarding other interpolatory vertices
+     * The only purpose of this index is to satisfy dune-standard for consecutive corner index, it is not used internally in the grid
+     * */
+    LocalIndexType cornerUniqueLocalIndex(LocalIndexType localVertexIndex) const {
+
+    	typedef typename Local2LocalMap::const_iterator  Local2LocalConstIter;
+    	Local2LocalConstIter tmp = gridstorage_.cornerIndexMap_.find(localVertexIndex);
+
+    	if (tmp == gridstorage_.cornerIndexMap_.end())
+    	{
+    		std::cout << "Error: CurvilinearGridBase: CornerUniqueIndex: Vertex with localIndex=" << localVertexIndex << " is not marked as a corner" << std::endl;
+    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected vertex local index for a corner");
+    	}
+
+    	return (*tmp).second;
+    }
+
+
+
+    /** Generates a vector of local coordinates of corners of requested entity
+     * The order of corners corresponds to the one provided by the ref.subEntity()
+     *   */
     std::vector<LocalIndexType> entityCornerLocalIndex(int codim, LocalIndexType entityLocalIndex) const
 	{
     	std::vector<LocalIndexType> rez;
@@ -674,21 +693,25 @@ public:
     	// Stage 2) Find index of the element subentity
     	// **************************************************************************
 
+    	int rez;
+
     	switch (subcodim)
     	{
     		// Face
-    		case FACE_CODIM   :  return gridstorage_.elementSubentityCodim1_[elementLocalIndex][elementSubentityInternalIndex1];  break;
+    		case FACE_CODIM   :  rez = gridstorage_.elementSubentityCodim1_[elementLocalIndex][elementSubentityInternalIndex1];  break;
     		// Edge
-    		case EDGE_CODIM   :  return gridstorage_.elementSubentityCodim2_[elementLocalIndex][elementSubentityInternalIndex1];  break;
+    		case EDGE_CODIM   :  rez = gridstorage_.elementSubentityCodim2_[elementLocalIndex][elementSubentityInternalIndex1];  break;
     		// Corner
     		case VERTEX_CODIM :
     		{
     			InterpolatoryOrderType interpolationOrder = gridstorage_.element_[elementLocalIndex].interpOrder;
     			InternalIndexType cornerInternalIndex = Dune::CurvilinearGeometryHelper::cornerIndex(tetrahedronGeometry, interpolationOrder, elementSubentityInternalIndex1);
-    			return gridstorage_.element_[elementLocalIndex].vertexIndexSet[cornerInternalIndex];
+    			rez = gridstorage_.element_[elementLocalIndex].vertexIndexSet[cornerInternalIndex];
     		} break;
     	}
 
+    	//std::cout << "Requested subentity index of entity=" << entityIndex << " codim=" << codim << " subcodim=" << subcodim << " internalIndex=" << subentityInternalIndex << " rez=" << rez << std::endl;
+    	return rez;
     }
 
 

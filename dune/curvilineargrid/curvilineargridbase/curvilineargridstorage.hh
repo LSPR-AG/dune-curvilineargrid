@@ -148,11 +148,14 @@ public:
 	// Unique GlobalId for entities that possess GlobalIndex
 	struct IdType
 	{
-	    std::pair<StructuralType, GlobalIndexType>  id_;
+	    GlobalIndexType  globalindex_;
 
-		bool operator== ( const IdType & other) const { return ((id_.first == other.id_.first) && (id_.second == other.id_.second)); }
+	    IdType()  { }
+	    IdType(GlobalIndexType globalindex) : globalindex_(globalindex) { }
+
+		bool operator== ( const IdType & other) const { return globalindex_ == other.globalindex_; }
 		bool operator!= ( const IdType & other) const { return !(*this == other);  }
-		bool operator<  ( const IdType & other) const { return (id_.first == other.id_.first) ? (id_.second < other.id_.second) : (id_.first < other.id_.first); }
+		bool operator<  ( const IdType & other) const { return (globalindex_ < other.globalindex_); }
 
 		//template< class C, class T >
 		//std::basic_ostream< C, T > &operator<< ( std::basic_ostream< C, T > &, const Id & );
@@ -161,7 +164,7 @@ public:
 		// Printing of the Id
 		friend inline std::ostream& operator<< (std::ostream& s, const IdType & x)
 		{
-		    s << "(" << x.id_.first << "," << x.id_.second << ")";
+		    s << "(" << x.globalindex_ << ")";
 		    return s;
 		}
 	};
@@ -274,6 +277,9 @@ public:
 
     // Maps from global to local indices - all entities of given codim, regardless of structural type
     Global2LocalMap entityIndexMap_[4];
+
+    // Define unique local index for corners, to satisfy dune
+    Local2LocalMap  cornerIndexMap_;  // vertex index -> corner unique index
 
     // Entity local index -> local structural entity index
     Local2LocalMap  boundarySegmentIndexMap_;  // This one only for Domain Boundary Faces

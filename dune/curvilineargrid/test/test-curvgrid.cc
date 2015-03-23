@@ -38,7 +38,7 @@ struct CurvFactory
     const std::string CURVILINEARGRID_TEST_GRID_PATH = std::string(DUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH) + "curvilinear/";
     const std::string GMSH_FILE_NAME[5] {"sphere32.msh", "sphere32ord2.msh", "sphere32ord3.msh", "sphere32ord4.msh", "sphere32ord5.msh"};
 
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME[order - 1]; // "sphere2000ord3.msh";  //
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + "sphere2000ord3.msh"; //GMSH_FILE_NAME[order - 1];
 
     bool insertBoundarySegment = true;
     bool withGhostElements = true;
@@ -67,34 +67,34 @@ void check_grid(Dune::CurvilinearGrid<cdim, cdim, ctype, isCached> & grid) {
   std::cout << "CurvGrid<" << cdim << ">" << std::endl;
 
 
-  //std::cout << "-- Running Base GridCheck" << std::endl;
-  //gridcheck(grid);
+  std::cout << "-- Running Base GridCheck" << std::endl;
+  gridcheck(grid);
 
-  //std::cout << "-- Checking LeafGridView" << std::endl;
-  //checkIterators ( grid.leafGridView() );
+  std::cout << "-- Checking LeafGridView" << std::endl;
+  checkIterators ( grid.leafGridView() );
 
-  //std::cout << "-- Checking LevelGridView" << std::endl;
-  //checkIterators ( grid.levelGridView(0) );
+  std::cout << "-- Checking LevelGridView" << std::endl;
+  checkIterators ( grid.levelGridView(0) );
 
   // check communication interface
   std::cout << "-- Checking Communication" << std::endl;
   checkCommunication(grid, -1, Dune::dvverb);
-  //for(int l=0; l<=grid.maxLevel(); ++l)  { checkCommunication(grid,l,Dune::dvverb); }
+  for(int l=0; l<=grid.maxLevel(); ++l)  { checkCommunication(grid,l,Dune::dvverb); }
 
-  //std::cout << "-- Checking Geometry Lifetime" << std::endl;
-  //checkGeometryLifetime( grid.leafGridView() );
+  std::cout << "-- Checking Geometry Lifetime" << std::endl;
+  checkGeometryLifetime( grid.leafGridView() );
 
-  //std::cout << "-- Checking Geometry in Father" << std::endl;
-  //checkGeometryInFather(grid);
+  std::cout << "-- Checking Geometry in Father" << std::endl;
+  checkGeometryInFather(grid);
 
-  //std::cout << "-- Checking Intersection Iterator" << std::endl;
-  //checkIntersectionIterator(grid);
+  std::cout << "-- Checking Intersection Iterator" << std::endl;
+  checkIntersectionIterator(grid);
 
   //std::cout << "-- Checking Adaptive Refinement" << std::endl;
   //checkAdaptRefinement(grid);
 
-  //std::cout << "-- Checking Partition Type of LeafGridView" << std::endl;
-  //checkPartitionType( grid.leafGridView() );
+  std::cout << "-- Checking Partition Type of LeafGridView" << std::endl;
+  checkPartitionType( grid.leafGridView() );
 
 }
 

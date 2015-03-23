@@ -29,7 +29,7 @@ GridType * createGrid(Dune::MPIHelper & mpihelper)
 
     // Choice of file name
     int interpOrder = 1;
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME[interpOrder - 1];
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + "sphere2000ord3.msh"; //GMSH_FILE_NAME[interpOrder - 1];
 
     // Additional constants
     bool insertBoundarySegment = true;  // If boundary segments will be inserted from GMSH. At the moment MUST BE true

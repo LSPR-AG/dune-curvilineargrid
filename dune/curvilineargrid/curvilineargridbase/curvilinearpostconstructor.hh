@@ -137,19 +137,48 @@ public: /* public methods */
     }
 
 
+    // Generate
+    // Loop over all corners of the mesh (including ghost) and add them to the interator set
+    // Do this by iterating over all corners of all elements
+    void generateCornerIndex()
+    {
+    	// Loop over all elements
+    	for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)
+    	{
+        	// Get LocalCornerIndices
+    		std::vector<LocalIndexType> thisCornerIndex = gridbase_.entityCornerLocalIndex(ELEMENT_CODIM, iElem);
+
+        	// Loop over LocalCornerIndices
+    		for (int iCorner = 0; iCorner < thisCornerIndex.size(); iCorner++)
+    		{
+    			// If this corner has not been added yet, add it
+    			LocalIndexType thisIndex = thisCornerIndex[iCorner];
+    			if (gridstorage_.cornerIndexMap_.find(thisIndex) == gridstorage_.cornerIndexMap_.end())
+    			{
+    				int thisCornerUniqueIndex = gridstorage_.cornerIndexMap_.size();
+    				gridstorage_.cornerIndexMap_[thisIndex] = thisCornerUniqueIndex;
+    			}
+    		}
+    	}
+    }
+
+
+
+
     // Create iterator lists for quick iteration over mesh entities of a given type
     // NOTE: Must only insert corners, not other interpolatory vertices
     void generateIteratorSets()
     {
     	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating iterator lists");
 
-        fillPartitionIteratorCorner();
+        for (Local2LocalIterator iCorner = gridstorage_.cornerIndexMap_.begin();
+        	                     iCorner != gridstorage_.cornerIndexMap_.end(); iCorner++) { fillPartitionIterator(VERTEX_CODIM, (*iCorner).first, gridstorage_.point_[(*iCorner).first].structuralType); }
 
-        for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)     { fillPartitionIterator(EDGE_CODIM, iEdge, gridstorage_.edge_[iEdge].structuralType); }
+        for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)         { fillPartitionIterator(EDGE_CODIM, iEdge, gridstorage_.edge_[iEdge].structuralType); }
 
-        for (LocalIndexType iFace = 0; iFace < gridstorage_.face_.size(); iFace++)     { fillPartitionIterator(FACE_CODIM, iFace, gridstorage_.face_[iFace].structuralType); }
+        for (LocalIndexType iFace = 0; iFace < gridstorage_.face_.size(); iFace++)         { fillPartitionIterator(FACE_CODIM, iFace, gridstorage_.face_[iFace].structuralType); }
 
-        for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)  { fillPartitionIterator(ELEMENT_CODIM, iElem, gridstorage_.element_[iElem].structuralType); }
+        for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)      { fillPartitionIterator(ELEMENT_CODIM, iElem, gridstorage_.element_[iElem].structuralType); }
 
         Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating iterator lists");
 
@@ -403,29 +432,6 @@ protected:
     // ************************************************************************************
 	// Auxiliary methods for Iterator list generation
 	// ************************************************************************************
-
-    // Loop over all corners of the mesh (including ghost) and add them to the interator set
-    // Do this by iterating over all corners of all elements
-    void fillPartitionIteratorCorner()
-    {
-    	// Loop over all elements
-    	for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)
-    	{
-        	// Get LocalCornerIndices
-    		std::vector<LocalIndexType> thisCornerIndex =  gridbase_.entityCornerLocalIndex(ELEMENT_CODIM, iElem);
-
-        	// Loop over LocalCornerIndices
-    		for (int iCorner = 0; iCorner < thisCornerIndex.size(); iCorner++)
-    		{
-    			// If this corner has not been added yet, add it
-    			LocalIndexType thisIndex = thisCornerIndex[iCorner];
-    			if (gridstorage_.entityAllIndexSet_[VERTEX_CODIM].find(thisIndex) == gridstorage_.entityAllIndexSet_[VERTEX_CODIM].end())
-    			{
-    				fillPartitionIterator (VERTEX_CODIM, thisIndex, gridstorage_.point_[thisIndex].structuralType);
-    			}
-    		}
-    	}
-    }
 
 
     // Fill all LocalIndexSets necessary to iterate over the grid

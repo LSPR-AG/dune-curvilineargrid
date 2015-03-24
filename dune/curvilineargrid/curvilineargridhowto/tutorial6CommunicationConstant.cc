@@ -29,7 +29,7 @@ GridType * createGrid(Dune::MPIHelper & mpihelper)
 
     // Choice of file name
     int interpOrder = 1;
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + "sphere2000ord3.msh"; //GMSH_FILE_NAME[interpOrder - 1];
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + "sphere2000ord3.msh"; // GMSH_FILE_NAME[interpOrder - 1]; //
 
     // Additional constants
     bool insertBoundarySegment = true;  // If boundary segments will be inserted from GMSH. At the moment MUST BE true
@@ -157,48 +157,49 @@ private:
 };
 
 
-// [FIXME] Check if the entity has neighbour of that comm type before adding it
-template<class IndexType, class GridType>
-bool checkSend(int codim, IndexType ind, Dune::InterfaceType iftype, Dune::CommunicationDirection dir, GridType & grid)
+// Warning, this procedure can not tell apart Ghosts and ProcessBoundaries
+template <class Intersection>
+bool isProcessBoundary(Intersection intr, bool withGhosts)
 {
-  typedef typename GridType::GridStorageType  GridStorageType;
-  typedef typename GridStorageType::StructuralType  StructuralType;
-  const int InternalType        = GridStorageType::PartitionType::Internal;
-  const int ProcessBoundaryType = GridStorageType::PartitionType::ProcessBoundary;
-  const int DomainBoundaryType  = GridStorageType::PartitionType::DomainBoundary;
-  const int GhostType           = GridStorageType::PartitionType::Ghost;
-
-  StructuralType entityType = grid.gridbase().entityStructuralType(codim, ind);
-
-  switch (iftype)
-  {
-  case Dune::InterfaceType::All_All_Interface  :  return true;   break;
-  case Dune::InterfaceType::InteriorBorder_InteriorBorder_Interface  :  return entityType == ProcessBoundaryType;  break;
-  case Dune::InterfaceType::InteriorBorder_All_Interface  :
-  {
-	if (dir == Dune::CommunicationDirection::ForwardCommunication)  { return (entityType == DomainBoundaryType) || (entityType == InternalType) || (entityType == ProcessBoundaryType); }
-	else                                                            { return (entityType == ProcessBoundaryType) || (entityType == GhostType); }
-  } break;
-  default :
-  {
-    std::cout << "Attempt to use an illegal protocol" << std::endl;
-    DUNE_THROW( Dune::IOError, "Attempt to use illegal comm protocol" ); break;
-  }
-  }
+    if (intr.boundary()) { return false; }
+    if (intr.neighbor())
+    {
+    	if (intr.outside().partitionType() == Dune::PartitionType::GhostEntity)  { return true; }
+    	else                                                                     { return false; }
+    } else {
+    	if (!withGhosts)  { return true; }
+    	else
+    	{
+        	std::cout << "Found non-boundary entity with no neighbour, given that a mesh has ghosts" << std::endl;
+        	DUNE_THROW( Dune::IOError, "Found non-boundary entity with no neighbour" );
+    	}
+    }
 }
 
 
-template<class IndexType, class GridType>
-bool checkRecv(int codim, IndexType ind, Dune::InterfaceType iftype, Dune::CommunicationDirection dir, GridType & grid)
+bool usePartitionType(
+  Dune::PartitionType ptype,
+  Dune::InterfaceType iftype,
+  Dune::CommunicationDirection dir,
+  bool send)
 {
-	if (dir == Dune::CommunicationDirection::ForwardCommunication)   { return checkSend(codim, ind, iftype, Dune::CommunicationDirection::BackwardCommunication, grid); }
-	if (dir == Dune::CommunicationDirection::BackwardCommunication)  { return checkSend(codim, ind, iftype, Dune::CommunicationDirection::ForwardCommunication, grid); }
+	switch (iftype)
+	{
+	case Dune::InterfaceType::InteriorBorder_InteriorBorder_Interface : return false;
+	case Dune::InterfaceType::All_All_Interface :                       return true;
+	case Dune::InterfaceType::InteriorBorder_All_Interface  :
+	{
+      if ((dir == Dune::CommunicationDirection::ForwardCommunication) == send)  { return ptype == Dune::PartitionType::InteriorEntity; }
+      else                                                                      { return ptype != Dune::PartitionType::InteriorEntity; }
+	} break;
+	}
 }
 
 
-template<class GridType, class DataMap, int codim>
+// [TODO] Construct subentity number without explicitly specifying the GeometryType
+template<class GridType, class Entity, class DataMap, int codim>
 void mark_subentity(
-  const typename GridType::Traits::template Codim< 0 >::Entity & entity,
+  const Entity & entity,
   DataMap & in,
   DataMap & out,
   Dune::InterfaceType iftype,
@@ -206,19 +207,34 @@ void mark_subentity(
   GridType & grid,
   int TMP)
 {
-	typedef typename GridType::LeafIndexSet   LeafIndexSet;
-	const LeafIndexSet & indset = grid.leafIndexSet();
-	// Get index set
+	const int cdim = GridType::dimension;
+	const int entityCodim = Entity::codimension;
 
-	int nSub = entity.subEntities(codim);
-	for (int i = 0; i < nSub; i++)
+	//std::cout << "marking subentity " << codim << " of entity " << entityCodim << " of grid dim " << cdim << std::endl;
+
+
+	// Add subentities from all PB faces
+	bool useFace = ((entityCodim == 1)&&(codim >= 1));
+
+	// Add subentities of entities if they are to be communicated
+	bool useEntitySend = ((entityCodim == 0)&&(usePartitionType(entity.partitionType (), iftype, dir, true) ));
+
+	bool useEntityRecv = ((entityCodim == 0)&&(usePartitionType(entity.partitionType (), iftype, dir, false) ));
+
+	if (useFace || useEntitySend || useEntityRecv)
 	{
-		// get index
-		auto subentity = entity.template subEntity<codim>(i);
-		int ind = indset.index(subentity);
+      typedef typename GridType::LeafIndexSet   LeafIndexSet;
+      const LeafIndexSet & indset = grid.leafIndexSet();
+      // Get index set
 
-		if (checkSend(codim, ind, iftype, dir, grid))  { in[ind] = TMP; }
-		if (checkRecv(codim, ind, iftype, dir, grid))  { out[ind] = 0;  }
+      Dune::GeometryType gt;  gt.makeSimplex(cdim);
+      int nSub = Dune::ReferenceElements<double, cdim>::general(gt).size(0, entityCodim, codim);
+      for (int i = 0; i < nSub; i++)
+      {
+         int ind = indset.subIndex(entity, i, codim);
+         if (useFace || useEntitySend)  { in[ind] = TMP;  }
+         if (useFace || useEntityRecv)  { out[ind] = 0;   }
+      }
 	}
 }
 
@@ -256,39 +272,40 @@ void communicateConst(Dune::InterfaceType iftype, Dune::CommunicationDirection d
 	  EntityLeafIterator ibegin = leafView.template begin<0>();
 	  EntityLeafIterator iend   = leafView.template end<0>();
 
+	  bool withGhosts = grid.gridbase().withGhostElements();
 
-	  std::cout << " -- creating send-arrays" << std::endl;
+	  //std::cout << " -- creating send-arrays" << std::endl;
 	  for (EntityLeafIterator it = ibegin; it != iend; ++it)
 	  {
-		typedef typename LeafGridView::template Codim< 0 >::Entity Entity;
-		const Entity &entity = *it;
+		typedef typename LeafGridView::template Codim< 0 >::Entity Element;
+		typedef typename LeafGridView::template Codim< 1 >::Entity Face;
 
-		std::cout << "-accessing entity " << indset.index(entity) << std::endl;
+		const Element &entity = *it;
+		bool marked_internal = false;
 
-		bool marked_this = false;
-
-		int iIntersect = 0;
-        const IntersectionIterator nend = leafView.iend(entity);
-		for( IntersectionIterator nit = leafView.ibegin(entity); nit != nend; ++nit )
+		// Only iterate over internal elements for simplicity
+		if (entity.partitionType() != Dune::PartitionType::GhostEntity)
 		{
-		  std::cout << "--accessing intersect " << iIntersect++ << std::endl;
-		  const Intersection &intersection = *nit;
+	        const IntersectionIterator nend = leafView.iend(entity);
+			for( IntersectionIterator nit = leafView.ibegin(entity); nit != nend; ++nit )
+			{
+			  const Intersection &intersection = *nit;
 
-		  if (intersection.neighbor())
-		  {
-			  const Entity & entityOut = intersection.outside();
-
-			  if (entityOut.partitionType() == Dune::PartitionType::GhostEntity)
+			  // We are interested in marking process boundaries, and their neighbor entities
+			  if (isProcessBoundary(intersection, withGhosts))
 			  {
-				  bool withGhosts = grid.gridbase().withGhostElements();
+				  const Face thisFace = entity.template subEntity<1>(intersection.indexInInside());
+				  const Element & entityOut = intersection.outside();
 
-				  if (!marked_this)  { mark_subentity<GridType, DataMap, codim>(entity,    in, out, iftype, dir, grid, TMP); }
-				  if (withGhosts)    { mark_subentity<GridType, DataMap, codim>(entityOut, in, out, iftype, dir, grid, TMP);  }
-
-				  marked_this = true;
+				  mark_subentity<GridType, Face, DataMap, codim>(thisFace, in, out, iftype, dir, grid, TMP);
+				  if (!marked_internal)  { mark_subentity<GridType, Element, DataMap, codim>(entity, in, out, iftype, dir, grid, TMP); }
+				  if (withGhosts)        { mark_subentity<GridType, Element, DataMap, codim>(entityOut, in, out, iftype, dir, grid, TMP); }
+				  marked_internal = true;
 			  }
-		  }
+			}
 		}
+
+
 	  }
 	  int recvSize = out.size();
 
@@ -310,12 +327,13 @@ void communicateConst(Dune::InterfaceType iftype, Dune::CommunicationDirection d
 	  std::cout << "after communication: " << std::endl;
 	  for (DataIter datait = out.begin(); datait != out.end(); datait++)
 	  {
-		  std::cout << "     " << (*datait).first << " " << (*datait).second << std::endl;
+		  std::cout << "     " << mpihelper.rank() << " " << (*datait).first << " " << (*datait).second << " type " << grid.gridbase().entityStructuralType(codim, (*datait).first) << std::endl;
 	  }
 
 
 	  for (DataIter datait = out.begin(); datait != out.end(); datait++)
 	  {
+		  if ((*datait).second != TMP) { std::cout << "received unexpected data = " << (*datait).second << std::endl; }
 		  assert((*datait).second == TMP);
 	  }
   }
@@ -354,6 +372,17 @@ int main (int argc , char **argv) {
 		Dune::CommunicationDirection::BackwardCommunication,
 		Dune::CommunicationDirection::ForwardCommunication
 	};
+
+
+	/*
+	std::cout << " Brief self-test";
+	std::cout << " " << usePartitionType(Dune::PartitionType::InteriorEntity, Dune::InterfaceType::InteriorBorder_All_Interface, Dune::CommunicationDirection::ForwardCommunication, true);
+	std::cout << " " << usePartitionType(Dune::PartitionType::GhostEntity, Dune::InterfaceType::InteriorBorder_All_Interface, Dune::CommunicationDirection::ForwardCommunication, true);
+	std::cout << " " << usePartitionType(Dune::PartitionType::InteriorEntity, Dune::InterfaceType::InteriorBorder_All_Interface, Dune::CommunicationDirection::ForwardCommunication, false);
+	std::cout << " " << usePartitionType(Dune::PartitionType::GhostEntity, Dune::InterfaceType::InteriorBorder_All_Interface, Dune::CommunicationDirection::ForwardCommunication, false);
+	std::cout << std::endl;
+	*/
+
 
 	// For each interface and codimension, perform simple communication test given by communicateConst
 	for (int i = 0; i < 4; i++)

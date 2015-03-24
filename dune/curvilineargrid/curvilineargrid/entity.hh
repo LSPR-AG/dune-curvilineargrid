@@ -160,7 +160,12 @@ namespace Dune
 
 
 	  /** \brief obtain the entity's index */
-	  int index () const  { return *gridbaseIndexIterator_; }
+	  int index () const  {
+		  LocalIndexType thisIndex = indexBase();
+
+		  if (codim == dimension)     { return gridbase_->cornerUniqueLocalIndex(thisIndex); }
+		  else                        { return thisIndex; }
+	  }
 
 
 	  /** \brief obtain the index of a subentity from a host IndexSet
@@ -169,11 +174,20 @@ namespace Dune
 	   *  \param[in]  codim        codimension of the subentity
 	   */
 	  int subIndex (int internalIndex, unsigned int subcodim ) const  {
-	      LocalIndexType thisIndex = gridbase_->subentityLocalIndex(*gridbaseIndexIterator_, codimension, subcodim, internalIndex);
+	      LocalIndexType thisIndex = subIndexBase(internalIndex, subcodim);
 
 		  if (subcodim == dimension)  { return gridbase_->cornerUniqueLocalIndex(thisIndex); }
 		  else                        { return thisIndex; }
 	  }
+
+
+	  /** \brief obtain the entity's index */
+	  int indexBase () const  { return *gridbaseIndexIterator_; }
+
+	  int subIndexBase(int internalIndex, unsigned int subcodim) const  {
+		  return gridbase_->subentityLocalIndex(*gridbaseIndexIterator_, codimension, subcodim, internalIndex);
+	  }
+
 
 
 	  /** \brief obtain the entity's id from a host IdSet */
@@ -244,57 +258,6 @@ namespace Dune
 
 	  }
 
-  };
-
-
-
-  /** Specialisation of the entity class for Corners
-   * The reason is that the default vertex index in GridBase is defined differently than in GridAPI.
-   * In GridBase all vertices, that is, corners and internal vertices, share the local index
-   * In GridAPI only corners possess local index and it must be consecutive
-   *
-   *  */
-  template<int dim, class Grid>
-  class CurvEntity<dim, dim, Grid> : public CurvEntityBase<dim, dim, Grid>
-  {
-	    typedef CurvEntityBase<dim, dim, Grid>   Base;
-
-	    typedef typename Base::IndexSetIterator  IndexSetIterator;
-	    typedef typename Base::GridBaseType      GridBaseType;
-
-	    typedef typename GridBaseType::LocalIndexType             LocalIndexType;
-
-	    using Base::gridbase_;
-  public:
-
-	  //! Fake constructor
-	  CurvEntity () : Base()  { }
-
-      CurvEntity (
-	      const IndexSetIterator & iter,
-	      GridBaseType & gridbase,
-	      Dune::PartitionIteratorType pitype)
-	  	      : Base(iter, gridbase, pitype)
-	  {}
-
-	  // Constructor for when the iterator is irrelevant. Creates default iterator over all-partition
-	  CurvEntity (
-          LocalIndexType localIndex,
-	      GridBaseType & gridbase,
-	      Dune::PartitionIteratorType pitype)
-	  	      :  Base(localIndex, gridbase, pitype)
-	  {  }
-
-	  // Constructor from a seed
-	  template <class Seed>
-	  CurvEntity(Seed & seed, GridBaseType & gridbase)
-	     : Base(seed.localIndex(), gridbase, seed.partitionIteratorType())
-	  {
-
-	  }
-
-	  /** \brief obtain the corner index, using unique corner local index */
-	  int index () const  { return gridbase_->cornerUniqueLocalIndex(Base::index()); }
   };
 
 

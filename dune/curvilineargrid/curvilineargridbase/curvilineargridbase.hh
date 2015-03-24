@@ -371,10 +371,12 @@ public:
      * Section: Setting user constants
      * ***************************************************************************/
 
-    // Sets the geometry tolerance
+    /** \brief Sets the geometry tolerance. Geometry tolerance determines the precision of curvilinear volumes
+     *  Returned by the grid
+     *  */
     void   geometryRelativeTolerance(double tolerance)  { gridstorage_.GEOMETRY_TOLERANCE = tolerance; }
 
-    // Retrieves the geometry tolerance
+    /** \brief Retrieves the geometry tolerance */
     double geometryRelativeTolerance() const            { return gridstorage_.GEOMETRY_TOLERANCE; }
 
     bool verbose() const  { return verbose_; }
@@ -751,7 +753,7 @@ public:
     }
 
 
-    /** Vertex coordinate
+    /** \brief Coordinate of a requested interpolatory vertex
      *  \param[in] localIndex            local vertex index (insertion index)
      * */
     Vertex vertex(LocalIndexType localIndex) const { return gridstorage_.point_[localIndex].coord; }
@@ -778,7 +780,7 @@ public:
     	}
     }
 
-
+    /** \brief Retrieves the geometry class of the entity. This procedure is expensive, especially for cached geometries */
     template<int codim>
     typename Codim<codim>::EntityGeometry
     entityGeometry(LocalIndexType localIndex) const
@@ -792,6 +794,7 @@ public:
     const CurvilinearLooseOctree & octree() const { return *gridstorage_.octree_; }
 
 
+    /** \brief Minimal bounding box for set of elements on this process */
     void processBoundingBox(Vertex & center, Vertex & extent) const
     {
         center = gridstorage_.boundingBoxCenter_;
@@ -920,6 +923,7 @@ public:
     }
 
 
+    /** \brief Retrieves the string associated with the specified structural type */
     std::string PartitonTypeName(StructuralType structtype) const  { return gridstorage_.PartitonTypeName[structtype]; }
 
     // Checks if entities of a given codim are allowed to be of a given structural type

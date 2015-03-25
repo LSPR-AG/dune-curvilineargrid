@@ -1,0 +1,75 @@
+\section{CurvilinearGeometryHelper}
+\label{interface-geometry-helper}
+
+
+\noindent
+Hard-coded number of curvilinear degrees of freedom as given in \ref{theory-lagrange} \\
+
+\begin{mybox}
+\begin{lstlisting}
+  static int dofPerOrder(Dune::GeometryType geomType, int order)
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+Hard-coded map between a corner internal index and vertex internal index. \\
+
+\begin{mybox}
+\begin{lstlisting}
+  static InternalIndexType cornerIndex(Dune::GeometryType geomType, int order, InternalIndexType i)
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+This procedure extracts corner indices from a vertex index set using the $cornerIndex$ command \\
+
+\begin{mybox}
+\begin{lstlisting}
+  template<class ct, int mydim>
+  static std::vector<int> entityVertexCornerSubset(Dune::GeometryType gt, const std::vector<int> & vertexIndexSet, InterpolatoryOrderType order)
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+Coordinate of a corner of a reference element based on index. Should be replaced by $ref.position()$ together with other methods of this class. \\
+
+\begin{mybox}
+\begin{lstlisting}
+  template <typename ctype, int cdim>
+  static Dune::FieldVector<ctype, cdim> cornerInternalCoordinate(GeometryType gt, InternalIndexType subInd)
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+Generates a vector of integer vectors which label the positions of a regular grid over a simplex \\
+
+\begin{mybox}
+\begin{lstlisting}
+  template <int mydim>
+  static IntegerCoordinateVector simplexGridEnumerate(int n)
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+Generates a vector of coordinates which correspond to a regular grid over a simplex. Can re-use already existing simplexGridEnumerate array for speedup \\
+
+\begin{mybox}
+\begin{lstlisting}
+  template <class ct, int mydim>
+  static std::vector<Dune::FieldVector<ct, mydim> > simplexGridCoordinateSet(int n)
+  template <class ct, int mydim>
+  static std::vector<Dune::FieldVector<ct, mydim> > simplexGridCoordinateSet(IntegerCoordinateVector integerGrid, int n)
+\end{lstlisting}
+\end{mybox}
+
+
+\noindent
+List of internal vertex indices of an element corresponding to the interpolatory vertices of a subentity of the element
+
+\begin{mybox}
+\begin{lstlisting}
+    template <class ct, int cdim>
+    static std::vector<InternalIndexType> subentityInternalCoordinateSet(Dune::GeometryType entityGeometry, int order, int subentityCodim, int subentityIndex)
+\end{lstlisting}
+\end{mybox}
+

@@ -89,8 +89,8 @@ int main(int argc, char** argv)
     // Perform diagnostics tests on the constructed grid
     Dune::CurvilinearGridDiagnostic<SimplexGridType> diagnostic(verbose, processVerbose, mpihelper, *gridbase);
 
-	std::vector<bool> withElements {false, false};                  // Whether to add elements to VTK: Internal / Ghost
-	std::vector<bool> withFaces    {true, true, true, true};    // Whether to add faces to VTK: Internal / Ghost / DomainBoundary / ProcessBoundary
+	std::vector<bool> withElements {true, true};                  // Whether to add elements to VTK: Internal / Ghost
+	std::vector<bool> withFaces    {false, false, true, true};    // Whether to add faces to VTK: Internal / Ghost / DomainBoundary / ProcessBoundary
 	std::vector<bool> withEdges    {false, false, false, false};      // Whether to add edges to VTK: Internal / Ghost / DomainBoundary / ProcessBoundary
 
 	int  VTK_CURV_DISCRETIZATION = 7;       // 2=linear, minimal allowed discretization

@@ -189,7 +189,6 @@ public:
 
     /** \brief Insert an element into the mesh
      * \param[in] gt               geometry type of the element (hopefully tetrahedron)
-     * \param[in] globalId         Index unique for the union of all faces and elements of the GMSH file
      * \param[in] vertexIndexSet   local indices of interpolatory vertices. Local with respect to the order the vertices were inserted
      * \param[in] order            interpolatory order of the element
      * \param[in] physicalTag      physical tag of the element
@@ -200,7 +199,6 @@ public:
      * */
     void insertElement(
     	Dune::GeometryType gt,
-    	GlobalIndexType globalId,
     	const std::vector<LocalIndexType> & vertexIndexSet,
     	InterpolatoryOrderType order,
     	PhysicalTagType physicalTag)
@@ -238,7 +236,6 @@ public:
      *     globalId for all faces at a later stage.
      *
      *  \param[in] gt                       geometry type of the face (should be a triangle)
-     *  \param[in] globalId                 Index unique for the union of all faces and elements of the GMSH file
      *  \param[in] associatedElementIndex   local index of the element this face is associated to
      *  \param[in] vertexIndexSet           local indices of the interpolatory vertices of this face
      *  \param[in] order                    interpolatory order of the face
@@ -248,7 +245,6 @@ public:
 
     void insertBoundarySegment(
     	Dune::GeometryType gt,
-    	GlobalIndexType globalId,
     	LocalIndexType associatedElementIndex,
     	const std::vector<LocalIndexType> & vertexIndexSet,
     	InterpolatoryOrderType order,
@@ -383,7 +379,6 @@ public:
         gridstorage_.nEntityTotal_[EDGE_CODIM] = 0;  // Will be updated later
         gridstorage_.nEntityTotal_[FACE_CODIM] = 0;  // Will be updated later
 
-        computeProcessBoundingBox();
         generateEdges();
         generateFaces();
         markBoundaryVertexStructuralType();
@@ -454,6 +449,7 @@ public:
 
         // Construct OCTree
         // ************************************************************
+        computeProcessBoundingBox();
         //constructOctree();
     }
 
@@ -843,7 +839,7 @@ protected:
             	gridstorage_.edge_[thisEdgeLocalIndex].structuralType = GridStorageType::PartitionType::DomainBoundary;
 
                 std::stringstream log_stream;
-                log_stream << "CurvilinearGridConstructor: -- Marking domain boundary EdgeKey= (" << thisEdgeKey[i].node0 << ", " << thisEdgeKey[i].node1 << ")";
+                log_stream << "CurvilinearGridConstructor: -- From face index= " << (*faceIter).second << " marking domain boundary edge index=" << thisEdgeLocalIndex << " EdgeKey= (" << thisEdgeKey[i].node0 << ", " << thisEdgeKey[i].node1 << ")";
                 Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
             }
         }
@@ -871,8 +867,9 @@ protected:
             	LocalIndexType thisEdgeLocalIndex = edgeKey2LocalIndexMap_[thisEdgeKey[i]];
 
             	// Mark this edge as subentity of associated boundary internal element
-            	InternalIndexType thisEdgeSubIndex = Dune::ReferenceElements<ct, cdim>::general(assocElemGT).subEntity(thisFaceSubIndex, FACE_CODIM, i, EDGE_CODIM);
-            	gridstorage_.elementSubentityCodim2_[assocElementIndex][thisEdgeSubIndex] = thisEdgeLocalIndex;
+            	// It is strongly suspected that this operation is unnecessary, because it is already done at generateEdges()
+            	//InternalIndexType thisEdgeSubIndex = Dune::ReferenceElements<ct, cdim>::general(assocElemGT).subEntity(thisFaceSubIndex, FACE_CODIM, i, EDGE_CODIM);
+            	//gridstorage_.elementSubentityCodim2_[assocElementIndex][thisEdgeSubIndex] = thisEdgeLocalIndex;
 
                 // For each vertex, if it has not yet been added to the map, add it, mapping to a new entry
                 // in the processBoundaryCornerNeighborRank_
@@ -888,7 +885,7 @@ protected:
                 	gridstorage_.processBoundaryIndexMap_[EDGE_CODIM][thisEdgeLocalIndex] = processBoundaryEdgeIndex;
 
                     std::stringstream log_stream;
-                    log_stream << "CurvilinearGridConstructor: -- Adding process boundary EdgeKey= (" << thisEdgeKey[i].node0 << ", " << thisEdgeKey[i].node1 << ")";
+                    log_stream << "CurvilinearGridConstructor: -- From face index= " << thisFaceLocalIndex << " marking process boundary edge index=" << thisEdgeLocalIndex << " EdgeKey= (" << thisEdgeKey[i].node0 << ", " << thisEdgeKey[i].node1 << ")";
                     Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
                 }
             }

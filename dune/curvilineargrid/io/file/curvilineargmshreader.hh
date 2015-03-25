@@ -999,7 +999,9 @@ namespace Dune
 
             //Insert internal element
             //****************************************************
-            factory.insertElement(elemType, internalElementVector[i].elementIndex_, localDofVector, elemOrder, internalElementVector[i].physicalEntityTag_);
+            // Note: Global index available through internalElementVector[i].elementIndex_ is not necessary, since it is
+            // shared with domain boundary triangles, and the grid requires separate global index for all entity codimensions
+            factory.insertElement(elemType, localDofVector, elemOrder, internalElementVector[i].physicalEntityTag_);
 
 
             if (!insertBoundarySegment) {
@@ -1077,7 +1079,9 @@ namespace Dune
             // Adding boundarySegment to factory
             if (insertBoundarySegment)
             {
-                factory.insertBoundarySegment(boundaryType, boundaryElementVector[i].elementIndex_, localDofVector, boundaryOrder, linkedElementLocalIndexSet[i][0], boundaryElementVector[i].physicalEntityTag_);
+                // Note: Global index available through boundaryElementVector[i].elementIndex_ is not necessary, since it is
+                // shared with domain boundary triangles, and the grid requires separate global index for all entity codimensions
+                factory.insertBoundarySegment(boundaryType, localDofVector, boundaryOrder, linkedElementLocalIndexSet[i][0], boundaryElementVector[i].physicalEntityTag_);
 
                 log_string = "    * boundary_element " + std::to_string(i) + " has been added to the Geometry Factory ";
                 Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);

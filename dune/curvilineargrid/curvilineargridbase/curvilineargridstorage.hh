@@ -64,8 +64,8 @@ public:
 	{
 		enum {
 			Internal           = 0,   // Entity that is not on the process boundary
-			ProcessBoundary    = 1,   // Boundary entity shared by more than one process
-			DomainBoundary     = 2,   // Boundary entity that is not a process boundary [codim > 0]
+			DomainBoundary     = 1,   // Boundary entity that is not a process boundary [codim > 0]
+			ProcessBoundary    = 2,   // Boundary entity shared by more than one process
 			InternalBoundary   = 3,   // Artificial user-defined boundary that is not the process boundary [Not Implemented]
 			FrontBoundary      = 4,   // Faces of Overlap partition [Not Implemented]
 			Ghost              = 5,   // Entities stored on this process but not owned by it [all codim]

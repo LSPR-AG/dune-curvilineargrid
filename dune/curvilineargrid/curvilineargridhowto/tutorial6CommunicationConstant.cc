@@ -60,9 +60,9 @@ GridType * createGrid(Dune::MPIHelper & mpihelper)
 
 
 /* A DataHandle class that communicates a fixed constant for all entities participating in the communication */
-template<class IndexSet, class ValueType> // mapper type and vector type
+template<class GridType, class IndexSet, class ValueType> // mapper type and vector type
 class DataHandleConstant
-  : public Dune::CommDataHandleIF<DataHandleConstant<IndexSet,ValueType>, ValueType>
+  : public Dune::CommDataHandleIF<DataHandleConstant<GridType, IndexSet,ValueType>, ValueType>
 {
   typedef typename  IndexSet::IndexType             IndexType;
   typedef typename  std::map<IndexType, ValueType>  DataMap;
@@ -72,11 +72,13 @@ public:
 
   //! constructor
   DataHandleConstant (
+	const GridType& grid,
     const IndexSet& indexset,
     DataMap & in,
     DataMap & out,
     int codim)
-      : indexset_(indexset),
+      : grid_(grid),
+    	indexset_(indexset),
         in_(in),
         out_(out),
         codim_(codim)
@@ -118,7 +120,20 @@ public:
 
     if (iter == in_.end())
     {
-    	std::cout << " Error: DataHandleConstant: sending data from unexpected entity index=" << ind << std::endl;
+    	std::cout << " Error: DataHandleConstant: sending data from unexpected entity index=" << ind;
+
+    	std::cout << " of structural type " << grid_.gridbase().entityStructuralType(EntityType::codimension, ind);
+    	int parentIndex = grid_.gridbase().edgeNeighbor(ind);
+    	std::cout << " of parent index " << parentIndex << " of structural type " << grid_.gridbase().entityStructuralType(0, parentIndex);
+
+    	const auto & storage = grid_.gridbase().gridstorage();
+    	for (int i = 0; i < storage.elementSubentityCodim1_[parentIndex].size(); i++)
+    	{
+    		std::cout << " has neighbor face " << storage.elementSubentityCodim1_[parentIndex][i] << " of type " << grid_.gridbase().entityStructuralType(0, parentIndex);
+    	}
+    	std::cout << std::endl;
+
+
     	DUNE_THROW( Dune::GridError, " DataHandleConst: sending data from entity that is not supposed to communicate" );
     }
 
@@ -150,6 +165,7 @@ protected:
   bool haveDim(int dim) const  { return dim == 3; }
 
 private:
+  const GridType& grid_;
   const IndexSet& indexset_;
   DataMap& in_;
   DataMap& out_;
@@ -210,15 +226,11 @@ void mark_subentity(
 	const int cdim = GridType::dimension;
 	const int entityCodim = Entity::codimension;
 
-	//std::cout << "marking subentity " << codim << " of entity " << entityCodim << " of grid dim " << cdim << std::endl;
-
-
 	// Add subentities from all PB faces
 	bool useFace = ((entityCodim == 1)&&(codim >= 1));
 
 	// Add subentities of entities if they are to be communicated
 	bool useEntitySend = ((entityCodim == 0)&&(usePartitionType(entity.partitionType (), iftype, dir, true) ));
-
 	bool useEntityRecv = ((entityCodim == 0)&&(usePartitionType(entity.partitionType (), iftype, dir, false) ));
 
 	if (useFace || useEntitySend || useEntityRecv)
@@ -229,9 +241,11 @@ void mark_subentity(
 
       Dune::GeometryType gt;  gt.makeSimplex(cdim);
       int nSub = Dune::ReferenceElements<double, cdim>::general(gt).size(0, entityCodim, codim);
+
       for (int i = 0; i < nSub; i++)
       {
          int ind = indset.subIndex(entity, i, codim);
+
          if (useFace || useEntitySend)  { in[ind] = TMP;  }
          if (useFace || useEntityRecv)  { out[ind] = 0;   }
       }
@@ -294,6 +308,8 @@ void communicateConst(Dune::InterfaceType iftype, Dune::CommunicationDirection d
 			  // We are interested in marking process boundaries, and their neighbor entities
 			  if (isProcessBoundary(intersection, withGhosts))
 			  {
+				  //std::cout << "process=" << mpihelper.rank() << " visiting face " << indset.subIndex(entity, intersection.indexInInside(), 1) << std::endl;
+
 				  const Face thisFace = entity.template subEntity<1>(intersection.indexInInside());
 				  const Element & entityOut = intersection.outside();
 
@@ -311,9 +327,9 @@ void communicateConst(Dune::InterfaceType iftype, Dune::CommunicationDirection d
 
 	  // Create datahandle
 	  std::cout << " -- Initialising datahandle" << std::endl;
-	  typedef DataHandleConstant<LeafIndexSet, ValueType>        DHConstImpl;
-	  typedef typename Dune::CommDataHandleIF< DHConstImpl, ValueType >   DHConst;
-	  DHConstImpl dhimpl(indset, in, out, codim);
+	  typedef DataHandleConstant<GridType, LeafIndexSet, ValueType>        DHConstImpl;
+	  typedef typename Dune::CommDataHandleIF< DHConstImpl, ValueType >    DHConst;
+	  DHConstImpl dhimpl(grid, indset, in, out, codim);
 	  //DHConst dh(DHConstImpl(indset, in, out, codim));
 
 	  // Perform communication
@@ -324,11 +340,13 @@ void communicateConst(Dune::InterfaceType iftype, Dune::CommunicationDirection d
 	  // assert all values of out array to be what they need to be
 	  assert(out.size() == recvSize);
 
+	  /*
 	  std::cout << "after communication: " << std::endl;
 	  for (DataIter datait = out.begin(); datait != out.end(); datait++)
 	  {
 		  std::cout << "     " << mpihelper.rank() << " " << (*datait).first << " " << (*datait).second << " type " << grid.gridbase().entityStructuralType(codim, (*datait).first) << std::endl;
 	  }
+	  */
 
 
 	  for (DataIter datait = out.begin(); datait != out.end(); datait++)

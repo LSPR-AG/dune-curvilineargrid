@@ -125,23 +125,21 @@ class CurvilinearGridBaseFactory
 
     void insertElement(
       GeometryType &geometry,
-      const int globalId,          // Not actually used
       const std::vector< VertexLocalIndex > &vertexIndexSet,
       const int elemOrder,
       const int physicalTag)
     {
-    	gridbase_->insertElement(geometry, globalId, vertexIndexSet, elemOrder, physicalTag);
+    	gridbase_->insertElement(geometry, vertexIndexSet, elemOrder, physicalTag);
     }
 
     void insertBoundarySegment(
         GeometryType &geometry,
-        const int globalId,          // Not actually used
         const std::vector< VertexGlobalId > &vertexIndexSet,
         const int elemOrder,
         const ElementLocalIndex associatedElementIndex,
         const int physicalTag)
     {
-    	gridbase_->insertBoundarySegment(geometry, globalId, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag);
+    	gridbase_->insertBoundarySegment(geometry, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag);
     }
 
 

@@ -260,7 +260,6 @@ public:
 
     /** \brief Insert an element into the mesh
      * \param[in] gt               geometry type of the element (hopefully tetrahedron)
-     * \param[in] globalId         Index unique for the union of all faces and elements of the GMSH file
      * \param[in] vertexIndexSet   local indices of interpolatory vertices. Local with respect to the order the vertices were inserted
      * \param[in] order            interpolatory order of the element
      * \param[in] physicalTag      physical tag of the element
@@ -268,13 +267,12 @@ public:
      * */
     void insertElement(
         	Dune::GeometryType gt,
-        	GlobalIndexType globalId,
         	const std::vector<LocalIndexType> & vertexIndexSet,
         	InterpolatoryOrderType order,
         	PhysicalTagType physicalTag)
     {
     	assertStage(Stage::GRID_CONSTRUCTION);
-    	gridconstructor_.insertElement(gt, globalId, vertexIndexSet, order, physicalTag);
+    	gridconstructor_.insertElement(gt, vertexIndexSet, order, physicalTag);
     }
 
     /** Insert a boundary segment into the mesh
@@ -284,7 +282,6 @@ public:
      *     globalId for all faces at a later stage.
      *
      *  \param[in] gt                       geometry type of the face (should be a triangle)
-     *  \param[in] globalId                 Index unique for the union of all faces and elements of the GMSH file
      *  \param[in] associatedElementIndex   local index of the element this face is associated to
      *  \param[in] vertexIndexSet           local indices of the interpolatory vertices of this face
      *  \param[in] order                    interpolatory order of the face
@@ -294,14 +291,13 @@ public:
 
     void insertBoundarySegment(
     		Dune::GeometryType gt,
-        	GlobalIndexType globalId,
         	LocalIndexType associatedElementIndex,
         	const std::vector<LocalIndexType> & vertexIndexSet,
         	InterpolatoryOrderType order,
         	PhysicalTagType physicalTag)
     {
     	assertStage(Stage::GRID_CONSTRUCTION);
-    	gridconstructor_.insertBoundarySegment(gt, globalId, associatedElementIndex, vertexIndexSet, order, physicalTag);
+    	gridconstructor_.insertBoundarySegment(gt, associatedElementIndex, vertexIndexSet, order, physicalTag);
     }
 
 
@@ -717,6 +713,16 @@ public:
     }
 
 
+    /** \brief local index of the element that is neighbour to this edge.
+     * [TODO] Bad name, better say EdgeOwner, because this is simply one of the elements that owns this edge
+     *  */
+    LocalIndexType edgeNeighbor(LocalIndexType localIndex) const
+    {
+    	assert(localIndex < gridstorage_.edge_.size());
+    	return gridstorage_.edge_[localIndex].elementIndex;
+    }
+
+
     /** \brief local index of the element that is neighbor to this face
      *
      * \param[in]    localIndex               local index of this face
@@ -905,6 +911,9 @@ public:
 
     IndexSetIterator entityDuneIndexEnd(int codim, Dune::PartitionIteratorType pitype)   const { return entityIndexSetDuneSelect(codim, pitype).end(); }
 
+
+
+    const GridStorageType & gridstorage() const { return gridstorage_; }
 
     /* ***************************************************************************
      * Section: Public Auxiliary Methods

@@ -304,7 +304,7 @@ namespace Dune
 
 
     		std::stringstream logstr;
-    		logstr << "---- contents of this comm map: ";
+    		logstr << "---- contents of this comm map: total=" << mapSend.size() << " ";
     		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)  {
     			logstr << "(" << (*iter).first << "," << gridbase_.entityStructuralType(codim, (*iter).first) << ") ";
     		}

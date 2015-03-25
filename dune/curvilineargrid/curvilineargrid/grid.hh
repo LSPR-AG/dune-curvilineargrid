@@ -618,7 +618,7 @@ namespace Dune
     /** \} */
 
 
-    const GridBaseType & gridbase()  { return *gridbase_; }
+    const GridBaseType & gridbase() const  { return *gridbase_; }
 
 
 

@@ -42,6 +42,7 @@
 \DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
 \DeclarePairedDelimiter{\floor}{\lfloor}{\rfloor}
 
+
 % Rounded boxes functionality
 \usepackage[framemethod=tikz]{mdframed}
 \definecolor{mycolor}{rgb}{0.122, 0.435, 0.698}
@@ -317,6 +318,12 @@ we reject any attempt of any other sovereign law to cover what we do.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Implementation of Curvilinear Geometry Helper
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-geometry-helper}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of Interpolator Class
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \include{manual-geometry-interpolation}
@@ -329,6 +336,12 @@ we reject any attempt of any other sovereign law to cover what we do.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Implementation of Recursive Integration
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-geometry-quadratureintegrator}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of Curvilinear Geometry
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \include{manual-geometry-curvilineargeometry}
@@ -338,6 +351,37 @@ we reject any attempt of any other sovereign law to cover what we do.
 
 
 \chapter{Interface - Curvilinear Grid}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Interface of Curvilinear Grid Factory
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-interface-curvilineargrid}
+
+\section{Curvilinear Grid Base Implementation}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Interface of Curvilinear Grid Factory
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-interface-factory}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Interface of Curvilinear GMSH Reader
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-interface-curvilineargmshreader}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Interface of Curvilinear VTK Writer
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-interface-vtkwriter}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Interface of AllCommunication 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-interface-allcommunicate}
+
 
 
 
@@ -364,6 +408,25 @@ we reject any attempt of any other sovereign law to cover what we do.
 \include{manual-geometry-theory-integration}
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Theory for point location (OCTree)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-octree}
+
+
+
+
+
+
+\chapter{Implementation Details}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Implementation Details - Curvilinear Element Interpolator
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\include{manual-impl-geometry-curvilineargeometry}
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation Details - Curvilinear GMSH Reader
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -385,10 +448,7 @@ we reject any attempt of any other sovereign law to cover what we do.
 \include{manual-vtkwriter}
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Theory for point location (OCTree)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-octree}
+
 
 
 

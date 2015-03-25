@@ -527,6 +527,7 @@ namespace Dune
                        InterfaceType interface,
                        CommunicationDirection direction ) const
     {
+    	std::cout << "called grid.communicate()" << std::endl;
     	Dune::CurvGrid::Communication<Grid> communicator(*gridbase_, mpihelper_);
     	if (dataHandle.contains(dim, ELEMENT_CODIM)) { communicator.template communicate<DataHandle, Data, ELEMENT_CODIM>(dataHandle, interface, direction); }
     	if (dataHandle.contains(dim, FACE_CODIM))    { communicator.template communicate<DataHandle, Data, FACE_CODIM>(dataHandle, interface, direction); }
@@ -617,7 +618,7 @@ namespace Dune
     /** \} */
 
 
-    const GridBaseType & gridBaseType()  { return *gridbase_; }
+    const GridBaseType & gridbase()  { return *gridbase_; }
 
 
 

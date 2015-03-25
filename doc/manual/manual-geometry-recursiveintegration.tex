@@ -1,4 +1,5 @@
 \section{Recursive Integrator Class}
+\label{interface-integrator-recursive}
 
 Evaluates integral over element, approximating the integrand by an interpolatory polymomials of two hierarchical orders (2 and 4 at the moment). The running integration error is approximated by the difference between the analytical integrals calculated from these two interpolatory polynomials. The higher order element is split into into sub-elements of lower order, and the integration proceeds recursively. Every time an element is split, its previous running error is subtracted from the total error, and the running errors of the sub-elements are added to the total error. Thus, the integration is terminated when total approximated error is below selected tolerance. Heap structure ordered by the approximate error of the element is used to avoid recursion. At every iteration the element with the worst error is selected and then refined. When splitting, the previously calculated points are not re-calculated but hierarchically re-used by sub-elements. The sub-element only needs to be refined to a higher hierarchical order, by adding more points. \\
 
@@ -14,6 +15,7 @@ Evaluates integral over element, approximating the integrand by an interpolatory
 
 
 \subsection{Methods}
+\label{interface-integrator-recursive-methods}
 
 \noindent
 Numerical Integration is only available for Simplices at the moment.

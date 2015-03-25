@@ -371,11 +371,20 @@ public:
      * Section: Setting user constants
      * ***************************************************************************/
 
-    // Sets the geometry tolerance
+    /** \brief Sets the geometry tolerance. Geometry tolerance determines the precision of curvilinear volumes
+     *  Returned by the grid
+     *  */
     void   geometryRelativeTolerance(double tolerance)  { gridstorage_.GEOMETRY_TOLERANCE = tolerance; }
 
-    // Retrieves the geometry tolerance
+    /** \brief Retrieves the geometry tolerance */
     double geometryRelativeTolerance() const            { return gridstorage_.GEOMETRY_TOLERANCE; }
+
+    bool verbose() const  { return verbose_; }
+
+    bool processVerbose() const  { return processVerbose_; }
+
+    bool withGhostElements() const { return gridstorage_.withGhostElements_; }
+
 
 
 
@@ -474,14 +483,12 @@ public:
     }
 
 
+    /** Returns the globalId of the entity  */
     IdType globalId(int codim, LocalIndexType localIndex) const
     {
     	GlobalIndexType globalIndex;
     	if (! findEntityGlobalIndex(codim, localIndex, globalIndex))  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: requested local index does not point to an entity");  }
-
-    	IdType thisId;
-    	thisId.id_ = std::pair<StructuralType, GlobalIndexType>( entityStructuralType(codim, localIndex),  globalIndex );
-    	return thisId;
+    	return IdType(globalIndex);
     }
 
 
@@ -490,7 +497,7 @@ public:
     {
     	StructuralType thisstructtype = entityStructuralType(FACE_CODIM, localIndex);
     	assert(thisstructtype == DomainBoundaryType);
-    	return gridstorage_.boundarySegmentIndexMap_.at(thisstructtype);
+    	return gridstorage_.boundarySegmentIndexMap_.at(localIndex);
     }
 
 
@@ -499,14 +506,14 @@ public:
     {
     	switch(codim)
     	{
-    	case VERTEX_CODIM  : return gridstorage_.point_[localIndex].structuralType;    break;
-    	case EDGE_CODIM    : return gridstorage_.edge_[localIndex].structuralType;     break;
-    	case FACE_CODIM    : return gridstorage_.face_[localIndex].structuralType;     break;
-    	case ELEMENT_CODIM : return gridstorage_.element_[localIndex].structuralType;  break;
+    	case VERTEX_CODIM  : assert(localIndex < gridstorage_.point_.size());    return gridstorage_.point_[localIndex].structuralType;    break;
+    	case EDGE_CODIM    : assert(localIndex < gridstorage_.edge_.size());     return gridstorage_.edge_[localIndex].structuralType;     break;
+    	case FACE_CODIM    : assert(localIndex < gridstorage_.face_.size());     return gridstorage_.face_[localIndex].structuralType;     break;
+    	case ELEMENT_CODIM : assert(localIndex < gridstorage_.element_.size());  return gridstorage_.element_[localIndex].structuralType;  break;
     	default :
     	{
-    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearPostConstructor: Unexpected subentity codimension=" + std::to_string(codim));
-    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected subentity codimension");
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridBase: unexpected codim " + std::to_string(codim));
+    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codimension");
     		break;
     	}
     	}
@@ -531,7 +538,28 @@ public:
     }
 
 
-    /** Get vertex global coordinate */
+    /** Get unique local index that enumerates only corners, disregarding other interpolatory vertices
+     * The only purpose of this index is to satisfy dune-standard for consecutive corner index, it is not used internally in the grid
+     * */
+    LocalIndexType cornerUniqueLocalIndex(LocalIndexType localVertexIndex) const {
+
+    	typedef typename Local2LocalMap::const_iterator  Local2LocalConstIter;
+    	Local2LocalConstIter tmp = gridstorage_.cornerIndexMap_.find(localVertexIndex);
+
+    	if (tmp == gridstorage_.cornerIndexMap_.end())
+    	{
+    		std::cout << "Error: CurvilinearGridBase: CornerUniqueIndex: Vertex with localIndex=" << localVertexIndex << " is not marked as a corner" << std::endl;
+    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected vertex local index for a corner");
+    	}
+
+    	return (*tmp).second;
+    }
+
+
+
+    /** Generates a vector of local coordinates of corners of requested entity
+     * The order of corners corresponds to the one provided by the ref.subEntity()
+     *   */
     std::vector<LocalIndexType> entityCornerLocalIndex(int codim, LocalIndexType entityLocalIndex) const
 	{
     	std::vector<LocalIndexType> rez;
@@ -667,21 +695,25 @@ public:
     	// Stage 2) Find index of the element subentity
     	// **************************************************************************
 
+    	int rez;
+
     	switch (subcodim)
     	{
     		// Face
-    		case FACE_CODIM   :  return gridstorage_.elementSubentityCodim1_[elementLocalIndex][elementSubentityInternalIndex1];  break;
+    		case FACE_CODIM   :  rez = gridstorage_.elementSubentityCodim1_[elementLocalIndex][elementSubentityInternalIndex1];  break;
     		// Edge
-    		case EDGE_CODIM   :  return gridstorage_.elementSubentityCodim2_[elementLocalIndex][elementSubentityInternalIndex1];  break;
+    		case EDGE_CODIM   :  rez = gridstorage_.elementSubentityCodim2_[elementLocalIndex][elementSubentityInternalIndex1];  break;
     		// Corner
     		case VERTEX_CODIM :
     		{
     			InterpolatoryOrderType interpolationOrder = gridstorage_.element_[elementLocalIndex].interpOrder;
     			InternalIndexType cornerInternalIndex = Dune::CurvilinearGeometryHelper::cornerIndex(tetrahedronGeometry, interpolationOrder, elementSubentityInternalIndex1);
-    			return gridstorage_.element_[elementLocalIndex].vertexIndexSet[cornerInternalIndex];
+    			rez = gridstorage_.element_[elementLocalIndex].vertexIndexSet[cornerInternalIndex];
     		} break;
     	}
 
+    	//std::cout << "Requested subentity index of entity=" << entityIndex << " codim=" << codim << " subcodim=" << subcodim << " internalIndex=" << subentityInternalIndex << " rez=" << rez << std::endl;
+    	return rez;
     }
 
 
@@ -721,7 +753,7 @@ public:
     }
 
 
-    /** Vertex coordinate
+    /** \brief Coordinate of a requested interpolatory vertex
      *  \param[in] localIndex            local vertex index (insertion index)
      * */
     Vertex vertex(LocalIndexType localIndex) const { return gridstorage_.point_[localIndex].coord; }
@@ -748,11 +780,12 @@ public:
     	}
     }
 
-
+    /** \brief Retrieves the geometry class of the entity. This procedure is expensive, especially for cached geometries */
     template<int codim>
     typename Codim<codim>::EntityGeometry
     entityGeometry(LocalIndexType localIndex) const
     {
+    	//std::cout << "attempting to create a codim " << codim << " entity with localIndex=" << localIndex << std::endl;
     	return entityGeometryConstructor<codim>(entityData(codim, localIndex));
     }
 
@@ -761,6 +794,7 @@ public:
     const CurvilinearLooseOctree & octree() const { return *gridstorage_.octree_; }
 
 
+    /** \brief Minimal bounding box for set of elements on this process */
     void processBoundingBox(Vertex & center, Vertex & extent) const
     {
         center = gridstorage_.boundingBoxCenter_;
@@ -790,6 +824,7 @@ public:
      * TODO: PBE file allows femaxx to count time. Use alternative in Dune?
      * */
     bool locateCoordinate(const Vertex & globalC, std::vector<int> & containerIndex, std::vector<Vertex> & localC) const {
+    	DUNE_THROW(Dune::IOError, "Using non-initialised OCTree");
 
         // If the point is not even in the process bounding box, then the coordinate is definitely not on this process
         if (isInsideProcessBoundingBoxGracious(globalC))
@@ -888,6 +923,7 @@ public:
     }
 
 
+    /** \brief Retrieves the string associated with the specified structural type */
     std::string PartitonTypeName(StructuralType structtype) const  { return gridstorage_.PartitonTypeName[structtype]; }
 
     // Checks if entities of a given codim are allowed to be of a given structural type
@@ -1002,12 +1038,17 @@ protected:
     	case DuneIBPartition    : return gridstorage_.entityDuneInteriorBorderIndexSet_[codim];    break;
     	case DuneGPartition     : return gridstorage_.entityGhostIndexSet_[codim];                 break;
     	case DuneAllPartition   : return gridstorage_.entityAllIndexSet_[codim];                   break;
-    	default: DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected dune-pitype");         break;
+    	default:
+    	{
+    		std::cout << "CurvilinearGridBase: Unexpected dune-pitype" << std::endl;
+    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected dune-pitype");         break;
+    	}
     	}
     }
 
     EntityStorage pointData(LocalIndexType localIndex) const
     {
+    	assert(localIndex < gridstorage_.point_.size());
     	const VertexStorage & thisPointData =  gridstorage_.point_[localIndex];
 
         EntityStorage thisPoint;
@@ -1023,6 +1064,7 @@ protected:
 
     EntityStorage edgeData(LocalIndexType localIndex) const
     {
+    	assert(localIndex < gridstorage_.edge_.size());
     	const EdgeStorage & thisEdgeData =    gridstorage_.edge_[localIndex];
         const EntityStorage & assocElement =  gridstorage_.element_[thisEdgeData.elementIndex];
 
@@ -1045,7 +1087,9 @@ protected:
 
     EntityStorage faceData(LocalIndexType localIndex) const
     {
+    	assert(localIndex < gridstorage_.face_.size());
     	const FaceStorage & thisFaceData = gridstorage_.face_[localIndex];
+    	assert(thisFaceData.element1Index < gridstorage_.element_.size());
         const EntityStorage & assocElement = gridstorage_.element_[thisFaceData.element1Index];
 
         EntityStorage thisFace;
@@ -1065,7 +1109,10 @@ protected:
         return thisFace;
     }
 
-    EntityStorage elementData(LocalIndexType localIndex) const { return gridstorage_.element_[localIndex]; }
+    EntityStorage elementData(LocalIndexType localIndex) const {
+    	assert(localIndex < gridstorage_.element_.size());
+    	return gridstorage_.element_[localIndex];
+    }
 
 
     // Get curved geometry of an entity
@@ -1075,10 +1122,18 @@ protected:
     typename Codim<codim>::EntityGeometry
     entityGeometryConstructor(EntityStorage thisData) const
     {
+    	assert(thisData.geometryType.dim() == cdim - codim);
+
+    	//std::cout << "started geom constructor " << thisData.geometryType << " " << thisData.interpOrder << std::endl;
+
         std::vector<Vertex> entityVertices;
         for (int i = 0; i < thisData.vertexIndexSet.size(); i++) { entityVertices.push_back(gridstorage_.point_[thisData.vertexIndexSet[i]].coord); }
 
+        //std::cout << "  -- assembled vertices " << Dune::VectorHelper::vector2string(entityVertices) << std::endl;#
+
         return typename Codim<codim>::EntityGeometry (thisData.geometryType, entityVertices, thisData.interpOrder);
+
+        //return typename Codim<codim>::EntityGeometry (thisData.geometryType, entityVertices, thisData.interpOrder);
     }
 
 

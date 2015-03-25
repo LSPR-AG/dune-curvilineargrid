@@ -1,37 +1,114 @@
 \section{Curvilinear Geometry Base Class}
+\label{interface-curvilineargeometry}
 
-LagrangeGeometry class is initialized with a geometry type/reference element, set of interpolatory vertices of the element, and the interpolation order. These are used to initialize a CurvilinearElementInterpolator class, which interpolates over vertices and provides an analytical map from global to local coordinates $\vec{p}(\vec{u})$. This map can either be provided analytically as a vector of polynomials, or immediately evaluated within the Interpolator class which is a little faster, as lagrange polynomials are also given explicitly.
+Curvilinear Geometry can be initialized either using the interpolator class, or the parameters necessary to initialize the interpolator class \\
 
-\subsection{Methods}
+\begin{mybox}
+\begin{lstlisting}
+  CurvilinearGeometry ( const ElementInterpolator & elemInterp)
+  CurvilinearGeometry ( const ReferenceElement &refElement, const Vertices &vertices, InterpolatoryOrderType order)
+  CurvilinearGeometry ( Dune::GeometryType gt, const Vertices &vertices, InterpolatoryOrderType order)
+\end{lstlisting}
+\end{mybox}
 
-\begin{itemize}
-\item \uline{Initialization}: Requires referenceElement/GeometryType, iterpolatory vertex vector and interpolatory order. Initializes ElementInterpolator class, which is always stored inside the geometry class. The vertex vector is stored inside the Interpolator class to avoid duplicate storage. \\
-\item \uline{global}: Finds the global coordinate from given local coordinate by calling the Interpolator class method $realCoordinate$
-\item \uline{local}:
-\item \uline{SubentityGeometries}: Creates a LagrangeGeometry class for each $\dim-1$ subentity of this geometry. Re-uses Interpolator class method $SubentityInterpolators$
-\item \uline{SubentityNormal}: Finds the normal of a requested subentity at a given local coordinate. Inefficient. For multiple queries it is better to call $SubentityGeometries$ once and then address the individual subentity geometry multiple times.
-\item \uline{normal}: Calculates outwards normal of an element. Only defined for edges in 2D and faces in 3D. Evaluates the surface normal integration element $d\vec{S}$ at the local coordinate and normalizes it.
-\item \uline{integrationElement}:
-\item \uline{integrateScalar}:
-\item \uline{integrateNumerical}:
-\item \uline{integrateAnalyticalScalar}:
-\item \uline{integrateAnalyticalDot}:
-\item \uline{integrateAnalyticalTimes}:
-\item \uline{volume}: defined by integrating $f(\vec{r}) = 1$ over a scalar integration element. When dimension of element is equal to the world dimension, the integration is done analytically using $integrateAnalyticalScalar$ with $f(\vec{r}) = 1$. For mismatching dimensions, the integration is done numerically using $integrateNumerical$ with $f(\vec{r}) = 1$. 
-\item \uline{jacobianTransposed}:
-\item \uline{jacobiaInverseTransposed}:
-\item \uline{JacobianDeterminantAnalytical}: $|\det J_{ij}|$ is available explicitly in polynomial form, when $(dim_{elem} = dim_{world})$. Although modulus is not a polynomial operation, $\det J_{ij} \neq 0$ inside the element, because the geometry must not be self-intersecting. Hence $\det J_{ij}$ is not allowed to change sign within the element, and modulus-correction is to evaluate $\det J_{ij}$ anywhere inside the element and multiply the analytic expression by $-1$ if the result is negative.
-\item \uline{NormalIntegrationElementAnalytical}: Surface normal integration element $d\vec{S} = \vec{n} dS $ is available
-		\subitem - for edges in 2D defined by $d\vec{l} = (\partial_u p_y, -\partial_u p_x) du$
-		\subitem - for triangles in 3D defined by $d \vec{S} = -(\partial_u \vec{p} \times \partial_v \vec{p}) du dv $
-\item \uline{IntegrationElementSquaredAnalytical}: The square of the pseudodeterminant $\det(JJ^T)$, when $(dim_{elem} \neq dim_{world})$.
-		\subitem - For edges this expression is equal to $|\partial_u \vec{p}|^2$.
-		\subitem - For triangles in 3D this expression is equal to $|\vec{dS} / (du \; dv)|^2$.
 
-\end{itemize}
+Standard dune functionality \\
+\begin{mybox}
+\begin{lstlisting}
+  bool affine ()
+  GlobalCoordinate center ()
+\end{lstlisting}
+\end{mybox}
+
+
+Wrapper for basic interpolator functionality \\
+\begin{mybox}
+\begin{lstlisting}
+  InterpolatoryOrderType order()
+  Dune::GeometryType type()
+  int nCorner ()
+  int nVertex ()
+  GlobalCoordinate corner ( InternalIndexType cornerLinearIndex )
+  GlobalCoordinate vertex (int i)
+  std::vector< GlobalCoordinate > cornerSet()
+  std::vector<GlobalCoordinate> vertexSet()
+\end{lstlisting}
+\end{mybox}
+
+
+Wrapper for extended interpolator functionality \\
+\begin{mybox}
+\begin{lstlisting}
+  ElementInterpolator interpolator()
+  PolynomialVector interpolatoryVectorAnalytical()
+
+  template<int subdim>
+  CurvilinearGeometry< ctype, subdim, cdim>  subentityGeometry(InternalIndexType subentityIndex)
+\end{lstlisting}
+\end{mybox}
+
+
+Mappings \\
+\begin{mybox}
+\begin{lstlisting}
+  GlobalCoordinate global ( const LocalCoordinate &local )
+  bool local ( const GlobalCoordinate &globalC, LocalCoordinate & localC )
+\end{lstlisting}
+\end{mybox}
+
+
+Construction of normals \\
+\begin{mybox}
+\begin{lstlisting}
+  GlobalCoordinate normal(const LocalCoordinate &local )
+  GlobalCoordinate subentityNormal(InternalIndexType indexInInside, const LocalCoordinate &local )
+  GlobalCoordinate subentityUnitNormal(InternalIndexType indexInInside, const LocalCoordinate &local )
+  GlobalCoordinate subentityIntegrationNormal(InternalIndexType indexInInside, const LocalCoordinate &local )
+\end{lstlisting}
+\end{mybox}
+
+
+Construction numerical and analytic integration elements. \\
+
+\noindent
+\uline{JacobianDeterminantAnalytical}: $|\det J_{ij}|$ is available explicitly in polynomial form, when $(dim_{elem} = dim_{world})$. Although modulus is not a polynomial operation, $\det J_{ij} \neq 0$ inside the element, because the geometry must not be self-intersecting. Hence $\det J_{ij}$ is not allowed to change sign within the element, and modulus-correction is to evaluate $\det J_{ij}$ anywhere inside the element and multiply the analytic expression by $-1$ if the result is negative. \\
+
+\noindent
+\uline{NormalIntegrationElementAnalytical}: Surface normal integration element $d\vec{S} = \vec{n} dS $ is available. For edges in 2D defined by $d\vec{l} = (\partial_u p_y, -\partial_u p_x) du$. For triangles in 3D defined by $d \vec{S} = -(\partial_u \vec{p} \times \partial_v \vec{p}) du dv $ \\
+
+\noindent
+\uline{IntegrationElementSquaredAnalytical}: The square of the pseudodeterminant $\det(JJ^T)$, when $(dim_{elem} \neq dim_{world})$. For edges this expression is equal to $|\partial_u \vec{p}|^2$. For triangles in 3D this expression is equal to $|\vec{dS} / (du \; dv)|^2$. \\
+
+\begin{mybox}
+\begin{lstlisting}
+  ctype integrationElement ( const LocalCoordinate &local )
+  JacobianTransposed jacobianTransposed ( const LocalCoordinate &local )
+  JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local )
+  LocalPolynomial JacobianDeterminantAnalytical()
+  PolynomialVector NormalIntegrationElementAnalytical()
+  LocalPolynomial IntegrationElementSquaredAnalytical()
+\end{lstlisting}
+\end{mybox}
+
+
+Numerical and analytic integration. $volume()$ is defined by integrating $f(\vec{r}) = 1$ over a scalar integration element. When dimension of element is equal to the world dimension, the integration is done analytically using $integrateAnalyticalScalar$ with $f(\vec{r}) = 1$. For mismatching dimensions, the integration is done numerically using $integrateNumerical$ with $f(\vec{r}) = 1$.  \\
+\begin{mybox}
+\begin{lstlisting}
+    ctype volume (double tolerance)
+    ctype integrateScalar(const LocalPolynomial & P, double tolerance)
+    ctype integrateAnalyticalScalar(const LocalPolynomial & P)
+    ctype integrateAnalyticalDot(const PolynomialVector & PVec)
+    GlobalCoordinate integrateAnalyticalTimes(const PolynomialVector & PVec)
+
+    template <typename Functor>
+    ctype integrateNumerical(const Functor & f, double tolerance)
+\end{lstlisting}
+\end{mybox}
+
 
 
 \subsection{Methods - Cached Lagrange Geometry}
+\label{interface-curvilineargeometry-cached-methods}
 
 
 

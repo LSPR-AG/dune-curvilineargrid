@@ -1,4 +1,6 @@
 \section{Polynomial Class}
+\label{interface-geometry-polynomial}
+
 
 \noindent
 Arbitrary polynomial of order up to $n$ with $d$ parameters can be represented in its expanded form as
@@ -7,27 +9,85 @@ for example in 3D this can be written as
 \[ p(\vec{u}) = \sum_i A_i u^{pow_{u,i}} v^{pow_{v,i}} w^{pow_{w, i}},  \]
 
 \noindent
-Therefore, we define a PolySummand class, which stores a constant multiplier $A$ and powers vector $pow$, and Polynomial class
-which stores a vector of PolySummands, and does required operations on them. Below we describe the implemented functionality
+Therefore, we define a Monomial class, which stores a constant multiplier $A$ and powers vector $pow$. \\
+
+\begin{mybox}
+\begin{lstlisting}
+  PolynomialTraits::Monomial(double prefNew, std::vector<int> powerNew)
+  PolynomialTraits::Monomial(double prefNew, int x)
+  PolynomialTraits::Monomial(double prefNew, int x, int y)
+  PolynomialTraits::Monomial(double prefNew, int x, int y, int z)
+\end{lstlisting}
+\end{mybox}
+
+
+
 
 \subsection{Methods}
+\label{interface-geometry-polynomial-methods}
 
-\begin{itemize}
-	\item \uline{Initialization}: empty or with a single summand
-	\item \uline{Operators}: adding, subtracting or multiplying 2 polynomials or polynomial and a scalar.
-		\subitem - to multiply by constant, need to loop and multiply each $A_i$ by constant
-		\subitem - to add or subtract 2 polynomials, merge the summand vectors and compactify
-		\subitem - to multiply 2 polynomials, constructing a new polynomial from pairwise products of all summands, and compactify
-	\item \uline{Evaluate}: evaluates all summand and adds them up.
-	\item \uline{Take derivative}: lowers the corresponding power for each summand, multiplies prefactor by that power, and removes the summands that differentiate to 0
-	\item \uline{Compactify}: adds up all summands with the same power. Sorts the summands by $(x_1,y_1,z_1) < (x_2, y_2, z_2)$, where $x$ has the highest priority and $z$ has the lowest priority. Then all of the repeating powers will be consecutive. Simply loop over sorted polynomial, and to a new polynomial add the sums of all consecutive repeating polynomials.
-	\item \uline{Integrate}: Integration of a polynomial over a reference simplex. Naturally, it is the sum of integrals of summands. It can be shown that
-		\subitem - 1D integral over the reference edge is $A \frac{1}{pow_u + 1}$
-		\subitem - 2D integral over the reference triangle is $A \frac{pow_u! pow_v!}{(pow_u + pow_v + 2)!}$
-		\subitem - 3D integral over the reference tetrahedron is $A \frac{pow_u! pow_v! pow_w!}{(pow_u + pow_v + pow_w + 3)!}$
-\end{itemize}
+
+A polynomial can be constructed either empty, from a single monomial or from a vector of monomials. \\
+
+\begin{mybox}
+\begin{lstlisting}
+  Polynomial()
+  Polynomial(Monomial M)
+  Polynomial(std::vector<Monomial> Mvec)
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+The below interface provides methods to perform basic algebraic operations with polynomials and scalars. The method $axpy$ is the scaled addition, equivalent to $this += other * a$ \\
+
+\begin{mybox}
+\begin{lstlisting}
+  LocalPolynomial & operator+=(const Monomial & otherM)
+  LocalPolynomial & operator+=(const LocalPolynomial & other)
+  LocalPolynomial & operator*=(const double c)  
+  LocalPolynomial & operator*=(const LocalPolynomial & other)  
+  void axpy(LocalPolynomial other, double c)
+  LocalPolynomial operator+(const LocalPolynomial & other)
+  LocalPolynomial operator+(const ctype a)  
+  LocalPolynomial operator-(const LocalPolynomial & other)  
+  LocalPolynomial operator-(const ctype a)  
+  LocalPolynomial operator*(const ctype a)  
+  LocalPolynomial operator*(const LocalPolynomial & other)
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+It is possible to differentiate, integrate and evaluate a polynomial. $derivative$ returns the partial derivative of the polynomial wrt coordinate indexed by the parameter. $evaluate$ evaluates the polynomial at the provided local coordinate. $integrateRefSimplex$ integrates the polynomial over the reference simplex of the same dimension as the polynomial, thus returning a scalar. An integral of a monomial over reference simplex has analytical expression, see the proof in appendix \ref{appendix-proof-simplexintegral}  \\
+
+
+\begin{mybox}
+\begin{lstlisting}
+  LocalPolynomial derivative(int iDim)
+  double evaluate(const LocalCoordinate & point)
+  double integrateRefSimplex()
+\end{lstlisting}
+\end{mybox}
+
+
+\noindent
+The following auxiliary methods can be used to extract additional information about a polynomial. $order$ returns the largest power among all monomials, that is, the sum of powers of that monomial. Magnitude returns the largest absolute value prefactor over all monomials. $to\_string$ converts the polynomial to a string for further text output \\
+
+\begin{mybox}
+\begin{lstlisting}
+  unsigned int order()
+  double magnitude()
+  std::string to_string()
+\end{lstlisting}
+\end{mybox}
+
+
+\noindent
+\uline{Compactify}: adds up all summands with the same power. Sorts the summands by $(x_1,y_1,z_1) < (x_2, y_2, z_2)$, where $x$ has the highest priority and $z$ has the lowest priority. Then all of the repeating powers will be consecutive. Simply loop over sorted polynomial, and to a new polynomial add the sums of all consecutive repeating polynomials.
+
+
 
 \subsection{Tests}
+
 
 \noindent
 Currently the tests are only for 1, 2 and 3 dimensions. Most of the tests use intrinsic functionality like polynomial operators and derivatives to construct polynomials and print them to the screen, and request the user to to verify manually if they match the expected polynomials which are also printed. For each dimension there is one test which integrates a non-linear polynomial over simplex and prints out the result which is also compared manually. \\

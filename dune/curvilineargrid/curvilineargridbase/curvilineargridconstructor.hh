@@ -156,8 +156,7 @@ public: /* public methods */
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
 
-        std::string log_string = "Initialized CurvilinearGridConstructor withGhostElements=" + std::to_string(gridstorage.withGhostElements_);
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_string);
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "Initialized CurvilinearGridConstructor");
     }
 
 
@@ -388,7 +387,7 @@ public:
         generateEdges();
         generateFaces();
         markBoundaryVertexStructuralType();
-        markDomainBoundaryEdgeStructuralType();
+        markBoundaryEdgeStructuralType();
 
         if (size_ > 1)
         {
@@ -396,8 +395,6 @@ public:
         	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Assembling Parallel Grid");
 
         	// Parallel case
-            generateProcessBoundaryCorners();
-            generateProcessBoundaryEdges();
             generateGlobalIndices();
             if (gridstorage_.withGhostElements_)
             {
@@ -439,7 +436,9 @@ public:
         // Find neighbor ranks for all entities that can be communicated over
         // ************************************************************
         GridPostConstructor postConstructor(verbose_, processVerbose_, gridstorage_, gridbase_, mpihelper_);
+        postConstructor.generateCornerIndex();
         postConstructor.generateIteratorSets();
+
 
 
         // The PB-PB communication interface is available by default. The below procedures enable the communication interfaces
@@ -738,19 +737,21 @@ protected:
 
 
 
-    /** Mark correct structural type for all boundary vertices.
-     * That is, all vertices of the domain boundary, which are the subentities of domain/process boundary faces.
+    /** Mark correct structural type for all boundary vertices, by making it equal to the
+     * structural type of the containing face. When sharing several structural types, the
+     * priority order is ProcessBoundary > DomainBoundary > Internal
      *
-     * Also, for process boundaries create map from vertex local index to dummy construction index
+     * Then, give all process boundary corners a unique index by storing them in the
+     * processBoundaryIndexMap_[VERTEX_CODIM]. These are later used for communication
      *
-     *  Note: It is expected that corners which are both Process and Domain boundaries, will be overwritten to be ProcessBoundaries
+     * [TODO] To make work with arbitrary geometries, must replace numbers, as well as make FaceKeys more abstract
+     *
      * */
     void markBoundaryVertexStructuralType()
     {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking boundary vertices");
-
-
     	// Mark domain boundary vertices
+    	// ********************************************************
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking domain boundary vertices");
         for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
         	EntityStorage thisFace = gridbase_.entityData(1, (*faceIter).second);
@@ -763,6 +764,8 @@ protected:
         }
 
     	// Mark process boundary vertices - overwrite domain boundary vertices where necessary
+        // ********************************************************
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking process boundary vertices");
         for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
         	EntityStorage thisFace = gridbase_.entityData(1, (*faceIter).second);
@@ -773,59 +776,10 @@ protected:
             	gridstorage_.point_[thisVertexLocalIndex].structuralType = GridStorageType::PartitionType::ProcessBoundary;
             }
         }
-    }
-
-
-    /** Mark correct structural type for all domain boundary edges.
-     * That is, all edges of the domain boundary, which are the subentities of domain boundary faces.
-     *
-     *  Note: It is expected that edges which are both Process and Domain boundaries, will be overwritten to be ProcessBoundaries
-     * */
-    void markDomainBoundaryEdgeStructuralType()
-    {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking domain boundary edges");
-
-        // Construct the set of EdgeKeys corresponding to edges of processBoundaries
-        // ********************************************************
-        for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
-        {
-            // Get global indices of the associated vertices from the map
-            FaceKey thisFaceKey = (*faceIter).first;
-            EdgeKey thisEdgeKey[3];
-
-            thisEdgeKey[0].node0 = thisFaceKey.node0;  thisEdgeKey[0].node1 = thisFaceKey.node1;
-            thisEdgeKey[1].node0 = thisFaceKey.node0;  thisEdgeKey[1].node1 = thisFaceKey.node2;
-            thisEdgeKey[2].node0 = thisFaceKey.node1;  thisEdgeKey[2].node1 = thisFaceKey.node2;
-
-            for (int i = 0; i < 3; i++)
-            {
-            	LocalIndexType thisEdgeLocalIndex = edgeKey2LocalIndexMap_[thisEdgeKey[i]];
-            	gridstorage_.edge_[thisEdgeLocalIndex].structuralType = GridStorageType::PartitionType::DomainBoundary;
-
-                std::stringstream log_stream;
-                log_stream << "CurvilinearGridConstructor: -- Marking domain boundary EdgeKey= (" << thisEdgeKey[i].node0 << ", " << thisEdgeKey[i].node1 << ")";
-                Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
-            }
-        }
-    }
-
-
-    /** Generates process boundary corners. That is, all vertices of the process boundary, which are the corners of process boundary faces.
-     *
-     * Algorithm:
-     * 1) Loop over all process boundary faces
-     * 2) Loop over all corners of this face
-     * 3) Add this corner unless it has been added before
-     *
-     * [TODO] To make work with arbitrary geometries, must replace numbers, as well as make FaceKeys more abstract
-     *
-     * */
-    void generateProcessBoundaryCorners()
-    {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started generating BoundaryCorneers");
 
         // Construct the set of process boundary corners - corners necessary to make process boundary faces on this process
         // ********************************************************
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started generating BoundaryCorneers");
         for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
             // Get global indices of the associated vertices from the map
@@ -854,22 +808,49 @@ protected:
         // Resize the neighbor rank vector such that it can store for each process boundary corner
         gridstorage_.PB2PBNeighborRank_[VERTEX_CODIM].resize(gridstorage_.processBoundaryIndexMap_[VERTEX_CODIM].size());
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished generating BoundaryCorneers");
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished marking vertices and corners");
     }
 
 
-    /** Generates process boundary edges. That is, all edges of the process boundary, which are the subentities of process boundary faces.
+    /** Mark correct structural type for all boundary edges, by making it equal to the
+     * structural type of the containing face. When sharing several structural types, the
+     * priority order is ProcessBoundary > DomainBoundary > Internal
      *
-     * Algorithm:
-     * 1) Loop over all process boundary faces
-     * 2) Loop over all subentity edges of this face
-     * 3) Add this EdgeKey of this edge unless it has been added before
+     * Then, give all process boundary edges a unique index by storing them in the
+     * processBoundaryIndexMap_[EDGE_CODIM]. These are later used for communication
+     *
+     * [TODO] To make work with arbitrary geometries, must replace numbers, as well as make FaceKeys more abstract
      *
      * */
-    void generateProcessBoundaryEdges()
+    void markBoundaryEdgeStructuralType()
     {
         // Construct the set of EdgeKeys corresponding to edges of processBoundaries
         // ********************************************************
+    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking domain boundary edges");
+        for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
+        {
+            // Get global indices of the associated vertices from the map
+            FaceKey thisFaceKey = (*faceIter).first;
+            EdgeKey thisEdgeKey[3];
+
+            thisEdgeKey[0].node0 = thisFaceKey.node0;  thisEdgeKey[0].node1 = thisFaceKey.node1;
+            thisEdgeKey[1].node0 = thisFaceKey.node0;  thisEdgeKey[1].node1 = thisFaceKey.node2;
+            thisEdgeKey[2].node0 = thisFaceKey.node1;  thisEdgeKey[2].node1 = thisFaceKey.node2;
+
+            for (int i = 0; i < 3; i++)
+            {
+            	LocalIndexType thisEdgeLocalIndex = edgeKey2LocalIndexMap_[thisEdgeKey[i]];
+            	gridstorage_.edge_[thisEdgeLocalIndex].structuralType = GridStorageType::PartitionType::DomainBoundary;
+
+                std::stringstream log_stream;
+                log_stream << "CurvilinearGridConstructor: -- Marking domain boundary EdgeKey= (" << thisEdgeKey[i].node0 << ", " << thisEdgeKey[i].node1 << ")";
+                Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+            }
+        }
+
+        // Construct the set of EdgeKeys corresponding to edges of processBoundaries
+        // ********************************************************
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking process boundary edges");
         for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
             // Get info of this face wrt associated element
@@ -915,8 +896,9 @@ protected:
 
         // Resize the neighbor rank vector such that it can store for each process boundary corner
         gridstorage_.PB2PBNeighborRank_[EDGE_CODIM].resize(gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].size());
-
+        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished marking edges");
     }
+
 
     /** Generates Global Indices for Edges, Faces and Elements
      *

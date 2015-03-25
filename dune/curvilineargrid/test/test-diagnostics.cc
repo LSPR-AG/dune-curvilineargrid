@@ -57,7 +57,7 @@ int main(int argc, char** argv)
 
 
     // Assemble the file name
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD5;
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE2000_ORD3;
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
     typedef Dune::CurvilinearFakeGrid<3,3,double, isGeometryCached>  SimplexGridType;
@@ -112,7 +112,7 @@ int main(int argc, char** argv)
 
     diagnostic.vtkWriteOctree();
 
-    //diagnostic.runAnalyticTest("curvilinearMeshAnalyticTest.txt");
+    diagnostic.runAnalyticTest("curvilinearMeshAnalyticTest.txt");
 
 
 

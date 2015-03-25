@@ -23,7 +23,7 @@
 #include <dune/grid/test/checkpartition.cc>
 
 
-const bool isGeometryCached = true;
+const bool isGeometryCached = false;
 
 
 template<class ctype, int cdim, int order >
@@ -38,7 +38,7 @@ struct CurvFactory
     const std::string CURVILINEARGRID_TEST_GRID_PATH = std::string(DUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH) + "curvilinear/";
     const std::string GMSH_FILE_NAME[5] {"sphere32.msh", "sphere32ord2.msh", "sphere32ord3.msh", "sphere32ord4.msh", "sphere32ord5.msh"};
 
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME[order - 1];
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + "sphere2000ord3.msh"; //GMSH_FILE_NAME[order - 1];
 
     bool insertBoundarySegment = true;
     bool withGhostElements = true;
@@ -90,8 +90,8 @@ void check_grid(Dune::CurvilinearGrid<cdim, cdim, ctype, isCached> & grid) {
   std::cout << "-- Checking Intersection Iterator" << std::endl;
   checkIntersectionIterator(grid);
 
-  std::cout << "-- Checking Adaptive Refinement" << std::endl;
-  checkAdaptRefinement(grid);
+  //std::cout << "-- Checking Adaptive Refinement" << std::endl;
+  //checkAdaptRefinement(grid);
 
   std::cout << "-- Checking Partition Type of LeafGridView" << std::endl;
   checkPartitionType( grid.leafGridView() );
@@ -105,19 +105,20 @@ int main (int argc , char **argv) {
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
 	typedef Dune::CurvilinearGrid<3, 3, double, isGeometryCached> GridType;
 
+    /*
 	{
 		GridType * grid32ord1 = CurvFactory<double, 3, 1>::buildGrid(mpihelper);
 		check_grid(*grid32ord1);
 		delete grid32ord1;
 
 	}
-	/*
+*/
 	{
 		GridType * grid32ord2 = CurvFactory<double, 3, 2>::buildGrid(mpihelper);
 		check_grid(*grid32ord2);
 		delete grid32ord2;
 	}
-
+	/*
 	{
 		GridType * grid32ord3 = CurvFactory<double, 3, 3>::buildGrid(mpihelper);
 		check_grid(*grid32ord3);
@@ -136,7 +137,6 @@ int main (int argc , char **argv) {
 		delete grid32ord5;
 	}
 	*/
-
 
   } catch (Dune::Exception &e) {
     std::cerr << e << std::endl;

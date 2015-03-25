@@ -28,7 +28,7 @@ GridType * createGrid(Dune::MPIHelper & mpihelper)
     const std::string GMSH_FILE_NAME[5] {"sphere32.msh", "sphere32ord2.msh", "sphere32ord3.msh", "sphere32ord4.msh", "sphere32ord5.msh"};
 
     // Choice of file name
-    int interpOrder = 1;
+    int interpOrder = 2;
     std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME[interpOrder - 1];
 
     // Additional constants

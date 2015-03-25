@@ -3,6 +3,7 @@
 #ifndef DUNE_CURVGRID_COMMUNICATION_HH
 #define DUNE_CURVGRID_COMMUNICATION_HH
 
+#include <queue>
 #include <dune/curvilineargrid/utility/allcommunication.hh>
 #include <dune/curvilineargrid/curvilineargrid/entity.hh>
 
@@ -19,18 +20,21 @@ namespace Dune
     class CurvilinearMessageBuffer
     {
     public:
-    	CurvilinearMessageBuffer()  { readpos_ = 0; }
+    	CurvilinearMessageBuffer()  { }
 
     	// Stores data
-        void write(const DataType & val)  { buff_.push_back(val); }
+        void write(const DataType & val)  { buff_.push(val); }
 
         // Retrieves data from storage
-        // if (readpos_ > buff_.size())  { THROW ERROR; }
-        void read(DataType & val)    { val = buff_[readpos_++]; }
+        void read(DataType & val)
+        {
+        	assert(!buff_.empty());    // Should not attempt to read empty buffer
+        	val = buff_.front();       // Retrieve first element of the queue
+        	buff_.pop();               // Remove read element from the queue
+        }
 
     private:
-    	int readpos_;
-    	std::vector<DataType> buff_;
+    	std::queue<DataType> buff_;
     };
 
 
@@ -56,6 +60,9 @@ namespace Dune
     	typedef typename GridBaseType::Local2LocalMap        Local2LocalMap;
     	typedef typename GridBaseType::Local2LocalIterator   Local2LocalIterator;
 
+        // Logging Message Typedefs
+        static const unsigned int LOG_PHASE_DEV      = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
+        static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
 
     	static const int  InternalType        = GridStorageType::PartitionType::Internal;
     	static const int  ProcessBoundaryType = GridStorageType::PartitionType::ProcessBoundary;
@@ -82,7 +89,9 @@ namespace Dune
     public:
 
     	Communication(GridBaseType & gridbase, MPIHelper & mpihelper)
-    		: mpihelper_(mpihelper),
+    		: verbose_(gridbase.verbose()),
+    		  processVerbose_(gridbase.processVerbose()),
+    		  mpihelper_(mpihelper),
     		  gridbase_(gridbase)
     	{
     		rank_ = mpihelper.rank();
@@ -98,9 +107,15 @@ namespace Dune
     	template<class DataHandle, class Data, int codim>
     	void communicate(CommDataHandleIF< DataHandle, Data> & datahandle, InterfaceType iftype, CommunicationDirection dir) const
     	{
+    		std::stringstream logstr;
+    		logstr << "Started communication for codim " << codim;
+    		logstr << " using interface " << interface2string(iftype, dir);
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, logstr.str());
+
     		// Communication protocol ProcessBoundary -> ProcessBoundary
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_ProcessBoundary))
     		{
+    			Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Using communication protocol PB->PB");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, ProcessBoundaryType),
@@ -111,6 +126,7 @@ namespace Dune
     		// Communication protocol ProcessBoundary -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_Ghost))
     		{
+    			Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Using communication protocol PB->G");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, ProcessBoundaryType),
@@ -121,6 +137,7 @@ namespace Dune
     		// Communication protocol BoundaryInternal -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Internal_Ghost))
     		{
+    			Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Using communication protocol I->G");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, InternalType),
@@ -131,6 +148,7 @@ namespace Dune
     		// Communication protocol Ghost -> BoundaryInternal + ProcessBoundary
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Internal))
     		{
+    			Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Using communication protocol G->I");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, GhostType),
@@ -141,6 +159,7 @@ namespace Dune
     		// Communication protocol Ghost -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Ghost))
     		{
+    			Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Using communication protocol G->G");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, GhostType),
@@ -149,6 +168,20 @@ namespace Dune
     		}
     	}
 
+
+
+    	// Auxiliary method to convert interface to string for output
+    	std::string interface2string(InterfaceType iftype, CommunicationDirection dir) const
+    	{
+    		if (iftype == Dune::InteriorBorder_InteriorBorder_Interface)  { return "IB->IB"; }
+    		else if (iftype == Dune::InteriorBorder_All_Interface)
+    		{
+    			if (dir == Dune::ForwardCommunication)  { return "IB->ALL"; }
+    			else                                    { return "ALL->IB"; }
+    		}
+    		else if (iftype == Dune::All_All_Interface)  { return "ALL->ALL"; }
+    		else                                         { return "(unknown interface)"; }
+    	}
 
     protected:
 
@@ -204,6 +237,7 @@ namespace Dune
 
     		Dune::CurvGrid::AllCommunication allcommunicate(mpihelper_);
 
+    		// [FIXME] May have error due to non-refreshing buffer
     		CurvilinearMessageBuffer<DataType> gathermessagebuffer;
     		CurvilinearMessageBuffer<DataType> scattermessagebuffer;
 
@@ -232,6 +266,7 @@ namespace Dune
     		// 1) First loop over all entities of the interface
     		// Compute total number of entities to be communicated to each process
     		// ********************************************************
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Computing entities to be sent");
 
     		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)
     		{
@@ -239,7 +274,6 @@ namespace Dune
     			LocalIndexType thisEntityLocalSubIndex = (*iter).second;
 
     			// Get Entity
-    			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
     			Entity thisEntity( EntityImpl(thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition));
 
     			// Get data sizes
@@ -266,14 +300,27 @@ namespace Dune
     		// 2) Second loop over all entities of the interface
     		// Read and fill in data
     		// ********************************************************
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Constructing arrays for communication");
+
+
+    		std::stringstream logstr;
+    		logstr << "---- contents of this comm map: ";
+    		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)  {
+    			logstr << "(" << (*iter).first << "," << gridbase_.entityStructuralType(codim, (*iter).first) << ") ";
+    		}
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, logstr.str());
+
 
     		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)
     		{
+    			// Get local, sublocal and global indices of this entity (sublocal is local index of all entities of same codim and structural type)
     			LocalIndexType thisEntityLocalIndex = (*iter).first;
     			LocalIndexType thisEntityLocalSubIndex = (*iter).second;
     			GlobalIndexType thisEntityGlobalIndex;
-    			if (!gridbase_.findEntityGlobalIndex(codim, thisEntityLocalSubIndex, thisEntityGlobalIndex))  {  /* THROW ERROR */ }
-
+    			if (!gridbase_.findEntityGlobalIndex(codim, thisEntityLocalIndex, thisEntityGlobalIndex))  {
+    				std::cout << " Communication: Global index of communicating entity with local index  " << thisEntityLocalIndex << " not found" << std::endl;
+    				DUNE_THROW( GridError, " Communication: Global index of communicating entity with local index  " << thisEntityLocalIndex << " not found" );
+    			}
 
     			// Get Entity
     			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
@@ -311,6 +358,7 @@ namespace Dune
     		// **************************************************************
 
     		// Communicate entity global index
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Communicating");
     		allcommunicate.communicate(globalIndexSend, nEntityPerProcessSend, globalIndexRecv, nEntityPerProcessRecv);
 
     		// Communicate data per entity
@@ -322,6 +370,7 @@ namespace Dune
 
     		// 4) Scatter
     		// **************************************************************
+    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Scattering received data");
 
     		int iData = 0;
     		for (int i = 0; i < globalIndexRecv.size(); i++)
@@ -329,7 +378,10 @@ namespace Dune
     			// Get Entity
     			GlobalIndexType thisEntityGlobalIndex = globalIndexRecv[i];
     			LocalIndexType thisEntityLocalIndex;
-    			if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex))  {  /* THROW ERROR */ }
+    			if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex))  {
+    				std::cout << " Communication: Local index of received entity with global index " << thisEntityGlobalIndex << " not found" << std::endl;
+    				DUNE_THROW( GridError, " Communication: Local index of received entity with global index " << thisEntityGlobalIndex << " not found" );
+    			}
 
     			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
     			Entity thisEntity = Entity(EntityImpl(thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition));
@@ -348,6 +400,8 @@ namespace Dune
     	int size_;
 
     	GridBaseType & gridbase_;
+    	bool verbose_;
+    	bool processVerbose_;
 
 
     }; // Class

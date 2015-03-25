@@ -82,6 +82,23 @@ namespace Dune
       }
 
 
+      template< int codim >
+      IndexType indexBase ( const typename Traits::template Codim< codim >::Entity &entity ) const
+      {
+        return Grid::getRealImplementation( entity ).indexBase();
+      }
+
+      template< int codim >
+      IndexType subIndexBase ( const typename Traits::template Codim< codim >::Entity &entity, int i, unsigned int subcodim ) const
+      {
+        return Grid::getRealImplementation( entity ).subIndexBase( i, subcodim );
+      }
+
+
+
+
+
+
       IndexType size ( GeometryType type ) const
       {
     	  if (!type.isSimplex()) { return 0; }

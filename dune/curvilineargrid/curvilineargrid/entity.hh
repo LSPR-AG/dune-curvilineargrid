@@ -160,7 +160,12 @@ namespace Dune
 
 
 	  /** \brief obtain the entity's index */
-	  int index () const  { return *gridbaseIndexIterator_; }
+	  int index () const  {
+		  LocalIndexType thisIndex = indexBase();
+
+		  if (codim == dimension)     { return gridbase_->cornerUniqueLocalIndex(thisIndex); }
+		  else                        { return thisIndex; }
+	  }
 
 
 	  /** \brief obtain the index of a subentity from a host IndexSet
@@ -169,8 +174,20 @@ namespace Dune
 	   *  \param[in]  codim        codimension of the subentity
 	   */
 	  int subIndex (int internalIndex, unsigned int subcodim ) const  {
-	      return gridbase_->subentityLocalIndex(*gridbaseIndexIterator_, codimension, subcodim, internalIndex);
+	      LocalIndexType thisIndex = subIndexBase(internalIndex, subcodim);
+
+		  if (subcodim == dimension)  { return gridbase_->cornerUniqueLocalIndex(thisIndex); }
+		  else                        { return thisIndex; }
 	  }
+
+
+	  /** \brief obtain the entity's index */
+	  int indexBase () const  { return *gridbaseIndexIterator_; }
+
+	  int subIndexBase(int internalIndex, unsigned int subcodim) const  {
+		  return gridbase_->subentityLocalIndex(*gridbaseIndexIterator_, codimension, subcodim, internalIndex);
+	  }
+
 
 
 	  /** \brief obtain the entity's id from a host IdSet */
@@ -245,7 +262,7 @@ namespace Dune
 
 
 
-  /** Specialization of the entity class for elements (codim=0) */
+  /** Specialisation of the entity class for elements (codim=0) */
   template<int dim, class Grid>
   class CurvEntity <0, dim, Grid> : public CurvEntityBase<0, dim, Grid>
   {
@@ -383,11 +400,7 @@ namespace Dune
   	    LocalIndexType elementLocalIndex = *gridbaseIndexIterator_;
   	    LocalIndexType faceLocalIndex = gridbase_->subentityLocalIndex(elementLocalIndex, ELEMENT_CODIM, FACE_CODIM, firstFaceSubIndex);
 
-  	    IntersectionIteratorImpl iter (elementLocalIndex, firstFaceSubIndex, *gridbase_);
-
-        // Iterator must not point at a Ghost face
-        // If it does, increment it, it will automatically point at the next non-ghost face
-        if (gridbase_->entityStructuralType(FACE_CODIM, faceLocalIndex) == GridStorageType::PartitionType::Ghost)  { iter.increment(); }
+  	    IntersectionIteratorImpl iter (elementLocalIndex, firstFaceSubIndex, *gridbase_, true);
 
         return iter;
     }

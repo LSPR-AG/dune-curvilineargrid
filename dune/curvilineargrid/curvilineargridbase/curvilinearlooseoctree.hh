@@ -81,13 +81,11 @@ public:
     		const Vertex& center,
     		double length,
     		int maxDepth,
-    		bool verbose,
-    		bool processVerbose,
-    		MPIHelper & mpihelper) :
+    		MPIHelper & mpihelper,
+    		LoggingMessage & loggingmessage) :
     			maxDepth_(maxDepth),
-    			verbose_(verbose),
-    			processVerbose_(processVerbose),
-    			mpihelper_(mpihelper)
+    			mpihelper_(mpihelper),
+    			loggingmessage_(loggingmessage)
 	{
     	root_ = new CurvilinearOctant(center, length);
 	}
@@ -112,7 +110,7 @@ public:
     	std::stringstream log_stream;
     	log_stream << "CurvilinearLooseOctree: Adding a node ElementIndex=" << thisNode->elementIndex() <<  " Octant=" << octant << " Depth=" << depth;
 
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
 
         // root is the default octant
         if (octant == 0)  { octant = root_; }
@@ -412,8 +410,7 @@ protected:
 
 private:
 
-    bool verbose_;
-    bool processVerbose_;
+    LoggingMessage & loggingmessage_;
 
     MPIHelper &mpihelper_;
 

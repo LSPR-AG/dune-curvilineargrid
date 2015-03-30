@@ -89,9 +89,8 @@ namespace Dune
     public:
 
     	Communication(GridBaseType & gridbase, MPIHelper & mpihelper)
-    		: verbose_(gridbase.verbose()),
-    		  processVerbose_(gridbase.processVerbose()),
-    		  mpihelper_(mpihelper),
+    		: mpihelper_(mpihelper),
+    		  loggingmessage_(gridbase.loggingMessage()),
     		  gridbase_(gridbase)
     	{
     		rank_ = mpihelper.rank();
@@ -110,12 +109,12 @@ namespace Dune
     		std::stringstream logstr;
     		logstr << "Started communication for codim " << codim;
     		logstr << " using interface " << interface2string(iftype, dir);
-    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, logstr.str());
+    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, logstr.str());
 
     		// Communication protocol ProcessBoundary -> ProcessBoundary
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_ProcessBoundary))
     		{
-    			Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Using communication protocol PB->PB");
+    			loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol PB->PB");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, ProcessBoundaryType),
@@ -126,7 +125,7 @@ namespace Dune
     		// Communication protocol ProcessBoundary -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_Ghost))
     		{
-    			Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Using communication protocol PB->G");
+    			loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol PB->G");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, ProcessBoundaryType),
@@ -137,7 +136,7 @@ namespace Dune
     		// Communication protocol BoundaryInternal -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Internal_Ghost))
     		{
-    			Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Using communication protocol I->G");
+    			loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol I->G");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, InternalType),
@@ -148,7 +147,7 @@ namespace Dune
     		// Communication protocol Ghost -> BoundaryInternal + ProcessBoundary
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Internal))
     		{
-    			Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Using communication protocol G->I");
+    			loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol G->I");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, GhostType),
@@ -159,7 +158,7 @@ namespace Dune
     		// Communication protocol Ghost -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Ghost))
     		{
-    			Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Using communication protocol G->G");
+    			loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol G->G");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, GhostType),
@@ -266,7 +265,7 @@ namespace Dune
     		// 1) First loop over all entities of the interface
     		// Compute total number of entities to be communicated to each process
     		// ********************************************************
-    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Computing entities to be sent");
+    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Computing entities to be sent");
 
     		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)
     		{
@@ -300,7 +299,7 @@ namespace Dune
     		// 2) Second loop over all entities of the interface
     		// Read and fill in data
     		// ********************************************************
-    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Constructing arrays for communication");
+    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Constructing arrays for communication");
 
 
     		std::stringstream logstr;
@@ -308,7 +307,7 @@ namespace Dune
     		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)  {
     			logstr << "(" << (*iter).first << "," << gridbase_.entityStructuralType(codim, (*iter).first) << ") ";
     		}
-    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, logstr.str());
+    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, logstr.str());
 
 
     		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)
@@ -358,7 +357,7 @@ namespace Dune
     		// **************************************************************
 
     		// Communicate entity global index
-    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Communicating");
+    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Communicating");
     		allcommunicate.communicate(globalIndexSend, nEntityPerProcessSend, globalIndexRecv, nEntityPerProcessRecv);
 
     		// Communicate data per entity
@@ -370,7 +369,7 @@ namespace Dune
 
     		// 4) Scatter
     		// **************************************************************
-    		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " -- Scattering received data");
+    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Scattering received data");
 
     		int iData = 0;
     		for (int i = 0; i < globalIndexRecv.size(); i++)
@@ -400,9 +399,8 @@ namespace Dune
     	int size_;
 
     	GridBaseType & gridbase_;
-    	bool verbose_;
-    	bool processVerbose_;
 
+    	LoggingMessage & loggingmessage_;
 
     }; // Class
 

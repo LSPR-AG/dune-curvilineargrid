@@ -142,21 +142,19 @@ public: /* public methods */
 
     /** Parallel constructor - USE THIS CONSTRUCTOR*/
     CurvilinearGridConstructor(
-    		bool verbose,
-    		bool processVerbose,
     		GridStorageType & gridstorage,
     		GridBaseType & gridbase,
-    		MPIHelper &mpihelper ) :
-        verbose_(verbose),
-        processVerbose_(processVerbose),
+    		MPIHelper &mpihelper,
+    		LoggingMessage &loggingmessage) :
         gridstorage_(gridstorage),
         gridbase_(gridbase),
-        mpihelper_(mpihelper)
+        mpihelper_(mpihelper),
+        loggingmessage_(loggingmessage)
     {
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "Initialized CurvilinearGridConstructor");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "Initialized CurvilinearGridConstructor");
     }
 
 
@@ -184,7 +182,7 @@ public:
 
         std::stringstream log_stream;
         log_stream << "CurvilinearGridConstructor: Inserted vertex LocalIndex=" << gridstorage_.point_.size()-1 << " GlobalIndex=" << globalIndex;
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
     }
 
     /** \brief Insert an element into the mesh
@@ -204,7 +202,7 @@ public:
     	PhysicalTagType physicalTag)
     {
         if (!gt.isTetrahedron() || (vertexIndexSet.size() != Dune::CurvilinearGeometryHelper::dofPerOrder(gt, order)))  {
-        	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: insertElement() unexpected element type or number of interpolatory points");
+        	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>( __FILE__, __LINE__, "CurvilinearGridConstructor: insertElement() unexpected element type or number of interpolatory points");
             DUNE_THROW(Dune::IOError, "CurvilinearGrid: insertElement() unexpected element type or number of interpolatory points");
         }
 
@@ -226,7 +224,7 @@ public:
         log_stream << " Order=" << order;
         log_stream << " PhysicalTag=" << physicalTag;
         log_stream << " VertexIndices=(" << Dune::VectorHelper::vector2string(vertexIndexSet) << ")";
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
     }
 
     /** Insert a boundary segment into the mesh
@@ -251,7 +249,7 @@ public:
     	PhysicalTagType physicalTag)
     {
         if (!gt.isTriangle() || (vertexIndexSet.size() != Dune::CurvilinearGeometryHelper::dofPerOrder(gt, order)))  {
-        	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: insertBoundarySegment() unexpected number of interpolatory points");
+        	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>( __FILE__, __LINE__, "CurvilinearGridConstructor: insertBoundarySegment() unexpected number of interpolatory points");
             DUNE_THROW(Dune::IOError, "CurvilinearGridConstructor: insertBoundarySegment() unexpected number of interpolatory points");
         }
 
@@ -287,7 +285,7 @@ public:
         while (!found_face)
         {
             if (j == nFacePerTetrahedron)  {
-            	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: insertBoundarySegment() did not find the face in the associated element");
+            	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>( __FILE__, __LINE__, "CurvilinearGridConstructor: insertBoundarySegment() did not find the face in the associated element");
                 DUNE_THROW(Dune::IOError, "CurvilinearGrid: insertBoundarySegment() did not find the face in the associated element");
             }
 
@@ -340,7 +338,7 @@ public:
                 log_stream << " PhysicalTag=" << physicalTag;
                 log_stream << " AssociatedElementIndex=" << associatedElementIndex;
                 log_stream << " InternalSubentityIndex=" << j;
-                Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+                loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
             }
 
             j++;
@@ -372,7 +370,7 @@ public:
 
     void generateMesh() {
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Initializing mesh");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Initializing mesh");
 
         // Construct missing parts of the mesh
         // ************************************************************
@@ -387,20 +385,20 @@ public:
         if (size_ > 1)
         {
 #if HAVE_MPI
-        	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Assembling Parallel Grid");
+        	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Assembling Parallel Grid");
 
         	// Parallel case
             generateGlobalIndices();
             if (gridstorage_.withGhostElements_)
             {
-            	GridGhostConstructor ghostConstructor(verbose_, processVerbose_, gridstorage_, mpihelper_);
+            	GridGhostConstructor ghostConstructor(gridstorage_, mpihelper_, loggingmessage_);
             	ghostConstructor.generate();
             }
 #endif
         }
         else
         {
-        	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Assembling Serial Grid");
+        	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Assembling Serial Grid");
             // Serial case:
             // * Boundary Neighbors not necessary, since all boundaries are domain boundaries
             // * No ghost elements, even if requested by user
@@ -430,7 +428,7 @@ public:
         // Create maps of all entity subsets which can be communicated over
         // Find neighbor ranks for all entities that can be communicated over
         // ************************************************************
-        GridPostConstructor postConstructor(verbose_, processVerbose_, gridstorage_, gridbase_, mpihelper_);
+        GridPostConstructor postConstructor(gridstorage_, gridbase_, mpihelper_, loggingmessage_);
         postConstructor.generateCornerIndex();
         postConstructor.generateIteratorSets();
 
@@ -507,7 +505,7 @@ protected:
      * */
     void generateEdges()
     {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started constructing edges");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started constructing edges");
 
     	// Init the subentity index vector
     	int nEdgePerTetrahedron = 6;
@@ -561,7 +559,7 @@ protected:
                     log_stream << " LocalIndex=" << localEdgeIndex;
                     log_stream << " AssociatedElementIndex=" << iElem;
                     log_stream << " InternalSubentityIndex=" << iEdge;
-                    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+                    loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
 
                     gridstorage_.edge_.push_back(thisEdge);
 
@@ -571,7 +569,7 @@ protected:
                 }
             }
         }
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished constructing edges");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished constructing edges");
     }
 
 
@@ -593,7 +591,7 @@ protected:
      * */
     void generateFaces()
     {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started generating faces");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started generating faces");
 
     	// Init the subentity index vector
         int nFacePerTetrahedron = 4;
@@ -649,7 +647,7 @@ protected:
 
                     std::stringstream log_stream;
                     log_stream << "CurvilinearGridConstructor: Adding FaceKey=(" << thisKey.node0 << ", " << thisKey.node1 << ", " << thisKey.node2 << ") attached to total of " << connectedFaceInfo.size() / 2 << " elements";
-                    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+                    loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
                 } else {
                 	LocalIndexType localFaceIndex = (*faceIter).second;
                 	gridstorage_.elementSubentityCodim1_[iElem][iFace] = localFaceIndex;
@@ -719,7 +717,7 @@ protected:
             }
 
             // Add face to the mesh
-            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+            loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
             gridstorage_.face_.push_back(thisFace);
 
             // Update neighbor index storage size
@@ -727,7 +725,7 @@ protected:
             gridstorage_.PB2PBNeighborRank_[FACE_CODIM].resize(nPBFace);
         }
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished generating faces");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished generating faces");
     }
 
 
@@ -747,7 +745,7 @@ protected:
     {
     	// Mark domain boundary vertices
     	// ********************************************************
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking domain boundary vertices");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking domain boundary vertices");
         for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
         	EntityStorage thisFace = gridbase_.entityData(1, (*faceIter).second);
@@ -761,7 +759,7 @@ protected:
 
     	// Mark process boundary vertices - overwrite domain boundary vertices where necessary
         // ********************************************************
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking process boundary vertices");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking process boundary vertices");
         for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
         	EntityStorage thisFace = gridbase_.entityData(1, (*faceIter).second);
@@ -775,7 +773,7 @@ protected:
 
         // Construct the set of process boundary corners - corners necessary to make process boundary faces on this process
         // ********************************************************
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started generating BoundaryCorneers");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started generating BoundaryCorneers");
         for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
             // Get global indices of the associated vertices from the map
@@ -796,7 +794,7 @@ protected:
                     LocalIndexType processBoundaryCornerIndex = gridstorage_.processBoundaryIndexMap_[VERTEX_CODIM].size();
                 	gridstorage_.processBoundaryIndexMap_[VERTEX_CODIM][thisCornerLocalIndex] = processBoundaryCornerIndex;
 
-                    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: -- Adding boundary corner GlobalIndex=" + std::to_string(thisVertexKey[i]));
+                    loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Adding boundary corner GlobalIndex=" + std::to_string(thisVertexKey[i]));
                 }
             }
         }
@@ -804,7 +802,7 @@ protected:
         // Resize the neighbor rank vector such that it can store for each process boundary corner
         gridstorage_.PB2PBNeighborRank_[VERTEX_CODIM].resize(gridstorage_.processBoundaryIndexMap_[VERTEX_CODIM].size());
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished marking vertices and corners");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished marking vertices and corners");
     }
 
 
@@ -822,7 +820,7 @@ protected:
     {
         // Construct the set of EdgeKeys corresponding to edges of processBoundaries
         // ********************************************************
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking domain boundary edges");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking domain boundary edges");
         for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
             // Get global indices of the associated vertices from the map
@@ -840,13 +838,13 @@ protected:
 
                 std::stringstream log_stream;
                 log_stream << "CurvilinearGridConstructor: -- From face index= " << (*faceIter).second << " marking domain boundary edge index=" << thisEdgeLocalIndex << " EdgeKey= (" << thisEdgeKey[i].node0 << ", " << thisEdgeKey[i].node1 << ")";
-                Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+                loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
             }
         }
 
         // Construct the set of EdgeKeys corresponding to edges of processBoundaries
         // ********************************************************
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking process boundary edges");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking process boundary edges");
         for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
             // Get info of this face wrt associated element
@@ -886,14 +884,14 @@ protected:
 
                     std::stringstream log_stream;
                     log_stream << "CurvilinearGridConstructor: -- From face index= " << thisFaceLocalIndex << " marking process boundary edge index=" << thisEdgeLocalIndex << " EdgeKey= (" << thisEdgeKey[i].node0 << ", " << thisEdgeKey[i].node1 << ")";
-                    Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+                    loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
                 }
             }
         }
 
         // Resize the neighbor rank vector such that it can store for each process boundary corner
         gridstorage_.PB2PBNeighborRank_[EDGE_CODIM].resize(gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].size());
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished marking edges");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished marking edges");
     }
 
 
@@ -926,7 +924,7 @@ protected:
      * */
     void generateGlobalIndices()
     {
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Constructing Global Indices");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Constructing Global Indices");
         Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
 
 
@@ -1024,7 +1022,7 @@ protected:
         for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)
         {
             if (edgeNonOwned.find(iEdge) == edgeNonOwned.end())  { gridstorage_.edge_[iEdge].globalIndex = iEdgeGlobalId++; }
-            else { Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: do not own edge localIndex=" + std::to_string(iEdge) + " of type=" + gridstorage_.PartitonTypeName[gridstorage_.edge_[iEdge].structuralType] ); }
+            else { loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: do not own edge localIndex=" + std::to_string(iEdge) + " of type=" + gridstorage_.PartitonTypeName[gridstorage_.edge_[iEdge].structuralType] ); }
         }
 
 
@@ -1043,7 +1041,7 @@ protected:
 
         for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++) {	gridstorage_.entityIndexMap_[ELEMENT_CODIM][gridstorage_.element_[iElem].globalIndex] = iElem; }
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished Constructing Global Indices");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished Constructing Global Indices");
 
     }
 
@@ -1066,7 +1064,7 @@ protected:
      *
      * */
     void constructOctree() {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started OCTree construction");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started OCTree construction");
 
         // bounding box of whole mesh
         Vertex center = gridstorage_.boundingBoxCenter_;
@@ -1078,7 +1076,7 @@ protected:
         if (extent[2] > length)  { length = extent[2]; }
 
         // construct LooseOctree with large max depth
-        gridstorage_.octree_ = new CurvilinearLooseOctree(center, length, 100, verbose_, processVerbose_, mpihelper_);
+        gridstorage_.octree_ = new CurvilinearLooseOctree(center, length, 100, mpihelper_, loggingmessage_);
 
         // loop over all tets and insert them in the octree
         for (int iElem = 0; iElem < gridstorage_.element_.size(); iElem ++)
@@ -1097,7 +1095,7 @@ protected:
         outputString << ", #octants=" << nOctant;
         outputString << ", #nodes=" << nNode;
         outputString << ", avg. node depth=" << avgNodeDepth;
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, outputString.str());
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, outputString.str());
     }
 
 
@@ -1126,7 +1124,7 @@ protected:
 
     void globalCommunicateCornerNeighborRank ()
     {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started communicating corner process boundary neighbors");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started communicating corner process boundary neighbors");
 
         // 1) collective_comm.max() - find the maximal number of process boundary corners per process
         // ********************************************************
@@ -1194,9 +1192,9 @@ protected:
         	log_stream << " GlobalIndex=" << (*cornerIter).first;
         	log_stream << " has Neighbors=(" << Dune::VectorHelper::vector2string(gridstorage_.PB2PBNeighborRank_[VERTEX_CODIM][(*cornerIter).second]) << ")";
         }
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished corner process boundary neighbors");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished corner process boundary neighbors");
     }
 
 
@@ -1212,7 +1210,7 @@ protected:
     void globalComputeEdgeNeighborRanks()
     {
     	MPI_Comm comm = Dune::MPIHelper::getCommunicator();
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started computing edge process boundary neighbors");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started computing edge process boundary neighbors");
 
 
         // For each process stores the set of edge indices local to this process, which are shared between more than two processes in total
@@ -1254,12 +1252,12 @@ protected:
             //log_stream << "Neighbors[0]=(" << Dune::VectorHelper::vector2string(corner0neighborset) << ")";
             //log_stream << " Neighbors[1]=(" << Dune::VectorHelper::vector2string(corner1neighborset) << ")";
             log_stream << " Intersection=" << Dune::VectorHelper::vector2string(edgeneighborset);
-            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+            loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
 
 
             int nEdgeNeighbor = edgeneighborset.size();
             if (nEdgeNeighbor < 1) {
-            	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Found no neighbor processes to an edge ");
+            	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>( __FILE__, __LINE__, "CurvilinearGridConstructor: Found no neighbor processes to an edge ");
             	DUNE_THROW(Dune::IOError, "CurvilinearGrid: Found no neighbor processes to an edge ");
             }
             else if (nEdgeNeighbor > 1)
@@ -1285,7 +1283,7 @@ protected:
         for (int iProc = 0; iProc < size_; iProc++)  { processNComplicatedEdgeRequested[iProc] = neighborProcessComplicatedEdgePBLocalIndex[iProc].size(); }
         MPI_Alltoall(processNComplicatedEdgeRequested.data(), 1, MPI_INT, reinterpret_cast<int*>(processNComplicatedEdgeToSend.data()), 1, MPI_INT, comm);
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Total complicated edges per process =(" + Dune::VectorHelper::vector2string(processNComplicatedEdgeRequested) + ")");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Total complicated edges per process =(" + Dune::VectorHelper::vector2string(processNComplicatedEdgeRequested) + ")");
 
 
         // 3) Communicate to each process the shared complicated edge EdgeKeys
@@ -1313,7 +1311,7 @@ protected:
 
         processEdgeKeyToSend.resize(thisCommSize);
         MPI_Alltoallv (processEdgeKeyRequested.data(), processNComplicatedEdgeRequested.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processEdgeKeyToSend.data()), processNComplicatedEdgeToSend.data(), rdispls.data(), MPI_INT, comm );
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated complicated edge EdgeKeys");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated complicated edge EdgeKeys");
 
 
         // 4) Communicate to each process whether requested edges exist on this process
@@ -1348,7 +1346,7 @@ protected:
 
         processEdgeExistRequested.resize(thisCommSize, 0);
         MPI_Alltoallv (processEdgeExistToSend.data(), processNComplicatedEdgeToSend.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processEdgeExistRequested.data()), processNComplicatedEdgeRequested.data(), rdispls.data(), MPI_INT, comm );
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated if requested EdgeKeys correspond to real edges");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated if requested EdgeKeys correspond to real edges");
 
 
         // 5) Fill in correct neighbors for complicated edges
@@ -1364,10 +1362,10 @@ protected:
 
         		std::stringstream log_stream;
         		log_stream << " complicated edge PBIndex=" << thisEdgePBLocalIndex << " marked as real=" << isReal << " by process " << iProc;
-        		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+        		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
         	}
         }
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished computing edge process boundary neighbors");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished computing edge process boundary neighbors");
 
 
         // 6) Sort all edge neighbor rank sets
@@ -1393,7 +1391,7 @@ protected:
     void globalComputeFaceNeighborRank()
     {
     	MPI_Comm comm = Dune::MPIHelper::getCommunicator();
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started computing face process boundary neighbors");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started computing face process boundary neighbors");
 
 
         // For each process stores the set of face indices local to this process, which are shared between more than two processes in total
@@ -1432,12 +1430,12 @@ protected:
             //log_stream << " Neighbors[1]=(" << Dune::VectorHelper::vector2string(corner1neighborset) << ")";
             //log_stream << " Neighbors[2]=(" << Dune::VectorHelper::vector2string(corner2neighborset) << ")";
             log_stream << " Intersection=(" << Dune::VectorHelper::vector2string(faceneighborset) << ")";
-            Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+            loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
 
             int nFaceNeighbor = faceneighborset.size();
 
             if (nFaceNeighbor < 1) {
-            	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Found face with neighbor nProcess=" + std::to_string(nFaceNeighbor));
+            	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>( __FILE__, __LINE__, "CurvilinearGridConstructor: Found face with neighbor nProcess=" + std::to_string(nFaceNeighbor));
             	DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected number of neighbor processes to a face");
             }
             else if (nFaceNeighbor > 1)
@@ -1464,7 +1462,7 @@ protected:
         std::vector<int> processNComplicatedFaceToSend(size_);
         for (int iProc = 0; iProc < size_; iProc++)  { processNComplicatedFaceRequested[iProc] = neighborProcessComplicatedFaceLocalIndex[iProc].size(); }
         MPI_Alltoall(processNComplicatedFaceRequested.data(), 1, MPI_INT, reinterpret_cast<int*>(processNComplicatedFaceToSend.data()), 1, MPI_INT, comm);
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Complicated faces per process sent=( " + Dune::VectorHelper::vector2string(processNComplicatedFaceRequested) + ") received =(" + Dune::VectorHelper::vector2string(processNComplicatedFaceToSend) + ")");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Complicated faces per process sent=( " + Dune::VectorHelper::vector2string(processNComplicatedFaceRequested) + ") received =(" + Dune::VectorHelper::vector2string(processNComplicatedFaceToSend) + ")");
 
 
         // 3) Communicate to each process the shared complicated face FaceKeys
@@ -1493,7 +1491,7 @@ protected:
 
         processFaceKeyToSend.resize(thisCommSize);
         MPI_Alltoallv (processFaceKeyRequested.data(), processNComplicatedFaceRequested.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processFaceKeyToSend.data()), processNComplicatedFaceToSend.data(), rdispls.data(), MPI_INT, comm );
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated complicated face FaceKeys");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated complicated face FaceKeys");
 
         //std::cout << "process_" << rank_ << "stage 3) sendcounts=" << Dune::VectorHelper::vector2string(processNComplicatedFaceRequested) << " recvcounts=" << Dune::VectorHelper::vector2string(processNComplicatedFaceToSend) <<" send=" << Dune::VectorHelper::vector2string(processFaceKeyRequested) << " recv=" << Dune::VectorHelper::vector2string(processFaceKeyToSend) << std::endl;
 
@@ -1527,7 +1525,7 @@ protected:
             rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + processNComplicatedFaceRequested[iProc-1] );
         }
         MPI_Alltoallv (processFaceExistToSend.data(), processNComplicatedFaceToSend.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processFaceExistRequested.data()), processNComplicatedFaceRequested.data(), rdispls.data(), MPI_INT, comm );
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated correspondence of requested FaceKeys correspond to real faces");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated correspondence of requested FaceKeys correspond to real faces");
 
         std::cout << "process_" << rank_ << "stage 4) sendcounts=" << Dune::VectorHelper::vector2string(processNComplicatedFaceToSend) << " recvcounts=" << Dune::VectorHelper::vector2string(processNComplicatedFaceRequested) <<" send=" << Dune::VectorHelper::vector2string(processFaceExistToSend) << " recv=" << Dune::VectorHelper::vector2string(processFaceExistRequested) << std::endl;
 
@@ -1547,7 +1545,7 @@ protected:
         		log_stream << " complicated face LocalIndex=" << thisFaceLocalIndex;
         		log_stream << " FaceKey=(" << thisFaceKey.node0 << "," << thisFaceKey.node1 << "," << thisFaceKey.node2 << ")";
         		log_stream << " marked as real=" << isReal << " by process " << iProc;
-        		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_stream.str());
+        		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
 
         		if (isReal)
         		{
@@ -1557,7 +1555,7 @@ protected:
         			// If the face neighbor has already been assigned, this face has more than 1 real neighbor process, which is impossible
         			if (nNeighborAlready != 0)
         			{
-                    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Found face with neighbor more than two even after cross-check");
+                    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>( __FILE__, __LINE__, "CurvilinearGridConstructor: Found face with neighbor more than two even after cross-check");
                     	DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected number of neighbor processes to a face");
         			}
 
@@ -1567,7 +1565,7 @@ protected:
         }
 
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished computing face process boundary neighbors");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished computing face process boundary neighbors");
     }
 
 
@@ -1597,7 +1595,7 @@ protected:
      * */
     void globalDistributeMissingFaceGlobalIndex()
     {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started distributing missing face GlobalIndices");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started distributing missing face GlobalIndices");
 
         typedef std::pair<FaceKey, GlobalIndexType>  FaceInfo;
         std::vector< std::vector< FaceInfo > > facesToSend (size_);
@@ -1607,7 +1605,7 @@ protected:
         std::vector<int> sendbuf, sendcounts(size_), sdispls;
         std::vector<int> recvbuf, recvcounts(size_), rdispls;
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: -- Checking which faces are missing");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Checking which faces are missing");
 
 
         // 1) Loop over all process boundary faces, split faces on the ones to be sent and to be received
@@ -1627,7 +1625,7 @@ protected:
             }
         }
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: -- Assembling arrays to send");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Assembling arrays to send");
 
 
         // 2) Fill in communication arrays
@@ -1649,7 +1647,7 @@ protected:
 
         }
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: -- Sending  sendcounts=(" + Dune::VectorHelper::vector2string(sendcounts) + ") recvcounts=(" + Dune::VectorHelper::vector2string(recvcounts) + ")");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Sending  sendcounts=(" + Dune::VectorHelper::vector2string(sendcounts) + ") recvcounts=(" + Dune::VectorHelper::vector2string(recvcounts) + ")");
 
         // 3) MPI_alltoall key + globalId
         // ********************************************************************************************
@@ -1658,7 +1656,7 @@ protected:
         MPI_Alltoallv (sendbuf.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvbuf.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
 
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: -- Extracting missing indices");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Extracting missing indices");
 
         // 4) Mark all missing faces
         // ********************************************************************************************8
@@ -1679,7 +1677,7 @@ protected:
                 FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.find(thisKey);
 
                 if (faceIter == processBoundaryFaceKey2LocalIndexMap_.end()) {
-                	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated FaceKey does not correspond to any face on this process");
+                	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated FaceKey does not correspond to any face on this process");
                 	DUNE_THROW(Dune::IOError, "CurvilinearGrid: Communicated FaceKey does not correspond to any face on this process ");
                 }
                 else
@@ -1690,7 +1688,7 @@ protected:
             }
         }
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished distributing missing face GlobalIndices");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished distributing missing face GlobalIndices");
     }
 
 
@@ -1713,7 +1711,7 @@ protected:
      * */
     void globalDistributeMissingEdgeGlobalIndex()
     {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Started distributing missing edge GlobalIndices");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started distributing missing edge GlobalIndices");
 
         typedef std::pair<EdgeKey, GlobalIndexType>  EdgeInfo;
         std::vector< std::vector< EdgeInfo > > edgesToSend (size_);
@@ -1723,7 +1721,7 @@ protected:
         std::vector<int> sendbuf, sendcounts(size_), sdispls;
         std::vector<int> recvbuf, recvcounts(size_), rdispls;
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: -- Checking which edges are missing");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Checking which edges are missing");
 
         // 1) Loop over all process boundary faces, split faces on the ones to be sent and to be received
         // ********************************************************************************************
@@ -1762,7 +1760,7 @@ protected:
             }
         }
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: -- Assembling arrays to send");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Assembling arrays to send");
 
 
         // 2) Fill in communication arrays
@@ -1783,7 +1781,7 @@ protected:
 
         }
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: -- Sending  sendcounts=(" + Dune::VectorHelper::vector2string(sendcounts) + ") recvcounts=(" + Dune::VectorHelper::vector2string(recvcounts) + ")");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Sending  sendcounts=(" + Dune::VectorHelper::vector2string(sendcounts) + ") recvcounts=(" + Dune::VectorHelper::vector2string(recvcounts) + ")");
 
 
 
@@ -1794,7 +1792,7 @@ protected:
         MPI_Alltoallv (sendbuf.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvbuf.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
 
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: -- Extracting missing indices");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Extracting missing indices");
 
         // 4) Mark all missing faces
         // ********************************************************************************************8
@@ -1816,7 +1814,7 @@ protected:
                 if (edgeIter == edgeKey2LocalIndexMap_.end()) {
                 	std::stringstream log_str;
                 	log_str << "CurvilinearGridConstructor: Communicated EdgeKey (" << thisKey.node0 << ", " << thisKey.node1 << ") does not correspond to any edge on this process";
-                	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_str.str());
+                	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>( __FILE__, __LINE__, log_str.str());
                 	DUNE_THROW(Dune::IOError, "CurvilinearGrid: Communicated EdgeKey does not correspond to any edge on this process "); }
                 else
                 {
@@ -1826,15 +1824,14 @@ protected:
             }
         }
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished distributing missing edge GlobalIndices");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished distributing missing edge GlobalIndices");
     }
 
 
 
 private: // Private members
 
-    bool verbose_;
-    bool processVerbose_;
+    LoggingMessage & loggingmessage_;
 
     // Temporary maps necessary to locate and communicate entities during grid base construction
     EdgeKey2EdgeIndexMap edgeKey2LocalIndexMap_;                    // (global edgeKey -> edge_ index)

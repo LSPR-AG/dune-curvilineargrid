@@ -111,19 +111,17 @@ public: /* public methods */
 
     /** Parallel constructor - USE THIS CONSTRUCTOR*/
 	CurvilinearGhostConstructor(
-    		bool verbose,
-    		bool processVerbose,
     		GridStorageType & gridstorage,
-    		MPIHelper &mpihelper ) :
-        verbose_(verbose),
-        processVerbose_(processVerbose),
+    		MPIHelper &mpihelper,
+    		LoggingMessage loggingmessage) :
         gridstorage_(gridstorage),
-        mpihelper_(mpihelper)
+        mpihelper_(mpihelper),
+        loggingmessage_(loggingmessage)
     {
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "Initialized CurvilinearGhostConstructor");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "Initialized CurvilinearGhostConstructor");
     }
 
 
@@ -155,7 +153,7 @@ public: /* public methods */
      * */
     void generate()
     {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Generating Ghost Elements");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Generating Ghost Elements");
 
         thisProcessNeighborGhostLocalIndex_.resize(size_, std::vector<int>() );
         thisProcessNeighborGhostProcessBoundarySubentityIndexSet_.resize(size_);
@@ -207,14 +205,14 @@ public: /* public methods */
         // *************************************************************************************
         ghostCommunicateMissingVertexCoordinates (missingVertices, packageMissingVertexGlobalIndices, verticesToSendByThis, verticesRequestedByThis);
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Finished Generating Ghost Elements");
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished Generating Ghost Elements");
 
 
         // ConsistencyDump - for debug
 		// std::stringstream log_str;
 		// log_str << "Consistency Dump nVertex=" << gridstorage_.point_.size() << " with mapsize=" << gridstorage_.entityIndexMap_[VERTEX_CODIM].size() << std::endl;
 		// for (int i = 0; i < gridstorage_.point_.size(); i++)  { log_str << "  -- localIndex=" << i << " globalIndex=" << gridstorage_.point_[i].globalIndex << " coord=(" << gridstorage_.point_[i].coord << ")" << std::endl;  }
-		//Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_str.str());
+		//loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_str.str());
     }
 
 
@@ -239,7 +237,7 @@ protected:
      * */
     void ghostComputeLocalNeighborGhostElements()
     {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Computing to-be ghost elements locally");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Computing to-be ghost elements locally");
 
         typedef typename std::map<LocalIndexType, std::vector<InternalIndexType> > TmpMap;
         typedef typename std::map<LocalIndexType, std::vector<InternalIndexType> >::iterator TmpMapIterator;
@@ -295,7 +293,7 @@ protected:
     void ghostDistributePreliminaries()
     {
     	MPI_Comm comm = Dune::MPIHelper::getCommunicator();
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicate ghost element interpolatory orders and neighbor face count");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicate ghost element interpolatory orders and neighbor face count");
 
     	// 1) Communicate number of ghosts to send to each other process
     	// *****************************************************************
@@ -305,7 +303,7 @@ protected:
     	for (int iProc = 0; iProc < size_; iProc++) { nGhostPerProcessSend.push_back(thisProcessNeighborGhostLocalIndex_[iProc].size()); }
     	MPI_Alltoall(nGhostPerProcessSend.data(), 1, MPI_INT, reinterpret_cast<int*>(nGhostPerProcessReceive.data()), 1, MPI_INT, comm);
 
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Numbers of Ghost elements to send=(" + Dune::VectorHelper::vector2string(nGhostPerProcessSend) + ") to receive=(" + Dune::VectorHelper::vector2string(nGhostPerProcessReceive) + ")");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Numbers of Ghost elements to send=(" + Dune::VectorHelper::vector2string(nGhostPerProcessSend) + ") to receive=(" + Dune::VectorHelper::vector2string(nGhostPerProcessReceive) + ")");
 
 
     	// 2) For each ghost element communicate its interpolation order and the number of associated faces
@@ -376,7 +374,7 @@ protected:
      * */
     void ghostDistributeGhostElements(std::vector<int> & recvPackageGhostElementData)
     {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicate ghost element data");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicate ghost element data");
 
     	std::vector<int> sendPackageGhostElementData;
     	std::vector<int> sendcounts, sdispls;
@@ -419,27 +417,27 @@ protected:
 
                 // Package subentity Face Global Indices
                 if (gridstorage_.elementSubentityCodim1_[ghostElementLocalIndex].size() != nSubentityFace)  {
-                	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: elementSubentityCodim1_ - an element has unexpected number of subentity faces");
+                	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: elementSubentityCodim1_ - an element has unexpected number of subentity faces");
                 	DUNE_THROW(Dune::IOError, "CurvilinearGridConstructor: elementSubentityCodim1_ - an element has unexpected number of subentity faces");
                 }
                 for (int iFace = 0; iFace < nSubentityFace; iFace++)
                 {
                 	LocalIndexType localFaceIndex = gridstorage_.elementSubentityCodim1_[ghostElementLocalIndex][iFace];
-                	//Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " /////////////// element=" + std::to_string(ghostElementLocalIndex) + " sending face=" + std::to_string(localFaceIndex));
+                	//loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " /////////////// element=" + std::to_string(ghostElementLocalIndex) + " sending face=" + std::to_string(localFaceIndex));
                 	sendPackageGhostElementData.push_back(gridstorage_.face_[localFaceIndex].globalIndex);
                 }
 
 
                 // Package subentity Edge Global Indices
                 if (gridstorage_.elementSubentityCodim2_[ghostElementLocalIndex].size() != nSubentityEdge)  {
-                	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: elementSubentityCodim2_ - an element has unexpected number of subentity edges");
+                	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: elementSubentityCodim2_ - an element has unexpected number of subentity edges");
                 	DUNE_THROW(Dune::IOError, "CurvilinearGridConstructor: elementSubentityCodim1_ - an element has unexpected number of subentity edges");
                 }
                 for (int iEdge = 0; iEdge < nSubentityEdge; iEdge++)
                 {
                 	LocalIndexType  localEdgeIndex = gridstorage_.elementSubentityCodim2_[ghostElementLocalIndex][iEdge];
                 	GlobalIndexType globalEdgeIndex = gridstorage_.edge_[localEdgeIndex].globalIndex;
-                	//Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, " /////////////// element=" + std::to_string(ghostElementLocalIndex) + " sending edge localIndex=" + std::to_string(localEdgeIndex) + " globalIndex=" + std::to_string(globalEdgeIndex));
+                	//loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " /////////////// element=" + std::to_string(ghostElementLocalIndex) + " sending edge localIndex=" + std::to_string(localEdgeIndex) + " globalIndex=" + std::to_string(globalEdgeIndex));
 
                 	sendPackageGhostElementData.push_back(globalEdgeIndex);
                 }
@@ -473,7 +471,7 @@ protected:
             rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + recvcounts[iProc-1] );
         }
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicating ghost elements sendcounts=(" + Dune::VectorHelper::vector2string(sendcounts) + ") recvcounts=(" + Dune::VectorHelper::vector2string(recvcounts) + ")" );
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicating ghost elements sendcounts=(" + Dune::VectorHelper::vector2string(sendcounts) + ") recvcounts=(" + Dune::VectorHelper::vector2string(recvcounts) + ")" );
 
         recvPackageGhostElementData.resize(totalRecvSize, 0);
 
@@ -497,7 +495,7 @@ protected:
             std::vector<std::vector<GlobalIndexType> > & missingVertices
     )
     {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Inserting communicated ghost elements");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Inserting communicated ghost elements");
 
         int iData = 0;
         int nSubentityEdge = 6;
@@ -546,7 +544,7 @@ protected:
                 	// If the face already exists, then it is one of the process boundaries, otherwise it is a new ghost face
                 	if (thisFaceIter == gridstorage_.entityIndexMap_[FACE_CODIM].end())
                 	{
-                		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Face globalIndex=" + std::to_string(thisFaceGlobalIndex) + " is new");
+                		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Face globalIndex=" + std::to_string(thisFaceGlobalIndex) + " is new");
 
                     	FaceStorage thisFace;
                     	thisFace.geometryType.makeTriangle();
@@ -562,7 +560,7 @@ protected:
                     	gridstorage_.entityIndexMap_[FACE_CODIM][thisFaceGlobalIndex] = thisFaceLocalIndex;
                 	} else
                 	{
-                		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Face globalIndex=" + std::to_string(thisFaceGlobalIndex) + " already exists");
+                		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Face globalIndex=" + std::to_string(thisFaceGlobalIndex) + " already exists");
 
                 		thisFaceLocalIndex = (*thisFaceIter).second;
                 	}
@@ -584,7 +582,7 @@ protected:
                 	// If the edge already exists, then it is one of the process boundaries, otherwise it is a new ghost edge
                 	if ( thisEdgeIter == gridstorage_.entityIndexMap_[EDGE_CODIM].end() )
                 	{
-                		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Edge globalIndex=" + std::to_string(thisEdgeGlobalIndex) + " is new");
+                		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Edge globalIndex=" + std::to_string(thisEdgeGlobalIndex) + " is new");
 
                     	EdgeStorage thisEdge;
                 		thisEdge.globalIndex      = thisEdgeGlobalIndex;
@@ -597,7 +595,7 @@ protected:
                     	gridstorage_.entityIndexMap_[EDGE_CODIM][thisEdgeGlobalIndex] = thisEdgeLocalIndex;
                 	} else
                 	{
-                		Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Edge globalIndex=" + std::to_string(thisEdgeGlobalIndex) + " already exists");
+                		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Edge globalIndex=" + std::to_string(thisEdgeGlobalIndex) + " already exists");
                 		thisEdgeLocalIndex= (*thisEdgeIter).second;
                 	}
 
@@ -619,11 +617,11 @@ protected:
                     	LocalIndexType thisVertexLocalIndex = (*vertexIter).second;
                         thisElement.vertexIndexSet.push_back(thisVertexLocalIndex);
 
-                        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Vertex already on this process GlobalIndex=" + std::to_string(thisVertexGlobalIndex));
+                        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Vertex already on this process GlobalIndex=" + std::to_string(thisVertexGlobalIndex));
                     }
                     else
                     {
-                    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Vertex missing on this process GlobalIndex=" + std::to_string(thisVertexGlobalIndex));
+                    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Vertex missing on this process GlobalIndex=" + std::to_string(thisVertexGlobalIndex));
 
                         // Create a new vertex with local index pointing to the end of current vertex array
                         LocalIndexType localVertexIndex = gridstorage_.point_.size();
@@ -651,7 +649,7 @@ protected:
                 	LocalIndexType    thisPBFaceLocalIndex           = gridstorage_.entityIndexMap_[FACE_CODIM][thisFaceGlobalIndex];
 
                     if (thisGhostFaceLocalIndex != thisPBFaceLocalIndex)  {
-                    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_ERROR>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Error: Received Ghost process boundary face not found among faces of this process");
+                    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Error: Received Ghost process boundary face not found among faces of this process");
                     	DUNE_THROW(Dune::IOError, "CurvilinearGridConstructor: Received Ghost process boundary face not found among faces of this process");
                     }
 
@@ -680,7 +678,7 @@ protected:
             std::vector<int> & verticesToSendByThis
     )
     {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicating ghost element missing vertex indices");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicating ghost element missing vertex indices");
 
         std::vector<int> nVertexRequested, nVertexToSend(size_);
 
@@ -713,7 +711,7 @@ protected:
             rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + recvcounts[iProc-1] );
         }
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Missing vertex numbers= " + Dune::VectorHelper::vector2string(missingVertexGlobalIndexRequested) + " sendcounts=(" + Dune::VectorHelper::vector2string(sendcounts) + ") recvcounts=(" + Dune::VectorHelper::vector2string(recvcounts) + ")" );
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Missing vertex numbers= " + Dune::VectorHelper::vector2string(missingVertexGlobalIndexRequested) + " sendcounts=(" + Dune::VectorHelper::vector2string(sendcounts) + ") recvcounts=(" + Dune::VectorHelper::vector2string(recvcounts) + ")" );
 
         packageMissingVertexGlobalIndices.resize(totalRecvSize, 0);
         MPI_Alltoallv (missingVertexGlobalIndexRequested.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(packageMissingVertexGlobalIndices.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
@@ -732,7 +730,7 @@ protected:
             std::vector<int> & verticesToReceiveByThis
     )
     {
-    	Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: Communicating ghost element missing vertex coordinates");
+    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicating ghost element missing vertex coordinates");
 
         // 4.3) MPI_alltoallv - package list of globalId+coordinate for each process and send it
         std::vector<int> sendcounts(size_), sdispls;
@@ -742,7 +740,7 @@ protected:
         int iData = 0;
         int totalRecvSize = 0;
 
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, "CurvilinearGridConstructor: verticesToSend=(" + Dune::VectorHelper::vector2string(verticesToSendByThis) + ") vertices to receive=(" + Dune::VectorHelper::vector2string(verticesToReceiveByThis) + ")" + " missingGlobalIndicesPackage=(" + Dune::VectorHelper::vector2string(packageMissingVertexGlobalIndices) + ")" );
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: verticesToSend=(" + Dune::VectorHelper::vector2string(verticesToSendByThis) + ") vertices to receive=(" + Dune::VectorHelper::vector2string(verticesToReceiveByThis) + ")" + " missingGlobalIndicesPackage=(" + Dune::VectorHelper::vector2string(packageMissingVertexGlobalIndices) + ")" );
 
 
         for (int i = 0; i < size_; i++)
@@ -814,8 +812,7 @@ protected:
 
 private: // Private members
 
-    bool verbose_;
-    bool processVerbose_;
+    LoggingMessage & loggingmessage_;
 
     // For each other process mark set of local indices of elements of this process which will become ghost elements
     std::vector< std::vector<LocalIndexType> > thisProcessNeighborGhostLocalIndex_;

@@ -22,7 +22,7 @@ const bool isCached = true;
 
 
 template <class GridType>
-GridType * createGrid(Dune::MPIHelper & mpihelper, bool verbose, bool processVerbose)
+GridType * createGrid(Dune::MPIHelper & mpihelper, Dune::LoggingMessage & loggingmessage)
 {
 	// Obtain path to the mesh folder from a CMake constant
     const std::string CURVILINEARGRID_TEST_GRID_PATH = std::string(DUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH) + "curvilinear/";
@@ -40,7 +40,7 @@ GridType * createGrid(Dune::MPIHelper & mpihelper, bool verbose, bool processVer
     bool writeReaderVTKFile = false;    // to write mesh to VTK during reading stage
 
     // Construct the grid factory
-    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
+    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper, loggingmessage);
 
     // Factory requires total vertex and element number in the mesh for faster performance
     int nVertexTotal;
@@ -50,8 +50,7 @@ GridType * createGrid(Dune::MPIHelper & mpihelper, bool verbose, bool processVer
     Dune::CurvilinearGmshReader< GridType >::read(factory,
                                                   filename,
                                                   mpihelper,
-                                                  verbose,
-                                                  processVerbose,
+                                                  loggingmessage,
                                                   writeReaderVTKFile,
                                                   insertBoundarySegment);
 
@@ -147,9 +146,10 @@ int main (int argc , char **argv) {
 	// Verbose constants
     bool verbose = true;                // to write logging output on master process
     bool processVerbose = true;         // to write logging output on all processes
+    Dune::LoggingMessage loggingmessage(verbose, processVerbose, mpihelper);
 
 	// Create Grid
-	GridType * grid = createGrid<GridType>(mpihelper, verbose, processVerbose);
+	GridType * grid = createGrid<GridType>(mpihelper, loggingmessage);
 
 
 	// Define the structural types used by the VTK writer
@@ -169,7 +169,7 @@ int main (int argc , char **argv) {
 
 
     // Construct the VTK writer
-	Dune::CurvilinearVTKWriter<GridType> vtkCurvWriter(verbose, processVerbose, mpihelper);
+	Dune::CurvilinearVTKWriter<GridType> vtkCurvWriter(mpihelper, loggingmessage);
 
 
 	// write elements

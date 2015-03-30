@@ -80,6 +80,16 @@ public:
 
 
 
+    LoggingMessage(bool verbose, bool processVerbose, MPIHelper &mpihelper)
+      : verbose_(verbose),
+        processVerbose_(processVerbose),
+        mpihelper_(mpihelper)
+    {
+
+    }
+
+
+
     /** \brief Logging message writer
      *
      * \param[in]  mpihelper       Parallel MPIHelper class (or its fake) provided by Dune
@@ -94,16 +104,11 @@ public:
      *
      *  */
     template <unsigned int phase, unsigned int messageCat>
-    static void write(MPIHelper &mpihelper,
-                                      bool verbose,
-                                      bool parallel,
-                                      std::string filename,
-                                      unsigned int linenumber,
-                                      std::string message)
+    void write(std::string filename, unsigned int linenumber, std::string message)
     {
-        int rank = mpihelper.rank();
+        int rank = mpihelper_.rank();
 
-        if (verbose && (parallel || (rank == MPI_MASTER_RANK)))
+        if (verbose_ && (processVerbose_ || (rank == MPI_MASTER_RANK)))
         {
 
             /** Set the stream to create for the message. */
@@ -155,6 +160,12 @@ public:
 
     };
 
+
+private:
+    bool verbose_;
+    bool processVerbose_;
+
+    MPIHelper &mpihelper_;
 };
 
 

@@ -62,34 +62,15 @@ class CurvilinearGridFactory
 	static const int dimension = GridType::dimension;
 	typedef FieldVector< ctype, dimension >                 VertexCoordinate;
 
-    bool verbose_;
-    bool processVerbose_;
-
-    // Parallel implementation
-    MPIHelper &mpihelper_;
-    int rank_;
-    int size_;
-
-    // Logging Message Typedefs
-    static const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
-    static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
-
 
   public:
 
     CurvilinearGridFactory(
     		bool withGhostElements,
-    		bool verbose,
-    		bool processVerbose,
-    		MPIHelper &mpihelper) :
-    			verbose_(verbose),
-    			processVerbose_(processVerbose),
-    			mpihelper_(mpihelper)
+    		MPIHelper &mpihelper,
+    		LoggingMessage & loggingmessage)
     {
-    	gridbase_ = new GridBaseType(withGhostElements, verbose, processVerbose, mpihelper);
-
-    	rank_ = mpihelper.rank();
-    	size_ = mpihelper.size();
+    	gridbase_ = new GridBaseType(withGhostElements, mpihelper, loggingmessage);
     }
 
     ~CurvilinearGridFactory ()  {}
@@ -126,7 +107,7 @@ class CurvilinearGridFactory
     GridType * createGrid()
     {
     	gridbase_->generateMesh();
-    	GridType * grid = new GridType(*gridbase_, mpihelper_);
+    	GridType * grid = new GridType(*gridbase_, gridbase_->mpiHelper());
     	return grid;
     }
 

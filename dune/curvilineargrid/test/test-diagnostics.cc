@@ -66,19 +66,19 @@ int main(int argc, char** argv)
     bool withGhostElements = true;
     bool verbose = true;
     bool processVerbose = true;
+    LoggingMessage loggingmessage(verbose, processVerbose, mpihelper);
 
     bool writeReaderVTKFile = false;
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
+    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, mpihelper, loggingmessage);
 
 
     Dune::CurvilinearGmshReader< SimplexGridType >::read(factory,
                                                             filename,
                                                             mpihelper,
-                                                            verbose,
-                                                            processVerbose,
+                                                            loggingmessage,
                                                             writeReaderVTKFile,
                                                             insertBoundarySegment);
 
@@ -87,7 +87,7 @@ int main(int argc, char** argv)
 
 
     // Perform diagnostics tests on the constructed grid
-    Dune::CurvilinearGridDiagnostic<SimplexGridType> diagnostic(verbose, processVerbose, mpihelper, *gridbase);
+    Dune::CurvilinearGridDiagnostic<SimplexGridType> diagnostic(mpihelper, loggingmessage, *gridbase);
 
 	std::vector<bool> withElements {true, true};                  // Whether to add elements to VTK: Internal / Ghost
 	std::vector<bool> withFaces    {false, false, true, true};    // Whether to add faces to VTK: Internal / Ghost / DomainBoundary / ProcessBoundary

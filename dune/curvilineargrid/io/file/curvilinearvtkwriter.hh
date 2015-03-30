@@ -418,8 +418,6 @@ namespace Dune
               //std::cout << "* coords " << parUV[0] << ", " << parUV[1] << ", in the map cooresponds to " << parametricToIndex[parUV] << std::endl;
           }
 
-          std::cout << "brrrrraaaa " <<  vtkPoint_.size() <<std::endl;
-
 
           // *******************************************************************************
           // Step 3: Write edges discretizing this element to VTK
@@ -462,10 +460,9 @@ namespace Dune
 
   public:
 
-    CurvilinearVTKWriter (bool verbose, bool processVerbose, MPIHelper &mpihelper) :
-        verbose_(verbose),
-        processVerbose_(processVerbose),
-        mpihelper_(mpihelper)
+    CurvilinearVTKWriter (MPIHelper &mpihelper, LoggingMessage & loggingmessage) :
+        mpihelper_(mpihelper),
+        loggingmessage_(loggingmessage)
     {
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
@@ -533,7 +530,7 @@ namespace Dune
         log_message << " explosionMagnitude="  << shrinkMagnitude;
         log_message << " writeVTK_edges="      << writeEdgeData;
         log_message << " writeVTK_triangles="  << writeTriangleData;
-        Dune::LoggingMessage::write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>(mpihelper_, verbose_, processVerbose_, __FILE__, __LINE__, log_message.str());
+        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_message.str());
 
         addCurvilinearSimplex<mydim>(thisElmType, thisElmNodeSet, thisElmTagSet, thisElmOrder, nDiscretizationPoints, shrinkMagnitude, boundaryMagnification, interpolate, writeEdgeData, writeTriangleData);
     }
@@ -674,8 +671,6 @@ namespace Dune
         int nVertices = vtkPoint_.size();
         int nElements = vtkEdgeVertexIndex_.size() + vtkTriangleVertexIndex_.size();
 
-        std::cout << "dslfsjkfd " << vtkPoint_.size() << std::endl;
-
         // Compute offsets which is a general way to determine the number of vertices per element
         std::vector<int> offsets;
         int tmp_offset = 0;
@@ -787,8 +782,8 @@ namespace Dune
 
 
   private:
-    bool verbose_;
-    bool processVerbose_;
+
+    LoggingMessage & loggingmessage_;
 
     // MPI
     MPIHelper &mpihelper_;

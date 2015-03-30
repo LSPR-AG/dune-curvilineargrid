@@ -223,12 +223,18 @@ int main(int argc, char** argv)
     // initialize MPI, finalize is done automatically on exit
     static MPIHelper &mpihelper=Dune::MPIHelper::instance(argc,argv);
 
+    if (mpihelper.size() > 1)
+    {
+        //test_pointerinterface(mpihelper);
+        //test_vectorinterface(mpihelper);
 
-    //test_pointerinterface(mpihelper);
-    //test_vectorinterface(mpihelper);
+        //test_neighbor_pointerinterface(mpihelper);
+        test_neighbor_vectorinterface(mpihelper);
+    } else
+    {
+    	std::cout << "Skipping Allcommunicate test, as it is designed for parallel case" << std::endl;
+    }
 
-    //test_neighbor_pointerinterface(mpihelper);
-    test_neighbor_vectorinterface(mpihelper);
 
 
 

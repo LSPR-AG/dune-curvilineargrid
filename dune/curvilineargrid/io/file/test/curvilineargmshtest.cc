@@ -77,31 +77,6 @@ const std::string    GMSH_FILE_NAME_SPHEREINSPHERE100_ORD1  =    "sphere-in-sphe
 
 
 
-
-
-
-
-
-
-
-
-
-/** Layout function returns true for all elements with codimensions. */
-
-//template<int dim>
-//struct P0Layout { bool contains (Dune::GeometryType gt) { return gt.dim()==dim; } };
-
-//template<int dim>
-//struct P1Layout { bool contains (Dune::GeometryType gt) { return gt.dim()==dim-1; } };
-
-//template<int dim>
-//struct P2Layout { bool contains (Dune::GeometryType gt) { return gt.dim()==dim-2; } };
-
-//template<int dim>
-//struct P3Layout { bool contains (Dune::GeometryType gt) { return gt.dim()==dim-3; } };
-
-
-
 /**\brief Test program which visualizes the base functions on a dgf mesh to
  * a vtk file. */
 int main(int argc, char** argv)
@@ -113,38 +88,32 @@ int main(int argc, char** argv)
 
 
     // Assemble the file name
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD1;
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE2000_ORD3;
 
-
-    //! Define datatypes for grid mappers and  iterators to access all elements of a specific geometry type.
-    //typedef Dune::LeafMultipleCodimMultipleGeomTypeMapper<Dune::GridSelector::GridType,P0Layout> ElementMapper;
-    //typedef Dune::LeafMultipleCodimMultipleGeomTypeMapper<Dune::GridSelector::GridType,P1Layout> FaceMapper;
-    //typedef Dune::LeafMultipleCodimMultipleGeomTypeMapper<Dune::GridSelector::GridType,P2Layout> EdgeMapper;
-    //typedef Dune::LeafMultipleCodimMultipleGeomTypeMapper<Dune::GridSelector::GridType,P3Layout> NodeMapper;
-
-
+    // Properties of the grid
+    bool insertBoundarySegment = true;
+    bool withGhostElements = true;
     const bool isCached = true;
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
     typedef Dune::CurvilinearFakeGrid<3,3,double,isCached>  SimplexGridType;
 
-    bool insertBoundarySegment = true;
-    bool withGhostElements = true;
+
+
     bool verbose = true;
     bool processVerbose = true;
-
     bool writeReaderVTKFile = true;
+    LoggingMessage loggingmessage(verbose, processVerbose, mpihelper);
 
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
+    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, mpihelper, loggingmessage);
 
     Dune::CurvilinearGmshReader< SimplexGridType >::read(factory,
                                                             filename,
                                                             mpihelper,
-                                                            verbose,
-                                                            processVerbose,
+                                                            loggingmessage,
                                                             writeReaderVTKFile,
                                                             insertBoundarySegment);
 

@@ -37,9 +37,10 @@ GridType * createGrid(Dune::MPIHelper & mpihelper)
     bool verbose = true;                // to write logging output on master process
     bool processVerbose = true;         // to write logging output on all processes
     bool writeReaderVTKFile = false;    // to write mesh to VTK during reading stage
+    Dune::LoggingMessage loggingmessage(verbose, processVerbose, mpihelper);
 
     // Construct the grid factory
-    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
+    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper, loggingmessage);
 
     // Factory requires total vertex and element number in the mesh for faster performance
     int nVertexTotal;
@@ -49,8 +50,7 @@ GridType * createGrid(Dune::MPIHelper & mpihelper)
     Dune::CurvilinearGmshReader< GridType >::read(factory,
                                                   filename,
                                                   mpihelper,
-                                                  verbose,
-                                                  processVerbose,
+                                                  loggingmessage,
                                                   writeReaderVTKFile,
                                                   insertBoundarySegment);
 

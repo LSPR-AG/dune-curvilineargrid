@@ -45,14 +45,14 @@ struct CurvFactory
     bool verbose = true;
     bool processVerbose = true;
     bool writeReaderVTKFile = false;
+    Dune::LoggingMessage loggingmessage(verbose, processVerbose, mpihelper);
 
-    Dune::CurvilinearGridFactory< GridType > factory(withGhostElements, verbose, processVerbose, mpihelper);
+    Dune::CurvilinearGridFactory< GridType > factory(withGhostElements, mpihelper, loggingmessage);
 
     Dune::CurvilinearGmshReader< GridType >::read(factory,
                                                             filename,
                                                             mpihelper,
-                                                            verbose,
-                                                            processVerbose,
+                                                            loggingmessage,
                                                             writeReaderVTKFile,
                                                             insertBoundarySegment);
 

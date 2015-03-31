@@ -42,19 +42,20 @@ namespace Dune {
  *                 box sides halved) in center and extent respectively.
  * @author Roman Geus
  */
-template <class ct, int cdim, typename NodeType>
+template <class ct, int cdim, class NodeType, class LogMsg>
 class CurvilinearLooseOctree {
 public:
 
 	// typedefs
 	// **************************************************************************
+	typedef  ct      ctype;
+	typedef  LogMsg  LoggingMessage;
 
-	typedef Dune::FieldVector<ct, cdim>   Vertex;
-	typedef Dune::CurvilinearOctant<ct, cdim, NodeType> CurvilinearOctant;
+	typedef Dune::FieldVector<ctype, cdim>                    Vertex;
+	typedef Dune::CurvilinearOctant<ctype, cdim, NodeType>    CurvilinearOctant;
 
     // Logging Message Typedefs
-    static const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
-    static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
+    static const unsigned int LOG_CATEGORY_DEBUG = LoggingMessage::Category::DEBUG;
 
 
 	/** Filter function deciding whether a point is inside a an OctreeNode */
@@ -81,11 +82,9 @@ public:
     		const Vertex& center,
     		double length,
     		int maxDepth,
-    		MPIHelper & mpihelper,
-    		LoggingMessage & loggingmessage) :
+    		MPIHelper & mpihelper) :
     			maxDepth_(maxDepth),
-    			mpihelper_(mpihelper),
-    			loggingmessage_(loggingmessage)
+    			mpihelper_(mpihelper)
 	{
     	root_ = new CurvilinearOctant(center, length);
 	}
@@ -110,7 +109,7 @@ public:
     	std::stringstream log_stream;
     	log_stream << "CurvilinearLooseOctree: Adding a node ElementIndex=" << thisNode->elementIndex() <<  " Octant=" << octant << " Depth=" << depth;
 
-    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
+    	LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_stream.str());
 
         // root is the default octant
         if (octant == 0)  { octant = root_; }
@@ -409,8 +408,6 @@ protected:
     }
 
 private:
-
-    LoggingMessage & loggingmessage_;
 
     MPIHelper &mpihelper_;
 

@@ -52,6 +52,7 @@ namespace Dune
 
   	    typedef typename remove_const< Grid >::type::GridStorageType  GridStorageType;
   	    typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
+  	    typedef typename GridBaseType::LoggingMessage                 LoggingMessage;
 
     	typedef typename GridBaseType::LocalIndexType        LocalIndexType;
     	typedef typename GridBaseType::GlobalIndexType       GlobalIndexType;
@@ -61,8 +62,7 @@ namespace Dune
     	typedef typename GridBaseType::Local2LocalIterator   Local2LocalIterator;
 
         // Logging Message Typedefs
-        static const unsigned int LOG_PHASE_DEV      = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
-        static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
+        static const unsigned int LOG_CATEGORY_DEBUG = LoggingMessage::Category::DEBUG;
 
     	static const int  InternalType        = GridStorageType::PartitionType::Internal;
     	static const int  ProcessBoundaryType = GridStorageType::PartitionType::ProcessBoundary;
@@ -90,7 +90,7 @@ namespace Dune
 
     	Communication(GridBaseType & gridbase, MPIHelper & mpihelper)
     		: mpihelper_(mpihelper),
-    		  loggingmessage_(gridbase.loggingMessage()),
+    		  loggingmessage_(LoggingMessage::getInstance()),
     		  gridbase_(gridbase)
     	{
     		rank_ = mpihelper.rank();
@@ -109,12 +109,12 @@ namespace Dune
     		std::stringstream logstr;
     		logstr << "Started communication for codim " << codim;
     		logstr << " using interface " << interface2string(iftype, dir);
-    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, logstr.str());
+    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, logstr.str());
 
     		// Communication protocol ProcessBoundary -> ProcessBoundary
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_ProcessBoundary))
     		{
-    			loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol PB->PB");
+    			loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " -- Using communication protocol PB->PB");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, ProcessBoundaryType),
@@ -125,7 +125,7 @@ namespace Dune
     		// Communication protocol ProcessBoundary -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_Ghost))
     		{
-    			loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol PB->G");
+    			loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " -- Using communication protocol PB->G");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, ProcessBoundaryType),
@@ -136,7 +136,7 @@ namespace Dune
     		// Communication protocol BoundaryInternal -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Internal_Ghost))
     		{
-    			loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol I->G");
+    			loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " -- Using communication protocol I->G");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, InternalType),
@@ -147,7 +147,7 @@ namespace Dune
     		// Communication protocol Ghost -> BoundaryInternal + ProcessBoundary
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Internal))
     		{
-    			loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol G->I");
+    			loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " -- Using communication protocol G->I");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, GhostType),
@@ -158,7 +158,7 @@ namespace Dune
     		// Communication protocol Ghost -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Ghost))
     		{
-    			loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol G->G");
+    			loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " -- Using communication protocol G->G");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
     				gridbase_.selectCommMap(codim, GhostType),
@@ -265,7 +265,7 @@ namespace Dune
     		// 1) First loop over all entities of the interface
     		// Compute total number of entities to be communicated to each process
     		// ********************************************************
-    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Computing entities to be sent");
+    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " -- Computing entities to be sent");
 
     		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)
     		{
@@ -299,7 +299,7 @@ namespace Dune
     		// 2) Second loop over all entities of the interface
     		// Read and fill in data
     		// ********************************************************
-    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Constructing arrays for communication");
+    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " -- Constructing arrays for communication");
 
 
     		std::stringstream logstr;
@@ -307,7 +307,7 @@ namespace Dune
     		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)  {
     			logstr << "(" << (*iter).first << "," << gridbase_.entityStructuralType(codim, (*iter).first) << ") ";
     		}
-    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, logstr.str());
+    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, logstr.str());
 
 
     		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)
@@ -357,7 +357,7 @@ namespace Dune
     		// **************************************************************
 
     		// Communicate entity global index
-    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Communicating");
+    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " -- Communicating");
     		allcommunicate.communicate(globalIndexSend, nEntityPerProcessSend, globalIndexRecv, nEntityPerProcessRecv);
 
     		// Communicate data per entity
@@ -369,7 +369,7 @@ namespace Dune
 
     		// 4) Scatter
     		// **************************************************************
-    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Scattering received data");
+    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " -- Scattering received data");
 
     		int iData = 0;
     		for (int i = 0; i < globalIndexRecv.size(); i++)

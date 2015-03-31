@@ -39,13 +39,17 @@ namespace Dune {
 
 
 
-template <class ct, int cdim, bool isCached>
+template <class GridBase>
 class CurvilinearGridStorage
 {
 
 public:
 
-	typedef Dune::CurvilinearGridStorage<ct, cdim, isCached>   This;
+    // Grid Base template parameters
+    // ******************************************************************
+	typedef typename GridBase::ctype  ctype;
+	typedef typename GridBase::LoggingMessage  LoggingMessage;
+	static const int dimension = GridBase::dimension;
 
     // Grid Variable Types
     // ******************************************************************
@@ -174,9 +178,9 @@ public:
     // ******************************************************************
 	struct VertexStorage
 	{
-		GlobalIndexType               globalIndex;
-		StructuralType                structuralType;
-    	Dune::FieldVector<ct, cdim>   coord;
+		GlobalIndexType                       globalIndex;
+		StructuralType                        structuralType;
+    	Dune::FieldVector<ctype, dimension>   coord;
 	};
 
 	struct EdgeStorage
@@ -214,8 +218,9 @@ public:
 
     // Public Type Definitions
     // ******************************************************************
+	typedef GridBase           GridBaseType;
 
-    typedef Dune::FieldVector<ct, cdim>                 Vertex;
+    typedef Dune::FieldVector<ctype, dimension>         Vertex;
 
     typedef typename CurvilinearEntityMapKey::EdgeKey   EdgeKey;
     typedef typename CurvilinearEntityMapKey::FaceKey   FaceKey;
@@ -230,8 +235,8 @@ public:
 
     typedef std::vector<std::vector <int> >             EntityNeighborRankVector;
 
-    typedef Dune::CurvilinearOctreeNode<ct, cdim, isCached>       NodeType;
-    typedef Dune::CurvilinearLooseOctree<ct, cdim, NodeType>      CurvilinearLooseOctree;
+    typedef Dune::CurvilinearOctreeNode<GridBaseType>                                  NodeType;
+    typedef Dune::CurvilinearLooseOctree<ctype, dimension, NodeType, LoggingMessage>   CurvilinearLooseOctree;
 
 
     // Codimensions of entity types for better code readability

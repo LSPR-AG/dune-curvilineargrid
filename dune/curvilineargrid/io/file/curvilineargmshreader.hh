@@ -92,8 +92,8 @@ namespace Dune
 
 
     // Logging Message Typedefs
-    static const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
-    static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
+    typedef typename  GridType::LoggingMessage  LoggingMessage;
+    static const unsigned int LOG_CATEGORY_DEBUG = LoggingMessage::Category::DEBUG;
 
     // typedefs
     typedef Dune::FieldVector< double, dimWorld_ > GlobalVector;
@@ -109,23 +109,23 @@ namespace Dune
 
     CurvilinearGmshReaderParser(
     	FactoryType & _factory,
-    	LoggingMessage & loggingmessage,
     	bool insertBoundarySegment,
     	bool writeVtkFile,
     	MPIHelper &mpihelper) :
     		factory(_factory),
-    		loggingmessage_(loggingmessage),
     		writeVtkFile_(writeVtkFile),
     		insertBoundarySegment(insertBoundarySegment),
     		mpihelper_ (mpihelper),
-    		vtkCurvWriter_(mpihelper, loggingmessage)
+    		vtkCurvWriter_(mpihelper),
+    		loggingmessage_(LoggingMessage::getInstance())
     {
         // Initialize process parameters
         rank_=mpihelper.rank();
         size_=mpihelper.size();
 
         std::string log_string = "I am process " + std::to_string(rank_) + " with total processes " + std::to_string(size_);
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
 
         // Initialize triangular point renumberings for GMSH->DUNE convention
         triangularInterpolatoryVertexGmsh2DuneMap.push_back( std::vector<int> {0, 1, 2} );
@@ -152,12 +152,12 @@ namespace Dune
     // This reads the GMSH format to parse the node and element structure
     void read (const std::string& f)
     {
-    	Dune::LoggingTimer loggingtimer(false, mpihelper_, loggingmessage_);
+    	Dune::LoggingTimer<LoggingMessage> loggingtimer(false, mpihelper_);
 
     	std::string log_string;
 
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, ":: using file " + fileName);
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, ":: reading" + std::to_string(dim_) + "d curvilinear gmsh grid...");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, ":: using file " + fileName);
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, ":: reading" + std::to_string(dim_) + "d curvilinear gmsh grid...");
 
         // open file name, we use C I/O
         // ***********************************************
@@ -174,30 +174,30 @@ namespace Dune
         if (strcmp(buf_,"$MeshFormat")!=0)   { DUNE_THROW(Dune::IOError, "expected $MeshFormat in first line"); }
         fscanf(file, "%lg %d %d ", &version_number, &file_type, &data_size);
         if( (version_number < 2.0) || (version_number > 2.3) )  { DUNE_THROW(Dune::IOError, "can only read Gmsh version 2 files"); }
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, ":: version " + std::to_string(version_number) + " Gmsh file detected");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, ":: version " + std::to_string(version_number) + " Gmsh file detected");
         fscanf(file, "%s\n", buf_);
         if (strcmp(buf_,"$EndMeshFormat")!=0)  { DUNE_THROW(Dune::IOError, "expected $EndMeshFormat"); }
 
         // Reading Node data
         // ***********************************************
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "----- Reading vertex header ------------------------");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "----- Reading vertex header ------------------------");
         fscanf(file, "%s\n", buf_);
         if (strcmp(buf_,"$Nodes")!=0)  { DUNE_THROW(Dune::IOError, "expected $Nodes"); }
         fscanf(file, "%d\n", &nVertexTotal_);
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, ":: file contains " + std::to_string(nVertexTotal_) + " vertices");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, ":: file contains " + std::to_string(nVertexTotal_) + " vertices");
 
 
         //==========================================================
         // VERTEX PASS 1: Put file pointer and skip all vertices
         //==========================================================
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "----- Vertex-Pass 1: skip all vertices, since we need element data first ---");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "----- Vertex-Pass 1: skip all vertices, since we need element data first ---");
         loggingtimer.time("CurvilinearGMSHReader: Vertex Pass 1");
 
         long section_vertex_offset = ftell(file);
         for (int iVertex = 0; iVertex < nVertexTotal_; iVertex++ )
         {
         	fgets(buf_, 512, file );
-        	//loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, std::string(buf_));
+        	//loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, std::string(buf_));
         }
         fscanf(file, "%s\n", buf_);
         if (strcmp(buf_,"$EndNodes")!=0)  { DUNE_THROW(Dune::IOError, "expected $EndNodes"); }
@@ -210,18 +210,18 @@ namespace Dune
 
         // Reading Element Data
         // *************************************************
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "----- Reading elements-header -----------------------");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "----- Reading elements-header -----------------------");
         fscanf(file, "%s\n", buf_);
         if (strcmp(buf_,"$Elements")!=0)  { DUNE_THROW(Dune::IOError, "expected $Elements"); }
         fscanf(file, "%d\n", &nElementTotal_);
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, ":: file contains " + std::to_string(nElementTotal_) + " elements");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, ":: file contains " + std::to_string(nElementTotal_) + " elements");
 
 
 
         //=========================================================
         // ELEMENT PASS 1: Count the number of boundary segments
         //=========================================================
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "----- Elements-Pass 1: counting elements on the boundary---");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "----- Elements-Pass 1: counting elements on the boundary---");
         loggingtimer.time("CurvilinearGMSHReader: Element Pass 1 - Counting Elements");
 
         long fileOffsetElementSection = ftell(file);
@@ -234,7 +234,7 @@ namespace Dune
             // Ignore the rest of data on this line
             fgets(buf_, 512, file );
 
-            loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, std::to_string(elementIndex) + " " + std::to_string(gmshElementIndex) );
+            loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, std::to_string(elementIndex) + " " + std::to_string(gmshElementIndex) );
 
             // A boundary segment is defined here as any element with dimension less than world dimension
             GeometryType elemType          = gmshGeometryType(gmshElementIndex);
@@ -251,7 +251,7 @@ namespace Dune
         // ELEMENT PASS 2: Read all linear internal elements
         // Immediately partition them and distribute among processes
         //=========================================================
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "----- Elements-Pass 2: reading internal elements for this process ---");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "----- Elements-Pass 2: reading internal elements for this process ---");
         loggingtimer.time("CurvilinearGMSHReader: Element Pass 2 - Reading and Partitioning Linear Elements");
 
         fseek(file, fileOffsetElementSection, SEEK_SET);
@@ -266,7 +266,7 @@ namespace Dune
         // Map all d-1 subentities of all elements to the element localID's.
         //    - Needed to find boundaries corresponding to each element.
         //==========================================================
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "----- Elements-Pass 2: reading internal elements for this process ---");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "----- Elements-Pass 2: reading internal elements for this process ---");
         loggingtimer.time("CurvilinearGMSHReader: Element Pass 3 - Reading Element Data");
 
         fseek(file, fileOffsetElementSection, SEEK_SET);
@@ -285,7 +285,7 @@ namespace Dune
         //    - Note: Can not read internal and boundary elements at the same time
         //            because need d-1 subentity map from all internal elements first
         //==========================================================
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "----- Elements-Pass 3: reading boundary elements for this process ---");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "----- Elements-Pass 3: reading boundary elements for this process ---");
         loggingtimer.time("CurvilinearGMSHReader: Element Pass 4 - Reading Boundary Segment Data");
 
         fseek(file, fileOffsetElementSection, SEEK_SET);
@@ -301,7 +301,7 @@ namespace Dune
         // VERTEX PASS 2: Read the vertices
         // But only the ones that correspond to elements on this process
         //==========================================================
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "----- Vertex-Pass 2: reading all vertices necessary for this process ---");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "----- Vertex-Pass 2: reading all vertices necessary for this process ---");
         loggingtimer.time("CurvilinearGMSHReader: Vertex Pass 4 - Reading Associated Vertices");
 
         fseek(file, section_vertex_offset, SEEK_SET);
@@ -314,16 +314,16 @@ namespace Dune
         //==========================================================
         // Final Step: Insert boundary segments and elements
         //==========================================================
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "----- Adding internal boundary elements to factory ---");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "----- Adding internal boundary elements to factory ---");
         loggingtimer.time("CurvilinearGMSHReader: Inserting Entities into the factory");
 
         addInternalElements(vertexGlobal2LocalIndexMap, vertexIndex2CoordinateMap, internalElementVector);
         addBoundaryElements(vertexGlobal2LocalIndexMap, vertexIndex2CoordinateMap, boundaryElementVector, linkedElementLocalIndexSet);
 
 
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, ":: total vertices          = " + std::to_string(nVertexTotal_)          + " of which on this process " + std::to_string(nVertex) );
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, ":: total internal elements = " + std::to_string(nInternalElementTotal_) + " of which on this process " + std::to_string(nInternalElement) );
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, ":: total boundary elements = " + std::to_string(nBoundaryElementTotal_) + " of which on this process " + std::to_string(nBoundaryElement) );
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, ":: total vertices          = " + std::to_string(nVertexTotal_)          + " of which on this process " + std::to_string(nVertex) );
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, ":: total internal elements = " + std::to_string(nInternalElementTotal_) + " of which on this process " + std::to_string(nInternalElement) );
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, ":: total boundary elements = " + std::to_string(nBoundaryElementTotal_) + " of which on this process " + std::to_string(nBoundaryElement) );
 
 
         Dune::CollectiveCommunication<MPI_Comm> comm = mpihelper_.getCollectiveCommunication();
@@ -333,7 +333,7 @@ namespace Dune
         loggingtimer.time("CurvilinearGMSHReader: Inserting Entities into the factory");
 
         if (rank_ == MASTER_RANK) {
-            loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " I am Master Process. Sum of internal elements = " +  std::to_string(nElementParallelSum) + ", sum of boundary elements = " +  std::to_string(nBoundaryParallelSum));
+            loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " I am Master Process. Sum of internal elements = " +  std::to_string(nElementParallelSum) + ", sum of boundary elements = " +  std::to_string(nBoundaryParallelSum));
         }
 
 
@@ -344,7 +344,7 @@ namespace Dune
         	loggingtimer.time("CurvilinearGMSHReader: Writing VTK output");
         	//vtkCurvWriter_.writeVTK("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
         	vtkCurvWriter_.writeParallelVTU("./curvreader_output");
-            loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__,  "Curvilinear VTK Writer finished writing" );
+            loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__,  "Curvilinear VTK Writer finished writing" );
             loggingtimer.time("CurvilinearGMSHReader: Writing VTK output");
         }
 
@@ -503,7 +503,7 @@ namespace Dune
         int eLast = (eTotal * (rank_+1)) / size_;
 
         std::string log_string = " == checkprocess if " + std::to_string(eIndex) + " in [" + std::to_string(eFirst) + "," + std::to_string(eLast) + "]";
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
 
         return ((eIndex >= eFirst)&&(eIndex < eLast));
     }
@@ -564,7 +564,7 @@ namespace Dune
                 // The local id of this vertex is equalt to the number of vertices added so far
                 vertexGlobal2LocalIndexMap[i] = vertexIndex2CoordinateMap.size();
 
-                loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "  * Have read vertex " + tmp_out);
+                loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "  * Have read vertex " + tmp_out);
 
                 // Maps global id to global coordinate
                 vertexIndex2CoordinateMap[i] = x;
@@ -597,7 +597,7 @@ namespace Dune
 
         std::stringstream log_string;
         log_string << "    * element " << thisElement.elementIndex_ << " has " << nTag << " tags";
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string.str());
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string.str());
 
         /** \brief Reading tags
          *
@@ -667,7 +667,7 @@ namespace Dune
                 // *****************************************************************
                 checkElementAllowed(thisElement.gmshIndex_);
                 std::string log_string = "    * element " + std::to_string(thisElement.elementIndex_) + " can be treated by Dune grid ";
-                loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+                loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
 
                 // Obtain all necessary info not to use gmshElementIndex in the following steps
                 // *****************************************************
@@ -684,7 +684,7 @@ namespace Dune
                     fscanf(file, "%d", &tmpVertexGlobalId);
 
                     log_string = "  --- have read corner " + std::to_string(tmpVertexGlobalId);
-                    loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+                    loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
 
                     thisElement.elementDofSet_.push_back(tmpVertexGlobalId);
                 }
@@ -695,7 +695,7 @@ namespace Dune
             }
         }
 
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Finished reading base elements");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Finished reading base elements");
 
 
         //std::cout << "Process " << rank_ << ": elements before partition: ";
@@ -711,17 +711,17 @@ namespace Dune
         	// *************************************************************
         	std::vector<unsigned> part(baseElementVector.size(), 0);
     		partitionCompute(part, baseElementVector);
-    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Finished computing partition");
+    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Finished computing partition");
 
     		partitionCommunicate(part, baseElementVector, thisProcessElementIndexSet);
-    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Finished communicating partition");
+    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Finished communicating partition");
 
         	std::vector<int> test2 (thisProcessElementIndexSet.begin(), thisProcessElementIndexSet.end());
-        	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " elements after partition: " + Dune::VectorHelper::vector2string(test2));
+        	loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " elements after partition: " + Dune::VectorHelper::vector2string(test2));
 #endif
         } else
         {
-        	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "No MPI found! Running sequential case without partitioning");
+        	loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "No MPI found! Running sequential case without partitioning");
         	for (int i = 0; i < baseElementVector.size(); i++) { thisProcessElementIndexSet.insert(baseElementVector[i].elementIndex_); }
         }
 
@@ -779,7 +779,7 @@ namespace Dune
                 // *****************************************************************
                 checkElementAllowed(thisElement.gmshIndex_);
                 log_string = "    * element " + std::to_string(thisElement.elementIndex_) + " can be treated by Dune grid ";
-                loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+                loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
 
                 // Obtain all necessary info not to use gmshElementIndex in the following steps
                 // *****************************************************
@@ -798,7 +798,7 @@ namespace Dune
                     int tmpVertexGlobalIndex = gmsh2DuneIndex(tmpVertexGlobalId);
 
 ;
-                    loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "  --- have read DoF " + std::to_string(tmpVertexGlobalIndex));
+                    loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "  --- have read DoF " + std::to_string(tmpVertexGlobalIndex));
 
                     thisElement.elementDofSet_.push_back(tmpVertexGlobalIndex);
 
@@ -828,7 +828,7 @@ namespace Dune
                 for (int iSub = 0; iSub < thisElmSubentities; iSub++)
                 {
                     log_string = " for iSub = " + std::to_string(iSub) + " out of " + std::to_string(thisElmSubentities) + " have sub_size = " + std::to_string(thisElmSubCorners);
-                    loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+                    loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
 
                 	// 4) get all subsets associated with this element type
                     //std::vector<int> thisSubentityCornerIndexSet = Dune::CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet;
@@ -846,7 +846,7 @@ namespace Dune
                     // 5) Check if map empty for this entry, then add to the map
                     if (boundaryKey2LinkedElementSet.find(key) == boundaryKey2LinkedElementSet.end()) {
                     	log_string = " -- element " + std::to_string(localID) + " has added boundary " + Dune::VectorHelper::vector2string(key);
-                        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+                        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
 
                         boundaryKey2LinkedElementSet[key] = std::vector<int> (1, localID);
                     } else
@@ -857,7 +857,7 @@ namespace Dune
                         boundaryKey2LinkedElementSet[key] = tmp;   // Should overwrite previous value
 
                         log_string = " -- element " + std::to_string(localID) + " shares boundary " + Dune::VectorHelper::vector2string(key) + " with element " + std::to_string(tmp[0]);
-                        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+                        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
                     }
                 }
 
@@ -917,7 +917,7 @@ namespace Dune
                 // *****************************************************************
                 checkElementAllowed(thisElement.gmshIndex_);
                 log_string = "    * element " + std::to_string(i) + " can be treated by Dune grid ";
-                loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+                loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
 
                 // Obtain all necessary info not to use gmshElementIndex in the following steps
                 // *****************************************************
@@ -932,7 +932,7 @@ namespace Dune
                     fscanf(file, "%d", &tmpVertexGlobalId);
                     int tmpVertexGlobalIndex = gmsh2DuneIndex(tmpVertexGlobalId);
 
-                    loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "  --- have read DoF " + std::to_string(tmpVertexGlobalIndex));
+                    loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "  --- have read DoF " + std::to_string(tmpVertexGlobalIndex));
 
                     thisElement.elementDofSet_.push_back(tmpVertexGlobalIndex);
                 }
@@ -954,7 +954,7 @@ namespace Dune
                 int localID = boundaryElementVector.size();
 
                 log_string = " -- boundary " + std::to_string(localID) + " checking key " + Dune::VectorHelper::vector2string(cornerVector);
-                loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+                loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
 
 
 
@@ -963,7 +963,7 @@ namespace Dune
                 if (boundaryKey2LinkedElementSet.find(cornerVector) != boundaryKey2LinkedElementSet.end())
                 {
                 	log_string = " -found b.e localID = " + Dune::VectorHelper::vector2string(boundaryKey2LinkedElementSet[cornerVector]);
-                    loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+                    loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
 
                     // correct differences between gmsh and Dune in the local vertex numbering
                     // *************************************************
@@ -1017,7 +1017,7 @@ namespace Dune
             int elemCornerNo            = ReferenceElements::general(elemType).size(elemDim);
 
             std::string log_string = "    * internal_element " + std::to_string(i) + " has dimension " + std::to_string(elemDim) + " and vertex number " + std::to_string(elemCornerNo) + " and physical entity number " + std::to_string(internalElementVector[i].physicalEntityTag_);
-            loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+            loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
 
 
 
@@ -1042,7 +1042,7 @@ namespace Dune
             	addElementToVTK<dimWorld_>(elemType, elementNodeVector, elemOrder, internalElementVector[i].physicalEntityTag_, false);
 
             	log_string = "    * internal_element " + std::to_string(i) + " has been added to the VTK triangles  ";
-            	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+            	loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
             }
 
 
@@ -1060,7 +1060,7 @@ namespace Dune
             }
 
             log_string = "    * internal_element " + std::to_string(i) + " has been added to the Geometry Factory ";
-            loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+            loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
         }
     }
 
@@ -1095,7 +1095,7 @@ namespace Dune
             int boundaryCornerNo            = SubReferenceElements::general(boundaryType).size(boundaryDim);
 
             std::string log_string = "    * boundary_element " + std::to_string(i) + " has dimension " + std::to_string(boundaryDim) + " and vertex number " + std::to_string(boundaryCornerNo) + " and physical entity number " + std::to_string(boundaryElementVector[i].physicalEntityTag_);
-            loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+            loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
 
 
 
@@ -1118,7 +1118,7 @@ namespace Dune
             	addElementToVTK<dimWorld_-1>(boundaryType, elementNodeVector, boundaryOrder, boundaryElementVector[i].physicalEntityTag_, true);
 
             	log_string = "    * boundary_element " + std::to_string(i) + " has been added to the VTK triangles  ";
-            	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+            	loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
             }
             // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1134,7 +1134,7 @@ namespace Dune
                 factory.insertBoundarySegment(boundaryType, localDofVector, boundaryOrder, linkedElementLocalIndexSet[i][0], boundaryElementVector[i].physicalEntityTag_);
 
                 log_string = "    * boundary_element " + std::to_string(i) + " has been added to the Geometry Factory ";
-                loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+                loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
             }
             else
             {
@@ -1230,7 +1230,7 @@ namespace Dune
       // ****************************************************
       // Communicate the number of elements on each process
       // ****************************************************
-      loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Communicating element numbers on all processes to each process");
+      loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Communicating element numbers on all processes to each process");
 
       std::vector<idx_t> elmdist;
       std::vector<idx_t> elmdist_tmp (size_, 0);
@@ -1277,7 +1277,7 @@ namespace Dune
     	  for (size_t k = 0; k < curNumCorners; ++k)  { eind.push_back(baseElementVector[i].elementDofSet_[k]); }
       }
 
-      loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Run parmetis routine");
+      loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Run parmetis routine");
 
 
 #if HAVE_MPI
@@ -1294,7 +1294,7 @@ namespace Dune
 #endif
 #endif
 
-        //loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Parmetis-suggested processes for elements: " + Dune::VectorHelper::vector2string(part));
+        //loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Parmetis-suggested processes for elements: " + Dune::VectorHelper::vector2string(part));
     }
 
 
@@ -1322,7 +1322,7 @@ namespace Dune
     	 // 1) Construct a vector of globalId's sorted by the corresponding process number
     	 // *****************************************************************************
 
-    	 loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Sort golbalId array");
+    	 loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Sort golbalId array");
 
     	 // Combine element globalId's with processes to which these elements go
     	 std::vector<ETP> elementToProcess;
@@ -1338,7 +1338,7 @@ namespace Dune
 
     	 // 2) Compute how many elements are send to each process. Communicate this to all processes
     	 // *****************************************************************************
-    	 loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Communicate number of elements to sent do each process");
+    	 loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Communicate number of elements to sent do each process");
 
     	 std::vector<int> sendcounts (size_, 0);
     	 std::vector<int> recvcounts (size_, 0);
@@ -1355,7 +1355,7 @@ namespace Dune
     	 // 3) Construct send and receive displacements (sdispls)
     	 // *****************************************************************************
 
-    	 loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Compute buffer sizes");
+    	 loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Compute buffer sizes");
 
     	 std::vector<int> sdispls (size_, 0);
     	 std::vector<int> rdispls (size_, 0);
@@ -1379,18 +1379,18 @@ namespace Dune
 
     	 // 5) Communicate global indices, put place them into part vector as return value
     	 // *****************************************************************************
-    	 loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Communicate globalId's");
+    	 loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Communicate globalId's");
 
 #if HAVE_MPI
    	     MPI_Alltoallv (sendbuf.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvbuf.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
 #endif
 
-   	     //loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Sending buffer: " + Dune::VectorHelper::vector2string(sendbuf));
-   	     //loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Sending counts: " + Dune::VectorHelper::vector2string(sendcounts));
-   	     //loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Sending displs: " + Dune::VectorHelper::vector2string(sdispls));
-   	     //loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Receiving buffer: " + Dune::VectorHelper::vector2string(recvbuf));
-   	     //loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Receiving counts: " + Dune::VectorHelper::vector2string(recvcounts));
-   	     //loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " Receiving displs: " + Dune::VectorHelper::vector2string(rdispls));
+   	     //loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Sending buffer: " + Dune::VectorHelper::vector2string(sendbuf));
+   	     //loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Sending counts: " + Dune::VectorHelper::vector2string(sendcounts));
+   	     //loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Sending displs: " + Dune::VectorHelper::vector2string(sdispls));
+   	     //loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Receiving buffer: " + Dune::VectorHelper::vector2string(recvbuf));
+   	     //loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Receiving counts: " + Dune::VectorHelper::vector2string(recvcounts));
+   	     //loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, " Receiving displs: " + Dune::VectorHelper::vector2string(rdispls));
 
    	     thisProcessElementIndexSet = std::set<int> (recvbuf.begin(), recvbuf.end());
 
@@ -1486,13 +1486,12 @@ namespace Dune
     static void read (FactoryType & factory,
                       const std::string& fileName,
                       MPIHelper &mpihelper,
-                      LoggingMessage &loggingmessage,
                       bool writeVTKFile,
                       bool insertBoundarySegment=true
                      )
     {
         // create parse object
-        CurvilinearGmshReaderParser<Grid, FactoryType> parser(factory, loggingmessage, insertBoundarySegment, writeVTKFile, mpihelper);
+        CurvilinearGmshReaderParser<Grid, FactoryType> parser(factory, insertBoundarySegment, writeVTKFile, mpihelper);
         parser.read(fileName);
 
         // Insert compulsory total number of vertices and elements into the curvilinear factory

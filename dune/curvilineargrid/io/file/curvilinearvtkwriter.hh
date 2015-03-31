@@ -52,417 +52,38 @@ namespace Dune
  */
   public:
 
+      static const int dimension = GridType::dimension;
+      static const bool isCached = GridType::is_cached;
+
+      typedef FieldVector< double, dimension >            GlobalVector;
+      typedef std::vector<int>                            IndexVector;
+      typedef std::vector<int>                            TagVector;
+      typedef std::map<std::vector<int>, int>             LocalCoordinate2GlobalIdMap;
+      typedef std::vector< LocalCoordinate2GlobalIdMap >  Coord2GlobalMapVector;
+
+      typedef std::vector< IndexVector >                  ElemGridEnumerate;
+
+      // Logging Message Typedefs
+      typedef typename GridType::LoggingMessage           LoggingMessage;
+      static const unsigned int LOG_CATEGORY_DEBUG = LoggingMessage::Category::DEBUG;
+
+      // Typedefs from GridBase
+      static const unsigned int DomainBoundaryType   = GridType::DomainBoundaryType;
+      static const unsigned int ProcessBoundaryType  = GridType::ProcessBoundaryType;
+      static const unsigned int InternalType         = GridType::InternalType;
+      static const unsigned int GhostType            = GridType::GhostType;
+
+      // VTK constants
       const std::string VTK_XML_VERSION = "1.0";
       const std::string VTK_GRID_TYPE = "UnstructuredGrid";
       const std::string VTK_VTU_VERSION = "0.1";
       const std::string VTK_BYTE_ORDER = "LittleEndian";
 
 
-  protected:
-
-      static const int dimension = GridType::dimension;
-      static const bool isCached = GridType::is_cached;
-
-      typedef FieldVector< double, dimension >      GlobalVector;
-      typedef std::vector<int>                 IndexVector;
-      typedef std::vector<int>                 TagVector;
-      typedef std::map<std::vector<int>, int>  LocalCoordinate2GlobalIdMap;
-      typedef std::vector< LocalCoordinate2GlobalIdMap >  Coord2GlobalMapVector;
-
-      typedef std::vector< IndexVector >       ElemGridEnumerate;
-
-      // Logging Message Typedefs
-      static const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
-      static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
-
-      // Typedefs from GridBase
-      typedef Dune::CurvilinearGridStorage<double, dimension, isCached>  GridStorageType;
-      static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
-      static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
-      static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
-      static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
-
-
-      // Methods
-      // ***********************************************
-
-      /** \brief Adds an edge which will be explicitly written to the file
-       *  Note: Only add tags if they are provided by the user
-       * */
-      void addDiscretizationEdge(IndexVector & indexSet, std::vector<int> & thisElmTagSet)
-      {
-          vtkEdgeVertexIndex_.push_back(indexSet);
-          vtkEdgePhysicalTag_.push_back(    (thisElmTagSet.size() > 0) ? thisElmTagSet[0] : 0);
-          vtkEdgeStructuralType_.push_back( (thisElmTagSet.size() > 1) ? thisElmTagSet[1] : 0);
-          vtkEdgeProcessRank_.push_back(    (thisElmTagSet.size() > 2) ? thisElmTagSet[2] : 0);
-      }
-
-      /** \brief Adds a triangle which will be explicitly written to the file
-       *  Note: Only add tags if they are provided by the user
-       * */
-      void addDiscretizationTriangle(IndexVector & indexSet, std::vector<int> & thisElmTagSet)
-      {
-          vtkTriangleVertexIndex_.push_back(indexSet);
-          vtkTrianglePhysicalTag_.push_back(    (thisElmTagSet.size() > 0) ? thisElmTagSet[0] : 0);
-          vtkTriangleStructuralType_.push_back( (thisElmTagSet.size() > 1) ? thisElmTagSet[1] : 0);
-          vtkTriangleProcessRank_.push_back(    (thisElmTagSet.size() > 2) ? thisElmTagSet[2] : 0);
-      }
-
-      /** \brief Calculates the centre of mass of a vector of points (equal-weighted) */
-      GlobalVector vectorCentreOfMass( const std::vector<GlobalVector> & cornerVector)
-      {
-          GlobalVector rez;
-          for (int i = 0; i < cornerVector.size(); i++) { rez += cornerVector[i]; }
-          rez /= cornerVector.size();
-          return rez;
-      }
-
-
-      /** \brief Connects discretization points of a curvilinear edge using linear edges, adds these edges for writing to VTK
-       *
-       *  \param[in]  edgeEnumeratorReduced          A vector of keys that enumerate triangular discretization points.
-       *                                             Reduced means that enumerator's points-per-edge is one less than the number used to discretize the element.
-       *  \param[in]  nInterval                      Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
-       *  \param[in]  thisElmPhysTag                 Physical Tag of the element being discretized
-       *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
-       *
-       */
-      void addEdgeInterpolationEdgeSet(
-              ElemGridEnumerate & edgeEnumeratorReduced,
-              int nInterval,
-              std::vector<int> & thisElmTagSet,
-              LocalCoordinate2GlobalIdMap & parametricToIndex)
-      {
-          // Construct all edges and add them to the edge array
-          for (int i = 0; i < edgeEnumeratorReduced.size(); i++)
-          {
-              int x = edgeEnumeratorReduced[i][0];
-
-              // Construct triangle (123)
-              std::vector<int> parUV_0 {x};
-              std::vector<int> parUV_1 {x + 1};
-
-              std::vector<int> edge01;
-              edge01.push_back(parametricToIndex[parUV_0]);
-              edge01.push_back(parametricToIndex[parUV_1]);
-
-              // Add all edges
-              addDiscretizationEdge(edge01, thisElmTagSet);
-          }
-      }
-
-
-      /** \brief Connects discretization points of a curvilinear triangle using linear edges, adds these edges for writing to VTK
-       *
-       *  \param[in]  triangleEnumeratorReduced      A vector of keys that enumerate triangular discretization points.
-       *                                             Reduced means that enumerator's points-per-edge is one less than the number used to discretize the element.
-       *  \param[in]  nInterval                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
-       *  \param[in]  thisElmPhysTag                 Physical Tag of the element being discretized
-       *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
-       *
-       */
-      void addTriangularInterpolationEdgeSet(
-              ElemGridEnumerate & triangleEnumeratorReduced,
-              int nInterval,
-              std::vector<int> & thisElmTagSet,
-              LocalCoordinate2GlobalIdMap & parametricToIndex)
-      {
-          // Construct all edges and add them to the edge array
-          for (int i = 0; i < triangleEnumeratorReduced.size(); i++)
-          {
-              int x = triangleEnumeratorReduced[i][0];
-              int y = triangleEnumeratorReduced[i][1];
-
-              // Construct triangle (123)
-              std::vector<int> parUV_0 {x,      y,   };
-              std::vector<int> parUV_1 {x + 1,  y,   };
-              std::vector<int> parUV_2 {x,      y + 1};
-
-              std::vector<int> edge01;    edge01.push_back(parametricToIndex[parUV_0]);    edge01.push_back(parametricToIndex[parUV_1]);
-              std::vector<int> edge12;    edge12.push_back(parametricToIndex[parUV_1]);    edge12.push_back(parametricToIndex[parUV_2]);
-              std::vector<int> edge20;    edge20.push_back(parametricToIndex[parUV_2]);    edge20.push_back(parametricToIndex[parUV_0]);
-
-              // Add all edges
-              addDiscretizationEdge(edge01, thisElmTagSet);
-              addDiscretizationEdge(edge12, thisElmTagSet);
-              addDiscretizationEdge(edge20, thisElmTagSet);
-          }
-      }
-
-
-      /** \brief Connects discretization points of a curvilinear tetrahedron using linear edges, adds these edges for writing to VTK
-       *
-       *  \param[in]  tetrahedronEnumeratorReduced   A vector of keys that enumerate tetrahedral discretization points.
-       *                                             Reduced means that enumerator's points-per-edge is one less than the number used to discretize the element.
-       *  \param[in]  nInterval                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
-       *  \param[in]  thisElmPhysTag                 Physical Tag of the element being discretized
-       *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
-       *
-       */
-      void addTetrahedralInterpolationEdgeSet(
-              ElemGridEnumerate & tetrahedronEnumeratorReduced,
-              int nInterval,
-              std::vector<int> & thisElmTagSet,
-              LocalCoordinate2GlobalIdMap & parametricToIndex)
-      {
-          // Construct all edges and add them to the edge array
-          for (int i = 0; i < tetrahedronEnumeratorReduced.size(); i++)
-          {
-              int x = tetrahedronEnumeratorReduced[i][0];
-              int y = tetrahedronEnumeratorReduced[i][1];
-              int z = tetrahedronEnumeratorReduced[i][2];
-
-              // Construct triangle (123)
-              std::vector<int> parUVW_0 {x,      y,      z    };
-              std::vector<int> parUVW_1 {x + 1,  y,      z    };
-              std::vector<int> parUVW_2 {x,      y + 1,  z    };
-              std::vector<int> parUVW_3 {x,      y,      z + 1};
-
-              std::vector<int> edge01;    edge01.push_back(parametricToIndex[parUVW_0]);    edge01.push_back(parametricToIndex[parUVW_1]);
-              std::vector<int> edge12;    edge12.push_back(parametricToIndex[parUVW_1]);    edge12.push_back(parametricToIndex[parUVW_2]);
-              std::vector<int> edge20;    edge20.push_back(parametricToIndex[parUVW_2]);    edge20.push_back(parametricToIndex[parUVW_0]);
-              std::vector<int> edge30;    edge30.push_back(parametricToIndex[parUVW_3]);    edge30.push_back(parametricToIndex[parUVW_0]);
-              std::vector<int> edge31;    edge31.push_back(parametricToIndex[parUVW_3]);    edge31.push_back(parametricToIndex[parUVW_1]);
-              std::vector<int> edge32;    edge32.push_back(parametricToIndex[parUVW_3]);    edge32.push_back(parametricToIndex[parUVW_2]);
-
-              // Add all edges
-              addDiscretizationEdge(edge01, thisElmTagSet);
-              addDiscretizationEdge(edge12, thisElmTagSet);
-              addDiscretizationEdge(edge20, thisElmTagSet);
-              addDiscretizationEdge(edge30, thisElmTagSet);
-              addDiscretizationEdge(edge31, thisElmTagSet);
-              addDiscretizationEdge(edge32, thisElmTagSet);
-          }
-      }
-
-      /** \brief Connects discretization points of a curvilinear triangle using linear triangles, adds these edges for writing to VTK
-       *
-       *  \param[in]  triangleEnumeratorReduced      A vector of keys that enumerate triangular discretization points.
-       *                                             Reduced means that enumerator's points-per-edge is one less than the number used to discretize the element.
-       *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
-       *  \param[in]  thisElmPhysTag                 Physical Tag of the element being discretized
-       *  \param[in]  nDiscretizationPoints          Number of discretization points-per-edge
-       *
-       */
-      void addTriangularInterpolationTriangleSet(
-              ElemGridEnumerate & triangleEnumeratorReduced,
-              LocalCoordinate2GlobalIdMap & parametricToIndex,
-              std::vector<int> & thisElmTagSet,
-              int nDiscretizationPoints
-              )
-      {
-
-          for (int i = 0; i < triangleEnumeratorReduced.size(); i++) {
-              // Construct two triangles (123) and (234) from 4 points, where 1 is the index point
-              //   3--4
-              //   |\ |
-              //   | \|
-              //   1--2
-              // First triangle always exists, because we iterate over (i,j) in such a way that there is 1 free point at the edge
-              // Second triangle we construct only if point 4 is still in the triangle
-
-              int x = triangleEnumeratorReduced[i][0];
-              int y = triangleEnumeratorReduced[i][1];
-
-              // Construct triangle (123)
-              std::vector<int> parUV_1 {x    , y    };
-              std::vector<int> parUV_2 {x + 1, y    };
-              std::vector<int> parUV_3 {x    , y + 1};
-
-              std::vector<int> triangle123;
-              triangle123.push_back(parametricToIndex[parUV_1]);
-              triangle123.push_back(parametricToIndex[parUV_2]);
-              triangle123.push_back(parametricToIndex[parUV_3]);
-
-              //std::cout << "- coords " << parUV_1[0] << ", " << parUV_1[1] << ", in the map cooresponds to " << parametricToIndex[parUV_1] << std::endl;
-              //std::cout << "- coords " << parUV_2[0] << ", " << parUV_2[1] << ", in the map cooresponds to " << parametricToIndex[parUV_2] << std::endl;
-              //std::cout << "- coords " << parUV_3[0] << ", " << parUV_3[1] << ", in the map cooresponds to " << parametricToIndex[parUV_3] << std::endl;
-
-              // Add triangle (123)
-              addDiscretizationTriangle(triangle123, thisElmTagSet);
-
-              // Check if point 4 is still in the triangle
-              if (x + y + 2 < nDiscretizationPoints)
-              {
-                  std::vector<int> parUV_4 {x + 1, y + 1};
-
-                  std::vector<int> triangle234;
-                  triangle234.push_back(parametricToIndex[parUV_2]);
-                  triangle234.push_back(parametricToIndex[parUV_3]);
-                  triangle234.push_back(parametricToIndex[parUV_4]);
-
-                  // Add triangle (234)
-                  addDiscretizationTriangle(triangle234, thisElmTagSet);
-              }
-          }
-
-      }
-
-      /** \brief Checks if the tetrahedral discretization point corresponds to tetrahedral boundary
-       *
-       *  \param[in]  p                               tetrahedral discretization point key
-       *  \param[in]  nInterval                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
-       *
-       */
-      bool onTetrahedronBoundary(const std::vector<int> & p, const int nInterval)
-      {
-            return ((p[0] == 0) || (p[1] == 0) || (p[2] == 0) || (p[0] + p[1] + p[2] == nInterval));
-      }
-
-      /** \brief Takes tetrahedral discretization point key to globalID 3D map, and splits it into 4 triangle 2D maps, corresponding to the faces of the tetrahedron
-       *
-       *  \param[in]  triangleEnumerator             A vector of keys that enumerate tetrahedral discretization points.
-       *  \param[in]  nInterval                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
-       *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
-       *
-       *  \return vector of 4 face triangle maps from 2D discretization point enumerator key to globalId of the point
-       *
-       */
-      Coord2GlobalMapVector tetrahedralInterpolationFaceSet(
-              ElemGridEnumerate & triangleEnumerator,
-              int nInterval,
-              LocalCoordinate2GlobalIdMap & parametricToIndex)
-      {
-          Coord2GlobalMapVector rez(4);
-
-          for (int i = 0; i < triangleEnumerator.size(); i++)
-          {
-              int x = triangleEnumerator[i][0];
-              int y = triangleEnumerator[i][1];
-              int z = nInterval - x - y;
-
-              std::vector<int> faceInd_0 {x, y, 0};
-              std::vector<int> faceInd_1 {x, 0, y};
-              std::vector<int> faceInd_2 {0, x, y};
-              std::vector<int> faceInd_3 {z, x, y};
-
-              rez[0][triangleEnumerator[i]] = parametricToIndex[faceInd_0];
-              rez[1][triangleEnumerator[i]] = parametricToIndex[faceInd_1];
-              rez[2][triangleEnumerator[i]] = parametricToIndex[faceInd_2];
-              rez[3][triangleEnumerator[i]] = parametricToIndex[faceInd_3];
-          }
-          return rez;
-      }
-
-
-      template <int mydim>
-      void addCurvilinearSimplex(
-              const Dune::GeometryType & thisElmType,
-              const std::vector<GlobalVector> & thisElmNodeSet,
-              std::vector<int> & thisElmTagSet,
-              int thisElmOrder,
-              int nDiscretizationPoints,
-              double shrinkMagnitude,
-              double boundaryMagnification,
-              bool interpolate,
-              bool writeEdgeData,
-              bool writeTriangleData
-              )
-      {
-          typedef FieldVector< double, mydim >      LocalVector;
-
-          CurvilinearElementInterpolator<double, mydim, dimension> thisElementInt(thisElmType, thisElmNodeSet, thisElmOrder);
-
-
-          // *******************************************************************************
-          // Step 1. Find coordinates of the corners and the (linear) center of mass
-          // *******************************************************************************
-          int thisElmDofNo = thisElmNodeSet.size();
-          int thisElmCornerNo = thisElementInt.nCorner();
-
-          std::vector<GlobalVector> cornerVector;
-          for (int i = 0; i < thisElmCornerNo; i++) { cornerVector.push_back(thisElementInt.corner(i)); }
-          GlobalVector CoM = vectorCentreOfMass(cornerVector);
-
-
-          // *******************************************************************************
-          // Step 2: Construct sampling grid over the element. Sample the points, store them
-          //   and map to their insertion coordinate
-          // For a Generic triangle the sampling looks like this
-          //
-          //  (i,j)=(n,0) -> *
-          //                 **
-          //                 ***
-          //                 ****
-          //  (i,j)=(0,0) -> ****** <- (i,j) = (0,n)
-          //
-          // *******************************************************************************
-          LocalCoordinate2GlobalIdMap parametricToIndex;
-          int nInterval = interpolate ? nDiscretizationPoints - 1 : thisElmOrder;
-
-
-          ElemGridEnumerate  simplexEnumerate        = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval);
-          ElemGridEnumerate  simplexEnumerateReduced = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval-1);
-          std::vector< LocalVector > simplexLocalGrid = Dune::CurvilinearGeometryHelper::simplexGridCoordinateSet<double, mydim>(simplexEnumerate, nInterval);
-
-          for (int i = 0; i < simplexEnumerate.size(); i++)
-          {
-              // Find if this vertex is internal or boundary
-              bool isBoundaryPoint = (mydim == 3) ? onTetrahedronBoundary(simplexEnumerate[i], nInterval) : true;
-
-              // Write this vertex only if we are going to write an element using it
-              if (writeEdgeData || (writeTriangleData && isBoundaryPoint)) {
-                  // If we interpolate, then all points will be taken from new sample grid
-                  // Otherwise we take the intrinsic interpolation point grid which has the same shape
-                  GlobalVector tmpPoint = interpolate ? thisElementInt.realCoordinate(simplexLocalGrid[i]) : thisElmNodeSet[i];
-                  for (int d = 0; d < dimension; d++)  {
-                      tmpPoint[d] = (tmpPoint[d] + (CoM[d] - tmpPoint[d]) * shrinkMagnitude) * boundaryMagnification;
-                  }
-
-                  // Add coordinates to the coordinates array
-                  vtkPoint_.push_back(tmpPoint);
-
-                  // Add point to the point map
-                  parametricToIndex[simplexEnumerate[i]] = vtkPoint_.size() - 1;
-              }
-              //std::cout << "* coords " << parUV[0] << ", " << parUV[1] << ", in the map cooresponds to " << parametricToIndex[parUV] << std::endl;
-          }
-
-
-          // *******************************************************************************
-          // Step 3: Write edges discretizing this element to VTK
-          // *******************************************************************************
-          if (writeEdgeData)
-          {
-              switch (mydim)
-              {
-              case 1:  addEdgeInterpolationEdgeSet(simplexEnumerateReduced, nInterval, thisElmTagSet, parametricToIndex);  break;
-              case 2:  addTriangularInterpolationEdgeSet(simplexEnumerateReduced, nInterval, thisElmTagSet, parametricToIndex);  break;
-              case 3:  addTetrahedralInterpolationEdgeSet(simplexEnumerateReduced, nInterval, thisElmTagSet, parametricToIndex);  break;
-              }
-          }
-
-          // *******************************************************************************
-          // Step 4: Split this face into tiny triangles and add them to the triangle array
-          // *******************************************************************************
-
-          if (writeTriangleData)
-          {
-              switch (mydim)
-              {
-                    case 2:  addTriangularInterpolationTriangleSet(simplexEnumerateReduced, parametricToIndex, thisElmTagSet, nDiscretizationPoints);  break;
-                    case 3:
-                    {
-                        ElemGridEnumerate triangleEnumerate = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<2>(nInterval);
-                        ElemGridEnumerate triangleEnumerateReduced = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<2>(nInterval - 1);
-
-                        Coord2GlobalMapVector consistingTriangles = tetrahedralInterpolationFaceSet(triangleEnumerate, nInterval, parametricToIndex);
-
-                        for (int iFace = 0; iFace < 4; iFace++)
-                        {
-                            addTriangularInterpolationTriangleSet(triangleEnumerateReduced, consistingTriangles[iFace], thisElmTagSet, nDiscretizationPoints);
-                        }
-                    }  break;
-              }
-          }
-      }
-
-
   public:
 
-    CurvilinearVTKWriter (MPIHelper &mpihelper, LoggingMessage & loggingmessage) :
-        mpihelper_(mpihelper),
-        loggingmessage_(loggingmessage)
+    CurvilinearVTKWriter (MPIHelper &mpihelper) :
+        mpihelper_(mpihelper)
     {
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
@@ -530,7 +151,7 @@ namespace Dune
         log_message << " explosionMagnitude="  << shrinkMagnitude;
         log_message << " writeVTK_edges="      << writeEdgeData;
         log_message << " writeVTK_triangles="  << writeTriangleData;
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_message.str());
+        LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_message.str());
 
         addCurvilinearSimplex<mydim>(thisElmType, thisElmNodeSet, thisElmTagSet, thisElmOrder, nDiscretizationPoints, shrinkMagnitude, boundaryMagnification, interpolate, writeEdgeData, writeTriangleData);
     }
@@ -779,12 +400,388 @@ namespace Dune
     }
 
 
+  protected:
+
+    // ***********************************************
+    // Auxiliary Methods
+    // ***********************************************
+
+    /** \brief Adds an edge which will be explicitly written to the file
+     *  Note: Only add tags if they are provided by the user
+     * */
+    void addDiscretizationEdge(IndexVector & indexSet, std::vector<int> & thisElmTagSet)
+    {
+        vtkEdgeVertexIndex_.push_back(indexSet);
+        vtkEdgePhysicalTag_.push_back(    (thisElmTagSet.size() > 0) ? thisElmTagSet[0] : 0);
+        vtkEdgeStructuralType_.push_back( (thisElmTagSet.size() > 1) ? thisElmTagSet[1] : 0);
+        vtkEdgeProcessRank_.push_back(    (thisElmTagSet.size() > 2) ? thisElmTagSet[2] : 0);
+    }
+
+    /** \brief Adds a triangle which will be explicitly written to the file
+     *  Note: Only add tags if they are provided by the user
+     * */
+    void addDiscretizationTriangle(IndexVector & indexSet, std::vector<int> & thisElmTagSet)
+    {
+        vtkTriangleVertexIndex_.push_back(indexSet);
+        vtkTrianglePhysicalTag_.push_back(    (thisElmTagSet.size() > 0) ? thisElmTagSet[0] : 0);
+        vtkTriangleStructuralType_.push_back( (thisElmTagSet.size() > 1) ? thisElmTagSet[1] : 0);
+        vtkTriangleProcessRank_.push_back(    (thisElmTagSet.size() > 2) ? thisElmTagSet[2] : 0);
+    }
+
+    /** \brief Calculates the centre of mass of a vector of points (equal-weighted) */
+    GlobalVector vectorCentreOfMass( const std::vector<GlobalVector> & cornerVector)
+    {
+        GlobalVector rez;
+        for (int i = 0; i < cornerVector.size(); i++) { rez += cornerVector[i]; }
+        rez /= cornerVector.size();
+        return rez;
+    }
+
+
+    /** \brief Connects discretization points of a curvilinear edge using linear edges, adds these edges for writing to VTK
+     *
+     *  \param[in]  edgeEnumeratorReduced          A vector of keys that enumerate triangular discretization points.
+     *                                             Reduced means that enumerator's points-per-edge is one less than the number used to discretize the element.
+     *  \param[in]  nInterval                      Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
+     *  \param[in]  thisElmPhysTag                 Physical Tag of the element being discretized
+     *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
+     *
+     */
+    void addEdgeInterpolationEdgeSet(
+            ElemGridEnumerate & edgeEnumeratorReduced,
+            int nInterval,
+            std::vector<int> & thisElmTagSet,
+            LocalCoordinate2GlobalIdMap & parametricToIndex)
+    {
+        // Construct all edges and add them to the edge array
+        for (int i = 0; i < edgeEnumeratorReduced.size(); i++)
+        {
+            int x = edgeEnumeratorReduced[i][0];
+
+            // Construct triangle (123)
+            std::vector<int> parUV_0 {x};
+            std::vector<int> parUV_1 {x + 1};
+
+            std::vector<int> edge01;
+            edge01.push_back(parametricToIndex[parUV_0]);
+            edge01.push_back(parametricToIndex[parUV_1]);
+
+            // Add all edges
+            addDiscretizationEdge(edge01, thisElmTagSet);
+        }
+    }
+
+
+    /** \brief Connects discretization points of a curvilinear triangle using linear edges, adds these edges for writing to VTK
+     *
+     *  \param[in]  triangleEnumeratorReduced      A vector of keys that enumerate triangular discretization points.
+     *                                             Reduced means that enumerator's points-per-edge is one less than the number used to discretize the element.
+     *  \param[in]  nInterval                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
+     *  \param[in]  thisElmPhysTag                 Physical Tag of the element being discretized
+     *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
+     *
+     */
+    void addTriangularInterpolationEdgeSet(
+            ElemGridEnumerate & triangleEnumeratorReduced,
+            int nInterval,
+            std::vector<int> & thisElmTagSet,
+            LocalCoordinate2GlobalIdMap & parametricToIndex)
+    {
+        // Construct all edges and add them to the edge array
+        for (int i = 0; i < triangleEnumeratorReduced.size(); i++)
+        {
+            int x = triangleEnumeratorReduced[i][0];
+            int y = triangleEnumeratorReduced[i][1];
+
+            // Construct triangle (123)
+            std::vector<int> parUV_0 {x,      y,   };
+            std::vector<int> parUV_1 {x + 1,  y,   };
+            std::vector<int> parUV_2 {x,      y + 1};
+
+            std::vector<int> edge01;    edge01.push_back(parametricToIndex[parUV_0]);    edge01.push_back(parametricToIndex[parUV_1]);
+            std::vector<int> edge12;    edge12.push_back(parametricToIndex[parUV_1]);    edge12.push_back(parametricToIndex[parUV_2]);
+            std::vector<int> edge20;    edge20.push_back(parametricToIndex[parUV_2]);    edge20.push_back(parametricToIndex[parUV_0]);
+
+            // Add all edges
+            addDiscretizationEdge(edge01, thisElmTagSet);
+            addDiscretizationEdge(edge12, thisElmTagSet);
+            addDiscretizationEdge(edge20, thisElmTagSet);
+        }
+    }
+
+
+    /** \brief Connects discretization points of a curvilinear tetrahedron using linear edges, adds these edges for writing to VTK
+     *
+     *  \param[in]  tetrahedronEnumeratorReduced   A vector of keys that enumerate tetrahedral discretization points.
+     *                                             Reduced means that enumerator's points-per-edge is one less than the number used to discretize the element.
+     *  \param[in]  nInterval                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
+     *  \param[in]  thisElmPhysTag                 Physical Tag of the element being discretized
+     *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
+     *
+     */
+    void addTetrahedralInterpolationEdgeSet(
+            ElemGridEnumerate & tetrahedronEnumeratorReduced,
+            int nInterval,
+            std::vector<int> & thisElmTagSet,
+            LocalCoordinate2GlobalIdMap & parametricToIndex)
+    {
+        // Construct all edges and add them to the edge array
+        for (int i = 0; i < tetrahedronEnumeratorReduced.size(); i++)
+        {
+            int x = tetrahedronEnumeratorReduced[i][0];
+            int y = tetrahedronEnumeratorReduced[i][1];
+            int z = tetrahedronEnumeratorReduced[i][2];
+
+            // Construct triangle (123)
+            std::vector<int> parUVW_0 {x,      y,      z    };
+            std::vector<int> parUVW_1 {x + 1,  y,      z    };
+            std::vector<int> parUVW_2 {x,      y + 1,  z    };
+            std::vector<int> parUVW_3 {x,      y,      z + 1};
+
+            std::vector<int> edge01;    edge01.push_back(parametricToIndex[parUVW_0]);    edge01.push_back(parametricToIndex[parUVW_1]);
+            std::vector<int> edge12;    edge12.push_back(parametricToIndex[parUVW_1]);    edge12.push_back(parametricToIndex[parUVW_2]);
+            std::vector<int> edge20;    edge20.push_back(parametricToIndex[parUVW_2]);    edge20.push_back(parametricToIndex[parUVW_0]);
+            std::vector<int> edge30;    edge30.push_back(parametricToIndex[parUVW_3]);    edge30.push_back(parametricToIndex[parUVW_0]);
+            std::vector<int> edge31;    edge31.push_back(parametricToIndex[parUVW_3]);    edge31.push_back(parametricToIndex[parUVW_1]);
+            std::vector<int> edge32;    edge32.push_back(parametricToIndex[parUVW_3]);    edge32.push_back(parametricToIndex[parUVW_2]);
+
+            // Add all edges
+            addDiscretizationEdge(edge01, thisElmTagSet);
+            addDiscretizationEdge(edge12, thisElmTagSet);
+            addDiscretizationEdge(edge20, thisElmTagSet);
+            addDiscretizationEdge(edge30, thisElmTagSet);
+            addDiscretizationEdge(edge31, thisElmTagSet);
+            addDiscretizationEdge(edge32, thisElmTagSet);
+        }
+    }
+
+    /** \brief Connects discretization points of a curvilinear triangle using linear triangles, adds these edges for writing to VTK
+     *
+     *  \param[in]  triangleEnumeratorReduced      A vector of keys that enumerate triangular discretization points.
+     *                                             Reduced means that enumerator's points-per-edge is one less than the number used to discretize the element.
+     *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
+     *  \param[in]  thisElmPhysTag                 Physical Tag of the element being discretized
+     *  \param[in]  nDiscretizationPoints          Number of discretization points-per-edge
+     *
+     */
+    void addTriangularInterpolationTriangleSet(
+            ElemGridEnumerate & triangleEnumeratorReduced,
+            LocalCoordinate2GlobalIdMap & parametricToIndex,
+            std::vector<int> & thisElmTagSet,
+            int nDiscretizationPoints
+            )
+    {
+
+        for (int i = 0; i < triangleEnumeratorReduced.size(); i++) {
+            // Construct two triangles (123) and (234) from 4 points, where 1 is the index point
+            //   3--4
+            //   |\ |
+            //   | \|
+            //   1--2
+            // First triangle always exists, because we iterate over (i,j) in such a way that there is 1 free point at the edge
+            // Second triangle we construct only if point 4 is still in the triangle
+
+            int x = triangleEnumeratorReduced[i][0];
+            int y = triangleEnumeratorReduced[i][1];
+
+            // Construct triangle (123)
+            std::vector<int> parUV_1 {x    , y    };
+            std::vector<int> parUV_2 {x + 1, y    };
+            std::vector<int> parUV_3 {x    , y + 1};
+
+            std::vector<int> triangle123;
+            triangle123.push_back(parametricToIndex[parUV_1]);
+            triangle123.push_back(parametricToIndex[parUV_2]);
+            triangle123.push_back(parametricToIndex[parUV_3]);
+
+            //std::cout << "- coords " << parUV_1[0] << ", " << parUV_1[1] << ", in the map cooresponds to " << parametricToIndex[parUV_1] << std::endl;
+            //std::cout << "- coords " << parUV_2[0] << ", " << parUV_2[1] << ", in the map cooresponds to " << parametricToIndex[parUV_2] << std::endl;
+            //std::cout << "- coords " << parUV_3[0] << ", " << parUV_3[1] << ", in the map cooresponds to " << parametricToIndex[parUV_3] << std::endl;
+
+            // Add triangle (123)
+            addDiscretizationTriangle(triangle123, thisElmTagSet);
+
+            // Check if point 4 is still in the triangle
+            if (x + y + 2 < nDiscretizationPoints)
+            {
+                std::vector<int> parUV_4 {x + 1, y + 1};
+
+                std::vector<int> triangle234;
+                triangle234.push_back(parametricToIndex[parUV_2]);
+                triangle234.push_back(parametricToIndex[parUV_3]);
+                triangle234.push_back(parametricToIndex[parUV_4]);
+
+                // Add triangle (234)
+                addDiscretizationTriangle(triangle234, thisElmTagSet);
+            }
+        }
+
+    }
+
+    /** \brief Checks if the tetrahedral discretization point corresponds to tetrahedral boundary
+     *
+     *  \param[in]  p                               tetrahedral discretization point key
+     *  \param[in]  nInterval                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
+     *
+     */
+    bool onTetrahedronBoundary(const std::vector<int> & p, const int nInterval)
+    {
+          return ((p[0] == 0) || (p[1] == 0) || (p[2] == 0) || (p[0] + p[1] + p[2] == nInterval));
+    }
+
+    /** \brief Takes tetrahedral discretization point key to globalID 3D map, and splits it into 4 triangle 2D maps, corresponding to the faces of the tetrahedron
+     *
+     *  \param[in]  triangleEnumerator             A vector of keys that enumerate tetrahedral discretization points.
+     *  \param[in]  nInterval                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
+     *  \param[in]  parametricToIndex              Map from discretization point enumerator key to that point's globalId (within this writer)
+     *
+     *  \return vector of 4 face triangle maps from 2D discretization point enumerator key to globalId of the point
+     *
+     */
+    Coord2GlobalMapVector tetrahedralInterpolationFaceSet(
+            ElemGridEnumerate & triangleEnumerator,
+            int nInterval,
+            LocalCoordinate2GlobalIdMap & parametricToIndex)
+    {
+        Coord2GlobalMapVector rez(4);
+
+        for (int i = 0; i < triangleEnumerator.size(); i++)
+        {
+            int x = triangleEnumerator[i][0];
+            int y = triangleEnumerator[i][1];
+            int z = nInterval - x - y;
+
+            std::vector<int> faceInd_0 {x, y, 0};
+            std::vector<int> faceInd_1 {x, 0, y};
+            std::vector<int> faceInd_2 {0, x, y};
+            std::vector<int> faceInd_3 {z, x, y};
+
+            rez[0][triangleEnumerator[i]] = parametricToIndex[faceInd_0];
+            rez[1][triangleEnumerator[i]] = parametricToIndex[faceInd_1];
+            rez[2][triangleEnumerator[i]] = parametricToIndex[faceInd_2];
+            rez[3][triangleEnumerator[i]] = parametricToIndex[faceInd_3];
+        }
+        return rez;
+    }
+
+
+
+
+
+    template <int mydim>
+    void addCurvilinearSimplex(
+            const Dune::GeometryType & thisElmType,
+            const std::vector<GlobalVector> & thisElmNodeSet,
+            std::vector<int> & thisElmTagSet,
+            int thisElmOrder,
+            int nDiscretizationPoints,
+            double shrinkMagnitude,
+            double boundaryMagnification,
+            bool interpolate,
+            bool writeEdgeData,
+            bool writeTriangleData
+            )
+    {
+        typedef FieldVector< double, mydim >      LocalVector;
+
+        CurvilinearElementInterpolator<double, mydim, dimension> thisElementInt(thisElmType, thisElmNodeSet, thisElmOrder);
+
+
+        // *******************************************************************************
+        // Step 1. Find coordinates of the corners and the (linear) center of mass
+        // *******************************************************************************
+        int thisElmDofNo = thisElmNodeSet.size();
+        int thisElmCornerNo = thisElementInt.nCorner();
+
+        std::vector<GlobalVector> cornerVector;
+        for (int i = 0; i < thisElmCornerNo; i++) { cornerVector.push_back(thisElementInt.corner(i)); }
+        GlobalVector CoM = vectorCentreOfMass(cornerVector);
+
+
+        // *******************************************************************************
+        // Step 2: Construct sampling grid over the element. Sample the points, store them
+        //   and map to their insertion coordinate
+        // For a Generic triangle the sampling looks like this
+        //
+        //  (i,j)=(n,0) -> *
+        //                 **
+        //                 ***
+        //                 ****
+        //  (i,j)=(0,0) -> ****** <- (i,j) = (0,n)
+        //
+        // *******************************************************************************
+        LocalCoordinate2GlobalIdMap parametricToIndex;
+        int nInterval = interpolate ? nDiscretizationPoints - 1 : thisElmOrder;
+
+
+        ElemGridEnumerate  simplexEnumerate        = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval);
+        ElemGridEnumerate  simplexEnumerateReduced = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval-1);
+        std::vector< LocalVector > simplexLocalGrid = Dune::CurvilinearGeometryHelper::simplexGridCoordinateSet<double, mydim>(simplexEnumerate, nInterval);
+
+        for (int i = 0; i < simplexEnumerate.size(); i++)
+        {
+            // Find if this vertex is internal or boundary
+            bool isBoundaryPoint = (mydim == 3) ? onTetrahedronBoundary(simplexEnumerate[i], nInterval) : true;
+
+            // Write this vertex only if we are going to write an element using it
+            if (writeEdgeData || (writeTriangleData && isBoundaryPoint)) {
+                // If we interpolate, then all points will be taken from new sample grid
+                // Otherwise we take the intrinsic interpolation point grid which has the same shape
+                GlobalVector tmpPoint = interpolate ? thisElementInt.realCoordinate(simplexLocalGrid[i]) : thisElmNodeSet[i];
+                for (int d = 0; d < dimension; d++)  {
+                    tmpPoint[d] = (tmpPoint[d] + (CoM[d] - tmpPoint[d]) * shrinkMagnitude) * boundaryMagnification;
+                }
+
+                // Add coordinates to the coordinates array
+                vtkPoint_.push_back(tmpPoint);
+
+                // Add point to the point map
+                parametricToIndex[simplexEnumerate[i]] = vtkPoint_.size() - 1;
+            }
+            //std::cout << "* coords " << parUV[0] << ", " << parUV[1] << ", in the map cooresponds to " << parametricToIndex[parUV] << std::endl;
+        }
+
+
+        // *******************************************************************************
+        // Step 3: Write edges discretizing this element to VTK
+        // *******************************************************************************
+        if (writeEdgeData)
+        {
+            switch (mydim)
+            {
+            case 1:  addEdgeInterpolationEdgeSet(simplexEnumerateReduced, nInterval, thisElmTagSet, parametricToIndex);  break;
+            case 2:  addTriangularInterpolationEdgeSet(simplexEnumerateReduced, nInterval, thisElmTagSet, parametricToIndex);  break;
+            case 3:  addTetrahedralInterpolationEdgeSet(simplexEnumerateReduced, nInterval, thisElmTagSet, parametricToIndex);  break;
+            }
+        }
+
+        // *******************************************************************************
+        // Step 4: Split this face into tiny triangles and add them to the triangle array
+        // *******************************************************************************
+
+        if (writeTriangleData)
+        {
+            switch (mydim)
+            {
+                  case 2:  addTriangularInterpolationTriangleSet(simplexEnumerateReduced, parametricToIndex, thisElmTagSet, nDiscretizationPoints);  break;
+                  case 3:
+                  {
+                      ElemGridEnumerate triangleEnumerate = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<2>(nInterval);
+                      ElemGridEnumerate triangleEnumerateReduced = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<2>(nInterval - 1);
+
+                      Coord2GlobalMapVector consistingTriangles = tetrahedralInterpolationFaceSet(triangleEnumerate, nInterval, parametricToIndex);
+
+                      for (int iFace = 0; iFace < 4; iFace++)
+                      {
+                          addTriangularInterpolationTriangleSet(triangleEnumerateReduced, consistingTriangles[iFace], thisElmTagSet, nDiscretizationPoints);
+                      }
+                  }  break;
+            }
+        }
+    }
 
 
   private:
-
-    LoggingMessage & loggingmessage_;
-
     // MPI
     MPIHelper &mpihelper_;
     int rank_;

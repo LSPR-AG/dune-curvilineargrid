@@ -29,25 +29,20 @@ GridType * createGrid(Dune::MPIHelper & mpihelper)
 
     // Choice of file name
     int interpOrder = 2;
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME[interpOrder - 1];
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH  + GMSH_FILE_NAME[interpOrder - 1];
 
     // Additional constants
     bool insertBoundarySegment = true;  // If boundary segments will be inserted from GMSH. At the moment MUST BE true
     bool withGhostElements = true;      // to create Ghost elements
-    bool verbose = true;                // to write logging output on master process
-    bool processVerbose = true;         // to write logging output on all processes
-    Dune::LoggingMessage loggingmessage(verbose, processVerbose, mpihelper);
-
     bool writeReaderVTKFile = false;    // to write mesh to VTK during reading stage
 
     // Construct the grid factory
-    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper, loggingmessage);
+    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper);
 
     // Read the mesh into the factory using Curvilinear GMSH Reader
     Dune::CurvilinearGmshReader< GridType >::read(factory,
                                                   filename,
                                                   mpihelper,
-                                                  loggingmessage,
                                                   writeReaderVTKFile,
                                                   insertBoundarySegment);
 
@@ -62,9 +57,14 @@ int main (int argc , char **argv) {
 
 	// Define curvilinear grid
 	const int dim = 3;
-	const int dimworld = 3;
 	typedef  double    ctype;
-	typedef Dune::CurvilinearGrid<dim, dimworld, ctype, isCached> GridType;
+
+    // Instantiation of the logging message
+    typedef Dune::LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
+    LoggingMessageDev::getInstance().verbose(true);
+    LoggingMessageDev::getInstance().processVerbose(true);
+
+	typedef Dune::CurvilinearGrid<ctype, dim, isCached, LoggingMessageDev> GridType;
 
 
 	// Create Grid

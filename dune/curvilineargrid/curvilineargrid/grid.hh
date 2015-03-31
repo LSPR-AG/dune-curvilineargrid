@@ -32,7 +32,7 @@ namespace Dune
 
 	// Forwards-Declaration
 	// ****************************************************************************************
-	template <int dim, int dimworld, class ct>                          class CurvilinearGrid;
+	template< class ct,  int cdim, bool isCached, class LogMsg>         class CurvilinearGrid;
 	template< int mydim, int cdim, class GridImp >                      class CurvGeometry;
 	template< int codim, int dim,  class GridImp>                       class CurvEntity;
 	template< int codim, class GridImp >                                class CurvEntityPointer;
@@ -48,7 +48,7 @@ namespace Dune
 
 	// GridFamily
 	// ****************************************************************************************
-	template<int dim, int dimworld, class ct, bool isCached>
+    template <class ct, int cdim, bool isCached, class LogMsg>
 	struct CurvGridFamily
 	{
 #if HAVE_MPI
@@ -59,25 +59,28 @@ namespace Dune
 
 	    typedef ct  ctype;
 
-	    typedef Dune::CurvilinearGrid<dim, dimworld, ct, isCached>  GridType;
-	    typedef typename Dune::CurvilinearGridStorage<ct, dimworld, isCached>::LocalIndexType  LocalIndexType;
-	    typedef typename Dune::CurvilinearGridStorage<ct, dimworld, isCached>::IdType          CurvIdType;
+	    typedef Dune::CurvilinearGrid<ct, cdim, isCached, LogMsg>               GridType;
+	    typedef typename Dune::CurvilinearGridBase<ct, cdim, isCached, LogMsg>  GridBaseType;
+	    typedef typename Dune::CurvilinearGridStorage<GridBaseType>             GridStorageType;
 
-	    typedef GridTraits<dim,                                     // dimension of the grid
-	        dimworld,                                               // dimension of the world space
+	    typedef typename GridStorageType::LocalIndexType                 LocalIndexType;
+	    typedef typename GridStorageType::IdType                         CurvIdType;
+
+	    typedef GridTraits<cdim,                                // dimension of the grid
+	        cdim,                                               // dimension of the world space
 	        GridType,
 	        CurvGrid::CurvGeometry,
 	        CurvGrid::CurvEntity,
 	        CurvGrid::CurvEntityPointer,
-	        CurvGrid::CurvLevelIterator,                                      // type used for the level iterator
+	        CurvGrid::CurvLevelIterator,             // type used for the level iterator
 	        CurvGrid::CurvIntersection,              // leaf  intersection
 	        CurvGrid::CurvIntersection,              // level intersection
-	        CurvGrid::CurvIntersectionIterator,              // leaf  intersection iter
-	        CurvGrid::CurvIntersectionIterator,              // level intersection iter
+	        CurvGrid::CurvIntersectionIterator,      // leaf  intersection iter
+	        CurvGrid::CurvIntersectionIterator,      // level intersection iter
 	        CurvGrid::CurvHierarchicIterator,
-	        CurvGrid::CurvLevelIterator,                                      // type used for the leaf(!) iterator
-	        CurvGrid::CurvIndexSet<const GridType>,                  // level index set
-	        CurvGrid::CurvIndexSet<const GridType>,                  // leaf index set
+	        CurvGrid::CurvLevelIterator,             // type used for the leaf(!) iterator
+	        CurvGrid::CurvIndexSet<const GridType>,  // level index set
+	        CurvGrid::CurvIndexSet<const GridType>,  // leaf index set
 	        CurvGrid::CurvIdSet<const GridType>,
 	        CurvIdType,
 	        CurvGrid::CurvIdSet<const GridType>,
@@ -93,12 +96,12 @@ namespace Dune
 
 
 
-  template <int dim, int dimworld, class ct, bool isCached>
-  class CurvilinearGrid : public GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGridFamily< dim, dimworld, ct, isCached > >
+  template <class ct, int cdim, bool isCached, class LogMsg>
+  class CurvilinearGrid : public GridDefaultImplementation < cdim, cdim, ct, Dune::CurvGridFamily< ct, cdim, isCached, LogMsg > >
       /** \endcond */
   {
-    typedef CurvilinearGrid<dim, dimworld, ct, isCached> Grid;
-    typedef GridDefaultImplementation < dim, dimworld, ct, Dune::CurvGridFamily< dim, dimworld, ct, isCached > > Base;
+    typedef CurvilinearGrid<ct, cdim, isCached, LogMsg> Grid;
+    typedef GridDefaultImplementation < cdim, cdim, ct, Dune::CurvGridFamily< ct, cdim, isCached, LogMsg > > Base;
 
     template< int, int, class >                    friend class Dune::CurvGrid::CurvEntityBase;
     template< int, class >                         friend class Dune::CurvGrid::CurvEntity;
@@ -114,15 +117,21 @@ namespace Dune
 
   public:
 
-    typedef Dune::CurvGridFamily< dim, dimworld, ct, isCached > GridFamily;
+    typedef Dune::CurvGridFamily< ct, cdim, isCached, LogMsg > GridFamily;
     typedef typename GridFamily::Traits Traits;                               //! type of the grid traits
 
-    static const bool is_cached = isCached;
+    static const int dimension      = cdim;
+    static const int dimensionworld = cdim;
+    static const bool is_cached     = isCached;
+    typedef ct                        ctype;
+    typedef LogMsg                    LoggingMessage;
+
 
     // Curvilinear Grid Implementation
     // ************************************************************************************
-    typedef Dune::CurvilinearGridBase<ct, dimworld, isCached>     GridBaseType;
-    typedef Dune::CurvilinearGridStorage<ct, dimworld, isCached>  GridStorageType;
+
+    typedef Dune::CurvilinearGridBase<ct, cdim, isCached, LoggingMessage>  GridBaseType;
+    typedef Dune::CurvilinearGridStorage<GridBaseType>                     GridStorageType;
 
     typedef typename GridStorageType::LocalIndexType          LocalIndexType;
     typedef typename GridStorageType::GlobalIndexType         GlobalIndexType;
@@ -195,9 +204,6 @@ namespace Dune
 
     /** \name Miscellaneous Types
      * \{ */
-
-    //! type of vector coordinates (e.g., double)
-    typedef ct  ctype;
 
     //! communicator with all other processes having some part of the grid
     typedef typename Traits::CollectiveCommunication CollectiveCommunication;
@@ -283,7 +289,7 @@ namespace Dune
      */
     int size ( GeometryType type ) const
     {
-    	return type.isSimplex() ?  size ( dim - type.dim() ) : 0;
+    	return type.isSimplex() ?  size ( dimension - type.dim() ) : 0;
     }
 
     /** \brief returns the number of boundary segments within the macro grid
@@ -529,10 +535,10 @@ namespace Dune
     {
     	std::cout << "called grid.communicate()" << std::endl;
     	Dune::CurvGrid::Communication<Grid> communicator(*gridbase_, mpihelper_);
-    	if (dataHandle.contains(dim, ELEMENT_CODIM)) { communicator.template communicate<DataHandle, Data, ELEMENT_CODIM>(dataHandle, interface, direction); }
-    	if (dataHandle.contains(dim, FACE_CODIM))    { communicator.template communicate<DataHandle, Data, FACE_CODIM>(dataHandle, interface, direction); }
-    	if (dataHandle.contains(dim, EDGE_CODIM))    { communicator.template communicate<DataHandle, Data, EDGE_CODIM>(dataHandle, interface, direction); }
-    	if (dataHandle.contains(dim, VERTEX_CODIM))  { communicator.template communicate<DataHandle, Data, VERTEX_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dimension, ELEMENT_CODIM)) { communicator.template communicate<DataHandle, Data, ELEMENT_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dimension, FACE_CODIM))    { communicator.template communicate<DataHandle, Data, FACE_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dimension, EDGE_CODIM))    { communicator.template communicate<DataHandle, Data, EDGE_CODIM>(dataHandle, interface, direction); }
+    	if (dataHandle.contains(dimension, VERTEX_CODIM))  { communicator.template communicate<DataHandle, Data, VERTEX_CODIM>(dataHandle, interface, direction); }
     }
 
     /** \brief obtain CollectiveCommunication object
@@ -606,7 +612,7 @@ namespace Dune
     entity ( const EntitySeed &seed ) const
     {
       typedef typename Traits::template Codim< EntitySeed::codimension >::Entity    Entity;
-      typedef Dune::CurvGrid::CurvEntity<EntitySeed::codimension, dim, const Grid>  EntityImpl;
+      typedef Dune::CurvGrid::CurvEntity<EntitySeed::codimension, dimension, const Grid>  EntityImpl;
       typedef Dune::CurvGrid::CurvEntitySeed<EntitySeed::codimension, const Grid>   SeedImpl;
 
       SeedImpl seedImpl = Grid::getRealImplementation(seed);
@@ -688,9 +694,9 @@ namespace Dune
   // CurvilinearGrid::Codim
   // -------------------
 
-  template<int dim, int dimworld, class ct, bool isCached>
+  template<class ct, int cdim, bool isCached, class LogMsg>
   template< int codim >
-  struct CurvilinearGrid< dim, dimworld, ct, isCached>::Codim
+  struct CurvilinearGrid< ct, cdim, isCached, LogMsg>::Codim
     : public Base::template Codim< codim >
   {
 

@@ -59,21 +59,25 @@ namespace Dune {
 
 
 // Forward declaration
-template <class ct, int cdim, bool isCached>
-class CurvilinearGridStorage;
+//template <class ct, int cdim, bool isCached>
+//class CurvilinearGridStorage;
 
-template <class ct, int cdim, bool isCached>
-class CurvilinearGridBase;
+//template <class ct, int cdim, bool isCached>
+//class CurvilinearGridBase;
 
 
 
-template <class ct, int cdim, bool isCached>
+template <class GridBase>
 class CurvilinearPostConstructor {
 public:
 
     /* public types */
-    typedef Dune::CurvilinearGridStorage<ct, cdim, isCached>    GridStorageType;
-    typedef Dune::CurvilinearGridBase<ct, cdim, isCached>       GridBaseType;
+	typedef typename GridBase::ctype   ctype;
+	static const int dimension = GridBase::dimension;
+
+	typedef GridBase                            GridBaseType;
+	typedef typename GridBase::GridStorageType  GridStorageType;
+	typedef typename GridBase::LoggingMessage   LoggingMessage;
 
     typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
     typedef typename GridStorageType::LocalIndexType            LocalIndexType;
@@ -111,9 +115,8 @@ public:
     static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
 
     // Logging Message Typedefs
-    static const unsigned int LOG_PHASE_DEV       = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
-    static const unsigned int LOG_CATEGORY_DEBUG  = Dune::LoggingMessage::Category::DEBUG;
-    static const unsigned int LOG_CATEGORY_ERROR  = Dune::LoggingMessage::Category::ERROR;
+    static const unsigned int LOG_CATEGORY_DEBUG  = LoggingMessage::Category::DEBUG;
+    static const unsigned int LOG_CATEGORY_ERROR  = LoggingMessage::Category::ERROR;
 
 public: /* public methods */
 
@@ -121,17 +124,15 @@ public: /* public methods */
     CurvilinearPostConstructor(
     		GridStorageType & gridstorage,
     		GridBaseType & gridbase,
-    		MPIHelper &mpihelper,
-    		LoggingMessage & loggingmessage) :
+    		MPIHelper &mpihelper) :
         gridstorage_(gridstorage),
         gridbase_(gridbase),
-        mpihelper_(mpihelper),
-        loggingmessage_(loggingmessage)
+        mpihelper_(mpihelper)
     {
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
 
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "Initialized CurvilinearPostConstructor");
+        LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "Initialized CurvilinearPostConstructor");
     }
 
 
@@ -167,7 +168,7 @@ public: /* public methods */
     // NOTE: Must only insert corners, not other interpolatory vertices
     void generateIteratorSets()
     {
-    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating iterator lists");
+    	LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating iterator lists");
 
         for (Local2LocalIterator iCorner = gridstorage_.cornerIndexMap_.begin();
         	                     iCorner != gridstorage_.cornerIndexMap_.end(); iCorner++) { fillPartitionIterator(VERTEX_CODIM, (*iCorner).first, gridstorage_.point_[(*iCorner).first].structuralType); }
@@ -178,7 +179,7 @@ public: /* public methods */
 
         for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)      { fillPartitionIterator(ELEMENT_CODIM, iElem, gridstorage_.element_[iElem].structuralType); }
 
-        loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating iterator lists");
+        LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating iterator lists");
 
     }
 
@@ -200,7 +201,7 @@ public: /* public methods */
      *  */
     void generateCommunicationMaps()
     {
-    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating communication maps");
+    	LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating communication maps");
 
 		IndexSetIterator iterB = gridbase_.entityIndexBegin(FACE_CODIM , ProcessBoundaryType);
 		IndexSetIterator iterE = gridbase_.entityIndexEnd(FACE_CODIM , ProcessBoundaryType);
@@ -215,7 +216,7 @@ public: /* public methods */
 
 		// Resize all neighbor rank arrays, except the boundary internals, since we do not know their lengths
 		// Boundary Internals will be resized as its number is calculated
-		for (int iCodim = 0; iCodim <= cdim; iCodim++)
+		for (int iCodim = 0; iCodim <= dimension; iCodim++)
 		{
 			int nPB = (iCodim == 0) ? 0 : gridbase_.nEntity(iCodim, ProcessBoundaryType);
 			int nG  = gridbase_.nEntity(iCodim, GhostType);
@@ -257,7 +258,7 @@ public: /* public methods */
 				for (int i = 0; i < nVertexTet; i++)    { faceNeighborSubentityIndex[iTmp][VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, VERTEX_CODIM, i)); }
 
 
-				for (int iCodim = 0; iCodim <= cdim; iCodim++)
+				for (int iCodim = 0; iCodim <= dimension; iCodim++)
 				{
 					// Sort subentity vectors
 					std::sort(faceSubentityIndex[iCodim].begin(), faceSubentityIndex[iCodim].end());
@@ -281,7 +282,7 @@ public: /* public methods */
 						log_str << " subentityNo=" << iEntity;
 						log_str << " localindex =" << thisEntityLocalIndex;
 						log_str << " gives structural type =" << gridstorage_.PartitonTypeName[thisEntityType];
-						loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_str.str());
+						LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_str.str());
 
 
 						// If this is a PB Entity, that happens to not be on the face, it is possible
@@ -320,7 +321,7 @@ public: /* public methods */
 					    		std::string expectedTypeName = gridstorage_.PartitonTypeName[tmpTypes[iTmp]];
 					    		std::string receivedTypeName = gridstorage_.PartitonTypeName[thisEntityType];
 
-					    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridBase: Unexpected type name expected=" + expectedTypeName + ", received="+receivedTypeName);
+					    		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearGridBase: Unexpected type name expected=" + expectedTypeName + ", received="+receivedTypeName);
 					    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected type name");
 					    	}
 
@@ -350,7 +351,7 @@ public: /* public methods */
 			}
 		}
 
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating communication maps");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating communication maps");
     }
 
 
@@ -392,9 +393,9 @@ public: /* public methods */
     {
     	MPI_Comm comm = Dune::MPIHelper::getCommunicator();
 
-    	for (int iCodim = 0; iCodim <= cdim; iCodim++)
+    	for (int iCodim = 0; iCodim <= dimension; iCodim++)
     	{
-    		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started communicating entity ranks for codim=" + std::to_string(iCodim));
+    		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: Started communicating entity ranks for codim=" + std::to_string(iCodim));
 
 
     		//1) Compute true PB-G candidates, communicate their number to PB neighbor entities
@@ -413,7 +414,7 @@ public: /* public methods */
     	    // ************************************************************************************
     	    communicateGG(iCodim, comm);
 
-    	    loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: Finished communicating entity ranks for codim=" + std::to_string(iCodim));
+    	    LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: Finished communicating entity ranks for codim=" + std::to_string(iCodim));
     	}
 
     }
@@ -481,7 +482,7 @@ protected:
     // [TODO] Possibly set complement unnecessary, since already only adding neighbor if it is not a neighbor already
     void communicatePBG(int codim, MPI_Comm comm)
     {
-    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started ProcessBoundary-Ghost communication construction");
+    	LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started ProcessBoundary-Ghost communication construction");
 
     	Local2LocalIterator iterB = gridstorage_.processBoundaryIndexMap_[codim].begin();
     	Local2LocalIterator iterE = gridstorage_.processBoundaryIndexMap_[codim].end();
@@ -526,7 +527,7 @@ protected:
 		// Communicate entity number and candidate number per process
 		MPI_Alltoall(nPBGEntitySend.data(), 1, MPI_INT, reinterpret_cast<int*>(nPBGEntityRecv.data()), 1, MPI_INT, comm);
 		MPI_Alltoall(nPBGRankPerProcessSend.data(), 1, MPI_INT, reinterpret_cast<int*>(nPBGRankPerProcessRecv.data()), 1, MPI_INT, comm);
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ProcessBoundaries with candidates");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ProcessBoundaries with candidates");
 
 
 		//2) For each PB-G entity, communicate its global index
@@ -590,7 +591,7 @@ protected:
 			comm
 		);
 
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated global indices");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated global indices");
 
 
 		// Communicate candidate rank numbers
@@ -599,7 +600,7 @@ protected:
 			reinterpret_cast<int*>(nPBGRankPerEntityRecv.data()), nPBGEntityRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ranks per entity");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ranks per entity");
 
 
 
@@ -650,7 +651,7 @@ protected:
 			reinterpret_cast<int*>(neighborPBGRankSetRecv.data()), nPBGRankPerProcessRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated ranks");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated ranks");
 
 
 		//4) Fill in
@@ -683,7 +684,7 @@ protected:
 
 					if (abs(thisNeighborRank) >= size_)
 					{
-						loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Error: Unexpected received rank=" + std::to_string(thisNeighborRank));
+						LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Error: Unexpected received rank=" + std::to_string(thisNeighborRank));
 						assert(abs(thisNeighborRank) < size_);
 					}
 
@@ -693,7 +694,7 @@ protected:
 
 			}
 		}
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Filled in received data");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Filled in received data");
 
 
 		//5) Compactify PB-G arrays (sort and eliminate repeating)
@@ -714,7 +715,7 @@ protected:
 			);
 		}
 
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished ProcessBoundary-Ghost communication construction");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished ProcessBoundary-Ghost communication construction");
     }
 
 
@@ -730,7 +731,7 @@ protected:
      * */
     void communicateGPB(int codim, MPI_Comm comm)
     {
-    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started Ghost-ProcessBoundary communication construction");
+    	LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started Ghost-ProcessBoundary communication construction");
 
     	Local2LocalIterator iterB = gridstorage_.processBoundaryIndexMap_[codim].begin();
     	Local2LocalIterator iterE = gridstorage_.processBoundaryIndexMap_[codim].end();
@@ -752,7 +753,7 @@ protected:
 			}
 		}
 		MPI_Alltoall(nGPBEntitySend.data(), 1, MPI_INT, reinterpret_cast<int*>(nGPBEntityRecv.data()), 1, MPI_INT, comm);
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of Ghost candidates per process");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of Ghost candidates per process");
 
 
 		// 2) Communicate global indices for each G-PB entity
@@ -803,7 +804,7 @@ protected:
 			reinterpret_cast<int*>(GPBEntityGlobalIndexRecv.data()), nGPBEntityRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Sent own rank to all ghosts");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Sent own rank to all ghosts");
 
 
 		// 3) On receiving end, mark sender's rank on all received G-PB
@@ -826,7 +827,7 @@ protected:
 				StructuralType thisEntityType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
 				if (thisEntityType != GhostType)
 				{
-					loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   codim" + std::to_string(codim) + "entity globalIndex=" + std::to_string(thisEntityGlobalIndex) + " expected type=" + gridstorage_.PartitonTypeName[GhostType] + " received=" + gridstorage_.PartitonTypeName[thisEntityType]);
+					LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   codim" + std::to_string(codim) + "entity globalIndex=" + std::to_string(thisEntityGlobalIndex) + " expected type=" + gridstorage_.PartitonTypeName[GhostType] + " received=" + gridstorage_.PartitonTypeName[thisEntityType]);
 					assert(thisEntityType == GhostType);
 				}
 
@@ -834,7 +835,7 @@ protected:
 				gridstorage_.G2BIPBNeighborRank_[codim][thisEntityLocalGhostIndex].push_back(i);
 			}
 		}
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   filled received data");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   filled received data");
 
 
 		// 4) Compactify G-PB arrays (sort and eliminate repeating)
@@ -851,7 +852,7 @@ protected:
 			Dune::VectorHelper::compactify(gridstorage_.G2BIPBNeighborRank_[codim][thisEntityGhostLocalIndex]);
 		}
 
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished Ghost-ProcessBoundary communication construction");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished Ghost-ProcessBoundary communication construction");
     }
 
 
@@ -863,7 +864,7 @@ protected:
      * */
     void communicateGG(int codim, MPI_Comm comm)
     {
-    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started Ghost-Ghost communication construction");
+    	LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started Ghost-Ghost communication construction");
 
     	Local2LocalIterator iterB = gridstorage_.processBoundaryIndexMap_[codim].begin();
     	Local2LocalIterator iterE = gridstorage_.processBoundaryIndexMap_[codim].end();
@@ -907,7 +908,7 @@ protected:
 		}
 		MPI_Alltoall(nGGEntitySend.data(), 1, MPI_INT, reinterpret_cast<int*>(nGGEntityRecv.data()), 1, MPI_INT, comm);
 		MPI_Alltoall(nGGRanksPerProcessSend.data(), 1, MPI_INT, reinterpret_cast<int*>(nGGRanksPerProcessRecv.data()), 1, MPI_INT, comm);
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ghost entities");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ghost entities");
 
 
     	// 2) Communicate global indices of elements, as well as
@@ -976,7 +977,7 @@ protected:
 			reinterpret_cast<int*>(GGEntityGlobalIndexRecv.data()), nGGEntityRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated global indices");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated global indices");
 
 
 		// Communicate candidate rank numbers
@@ -985,7 +986,7 @@ protected:
 			reinterpret_cast<int*>(nGGRankPerEntityRecv.data()), nGGEntityRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated data sizes");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated data sizes");
 
 
 
@@ -1047,7 +1048,7 @@ protected:
 			reinterpret_cast<int*>(neighborGGRankSetRecv.data()), nGGRanksPerProcessRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated ranks");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated ranks");
 
 
 		//4) Fill in
@@ -1083,7 +1084,7 @@ protected:
 				}
 			}
 		}
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Filled in the received data");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Filled in the received data");
 
 
 		//5) Compactify G-G arrays (sort and eliminate repeating)
@@ -1108,9 +1109,9 @@ protected:
 		// For debugging purposes
 		std::vector<int> nNeighborG2G;
 		for (int iGhost = 0; iGhost < gridstorage_.G2GNeighborRank_[codim].size(); iGhost++)  { nNeighborG2G.push_back(gridstorage_.G2GNeighborRank_[codim][iGhost].size()); }
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Number of neighbors for ghost entities=" + Dune::VectorHelper::vector2string(nNeighborG2G));
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: --   Number of neighbors for ghost entities=" + Dune::VectorHelper::vector2string(nNeighborG2G));
 
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished Ghost-Ghost communication construction");
+		LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished Ghost-Ghost communication construction");
     }
 
 
@@ -1118,8 +1119,6 @@ protected:
 
 
 private: // Private members
-
-    LoggingMessage & loggingmessage_;
 
     // Curvilinear Grid Storage Class
     GridStorageType & gridstorage_;

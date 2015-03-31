@@ -25,7 +25,19 @@ namespace Dune
 
 
 
-
+struct LoggingMessageHelper
+{
+    /** \brief Determine if the logging message is only used in the development
+     *  phase or also during the production runs */
+    struct Phase
+    {
+        enum
+        {
+          DEVELOPMENT_PHASE = 0,
+          PRODUCTION_PHASE  = 1
+        };
+    };
+};
 
 
 /** \brief Provide a logging message.
@@ -42,25 +54,20 @@ namespace Dune
 | loggingmessage                                                        |
 -----------------------------------------------------------------------*/
 
+template<unsigned int phase>
 class LoggingMessage
 {
+private:
+	typedef LoggingMessage<phase> This;
+	typedef LoggingMessageHelper  Helper;
+
+	LoggingMessage()  {  }
+	LoggingMessage(This const&)  = delete;
+    void operator=(This const&)  = delete;
+
+
 public:
     static const int MPI_MASTER_RANK = 0;
-
-    static const std::vector<std::string> PHASE_TEXT;
-    static const std::vector<std::string> CATEGORY_TEXT;
-
-
-    /** \brief Determine if the logging message is only used in the development
-     *  phase or also during the production runs */
-    struct Phase
-    {
-        enum
-        {
-          DEVELOPMENT_PHASE = 0,
-          PRODUCTION_PHASE  = 1
-        };
-    };
 
     /** \brief Define the type of logging message */
     struct Category
@@ -78,16 +85,19 @@ public:
         };
     };
 
+    static const std::vector<std::string> PHASE_TEXT;
+    static const std::vector<std::string> CATEGORY_TEXT;
 
-
-    LoggingMessage(bool verbose, bool processVerbose, MPIHelper &mpihelper)
-      : verbose_(verbose),
-        processVerbose_(processVerbose),
-        mpihelper_(mpihelper)
+    static This & getInstance()
     {
-
+        static This instance;
+        return instance;
     }
 
+
+    //
+    void verbose(bool newVerbose)                { verbose_ = newVerbose; }
+    bool processVerbose(bool newProcessVerbose)  { processVerbose_ = newProcessVerbose; }
 
 
     /** \brief Logging message writer
@@ -103,12 +113,12 @@ public:
      * [FIXME] - How exactly is the memory calculated
      *
      *  */
-    template <unsigned int phase, unsigned int messageCat>
-    void write(std::string filename, unsigned int linenumber, std::string message)
+    template <unsigned int messageCat>
+    void write(MPIHelper &mpihelper_, std::string filename, unsigned int linenumber, std::string message)
     {
         int rank = mpihelper_.rank();
 
-        if (verbose_ && (processVerbose_ || (rank == MPI_MASTER_RANK)))
+        if (processVerbose_ || (verbose_ && (rank == MPI_MASTER_RANK)))
         {
 
             /** Set the stream to create for the message. */
@@ -116,14 +126,14 @@ public:
             printedMessage.clear();
 
             /** Set the phase string text: */
-            std::string phasestring = Dune::LoggingMessage::PHASE_TEXT[phase];
+            std::string phasestring = PHASE_TEXT[phase];
             std::string categorystring = std::string("");
 
 
             /** Set the category string text: */
             if ((messageCat != Category::TIME) && (messageCat != Category::MEMORY))
             {
-                categorystring = Dune::LoggingMessage::CATEGORY_TEXT[messageCat];
+                categorystring = CATEGORY_TEXT[messageCat];
             } else
             {
                 // Get the time ...
@@ -164,8 +174,6 @@ public:
 private:
     bool verbose_;
     bool processVerbose_;
-
-    MPIHelper &mpihelper_;
 };
 
 
@@ -173,7 +181,8 @@ private:
 
 
 /** Define the text output for LoggingMessagePhase. */
-const std::vector<std::string> LoggingMessage::PHASE_TEXT
+template<unsigned int phase>
+const std::vector<std::string> LoggingMessage<phase>::PHASE_TEXT
 (
 	{
 		"DEVELOPMENT",
@@ -181,8 +190,10 @@ const std::vector<std::string> LoggingMessage::PHASE_TEXT
 	}
 );
 
+
 /** Define the text output for LoggingMessageCategory. */
-const std::vector<std::string> LoggingMessage::CATEGORY_TEXT
+template<unsigned int phase>
+const std::vector<std::string> LoggingMessage<phase>::CATEGORY_TEXT
 (
 	{
     	"DEBUG   ",

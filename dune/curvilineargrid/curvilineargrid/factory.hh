@@ -67,10 +67,9 @@ class CurvilinearGridFactory
 
     CurvilinearGridFactory(
     		bool withGhostElements,
-    		MPIHelper &mpihelper,
-    		LoggingMessage & loggingmessage)
+    		MPIHelper &mpihelper)
     {
-    	gridbase_ = new GridBaseType(withGhostElements, mpihelper, loggingmessage);
+    	gridbase_ = new GridBaseType(withGhostElements, mpihelper);
     }
 
     ~CurvilinearGridFactory ()  {}

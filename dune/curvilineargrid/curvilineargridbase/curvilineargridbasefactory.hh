@@ -42,63 +42,30 @@ namespace Dune
 {
 
 
-
-
-template <int dim, int dimworld, class ct, bool isCached>
-class CurvilinearFakeGrid
-{
-public:
-
-	typedef  ct            ctype;
-	static const int dimension = dim;
-	static const int dimensionworld = dimworld;
-	static const int is_cached = isCached;
-
-
-	typedef Dune::CurvilinearGridStorage<ct, dim, isCached>  GridStorageType;
-	typedef Dune::CurvilinearGridBase<ct, dim, isCached>     GridBaseType;
-
-	CurvilinearFakeGrid() {}
-};
-
-
-
-
-
-
-template< class GridType >
+template< class GridBaseType >
 class CurvilinearGridBaseFactory
 {
   private:
 
 	// Typedefs and const variables
 	// -----------------------------------------------------------
-	typedef typename GridType::ctype      ctype;
+	typedef typename GridBaseType::ctype      ctype;
 
-	static const bool  iscached     = GridType::is_cached;
-    static const int dimension      = GridType::dimension;
-    static const int dimensionworld = GridType::dimensionworld;
+	static const bool  iscached     = GridBaseType::is_cached;
+    static const int dimension      = GridBaseType::dimension;
+    static const int dimensionworld = GridBaseType::dimensionworld;
 
 	typedef FieldVector< ctype, dimensionworld >                           VertexCoordinate;
-	typedef Dune::CurvilinearGridBase<ctype, dimensionworld, iscached>     GridBaseType;
 
 	typedef int VertexGlobalId;
 	typedef int VertexLocalIndex;
 	typedef int ElementLocalIndex;
 
-    // Logging Message Typedefs
-    static const unsigned int LOG_PHASE_DEV = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
-    static const unsigned int LOG_CATEGORY_DEBUG = Dune::LoggingMessage::Category::DEBUG;
-
-
   public:
 
-    CurvilinearGridBaseFactory(
-    		bool withGhostElements,
-    		MPIHelper &mpihelper,
-    		LoggingMessage & loggingmessage)
+    CurvilinearGridBaseFactory(bool withGhostElements, MPIHelper &mpihelper)
     {
-    	gridbase_ = new GridBaseType(withGhostElements, mpihelper, loggingmessage);
+    	gridbase_ = new GridBaseType(withGhostElements, mpihelper);
     }
 
     ~CurvilinearGridBaseFactory ()  {}

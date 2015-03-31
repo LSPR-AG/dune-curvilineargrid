@@ -34,13 +34,10 @@ GridType * createGrid(Dune::MPIHelper & mpihelper)
     // Additional constants
     bool insertBoundarySegment = true;  // If boundary segments will be inserted from GMSH. At the moment MUST BE true
     bool withGhostElements = true;      // to create Ghost elements
-    bool verbose = true;                // to write logging output on master process
-    bool processVerbose = true;         // to write logging output on all processes
     bool writeReaderVTKFile = false;    // to write mesh to VTK during reading stage
-    Dune::LoggingMessage loggingmessage(verbose, processVerbose, mpihelper);
 
     // Construct the grid factory
-    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper, loggingmessage);
+    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper);
 
     // Factory requires total vertex and element number in the mesh for faster performance
     int nVertexTotal;
@@ -50,7 +47,6 @@ GridType * createGrid(Dune::MPIHelper & mpihelper)
     Dune::CurvilinearGmshReader< GridType >::read(factory,
                                                   filename,
                                                   mpihelper,
-                                                  loggingmessage,
                                                   writeReaderVTKFile,
                                                   insertBoundarySegment);
 
@@ -174,9 +170,14 @@ int main (int argc , char **argv) {
 
 	// Define curvilinear grid
 	const int dim = 3;
-	const int dimworld = 3;
 	typedef  double    ctype;
-	typedef Dune::CurvilinearGrid<dim, dimworld, ctype, isCached> GridType;
+
+    // Instantiation of the logging message
+    typedef Dune::LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
+    LoggingMessageDev::getInstance().verbose(true);
+    LoggingMessageDev::getInstance().processVerbose(true);
+
+	typedef Dune::CurvilinearGrid<ctype, dim, isCached, LoggingMessageDev> GridType;
 
 
 	// Create Grid

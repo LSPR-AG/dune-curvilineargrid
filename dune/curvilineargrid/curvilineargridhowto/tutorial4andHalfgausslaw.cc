@@ -26,6 +26,43 @@ const bool isCached = true;
 typedef Dune::FieldVector<double, 3>  GlobalCoordinate;
 
 
+template <class GridType>
+GridType * createGrid(Dune::MPIHelper & mpihelper)
+{
+	// Obtain path to the mesh folder from a CMake constant
+    const std::string CURVILINEARGRID_TEST_GRID_PATH = std::string(DUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH) + "curvilinear/";
+
+    // A choice of 32 tetrahedra spheres with interpolation orders 1 to 5.
+    const std::string GMSH_FILE_NAME[5] {"sphere32.msh", "sphere32ord2.msh", "sphere32ord3.msh", "sphere32ord4.msh", "sphere32ord5.msh"};
+
+    // Choice of file name
+    int interpOrder = 5;
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME[interpOrder - 1];
+
+    // Additional constants
+    bool insertBoundarySegment = true;  // If boundary segments will be inserted from GMSH. At the moment MUST BE true
+    bool withGhostElements = true;      // to create Ghost elements
+    bool writeReaderVTKFile = false;    // to write mesh to VTK during reading stage
+
+    // Construct the grid factory
+    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper);
+
+    // Factory requires total vertex and element number in the mesh for faster performance
+    int nVertexTotal;
+    int nElementTotal;
+
+    // Read the mesh into the factory using Curvilinear GMSH Reader
+    Dune::CurvilinearGmshReader< GridType >::read(factory,
+                                                  filename,
+                                                  mpihelper,
+                                                  writeReaderVTKFile,
+                                                  insertBoundarySegment);
+
+    // Create the grid
+    return factory.createGrid();
+}
+
+
 // This Functor creates a field of a single charge at the origin of global coordinates
 // Then calculates the projection of this field on the local surface times the integration element
 // This functor is meant to be directly integrated over reference element to calculate the contribution
@@ -90,55 +127,6 @@ struct NormalFunctor
     	return I_.integrationOuterNormal(x);
     }
 };
-
-
-
-
-
-
-
-
-
-template <class GridType>
-GridType * createGrid(Dune::MPIHelper & mpihelper)
-{
-	// Obtain path to the mesh folder from a CMake constant
-    const std::string CURVILINEARGRID_TEST_GRID_PATH = std::string(DUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH) + "curvilinear/";
-
-    // A choice of 32 tetrahedra spheres with interpolation orders 1 to 5.
-    const std::string GMSH_FILE_NAME[5] {"sphere32.msh", "sphere32ord2.msh", "sphere32ord3.msh", "sphere32ord4.msh", "sphere32ord5.msh"};
-
-    // Choice of file name
-    int interpOrder = 5;
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME[interpOrder - 1];
-
-    // Additional constants
-    bool insertBoundarySegment = true;  // If boundary segments will be inserted from GMSH. At the moment MUST BE true
-    bool withGhostElements = true;      // to create Ghost elements
-    bool verbose = true;                // to write logging output on master process
-    bool processVerbose = true;         // to write logging output on all processes
-    bool writeReaderVTKFile = false;    // to write mesh to VTK during reading stage
-    Dune::LoggingMessage loggingmessage(verbose, processVerbose, mpihelper);
-
-    // Construct the grid factory
-    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper, loggingmessage);
-
-    // Factory requires total vertex and element number in the mesh for faster performance
-    int nVertexTotal;
-    int nElementTotal;
-
-    // Read the mesh into the factory using Curvilinear GMSH Reader
-    Dune::CurvilinearGmshReader< GridType >::read(factory,
-                                                  filename,
-                                                  mpihelper,
-                                                  loggingmessage,
-                                                  writeReaderVTKFile,
-                                                  insertBoundarySegment);
-
-    // Create the grid
-    return factory.createGrid();
-}
-
 
 
 // This method iterates over all elements of the grid
@@ -222,9 +210,14 @@ int main (int argc , char **argv) {
 
 	// Define curvilinear grid
 	const int dim = 3;
-	const int dimworld = 3;
 	typedef  double    ctype;
-	typedef Dune::CurvilinearGrid<dim, dimworld, ctype, isCached> GridType;
+
+    // Instantiation of the logging message
+    typedef Dune::LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
+    LoggingMessageDev::getInstance().verbose(true);
+    LoggingMessageDev::getInstance().processVerbose(true);
+
+	typedef Dune::CurvilinearGrid<ctype, dim, isCached, LoggingMessageDev> GridType;
 
 	// Create Grid
 	GridType * grid = createGrid<GridType>(mpihelper);

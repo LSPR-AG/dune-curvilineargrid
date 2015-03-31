@@ -93,29 +93,22 @@ int main(int argc, char** argv)
     // Properties of the grid
     bool insertBoundarySegment = true;
     bool withGhostElements = true;
+    bool writeReaderVTKFile = true;
     const bool isCached = true;
 
+    // Instantiation of the logging message
+    typedef LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
+    LoggingMessageDev::getInstance().verbose(true);
+    LoggingMessageDev::getInstance().processVerbose(true);
+
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
-    typedef Dune::CurvilinearFakeGrid<3,3,double,isCached>  SimplexGridType;
-
-
-
-    bool verbose = true;
-    bool processVerbose = true;
-    bool writeReaderVTKFile = true;
-    LoggingMessage loggingmessage(verbose, processVerbose, mpihelper);
-
+    typedef Dune::CurvilinearGridBase<double, 3, isCached, LoggingMessageDev>  SimplexGridType;
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, mpihelper, loggingmessage);
+    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, mpihelper);
 
-    Dune::CurvilinearGmshReader< SimplexGridType >::read(factory,
-                                                            filename,
-                                                            mpihelper,
-                                                            loggingmessage,
-                                                            writeReaderVTKFile,
-                                                            insertBoundarySegment);
+    Dune::CurvilinearGmshReader< SimplexGridType>::read(factory, filename, mpihelper, writeReaderVTKFile, insertBoundarySegment);
 
     //factory.createGrid(nVertexTotal, nElementTotal);
 

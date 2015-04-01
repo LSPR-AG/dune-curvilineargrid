@@ -39,7 +39,7 @@ namespace Dune {
 
 
 
-template <class GridBase>
+template <class ct, int cdim, bool isCached, class LogMsg>
 class CurvilinearGridStorage
 {
 
@@ -47,9 +47,8 @@ public:
 
     // Grid Base template parameters
     // ******************************************************************
-	typedef typename GridBase::ctype  ctype;
-	typedef typename GridBase::LoggingMessage  LoggingMessage;
-	static const int dimension = GridBase::dimension;
+	typedef ct      ctype;
+	typedef LogMsg  LoggingMessage;
 
     // Grid Variable Types
     // ******************************************************************
@@ -180,7 +179,7 @@ public:
 	{
 		GlobalIndexType                       globalIndex;
 		StructuralType                        structuralType;
-    	Dune::FieldVector<ctype, dimension>   coord;
+    	Dune::FieldVector<ctype, cdim>        coord;
 	};
 
 	struct EdgeStorage
@@ -218,9 +217,9 @@ public:
 
     // Public Type Definitions
     // ******************************************************************
-	typedef GridBase           GridBaseType;
+	//typedef GridBase           GridBaseType;
 
-    typedef Dune::FieldVector<ctype, dimension>         Vertex;
+    typedef Dune::FieldVector<ctype, cdim>         Vertex;
 
     typedef typename CurvilinearEntityMapKey::EdgeKey   EdgeKey;
     typedef typename CurvilinearEntityMapKey::FaceKey   FaceKey;
@@ -235,8 +234,8 @@ public:
 
     typedef std::vector<std::vector <int> >             EntityNeighborRankVector;
 
-    typedef Dune::CurvilinearOctreeNode<GridBaseType>                                  NodeType;
-    typedef Dune::CurvilinearLooseOctree<ctype, dimension, NodeType, LoggingMessage>   CurvilinearLooseOctree;
+    typedef Dune::CurvilinearOctreeNode<ctype, cdim, isCached, LoggingMessage>   NodeType;
+    typedef Dune::CurvilinearLooseOctree<ctype, cdim, NodeType, LoggingMessage>   CurvilinearLooseOctree;
 
 
     // Codimensions of entity types for better code readability

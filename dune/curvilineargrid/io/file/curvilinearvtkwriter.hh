@@ -151,7 +151,7 @@ namespace Dune
         log_message << " explosionMagnitude="  << shrinkMagnitude;
         log_message << " writeVTK_edges="      << writeEdgeData;
         log_message << " writeVTK_triangles="  << writeTriangleData;
-        LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_message.str());
+        LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, log_message.str());
 
         addCurvilinearSimplex<mydim>(thisElmType, thisElmNodeSet, thisElmTagSet, thisElmOrder, nDiscretizationPoints, shrinkMagnitude, boundaryMagnification, interpolate, writeEdgeData, writeTriangleData);
     }

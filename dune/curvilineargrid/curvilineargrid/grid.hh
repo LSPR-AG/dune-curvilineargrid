@@ -61,7 +61,7 @@ namespace Dune
 
 	    typedef Dune::CurvilinearGrid<ct, cdim, isCached, LogMsg>               GridType;
 	    typedef typename Dune::CurvilinearGridBase<ct, cdim, isCached, LogMsg>  GridBaseType;
-	    typedef typename Dune::CurvilinearGridStorage<GridBaseType>             GridStorageType;
+	    typedef typename GridBaseType::GridStorageType                          GridStorageType;
 
 	    typedef typename GridStorageType::LocalIndexType                 LocalIndexType;
 	    typedef typename GridStorageType::IdType                         CurvIdType;
@@ -131,7 +131,7 @@ namespace Dune
     // ************************************************************************************
 
     typedef Dune::CurvilinearGridBase<ct, cdim, isCached, LoggingMessage>  GridBaseType;
-    typedef Dune::CurvilinearGridStorage<GridBaseType>                     GridStorageType;
+    typedef typename GridBaseType::GridStorageType                         GridStorageType;
 
     typedef typename GridStorageType::LocalIndexType          LocalIndexType;
     typedef typename GridStorageType::GlobalIndexType         GlobalIndexType;
@@ -139,6 +139,11 @@ namespace Dune
     typedef typename GridStorageType::StructuralType          StructuralType;
     typedef typename GridStorageType::InterpolatoryOrderType  InterpolatoryOrderType;
 
+    // Common Partition types
+    static const unsigned int DomainBoundaryType   = GridBaseType::DomainBoundaryType;
+    static const unsigned int ProcessBoundaryType  = GridBaseType::ProcessBoundaryType;
+    static const unsigned int InternalType         = GridBaseType::InternalType;
+    static const unsigned int GhostType            = GridBaseType::GhostType;
 
     static const int   VERTEX_CODIM   = GridStorageType::VERTEX_CODIM;
     static const int   EDGE_CODIM     = GridStorageType::EDGE_CODIM;

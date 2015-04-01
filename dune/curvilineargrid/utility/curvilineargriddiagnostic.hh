@@ -69,6 +69,7 @@ private:
 	typedef typename  GridType::ctype            ctype;
 	typedef typename  GridType::GridStorageType  GridStorageType;
 	typedef typename  GridType::GridBaseType     GridBaseType;
+	typedef typename  GridType::LoggingMessage   LoggingMessage;
 
 	static const int  cdim     = GridType::dimension;
 	static const bool isCached = GridType::is_cached;
@@ -94,9 +95,8 @@ private:
 	typedef typename GridBaseType::template Codim<ELEMENT_CODIM>::EntityGeometry     GridElementGeometry;
 
     // Logging Message Typedefs
-    static const unsigned int LOG_PHASE_DEV       = Dune::LoggingMessage::Phase::DEVELOPMENT_PHASE;
-    static const unsigned int LOG_CATEGORY_DEBUG  = Dune::LoggingMessage::Category::DEBUG;
-    static const unsigned int LOG_CATEGORY_ERROR  = Dune::LoggingMessage::Category::ERROR;
+    static const unsigned int LOG_CATEGORY_DEBUG  = LoggingMessage::Category::DEBUG;
+    static const unsigned int LOG_CATEGORY_ERROR  = LoggingMessage::Category::ERROR;
 
     static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
     static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
@@ -109,11 +109,10 @@ public:
 
 	CurvilinearGridDiagnostic(
 		MPIHelper & mpihelper,
-		LoggingMessage & loggingmessage,
 		GridBaseType & gridbase) :
 			mpihelper_(mpihelper),
-			loggingmessage_(loggingmessage),
-			gridbase_(gridbase)
+			gridbase_(gridbase),
+			loggingmessage_(LoggingMessage::getInstance())
 	{
 		rank_ = mpihelper.rank();
 		size_ = mpihelper.size();
@@ -170,9 +169,9 @@ public:
 		bool writeVtkTriangles
 	)
 	{
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Grid to VTK");
+		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Grid to VTK");
 
-    	Dune::CurvilinearVTKWriter<GridType> vtkCurvWriter(mpihelper_, loggingmessage_);
+    	Dune::CurvilinearVTKWriter<GridType> vtkCurvWriter(mpihelper_);
 
 
     	typedef typename GridStorageType::PartitionType  CurvPT;
@@ -191,10 +190,10 @@ public:
 
 		// Writing Mesh
     	// *************************************************************************
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Writing VTK File");
+		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Writing VTK File");
     	//vtkCurvWriter.writeVTK("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
     	vtkCurvWriter.writeParallelVTU("./curvreader_output");
-    	loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Finished writing");
+    	loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Finished writing");
 	}
 
 	// Writes OCTree to VTK
@@ -213,7 +212,7 @@ protected:
 
 	void analyticTests(std::vector<std::vector<double> > & rez)
 	{
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started collecting mesh statistics");
+		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started collecting mesh statistics");
 
 
 		rez[0].push_back(gridbase_.template nEntity(ELEMENT_CODIM, InternalType));
@@ -222,7 +221,7 @@ protected:
 
 		// 1) Collect statistics related to the elements of the mesh
 		// ***********************************************************************8
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting element statistics");
+		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting element statistics");
 		IndexSetIterator elemIterB = gridbase_.template entityIndexBegin(ELEMENT_CODIM);
 		IndexSetIterator elemIterE = gridbase_.template entityIndexEnd(ELEMENT_CODIM);
 
@@ -272,7 +271,7 @@ protected:
 
 		// 2) Collect statistics related to the process boundary of the mesh
 		// ***********************************************************************
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Process Boundary statistics");
+		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Process Boundary statistics");
 		rez[12].push_back(0.0);  // processBoundarySurfaceArea
 		IndexSetIterator pbIterB = gridbase_.template entityIndexBegin(FACE_CODIM, ProcessBoundaryType);
 		IndexSetIterator pbIterE = gridbase_.template entityIndexEnd(FACE_CODIM, ProcessBoundaryType);
@@ -289,7 +288,7 @@ protected:
 
 		// 3) Collect statistics related to the domain boundary of the mesh
 		// ***********************************************************************
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Domain Boundary Statistics");
+		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Domain Boundary Statistics");
 
 		rez[13].push_back(0.0);  // domainBoundarySurfaceArea
 		IndexSetIterator dbIterB = gridbase_.template entityIndexBegin(FACE_CODIM, DomainBoundaryType);
@@ -327,7 +326,7 @@ protected:
 	{
 		typedef typename GridBaseType::template Codim<codim>::EntityGeometry     EntityGeometry;
 
-		loggingmessage_.write<LOG_PHASE_DEV, LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started writing entities codim=" + std::to_string(codim) + " type=" + gridbase_.PartitonTypeName(structtype));
+		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started writing entities codim=" + std::to_string(codim) + " type=" + gridbase_.PartitonTypeName(structtype));
 
 		IndexSetIterator elemIterB =  gridbase_.template entityIndexBegin(codim, structtype);
 		IndexSetIterator elemIterE =  gridbase_.template entityIndexEnd(codim, structtype);

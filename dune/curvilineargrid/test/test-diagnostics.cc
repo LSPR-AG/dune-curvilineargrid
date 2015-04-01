@@ -55,39 +55,35 @@ int main(int argc, char** argv)
     int rank=mpihelper.rank();
     int size=mpihelper.size();
 
-
-    // Assemble the file name
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE2000_ORD3;
+    // Instantiation of the logging message and loggingtimer
+    typedef Dune::LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
+    typedef Dune::LoggingTimer<LoggingMessageDev>                                        LoggingTimerDev;
+    LoggingMessageDev::getInstance().init(mpihelper, true, true);
+    LoggingTimerDev::getInstance().init(false);
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
-    typedef Dune::CurvilinearFakeGrid<3,3,double, isGeometryCached>  SimplexGridType;
+    typedef Dune::CurvilinearGridBase<double, 3, isGeometryCached, LoggingMessageDev>  SimplexGridType;
+
 
     bool insertBoundarySegment = true;
     bool withGhostElements = true;
-    bool verbose = true;
-    bool processVerbose = true;
-    LoggingMessage loggingmessage(verbose, processVerbose, mpihelper);
-
     bool writeReaderVTKFile = false;
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, mpihelper, loggingmessage);
+    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, mpihelper);
 
 
-    Dune::CurvilinearGmshReader< SimplexGridType >::read(factory,
-                                                            filename,
-                                                            mpihelper,
-                                                            loggingmessage,
-                                                            writeReaderVTKFile,
-                                                            insertBoundarySegment);
+    // Assemble the file name
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE2000_ORD3;
+    Dune::CurvilinearGmshReader< SimplexGridType >::read(factory, filename, mpihelper, writeReaderVTKFile, insertBoundarySegment);
 
-    Dune::CurvilinearGridBase<double, 3, isGeometryCached> * gridbase = factory.createGrid();
+    SimplexGridType * gridbase = factory.createGrid();
 
 
 
     // Perform diagnostics tests on the constructed grid
-    Dune::CurvilinearGridDiagnostic<SimplexGridType> diagnostic(mpihelper, loggingmessage, *gridbase);
+    Dune::CurvilinearGridDiagnostic<SimplexGridType> diagnostic(mpihelper, *gridbase);
 
 	std::vector<bool> withElements {true, true};                  // Whether to add elements to VTK: Internal / Ghost
 	std::vector<bool> withFaces    {false, false, true, true};    // Whether to add faces to VTK: Internal / Ghost / DomainBoundary / ProcessBoundary

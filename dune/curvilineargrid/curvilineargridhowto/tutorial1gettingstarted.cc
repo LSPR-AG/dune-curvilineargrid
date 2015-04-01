@@ -29,7 +29,7 @@ GridType * createGrid(Dune::MPIHelper & mpihelper)
 
     // Choice of file name
     int interpOrder = 2;
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH  + GMSH_FILE_NAME[interpOrder - 1];
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH  + "bullseye-rev-400.msh";//GMSH_FILE_NAME[interpOrder - 1];
 
     // Additional constants
     bool insertBoundarySegment = true;  // If boundary segments will be inserted from GMSH. At the moment MUST BE true
@@ -59,10 +59,11 @@ int main (int argc , char **argv) {
 	const int dim = 3;
 	typedef  double    ctype;
 
-    // Instantiation of the logging message
+    // Instantiation of the logging message and loggingtimer
     typedef Dune::LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
-    LoggingMessageDev::getInstance().verbose(true);
-    LoggingMessageDev::getInstance().processVerbose(true);
+    typedef Dune::LoggingTimer<LoggingMessageDev>                                        LoggingTimerDev;
+    LoggingMessageDev::getInstance().init(mpihelper, true, true);
+    LoggingTimerDev::getInstance().init(false);
 
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached, LoggingMessageDev> GridType;
 
@@ -73,6 +74,7 @@ int main (int argc , char **argv) {
     // **********************************************
     // Do all sort of fancy things with the grid here
     // **********************************************
+	LoggingTimerDev::getInstance().reportParallel(mpihelper);
 
     // Delete the grid
     delete grid;

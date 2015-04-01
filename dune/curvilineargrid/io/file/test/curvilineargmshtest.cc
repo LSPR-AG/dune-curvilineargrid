@@ -98,8 +98,9 @@ int main(int argc, char** argv)
 
     // Instantiation of the logging message
     typedef LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
-    LoggingMessageDev::getInstance().verbose(true);
-    LoggingMessageDev::getInstance().processVerbose(true);
+    typedef LoggingTimer<LoggingMessageDev>                                        LoggingTimerDev;
+    LoggingMessageDev::getInstance().init(mpihelper, true, true);
+    LoggingTimerDev::getInstance().init(false);
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
     typedef Dune::CurvilinearGridBase<double, 3, isCached, LoggingMessageDev>  SimplexGridType;

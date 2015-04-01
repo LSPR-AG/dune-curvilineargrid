@@ -96,8 +96,14 @@ public:
 
 
     //
-    void verbose(bool newVerbose)                { verbose_ = newVerbose; }
-    bool processVerbose(bool newProcessVerbose)  { processVerbose_ = newProcessVerbose; }
+    void init(MPIHelper & mpihelper, bool verbose, bool processVerbose)
+    {
+    	verbose_ = verbose;
+    	processVerbose_ = processVerbose;
+
+    	rank_ = mpihelper.rank();
+    	size_ = mpihelper.size();
+    }
 
 
     /** \brief Logging message writer
@@ -114,11 +120,9 @@ public:
      *
      *  */
     template <unsigned int messageCat>
-    void write(MPIHelper &mpihelper_, std::string filename, unsigned int linenumber, std::string message)
+    void write(std::string filename, unsigned int linenumber, std::string message)
     {
-        int rank = mpihelper_.rank();
-
-        if (processVerbose_ || (verbose_ && (rank == MPI_MASTER_RANK)))
+        if (processVerbose_ || (verbose_ && (rank_ == MPI_MASTER_RANK)))
         {
 
             /** Set the stream to create for the message. */
@@ -145,7 +149,7 @@ public:
             if (messageCat != Category::CLEAN)
             {
                 printedMessage << std::setw(20) << filename << ":" << std::setw(6) << linenumber;
-                printedMessage << " ::: process[" << rank << "]";
+                printedMessage << " ::: process[" << rank_ << "]";
 
                 printedMessage << " ::: " << phasestring << " ";
                 printedMessage << categorystring;
@@ -172,6 +176,9 @@ public:
 
 
 private:
+    int rank_;
+    int size_;
+
     bool verbose_;
     bool processVerbose_;
 };

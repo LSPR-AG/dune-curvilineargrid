@@ -121,10 +121,11 @@ int main (int argc , char **argv) {
 	const int dim = 3;
 	typedef  double    ctype;
 
-    // Instantiation of the logging message
+    // Instantiation of the logging message and loggingtimer
     typedef Dune::LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
-    LoggingMessageDev::getInstance().verbose(true);
-    LoggingMessageDev::getInstance().processVerbose(true);
+    typedef Dune::LoggingTimer<LoggingMessageDev>                                        LoggingTimerDev;
+    LoggingMessageDev::getInstance().init(mpihelper, true, true);
+    LoggingTimerDev::getInstance().init(false);
 
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached, LoggingMessageDev> GridType;
 

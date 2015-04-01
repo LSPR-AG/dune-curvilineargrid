@@ -26,10 +26,9 @@
 const bool isGeometryCached = false;
 
 
-template<class ctype, int cdim, int order >
+template<class GridType, int order>
 struct CurvFactory
 {
-  typedef Dune::CurvilinearGrid<cdim, cdim, ctype, isGeometryCached> GridType;
 
   static GridType * buildGrid(Dune::MPIHelper & mpihelper)
   {
@@ -42,17 +41,13 @@ struct CurvFactory
 
     bool insertBoundarySegment = true;
     bool withGhostElements = true;
-    bool verbose = true;
-    bool processVerbose = true;
     bool writeReaderVTKFile = false;
-    Dune::LoggingMessage loggingmessage(verbose, processVerbose, mpihelper);
 
-    Dune::CurvilinearGridFactory< GridType > factory(withGhostElements, mpihelper, loggingmessage);
+    Dune::CurvilinearGridFactory< GridType > factory(withGhostElements, mpihelper);
 
     Dune::CurvilinearGmshReader< GridType >::read(factory,
                                                             filename,
                                                             mpihelper,
-                                                            loggingmessage,
                                                             writeReaderVTKFile,
                                                             insertBoundarySegment);
 
@@ -62,9 +57,9 @@ struct CurvFactory
 };
 
 
-template <class ctype, int cdim, bool isCached>
-void check_grid(Dune::CurvilinearGrid<cdim, cdim, ctype, isCached> & grid) {
-  std::cout << "CurvGrid<" << cdim << ">" << std::endl;
+template <class GridType>
+void check_grid(GridType & grid) {
+  std::cout << "CurvGrid<" << GridType::dimension << ">" << std::endl;
 
 
   //std::cout << "-- Running Base GridCheck" << std::endl;
@@ -103,36 +98,43 @@ int main (int argc , char **argv) {
   try {
     // Initialize MPI, if present
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
-	typedef Dune::CurvilinearGrid<3, 3, double, isGeometryCached> GridType;
+
+    // Instantiation of the logging message and loggingtimer
+    typedef Dune::LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
+    typedef Dune::LoggingTimer<LoggingMessageDev>                                        LoggingTimerDev;
+    LoggingMessageDev::getInstance().init(mpihelper, true, true);
+    LoggingTimerDev::getInstance().init(false);
+
+	typedef Dune::CurvilinearGrid<double, 3, isGeometryCached, LoggingMessageDev> GridType;
 
     /*
 	{
-		GridType * grid32ord1 = CurvFactory<double, 3, 1>::buildGrid(mpihelper);
+		GridType * grid32ord1 = CurvFactory<GridType, 1>::buildGrid(mpihelper);
 		check_grid(*grid32ord1);
 		delete grid32ord1;
 
 	}
 */
 	{
-		GridType * grid32ord2 = CurvFactory<double, 3, 2>::buildGrid(mpihelper);
+		GridType * grid32ord2 = CurvFactory<GridType, 2>::buildGrid(mpihelper);
 		check_grid(*grid32ord2);
 		delete grid32ord2;
 	}
 	/*
 	{
-		GridType * grid32ord3 = CurvFactory<double, 3, 3>::buildGrid(mpihelper);
+		GridType * grid32ord3 = CurvFactory<GridType, 3>::buildGrid(mpihelper);
 		check_grid(*grid32ord3);
 		delete grid32ord3;
 	}
 
 	{
-		GridType * grid32ord4 = CurvFactory<double, 3, 4>::buildGrid(mpihelper);
+		GridType * grid32ord4 = CurvFactory<GridType, 4>::buildGrid(mpihelper);
 		check_grid(*grid32ord4);
 		delete grid32ord4;
 	}
 
 	{
-		GridType * grid32ord5 = CurvFactory<double, 3, 5>::buildGrid(mpihelper);
+		GridType * grid32ord5 = CurvFactory<GridType, 5>::buildGrid(mpihelper);
 		check_grid(*grid32ord5);
 		delete grid32ord5;
 	}

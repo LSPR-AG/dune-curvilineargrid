@@ -58,28 +58,30 @@
 namespace Dune {
 
 // Forward-declaration of GridBase because the modules include each other
-//template <class ct, int cdim, bool isCached>
-//class CurvilinearGridBase;
+template <class ct, int cdim, bool isCached, class LogMsg>
+class CurvilinearGridBase;
 
 
 /** \brief Wraps CurvilinearGridBase element with functions necessary for CurvilinearOctree    */
 
-template <class GridBase>
+template <class ct, int cdim, bool isCached, class LogMsg>
 class CurvilinearOctreeNode {
 public:
 
     /* public types */
-    typedef typename GridBase::Vertex       Vertex;
-    typedef std::vector<Vertex>                    VertexVector;
+    typedef Dune::FieldVector<ct, cdim>      Vertex;
+    typedef std::vector<Vertex>              VertexVector;
 
-    typedef typename GridBase::EntityStorage                        EntityStorage;
-    typedef typename GridBase::template Codim<0>::EntityGeometry    ElementGeometry;
+    typedef Dune::CurvilinearGridBase<ct, cdim, isCached, LogMsg>  GridBaseType;
+
+    typedef typename GridBaseType::EntityStorage                        EntityStorage;
+    typedef typename GridBaseType::template Codim<0>::EntityGeometry    ElementGeometry;
 
 
 
 public: /* public methods */
 
-    CurvilinearOctreeNode(const GridBase & grid, int elementIndex) :
+    CurvilinearOctreeNode(const GridBaseType & grid, int elementIndex) :
     	gridbase_(grid),
     	elementIndex_(elementIndex)
 	{
@@ -167,7 +169,7 @@ private:
 
 private: // Private members
 
-    const GridBase & gridbase_;
+    const GridBaseType & gridbase_;
 
     int elementIndex_;
 

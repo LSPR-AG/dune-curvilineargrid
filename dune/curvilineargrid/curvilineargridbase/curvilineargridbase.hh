@@ -132,7 +132,7 @@ namespace Dune {
 // *******************************************
 // Forwards-declaration
 // *******************************************
-template<class GridBase>
+template<class ct, int cdim, bool isCached, class LogMsg>
 class CurvilinearGridStorage;
 
 
@@ -163,9 +163,9 @@ public:
 	static const int dimensionworld = cdim;
 	static const int is_cached = isCached;
 
-    typedef Dune::CurvilinearGridBase<ct, cdim, isCached, LoggingMessage>   GridBaseType;
-    typedef typename Dune::CurvilinearGridStorage<GridBaseType>                      GridStorageType;
-    typedef typename Dune::CurvilinearGridConstructor<GridBaseType>                  GridConstructorType;
+    typedef Dune::CurvilinearGridBase<ct, cdim, isCached, LoggingMessage>               GridBaseType;
+    typedef typename Dune::CurvilinearGridStorage<ct, cdim, isCached, LoggingMessage>   GridStorageType;
+    typedef typename Dune::CurvilinearGridConstructor<GridBaseType>                     GridConstructorType;
 
     typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
     typedef typename GridStorageType::LocalIndexType            LocalIndexType;
@@ -243,7 +243,7 @@ public: /* public methods */
         size_ = mpihelper_.size();
 
         std::string log_string = "Initialized CurvilinearGridBase withGhostElements=" + std::to_string(withGhostElements);
-        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_string);
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
     }
 
 private:
@@ -332,7 +332,7 @@ public:
     	assertStage(Stage::GRID_CONSTRUCTION);
     	gridstage_ = Stage::GRID_OPERATION;
 
-        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearGridBase: Initializing mesh");
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridBase: Initializing mesh");
 
         gridconstructor_.generateMesh();
 
@@ -370,7 +370,7 @@ public:
         log_stream << " nInternalElement="           << nEntity(ELEMENT_CODIM, InternalType);
         log_stream << " nGhostElement="              << nEntity(ELEMENT_CODIM, GhostType);
 
-        loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_stream.str());
+        loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
     }
 
 
@@ -518,7 +518,7 @@ public:
     	case ELEMENT_CODIM : assert(localIndex < gridstorage_.element_.size());  return gridstorage_.element_[localIndex].structuralType;  break;
     	default :
     	{
-    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearGridBase: unexpected codim " + std::to_string(codim));
+    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridBase: unexpected codim " + std::to_string(codim));
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codimension");
     		break;
     	}
@@ -667,7 +667,7 @@ public:
 
     	if (subcodim == codim)  { return entityIndex; }  // In this case return itself as own subentity
     	if (subcodim < codim) {                          // Wrong by definition
-    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair = (" + std::to_string(codim) + "," + std::to_string(subcodim) + ")");
+    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair = (" + std::to_string(codim) + "," + std::to_string(subcodim) + ")");
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair");
     	}
 
@@ -760,7 +760,7 @@ public:
         case 1 : rez = gridstorage_.face_[localIndex].element2Index;  break;
         default:
         {
-        	loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearPostConstructor: Unexpected neighbor subentity index =" + std::to_string(internalNeighborIndex));
+        	loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: Unexpected neighbor subentity index =" + std::to_string(internalNeighborIndex));
         	DUNE_THROW(Dune::IOError, "CurvilinearGrid: faceNeighbor() unexpected neighbor index");  break;
         }
         }
@@ -963,7 +963,7 @@ public:
     	}
 
     	if (fail)  {
-    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, "CurvilinearGridBase: Unexpected codim-structtype pair");
+    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridBase: Unexpected codim-structtype pair");
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codim-structtype pair");
     	}
     }

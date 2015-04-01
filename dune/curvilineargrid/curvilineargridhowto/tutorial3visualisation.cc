@@ -22,7 +22,7 @@ const bool isCached = true;
 
 
 template <class GridType>
-GridType * createGrid(Dune::MPIHelper & mpihelper, Dune::LoggingMessage & loggingmessage)
+GridType * createGrid(Dune::MPIHelper & mpihelper)
 {
 	// Obtain path to the mesh folder from a CMake constant
     const std::string CURVILINEARGRID_TEST_GRID_PATH = std::string(DUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH) + "curvilinear/";
@@ -139,10 +139,11 @@ int main (int argc , char **argv) {
 	const int dim = 3;
 	typedef  double    ctype;
 
-    // Instantiation of the logging message
+    // Instantiation of the logging message and loggingtimer
     typedef Dune::LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
-    LoggingMessageDev::getInstance().verbose(true);
-    LoggingMessageDev::getInstance().processVerbose(true);
+    typedef Dune::LoggingTimer<LoggingMessageDev>                                        LoggingTimerDev;
+    LoggingMessageDev::getInstance().init(mpihelper, true, true);
+    LoggingTimerDev::getInstance().init(false);
 
 	// Define curvilinear grid
     typedef Dune::CurvilinearGrid<ctype, dim, isCached, LoggingMessageDev> GridType;

@@ -25,6 +25,14 @@ namespace Dune
 template<typename LoggingMessage>
 class LoggingTimer
 {
+	typedef LoggingTimer<LoggingMessage>  This;
+
+	LoggingTimer()  {  }
+	LoggingTimer(This const&)  = delete;
+    void operator=(This const&)  = delete;
+
+
+
 public:
     static const int MPI_MASTER_RANK = 0;
 
@@ -43,13 +51,13 @@ public:
     static const unsigned int LOG_CATEGORY_DEBUG = LoggingMessage::Category::DEBUG;
 
 
-    LoggingTimer(bool realverbose, MPIHelper & mpihelper)
-      : realverbose_(realverbose),
-        mpihelper_(mpihelper)
+    static This & getInstance()
     {
-    	rank_ = mpihelper.rank();
-    	size_ = mpihelper.size();
+        static This instance;
+        return instance;
     }
+
+    void init(bool realverbose)  { realverbose_ = realverbose; }
 
 
     // Starts timer by mapping the action name to current time
@@ -66,7 +74,7 @@ public:
     			std::stringstream logstr;
     			std::time_t tt = system_clock::to_time_t(tmpPoint);
     			logstr << "-----Started Action: (" << actionName << ") at " << ctime(&tt) << std::endl;
-    			LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(mpihelper_,__FILE__, __LINE__, logstr.str());
+    			LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, logstr.str());
     		}
 
     		timedmap_.insert(TimedMapKey(actionName, tmpPoint));
@@ -76,7 +84,7 @@ public:
     			std::stringstream logstr;
     			std::time_t tt = system_clock::to_time_t(tmpPoint);
     			logstr << "-----Finished Action: (" << actionName << ") at " << ctime(&tt) << std::endl;
-    			LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(mpihelper_,__FILE__, __LINE__, logstr.str());
+    			LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, logstr.str());
     		}
 
     		timelog_.push_back(TimedData(actionName, TimedPair((*iter).second, tmpPoint)));
@@ -88,8 +96,8 @@ public:
     // Writes currently active and finished timers locally for each processor
     void report()
     {
-    	LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(mpihelper_,__FILE__, __LINE__, "---- Starting current timer status ------");
-    	LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(mpihelper_,__FILE__, __LINE__, "------ Currently active timers: ---------");
+    	LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "---- Starting current timer status ------");
+    	LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "------ Currently active timers: ---------");
 
     	for (TimedMapIter iter = timedmap_.begin(); iter != timedmap_.end(); iter++)
     	{
@@ -97,10 +105,10 @@ public:
 
     		std::stringstream logstr;
     		logstr << "Action: " << (*iter).first << " time " << ctime(&tt);
-    		LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(mpihelper_,__FILE__, __LINE__, logstr.str());
+    		LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, logstr.str());
     	}
 
-    	LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(mpihelper_,__FILE__, __LINE__, "------ Currently finished timers: ---------");
+    	LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "------ Currently finished timers: ---------");
     	for (int i = 0; i < timelog_.size(); i++)
     	{
     		std::time_t      tt_start = system_clock::to_time_t(timelog_[i].second.first);
@@ -114,9 +122,9 @@ public:
     		logstr << " duration is " << niceObjStr(thisInterv.count(), 13) << " ||| ";
     		logstr << " action: " << timelog_[i].first << " ||| ";
 
-			LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(mpihelper_,__FILE__, __LINE__, removeNewline(logstr.str()));
+			LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, removeNewline(logstr.str()));
     	}
-    	LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(mpihelper_,__FILE__, __LINE__, "---- Finishing current timer status ------");
+    	LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "---- Finishing current timer status ------");
     }
 
 
@@ -125,19 +133,21 @@ public:
     // NOTE: this procedure requires that EXACTLY THE SAME action names are timed on all processes
     // NOTE: The order of output is sorted by the starting time of action on master process
     // NOTE: Strings are not communicated. Only the total number of timers is compared. Communication is based on sorting strings on each process
-    void reportParallel()
+    void reportParallel(MPIHelper & mpihelper)
     {
-    	Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
+    	Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper.getCollectiveCommunication();
+    	int rank = mpihelper.rank();
+    	int size = mpihelper.size();
 
     	// -------------------Self-Test-------------------------------------------
     	// Communicate total number of finished processes to master. Assert that this number is the same on all processes
     	{
         	int thisNTimer = timelog_.size();
-        	std::vector<int> nTimer(size_);
+        	std::vector<int> nTimer(size);
         	collective_comm.gather(&thisNTimer, nTimer.data(), 1, MPI_MASTER_RANK);
 
-        	if (rank_ == MPI_MASTER_RANK) {
-        		for (int i = 0; i < size_; i++)  { assert(thisNTimer == nTimer[i]); }
+        	if (rank == MPI_MASTER_RANK) {
+        		for (int i = 0; i < size; i++)  { assert(thisNTimer == nTimer[i]); }
         	}
     	}
     	// -------------------Self-Test Over-------------------------------------------
@@ -147,19 +157,22 @@ public:
 
     	// Communicate start and finish time to master
     	std::vector<TimeIntervalStorage> timeIntervalStorage;
+
+    	std::cout << "TmpLogTime: " << timelog_.size() << std::endl;
+
     	for (int i = 0; i < timelog_.size(); i++)
     	{
     		std::vector<TimePoint> startVec, endVec;
-    		if (rank_ == MPI_MASTER_RANK)  {
-    			startVec.resize(size_);
-    			endVec.resize(size_);
+    		if (rank == MPI_MASTER_RANK)  {
+    			startVec.resize(size);
+    			endVec.resize(size);
     		}
 
     		collective_comm.gather(& timelog_[i].second.first, startVec.data(), 1, MPI_MASTER_RANK);
     		collective_comm.gather(& timelog_[i].second.second, endVec.data(), 1, MPI_MASTER_RANK);
 
     		// Compute min and max over all processes
-    		if (rank_ == MPI_MASTER_RANK) {
+    		if (rank == MPI_MASTER_RANK) {
 
         		TimeIntervalStorage  thisIntervStorage;
         		TimeInterval tmpInterv = duration_cast<duration<double>>(timelog_[i].second.second - timelog_[i].second.first);
@@ -169,7 +182,7 @@ public:
         		thisIntervStorage.min_ = tmpInterv;
         		thisIntervStorage.max_ = tmpInterv;
 
-        		for (int i = 0; i < size_; i++)
+        		for (int i = 0; i < size; i++)
         		{
         			TimeInterval thisInterv = duration_cast<duration<double>>(endVec[i] - startVec[i]);
         			thisIntervStorage.min_ = std::min(thisIntervStorage.min_, thisInterv);
@@ -183,8 +196,8 @@ public:
     	std::sort(timeIntervalStorage.begin(), timeIntervalStorage.end());
 
     	// Write all output
-		if (rank_ == MPI_MASTER_RANK) {
-			LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(mpihelper_,__FILE__, __LINE__, "--------- Parallel Timer Statistics ------------------");
+		if (rank == MPI_MASTER_RANK) {
+			LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "--------- Parallel Timer Statistics ------------------");
 
 			for (int i = 0; i < timeIntervalStorage.size(); i++)
     		{
@@ -192,9 +205,9 @@ public:
 				logstr << " min_time: " << niceObjStr(timeIntervalStorage[i].min_.count(), 13);
 				logstr << " max_time: " << niceObjStr(timeIntervalStorage[i].max_.count(), 13);
 				logstr << " Action: " << timeIntervalStorage[i].actionname_;
-				LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(mpihelper_,__FILE__, __LINE__, logstr.str());
+				LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, logstr.str());
     		}
-			LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(mpihelper_,__FILE__, __LINE__, "--------- Parallel Timer Statistics - Finished -------");
+			LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "--------- Parallel Timer Statistics - Finished -------");
 		}
     }
 
@@ -234,11 +247,6 @@ protected:
 
 
 private:
-
-    MPIHelper & mpihelper_;
-
-    int rank_;
-    int size_;
 
     bool realverbose_;
     TimedMap timedmap_;

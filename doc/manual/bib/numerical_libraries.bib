@@ -1,0 +1,159 @@
+
+
+
+
+
+
+
+%% *************************************************************
+%% SuperLUDist
+%%
+%% [Publications appear in alphabetical year->alphabetical order]
+%% *************************************************************
+
+@article{li+2003,
+	Author = {X. S. Li and J. W. Demmel},
+	Journal = {ACM Trans. Math. Softw.},
+	Key = {lidemmel03},
+	Month = {June},
+	Number = {2},
+	Owner = {oswald},
+	Pages = {110-140},
+	Timestamp = {2014.03.24},
+	Title = {{SuperLU\_DIST}: A Scalable Distributed-Memory Sparse Direct Solver for Unsymmetric Linear Systems},
+	Volume = {29},
+	Year = {2003}
+}
+
+	
+%% *************************************************************
+%% Dune Project
+%%
+%% [Publications appear in alphabetical year->alphabetical order]
+%% *************************************************************
+
+@article{bastian+2008,
+year={2008},
+issn={0010-485X},
+journal={Computing},
+volume={82},
+number={2-3},
+doi={10.1007/s00607-008-0003-x},
+title={A generic grid interface for parallel and adaptive scientific computing. Part I: abstract framework},
+url={http://dx.doi.org/10.1007/s00607-008-0003-x},
+publisher={Springer Vienna},
+keywords={DUNE; Hierarchical grids; Interface; Finite elements; Finite volumes; Entity complex; Geometric realization; Father relation; Index maps; Parallelization; 65N30; 52C99; 65Y05},
+author={Bastian, P. and Blatt, M. and Dedner, A. and Engwer, C. and Klöfkorn, R. and Ohlberger, M. and Sander, O.},
+pages={103-119},
+language={English}
+}
+
+@article{dedner+2014,
+  author    = {Andreas Dedner and
+               Robert Kl{\"{o}}fkorn and
+               Martin Nolte},
+  title     = {The DUNE-ALUGrid Module},
+  journal   = {CoRR},
+  year      = {2014},
+  volume    = {abs/1407.6954},
+  url       = {http://arxiv.org/abs/1407.6954},
+}
+
+
+%% *************************************************************
+%% GMSH
+%%
+%% [Publications appear in alphabetical year->alphabetical order]
+%% *************************************************************
+
+@article{geuzaine+2009,
+	Abstract = {Gmsh is an open-source three-dimensional finite element grid generator with a build-in CAD engine and post-processor. Its design goal is to provide a fast, light and user-friendly meshing tool with parametric input and advanced visualization capabilities. This paper presents the overall philosophy, the main design choices and some of the original algorithms implemented in Gmsh.},
+	Author = {Geuzaine, C. and Remacle, J. F.},
+	Date-Added = {2014-11-19 16:38:47 +0000},
+	Date-Modified = {2014-11-19 16:38:47 +0000},
+	Journal = {Int. J. Numer. Meth. Engng.},
+	Keywords = {Computer Aided Design, Mesh generation, Post-Processing, Finite Element Method, Open Source Software},
+	Number = {11},
+	Pages = {1309-1331},
+	Title = {Gmsh: a three-dimensional finite element mesh generator with built-in pre- and post-processing facilities},
+	Volume = {79},
+	Year = {2009}}
+
+
+@article{johnen+2012,
+title = "Geometrical validity of curvilinear finite elements ",
+journal = "Journal of Computational Physics ",
+volume = "233",
+number = "0",
+pages = "359 - 372",
+year = "2013",
+note = "",
+issn = "0021-9991",
+doi = "http://dx.doi.org/10.1016/j.jcp.2012.08.051",
+url = "http://www.sciencedirect.com/science/article/pii/S0021999112005219",
+author = "A. Johnen and J.-F. Remacle and C. Geuzaine",
+keywords = "Finite element method",
+keywords = "High-order methods",
+keywords = "Mesh generation",
+keywords = "Bézier functions ",
+abstract = "In this paper, we describe a way to compute accurate bounds on Jacobian determinants of curvilinear polynomial finite elements. Our condition enables to guarantee that an element is geometrically valid, i.e., that its Jacobian determinant is strictly positive everywhere in its reference domain. It also provides an efficient way to measure the distortion of curvilinear elements. The key feature of the method is to expand the Jacobian determinant using a polynomial basis, built using Bézier functions, that has both properties of boundedness and positivity. Numerical results show the sharpness of our estimates. "
+}
+
+@article{toulorge+2013,
+title = "Robust untangling of curvilinear meshes ",
+journal = "Journal of Computational Physics ",
+volume = "254",
+number = "0",
+pages = "8 - 26",
+year = "2013",
+note = "",
+issn = "0021-9991",
+doi = "http://dx.doi.org/10.1016/j.jcp.2013.07.022",
+url = "http://www.sciencedirect.com/science/article/pii/S0021999113004956",
+author = "Thomas Toulorge and Christophe Geuzaine and Jean-François Remacle and Jonathan Lambrechts",
+keywords = "High-order methods",
+keywords = "Finite elements",
+keywords = "Mesh generation ",
+abstract = "Abstract This paper presents a technique that allows to untangle high-order/curvilinear meshes. The technique makes use of unconstrained optimization where element Jacobians are constrained to lie in a prescribed range through moving log-barriers. The untangling procedure starts from a possibly invalid curvilinear mesh and moves mesh vertices with the objective of producing elements that all have bounded Jacobians. Bounds on Jacobians are computed using the results of Johnen et al. (2012, 2013) [1,2]. The technique is applicable to any kind of polynomial element, for surface, volume, hybrid or boundary layer meshes. A series of examples demonstrate both the robustness and the efficiency of the technique. The final example, involving a time explicit computation, shows that it is possible to control the stable time step of the computation for curvilinear meshes through an alternative element deformation measure. "
+}
+
+
+
+
+%% *************************************************************
+%% ParMetis
+%% *************************************************************
+
+@article {schloegel+2002,
+author = {Schloegel, Kirk and Karypis, George and Kumar, Vipin},
+title = {Parallel static and dynamic multi-constraint graph partitioning},
+journal = {Concurrency and Computation: Practice and Experience},
+volume = {14},
+number = {3},
+publisher = {John Wiley & Sons, Ltd.},
+issn = {1532-0634},
+url = {http://dx.doi.org/10.1002/cpe.605},
+doi = {10.1002/cpe.605},
+pages = {219--240},
+keywords = {multi-constraint graph partitioning, parallel graph partitioning, multilevel graph partitioning, multi-phase scientific simulation},
+year = {2002},
+abstract = {Sequential multi-constraint graph partitioners have been developed to address the static load balancing requirements of multi-phase simulations. These work well when (i) the graph that models the computation fits into the memory of a single processor, and (ii) the simulation does not require dynamic load balancing. The efficient execution of very large or dynamically adapting multi-phase simulations on high-performance parallel computers requires that the multi-constraint partitionings are computed in parallel. This paper presents a parallel formulation of a multi-constraint graph-partitioning algorithm, as well as a new partitioning algorithm for dynamic multi-phase simulations. We describe these algorithms and give experimental results conducted on a 128-processor Cray T3E. These results show that our parallel algorithms are able to efficiently compute partitionings of similar edge-cuts as serial multi-constraint algorithms, and can scale to very large graphs. Our dynamic multi-constraint algorithm is also able to minimize the data redistribution required to balance the load better than a naive scratch-remap approach. We have shown that both of our parallel multi-constraint graph partitioners are as scalable as the widely-used parallel graph partitioner implemented in PARMETIS. Both of our parallel multi-constraint graph partitioners are very fast, as they are able to compute three-constraint 128-way partitionings of a 7.5 million vertex graph in under 7 s on 128 processors of a Cray T3E. Copyright © 2002 John Wiley & Sons, Ltd.},
+}
+
+@inproceedings{lasalle+2013,
+ author = {Lasalle, Dominique and Karypis, George},
+ title = {Multi-threaded Graph Partitioning},
+ booktitle = {Proceedings of the 2013 IEEE 27th International Symposium on Parallel and Distributed Processing},
+ series = {IPDPS '13},
+ year = {2013},
+ isbn = {978-0-7695-4971-2},
+ pages = {225--236},
+ numpages = {12},
+ url = {http://dx.doi.org/10.1109/IPDPS.2013.50},
+ doi = {10.1109/IPDPS.2013.50},
+ acmid = {2511454},
+ publisher = {IEEE Computer Society},
+ address = {Washington, DC, USA},
+} 
+
+

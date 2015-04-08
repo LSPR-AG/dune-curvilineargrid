@@ -7,10 +7,10 @@
 \noindent
 Currently the curvilinear grid supports the following functionality.
 \begin{itemize}
-	\item Self-consistent grid manager supporting 3D tetrahedral curvilinear grids.
+	\item Self-consistent grid manager supporting 3D tetrahedral curvilinear grids. Depends on Dune and Parmetis only.
 	\item GMSH input files of curvilinear orders 1-5. Usual linear geometries also supported
 	\item Parallel mesh reader with scalability for large meshes and processors
-	\item Mesh partitioning using ParMetis \textbf{CITE}
+	\item Mesh partitioning using ParMetis \citeParMetis
 	\item Unique physical tag for each element and domain boundary. Read from GMSH file and accessible via grid methods.
 	\item Unique global index for entities of all codimensions.
 	\item Ghost elements of all codimensions (optional)
@@ -34,7 +34,7 @@ The following functionality is currently NOT supported. As seen below, some of t
 \label{section-outline-designdecisions}
 
 \begin{itemize}
-	\item User must provide globalId's for vertices and elements. [Automatically implemented by GMSH]
+	\item User must provide globalId's for vertices and elements. [Automatically implemented by GMSH \citeGMSH]
 	\item User must provide all boundary segments inside GMSH file.
 \end{itemize}
 
@@ -48,7 +48,8 @@ Curvilinear Geometry:
 	\item Polynomial - Stores polynomials explicitly. Is able to perform basic arithmetic operations with polynomials, as well as differentiation and integration over a reference element.
 	\item CurvilinearElementInterpolator - Interpolates over curvilinear entity using Lagrange polynomials. Given a set of interpolatory vertices, provides explicit polynomial and numerical functions to transform local to global coordinates.
 	\item CurvilinearGeometryHelper - Incorporates a set of auxiliary functions, mostly helping to extract information about subentities of a curvilinear geometry.
-	\item NumericalRecursiveInterpolationIntegrator - Internal adaptive integration scheme. Works by recursively subdividing the reference entity, and interpolating the integrand using 4th order polynomial. Currently used to implement the method $volume()$ of the curvilinear geometry.
+	\item NumericalRecursiveInterpolationIntegrator - Internal adaptive integration scheme. Works by recursively subdividing the reference entity, and interpolating the integrand using 4th order polynomial.
+	\item QuadratureIntegrator - Wrapper for the Dune quadrature integration scheme. Performs integration of a provided functor over a reference element. Iteratively increases the quadrature order, until the estimated integration error satisfies user-required.
 	\item CurvilinearGeometry - Provides information about the curvilinear entity. Provides access to curvilinear vertices, local and global mappings, normals, subentity geometries and integration elements. One of the new features is providing explicit polynomial mappings, and analytical integration of polynomial integrands over entities.
 \end{itemize}
 
@@ -62,5 +63,10 @@ Curvilinear Grid
 	\item CurvilinearGrid - Main grid class, according to $dune-grid$ standard. Provides additional access to curvilinear features of the entities, as well as to their physical tags.
 	\item AllCommunicate - Auxiliary user-friendly class, providing $MPI_alltoallv$ communication protocol wrapper for templated POD. Also, a scalable version, namely nearest neighbour all-to-all communication wrapper is provided.
 	\item VectorHelper - Auxiliary user-friendly class, performs set operations on sorted templated vectors (union, intersection, complement), as well as conversion to string.
-	
+\end{itemize}
+
+Utilities
+\begin{itemize}
+	\item LoggingMessage - A tool used to write logging output for the grid
+	\item LoggingTimer - A tool that times different stages of mesh reading and grid construction, and reports on statistics over all processes. It can be used to identify time-bottlenecks in grid construction, as well as load imbalances among processors.
 \end{itemize}

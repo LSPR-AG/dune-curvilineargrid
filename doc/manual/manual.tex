@@ -12,7 +12,7 @@
 
 \usepackage[sort&compress,super]{natbib}
 \usepackage[english]{babel}
-\usepackage{amsmath}
+\usepackage{amsmath, esint}
 \usepackage{graphicx}
 \usepackage{caption}
 \usepackage{subcaption}
@@ -50,11 +50,28 @@
 \newmdenv[innerlinewidth=0.5pt, roundcorner=4pt,linecolor=mycolor, backgroundcolor=lightgray, innerleftmargin=4pt,
 innerrightmargin=4pt,innertopmargin=2pt,innerbottommargin=2pt]{mybox}
 
-
-
 %\usepackage[colorlinks,linkcolor=blue,anchorcolor=blue,citecolor=green]{hyperref} % hyper reference to contents 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Citation Shorthands
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \citestyle{plain}
+
+\newcommand{\citeParMetis}{\cite{schloegel+2002, lasalle+2013} }
+\newcommand{\citeGMSH}{\cite{geuzaine+2009}}
+\newcommand{\citeGMSHCurv}{\cite{johnen+2012, toulorge+2013}}
+\newcommand{\citeDune}{\cite{bastian+2008}}
+\newcommand{\citeSuperLUDist}{\cite{li+2003}}
+
+
+
+
+
+
+
+
+
+
 
 \makeindex
 
@@ -129,7 +146,8 @@ innerrightmargin=4pt,innertopmargin=2pt,innerbottommargin=2pt]{mybox}
 \vfill
 
 \noindent \textbf{\textsc{ABSTRACT}} - We introduce the \texttt{dune-curvilineargrid} module. The module provides the self-contained, parallel
-grid manager \texttt{dune-curvilineargrid} for curvilinear tetrahedral elements up to $5^{\mathrm{th}}$  order and conforms to the \text{DUNE} grid API.
+grid manager \texttt{dune-curvilineargrid} for curvilinear tetrahedral elements up to $5^{\mathrm{th}}$  order and conforms to the \text{DUNE}
+\citeDune grid API.
 %%
 In particular, \texttt{dune-curvilineargrid} is a grid manager in its own right which offers this functionality:
 %%
@@ -140,7 +158,8 @@ scalability bottleneck that would arise if the whole mesh were read on the maste
 the latter approach would inevitably lead to memory congestion on the master node and crash the program;
 %%
 %%
-\textbf{(2)} once the mesh has been read from disk, it is partitioned using the \texttt{Parmetis} graph partitioning tool;
+\textbf{(2)} once the mesh has been read from disk, it is partitioned using the \texttt{Parmetis} \citeParMetis
+graph partitioning tool;
 %%
 %%
 \textbf{(3)} \texttt{dune-curvilineargrid} manages meshes that consist of tetrahedra with curvilinear faces and edges, up to
@@ -162,7 +181,7 @@ be communicated.
 %%
 %%
 %%
-The \texttt{dune-curvilineargrid} grid manager is continously developed and improved. Among other things, we are working
+The \texttt{dune-curvilineargrid} grid manager is continuously developed and improved. Among other things, we are working
 on local refinement, modelling hanging nodes, non-uniform curvilinear order, periodicity and internal boundaries which
 may become interesting for the implementation of hybrid finite-element-boundary-integral (FEBI) discretisation schemes.
 
@@ -475,8 +494,8 @@ we reject any attempt of any other sovereign law to cover what we do.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-%\bibliographystyle{plainnat}
-%\bibliography{oswald,numerical_libraries,molecular_plasmonics,finite_element_method,electromagnetic}
+\bibliographystyle{plainnat}
+\bibliography{bib/oswald,bib/numerical_libraries,bib/finite_element_method,bib/electromagnetic}
 
 
 \printindex

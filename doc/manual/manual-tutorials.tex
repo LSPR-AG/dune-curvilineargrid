@@ -146,6 +146,7 @@ The first two would write the output into the specified VTK and VTU files corres
 \subsection{Tutorial 4 - Quadrature Integration Tutorial}
 \label{usage-howto-tutorial-integration-quadrature}
 
+\paragraph{Surface Projection Integral - Gauss Law}
 Here we demonstrate a way to integrate a function over the boundary of the domain. In this example we are going to check Gauss law by computing the surface integral of the electric field of a unit point charge across the domain boundary of the mesh enclosing that charge. The tutorial will demonstrate that changing the curvature of the domain boundary does not affect the result. \\
 
 \noindent
@@ -165,6 +166,7 @@ Below we present a functor which calculates the integrand for the above integral
   {
     typedef Dune::FieldVector<double, mydim>  LocalCoordinate;
     typedef typename Grid::Traits::LeafIntersection               Intersection;
+    typedef Dune::FieldVector<double, DIM_SCALAR>  ResultType;
 
     Intersection I_;
 
@@ -177,7 +179,7 @@ Below we present a functor which calculates the integrand for the above integral
       return rez;
     }
 
-    double operator()(const LocalCoordinate & x) const
+    ResultType operator()(const LocalCoordinate & x) const
     {
       GlobalCoordinate integrnormal = I_.integrationOuterNormal(x);
       GlobalCoordinate global = I_.geometry().global(x);
@@ -185,7 +187,7 @@ Below we present a functor which calculates the integrand for the above integral
 
       double rez = 0;
       for (int i = 0; i < 3; i++) { rez += integrnormal[i] * field[i]; }
-      return rez;
+      return ResultType(rez);
     }
   };
 \end{lstlisting}
@@ -198,6 +200,9 @@ Now, in order to calculate the Gauss law integral, the above functor needs to be
 \begin{lstlisting}
   double gaussintegral = 0.0;
   double rel_tol = 1.0e-5;
+
+  typedef Dune::QuadratureIntegrator<double, 2, 1>  Integrator2DScalar;
+  typedef Dune::QuadratureIntegrator<double, 2, 3>  Integrator2DVector;
 
   LeafGridView leafView = grid.leafGridView();
   EntityLeafIterator ibegin = leafView.template begin<0>();
@@ -216,7 +221,7 @@ Now, in order to calculate the Gauss law integral, the above functor needs to be
         Dune::GeometryType gt = intersection.type();
         GaussFunctor<GridType, 2> f(intersection);
         Dune::QuadratureIntegrator<double, 2> qInt;
-        double thisIntegral = qInt.integrateRecursive(gt, f, rel_tol).second;
+        StatInfo thisIntegral = Integrator2DScalar::integrateRecursive(gt, f, rel_tol).second;
         gaussintegral += thisIntegral;
       }
     }
@@ -224,7 +229,48 @@ Now, in order to calculate the Gauss law integral, the above functor needs to be
 \end{lstlisting}
 \end{mybox}
 
+The StatInfo is a return data-type of the QuadratureIntegrator, which is a pair of the integral result, and the quadrature order at which it converged \\
 
+
+\paragraph{Surface Vector Integral - Normal Integral}
+\noindent
+The QuadratureIntegrator is designed to be able to integrate both scalar and vector quantities over a reference element. When integrating a vector quantity, all components of the vector are summed up individually with the same weights. This functionality can be used to calculate the integral of a normal over a closed domain. The integral of each component of the normal can be shown to be zero for all closed domains, so the integral should amount to zero vector.
+
+\begin{equation}
+	\oiint_{\partial \Omega} n_x dS = \oiint_{\partial \Omega} \vec{e}_x \cdot \vec{n} dS = \iiint_{\Omega} \nabla \cdot \vec{e}_x dV = 0
+\end{equation}
+
+\noindent
+To perform this integral, we construct a functor which computes a normal to the intersection given the intersection and coordinate. \\
+
+\begin{mybox}
+\begin{lstlisting}
+  template<class Grid, int mydim>
+  struct NormalFunctor
+  {
+	typedef Dune::FieldVector<double, mydim>         LocalCoordinate;
+	typedef typename Grid::Traits::LeafIntersection  Intersection;
+
+	Intersection I_;
+
+	NormalFunctor(const Intersection & I) : I_(I)  { }
+
+	GlobalCoordinate operator()(const LocalCoordinate & x) const
+    {
+      return I_.integrationOuterNormal(x);
+    }
+  };
+\end{lstlisting}
+\end{mybox}
+
+Integration of a vector quantity is done the same way as the integration of a scalar quantity in the first example, namely \\
+
+\begin{mybox}
+\begin{lstlisting}
+  NormalFunctor<GridType, 2> n(intersection);
+  StatInfo thisIntegralN = Integrator2DVector::integrateRecursive(gt, n, rel_tol);
+\end{lstlisting}
+\end{mybox}
 
 
 
@@ -236,6 +282,19 @@ Now, in order to calculate the Gauss law integral, the above functor needs to be
 
 \subsection{Tutorial 6 - Communication}
 \label{usage-howto-tutorial-communication}
+
+\paragraph{Determining communicating entities}
+
+In this tutorial we explicitly select all entities of the grid that are supposed to communicate for each communication procedure, and communicate a dummy constant. The goal is to confirm that all the expected entities were communicated over, and all other were not. \\
+
+\noindent
+Briefly, the procedure communicateConstant iterates over all process process boundary intersections, and marks its neighbour entities, if they will be sending or receiving within the provided interface. Then the custom DataHandleConst is used to perform the communication. This data handle communicates one and the same constant to all entities it is requested. The important thing is that whenever gather or scatter methods are called, it checks if the requested entity was marked for sending or receiving, and throws an error if it is not. Finally, the main procedure checks that the total number of entities that have received the constant is equal to the number of entities marked for receiving.
+
+
+\paragraph{Communicating global Id}
+
+In this simple example, a global Id of each entity is communicated, and compared to the global Id on the receiving side. An error is thrown if they mismatch.
+
 
 
 \subsection{Tutorial 7 - Point Location - OCTree}

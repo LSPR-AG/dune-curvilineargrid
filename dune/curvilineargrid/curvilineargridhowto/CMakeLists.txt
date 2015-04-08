@@ -7,7 +7,8 @@ set(TESTS
 	tutorial2traversal
 	tutorial3visualisation
 	tutorial3visualisation
-	tutorial4andHalfgausslaw
+	tutorial4IntegrationGauss
+	tutorial4IntegrationNormal
 	tutorial6CommunicationConstant
 	tutorial6CommunicationGlobalIndex
 )
@@ -15,13 +16,15 @@ set(TESTS
 add_executable(tutorial1gettingstarted tutorial1gettingstarted.cc)
 add_executable(tutorial2traversal tutorial2traversal.cc)
 add_executable(tutorial3visualisation tutorial3visualisation.cc)
-add_executable(tutorial4andHalfgausslaw tutorial4andHalfgausslaw.cc)
+add_executable(tutorial4IntegrationGauss tutorial4IntegrationGauss.cc)
+add_executable(tutorial4IntegrationNormal tutorial4IntegrationNormal.cc)
 add_executable(tutorial6CommunicationConstant tutorial6CommunicationConstant.cc)
 add_executable(tutorial6CommunicationGlobalIndex tutorial6CommunicationGlobalIndex.cc)
 target_link_libraries(tutorial1gettingstarted dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
 target_link_libraries(tutorial2traversal dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
 target_link_libraries(tutorial3visualisation dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
-target_link_libraries(tutorial4andHalfgausslaw dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
+target_link_libraries(tutorial4IntegrationGauss dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
+target_link_libraries(tutorial4IntegrationNormal dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
 target_link_libraries(tutorial6CommunicationConstant dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
 target_link_libraries(tutorial6CommunicationGlobalIndex dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
 
@@ -41,13 +44,15 @@ if(HAVE_MPI)
     add_dune_mpi_flags(tutorial1gettingstarted)
     add_dune_mpi_flags(tutorial2traversal)
     add_dune_mpi_flags(tutorial3visualisation)
-    add_dune_mpi_flags(tutorial4andHalfgausslaw)
+    add_dune_mpi_flags(tutorial4IntegrationGauss)
+    add_dune_mpi_flags(tutorial4IntegrationNormal)
     add_dune_mpi_flags(tutorial6CommunicationConstant)
     add_dune_mpi_flags(tutorial6CommunicationGlobalIndex)
     add_dune_parmetis_flags(tutorial1gettingstarted)
     add_dune_parmetis_flags(tutorial2traversal)
     add_dune_parmetis_flags(tutorial3visualisation)
-    add_dune_parmetis_flags(tutorial4andHalfgausslaw)
+    add_dune_parmetis_flags(tutorial4IntegrationGauss)
+    add_dune_parmetis_flags(tutorial4IntegrationNormal)
     add_dune_parmetis_flags(tutorial6CommunicationConstant)
     add_dune_parmetis_flags(tutorial6CommunicationGlobalIndex)
 endif(HAVE_MPI)
@@ -57,7 +62,8 @@ if(Boost_FOUND)
    target_link_libraries(tutorial1gettingstarted ${Boost_LIBRARIES})
    target_link_libraries(tutorial2traversal ${Boost_LIBRARIES})
    target_link_libraries(tutorial3visualisation ${Boost_LIBRARIES})
-   target_link_libraries(tutorial4andHalfgausslaw ${Boost_LIBRARIES})
+   target_link_libraries(tutorial4IntegrationGauss ${Boost_LIBRARIES})
+   target_link_libraries(tutorial4IntegrationNormal ${Boost_LIBRARIES})
    target_link_libraries(tutorial6CommunicationConstant ${Boost_LIBRARIES})
    target_link_libraries(tutorial6CommunicationGlobalIndex ${Boost_LIBRARIES})
 endif()

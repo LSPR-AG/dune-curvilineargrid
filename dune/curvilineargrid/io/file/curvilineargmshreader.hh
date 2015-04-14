@@ -1155,8 +1155,8 @@ namespace Dune
     template<int mydim>
     void addElementToVTK(const GeometryType & elemType, const std::vector<GlobalVector> & elemNodeVector, const int elemOrder, const int physicalTag, const bool isBoundary)
     {
-    	const int VTK_INTERNAL = GridType::GridStorageType::PartitionType::Internal;
-    	const int VTK_BOUNDARY = GridType::GridStorageType::PartitionType::DomainBoundary;
+    	const unsigned int INTERIOR_TYPE = Dune::PartitionType::InteriorEntity;
+    	const unsigned int BOUNDARY_TYPE = GridType::GridStorageType::BOUNDARY_SEGMENT_PARTITION_TYPE;
 
     	int VTK_DISCRETIZATION_POINTS = 2;    // Sampling frequency over curved element. min=2 is linear sampling
     	bool VTK_INTERPOLATE = true;          // Whether to use lagrange interpolation or intrinsic interpolatory vertices
@@ -1166,7 +1166,7 @@ namespace Dune
 
     	// Defines what structural purpose this element has in the grid.
     	// Different elements will have different structural tags
-    	int VTK_ELEMENT_STRUCTURAL_TYPE = isBoundary ? VTK_BOUNDARY : VTK_INTERNAL;
+    	int VTK_ELEMENT_STRUCTURAL_TYPE = isBoundary ? BOUNDARY_TYPE : INTERIOR_TYPE;
 
     	std::vector<int> elemTags  { physicalTag, VTK_ELEMENT_STRUCTURAL_TYPE, rank_ };
 

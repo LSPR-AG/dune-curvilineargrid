@@ -109,10 +109,8 @@ public:
     static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
     // Face Structural Type
-    static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
-    static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
-    static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
-    static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
+    static const unsigned int NO_BOUNDARY_TYPE     = GridStorageType::FaceBoundaryType::None;
+    static const unsigned int DOMAIN_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::DomainBoundary;
 
     // Logging Message Typedefs
     static const unsigned int LOG_CATEGORY_DEBUG  = LoggingMessage::Category::DEBUG;
@@ -172,13 +170,13 @@ public: /* public methods */
     	loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating iterator lists");
 
         for (Local2LocalIterator iCorner = gridstorage_.cornerIndexMap_.begin();
-        	                     iCorner != gridstorage_.cornerIndexMap_.end(); iCorner++) { fillPartitionIterator(VERTEX_CODIM, (*iCorner).first, gridstorage_.point_[(*iCorner).first].structuralType); }
+        	                     iCorner != gridstorage_.cornerIndexMap_.end(); iCorner++) { fillPartitionIterator(VERTEX_CODIM, (*iCorner).first, gridstorage_.point_[(*iCorner).first].ptype); }
 
-        for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)         { fillPartitionIterator(EDGE_CODIM, iEdge, gridstorage_.edge_[iEdge].structuralType); }
+        for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)         { fillPartitionIterator(EDGE_CODIM, iEdge, gridstorage_.edge_[iEdge].ptype); }
 
-        for (LocalIndexType iFace = 0; iFace < gridstorage_.face_.size(); iFace++)         { fillPartitionIterator(FACE_CODIM, iFace, gridstorage_.face_[iFace].structuralType); }
+        for (LocalIndexType iFace = 0; iFace < gridstorage_.face_.size(); iFace++)         { fillPartitionIterator(FACE_CODIM, iFace, gridstorage_.face_[iFace].ptype, gridstorage_.face_[iFace].boundaryType ); }
 
-        for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)      { fillPartitionIterator(ELEMENT_CODIM, iElem, gridstorage_.element_[iElem].structuralType); }
+        for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)      { fillPartitionIterator(ELEMENT_CODIM, iElem, gridstorage_.element_[iElem].ptype); }
 
         loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating iterator lists");
 
@@ -204,8 +202,8 @@ public: /* public methods */
     {
     	loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating communication maps");
 
-		IndexSetIterator iterB = gridbase_.entityIndexBegin(FACE_CODIM , ProcessBoundaryType);
-		IndexSetIterator iterE = gridbase_.entityIndexEnd(FACE_CODIM , ProcessBoundaryType);
+		IndexSetIterator iterB = gridbase_.entityIndexBegin(FACE_CODIM , Dune::PartitionType::BorderEntity);
+		IndexSetIterator iterE = gridbase_.entityIndexEnd(FACE_CODIM , Dune::PartitionType::BorderEntity);
 
 		int nEdgeTriangle = 3;
 		int nVertexTriangle = 3;
@@ -213,14 +211,14 @@ public: /* public methods */
 		int nEdgeTet = 6;
 		int nVertexTet = 4;
 
-		StructuralType tmpTypes[2] = { InternalType, GhostType };
+		Dune::PartitionType tmpTypes[2] = { Dune::PartitionType::InteriorEntity, Dune::PartitionType::GhostEntity};
 
 		// Resize all neighbor rank arrays, except the boundary internals, since we do not know their lengths
 		// Boundary Internals will be resized as its number is calculated
 		for (int iCodim = 0; iCodim <= dimension; iCodim++)
 		{
-			int nPB = (iCodim == 0) ? 0 : gridbase_.nEntity(iCodim, ProcessBoundaryType);
-			int nG  = gridbase_.nEntity(iCodim, GhostType);
+			int nPB = (iCodim == 0) ? 0 : gridbase_.nEntity(iCodim, Dune::PartitionType::BorderEntity);
+			int nG  =                     gridbase_.nEntity(iCodim, Dune::PartitionType::GhostEntity);
 
 			// PB2PB already exists, so need not resize it
 			gridstorage_.PB2GNeighborRank_[iCodim].resize(nPB);
@@ -235,7 +233,7 @@ public: /* public methods */
 		for (IndexSetIterator iter = iterB; iter != iterE; iter++)
 		{
 			LocalIndexType thisFaceLocalIndex = *iter;
-			int thisFaceNeighborRank = gridbase_.commEntityNeighborRankSet(FACE_CODIM, thisFaceLocalIndex, ProcessBoundaryType, ProcessBoundaryType)[0];
+			int thisFaceNeighborRank = gridbase_.commEntityNeighborRankSet(FACE_CODIM, thisFaceLocalIndex, Dune::PartitionType::BorderEntity, Dune::PartitionType::BorderEntity)[0];
 
 			// 1) Find all Internal and Ghost entities associated with this PB Face
 			// **********************************************************************
@@ -275,14 +273,14 @@ public: /* public methods */
 					for (int iEntity = 0; iEntity < faceNeighborSubentityIndex[iTmp][iCodim].size(); iEntity++ )
 					{
 						LocalIndexType thisEntityLocalIndex = faceNeighborSubentityIndex[iTmp][iCodim][iEntity];
-						StructuralType thisEntityType = gridbase_.entityStructuralType(iCodim, thisEntityLocalIndex);
+						Dune::PartitionType thisEntityType = gridbase_.entityPartitionType(iCodim, thisEntityLocalIndex);
 
 						std::stringstream log_str;
-						log_str << "CurvilinearPostConstructor: ---- Iterating over iTmp=" << gridstorage_.PartitonTypeName[tmpTypes[iTmp]];
+						log_str << "CurvilinearPostConstructor: ---- Iterating over iTmp=" << Dune::PartitionName(tmpTypes[iTmp]);
 						log_str << " codim=" << iCodim;
 						log_str << " subentityNo=" << iEntity;
 						log_str << " localindex =" << thisEntityLocalIndex;
-						log_str << " gives structural type =" << gridstorage_.PartitonTypeName[thisEntityType];
+						log_str << " gives structural type =" << Dune::PartitionName(thisEntityType);
 						loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_str.str());
 
 
@@ -290,9 +288,9 @@ public: /* public methods */
 						// that it is on a face of a different process, then it is a PB->G link
 						// Otherwise, this entity is either internal or ghost, and it contributest to one
 						// of the new maps
-						if (thisEntityType == ProcessBoundaryType)
+						if (thisEntityType == Dune::PartitionType::BorderEntity)
 						{
-							std::vector<int> & thisEntityPBNeighbors = gridbase_.commEntityNeighborRankSet(iCodim, thisEntityLocalIndex, ProcessBoundaryType, ProcessBoundaryType);
+							std::vector<int> & thisEntityPBNeighbors = gridbase_.commEntityNeighborRankSet(iCodim, thisEntityLocalIndex, Dune::PartitionType::BorderEntity, Dune::PartitionType::BorderEntity);
 							bool isNewRank = !Dune::VectorHelper::isInside(thisEntityPBNeighbors, thisFaceNeighborRank);
 							//std::cout << "testing isInside vector=(" << Dune::VectorHelper::vector2string(thisEntityPBNeighbors) << ") elem=" << thisFaceNeighborRank << " isNew=" << isNewRank << std::endl;
 
@@ -307,8 +305,8 @@ public: /* public methods */
 						{
 							// Check if the type of the entity is expected
 					    	bool entityTypeExpected =
-					    		((iTmp == 0)&&((thisEntityType == InternalType)||(thisEntityType == DomainBoundaryType))) ||
-					    		((iTmp == 1)&&(thisEntityType == GhostType));
+					    		((iTmp == 0)&&(thisEntityType == Dune::PartitionType::InteriorEntity)) ||
+					    		((iTmp == 1)&&(thisEntityType == Dune::PartitionType::GhostEntity));
 
 					    	if (!entityTypeExpected) {
 					    		GlobalIndexType thisEntityGlobalIndex;
@@ -319,8 +317,8 @@ public: /* public methods */
 
 					    		std::cout << "error in codim " << iCodim << " entity localindex=" << thisEntityLocalIndex << " globalIndex=" << thisEntityGlobalIndex << std::endl;
 
-					    		std::string expectedTypeName = gridstorage_.PartitonTypeName[tmpTypes[iTmp]];
-					    		std::string receivedTypeName = gridstorage_.PartitonTypeName[thisEntityType];
+					    		std::string expectedTypeName = Dune::PartitionName(tmpTypes[iTmp]);
+					    		std::string receivedTypeName = Dune::PartitionName(thisEntityType);
 
 					    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridBase: Unexpected type name expected=" + expectedTypeName + ", received="+receivedTypeName);
 					    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected type name");
@@ -436,35 +434,39 @@ protected:
 
     // Fill all LocalIndexSets necessary to iterate over the grid
     // Note: Must not contain all interpolatory vertices, only corners
-    void fillPartitionIterator (int codim, LocalIndexType localIndex, StructuralType structtype)
+    void fillPartitionIterator (int codim, LocalIndexType localIndex, PartitionType pitype, StructuralType bordertype = NO_BOUNDARY_TYPE)
     {
     	// Check if the entity is of a valid type
-    	gridbase_.assertValidCodimStructuralType(codim, structtype);
+    	gridbase_.assertValidCodimStructuralType(codim, pitype);
 
     	// All-set includes entities of all structural types
         gridstorage_.entityAllIndexSet_[codim].insert(localIndex);
 
-    	switch (structtype)
+    	switch (pitype)
     	{
-    	case InternalType          :
+    	case Dune::PartitionType::InteriorEntity  :
     	{
-    		gridstorage_.entityInternalIndexSet_[codim].insert(localIndex);
+        	if (bordertype == DOMAIN_BOUNDARY_TYPE)
+        	{
+        		// Only faces can be boundarySegments
+        		assert(codim == FACE_CODIM);
+        		gridstorage_.faceDomainBoundaryIndexSet_.insert(localIndex);
+        	} else
+        	{
+        		// Consider a face internal only if it is not a boundary segment
+        		// Consider all other codim interior entities internal
+        		gridstorage_.entityInternalIndexSet_[codim].insert(localIndex);
+        	}
+
     		gridstorage_.entityDuneInteriorIndexSet_[codim].insert(localIndex);
     		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
     	} break;
-    	case ProcessBoundaryType   :
+    	case Dune::PartitionType::BorderEntity    :
     	{
     		gridstorage_.entityProcessBoundaryIndexSet_[codim].insert(localIndex);
     		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
     	} break;
-    	case DomainBoundaryType    :
-    	{
-    		gridstorage_.entityDomainBoundaryIndexSet_[codim].insert(localIndex);
-    		gridstorage_.entityDuneInteriorIndexSet_[codim].insert(localIndex);
-    		gridstorage_.entityDuneInteriorBorderIndexSet_[codim].insert(localIndex);
-    		break;
-    	}
-    	case GhostType             :
+    	case Dune::PartitionType::GhostEntity     :
     	{
     		gridstorage_.entityGhostIndexSet_[codim].insert(localIndex);
     	} break;
@@ -675,8 +677,8 @@ protected:
 				}
 
 				// Check if the structural type of the received entity is PB
-				StructuralType thisEntityType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
-				assert(thisEntityType == ProcessBoundaryType);
+				StructuralType thisEntityType = gridbase_.entityPartitionType(codim, thisEntityLocalIndex);
+				assert(thisEntityType == Dune::PartitionType::BorderEntity);
 
 				LocalIndexType thisEntityLocalPBIndex = gridstorage_.processBoundaryIndexMap_[codim][thisEntityLocalIndex];
 				for (int k = 0; k < nRankPerEntity; k++)
@@ -825,11 +827,17 @@ protected:
 				}
 
 				// Check if the structural type of the received entity is Ghost
-				StructuralType thisEntityType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
-				if (thisEntityType != GhostType)
+				Dune::PartitionType thisEntityType = gridbase_.entityPartitionType(codim, thisEntityLocalIndex);
+				if (thisEntityType != Dune::PartitionType::GhostEntity)
 				{
-					loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   codim" + std::to_string(codim) + "entity globalIndex=" + std::to_string(thisEntityGlobalIndex) + " expected type=" + gridstorage_.PartitonTypeName[GhostType] + " received=" + gridstorage_.PartitonTypeName[thisEntityType]);
-					assert(thisEntityType == GhostType);
+					std::stringstream logstr;
+					logstr << "CurvilinearPostConstructor: --   codim=" + codim;
+					logstr << " entity globalIndex=" + thisEntityGlobalIndex;
+					logstr << " expected type=" + Dune::PartitionName(Dune::PartitionType::GhostEntity);
+					logstr << " received=" + Dune::PartitionName(thisEntityType);
+
+					loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, logstr.str());
+					assert(thisEntityType == Dune::PartitionType::GhostEntity);
 				}
 
 				LocalIndexType thisEntityLocalGhostIndex = gridstorage_.ghostIndexMap_[codim][thisEntityLocalIndex];
@@ -1072,8 +1080,8 @@ protected:
 				}
 
 				// Check if the structural type of the received entity is Ghost
-				StructuralType thisEntityType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
-				assert(thisEntityType == GhostType);
+				StructuralType thisEntityType = gridbase_.entityPartitionType(codim, thisEntityLocalIndex);
+				assert(thisEntityType == Dune::PartitionType::GhostEntity);
 
 				LocalIndexType thisEntityGhostLocalIndex = gridstorage_.ghostIndexMap_[codim][thisEntityLocalIndex];
 

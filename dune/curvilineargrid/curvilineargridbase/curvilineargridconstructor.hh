@@ -133,10 +133,7 @@ public:
     static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
     // Face Structural Type
-    static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
-    static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
-    static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
-    static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
+    static const unsigned int BOUNDARY_SEGMENT_PARTITION_TYPE = GridStorageType::BOUNDARY_SEGMENT_PARTITION_TYPE;
 
     // Logging Message Typedefs
     static const unsigned int LOG_CATEGORY_DEBUG  = LoggingMessage::Category::DEBUG;
@@ -175,12 +172,12 @@ public:
      * \param[in] globalIndex      global index of this vertex
      * \param[in] structtype       (optional) partition type of this vertex. User SHOULD use default value
      * */
-    void insertVertex(Vertex p, GlobalIndexType globalIndex, StructuralType structtype = InternalType)
+    void insertVertex(Vertex p, GlobalIndexType globalIndex, Dune::PartitionType ptype = Dune::PartitionType::InteriorEntity)
     {
         VertexStorage point;
         point.coord = p;
         point.globalIndex = globalIndex;
-        point.structuralType = structtype;
+        point.ptype = ptype;
 
         gridstorage_.entityIndexMap_[VERTEX_CODIM][globalIndex] = gridstorage_.point_.size();
         gridstorage_.point_.push_back(point);
@@ -215,7 +212,7 @@ public:
 
         thisElement.geometryType = gt;
         thisElement.globalIndex = 0;        // At this stage globalIndex is not known yet
-        thisElement.structuralType = GridStorageType::PartitionType::Internal;
+        thisElement.ptype = Dune::PartitionType::InteriorEntity;
         thisElement.interpOrder = order;
         thisElement.physicalTag = physicalTag;
         thisElement.vertexIndexSet = vertexIndexSet;
@@ -327,7 +324,9 @@ public:
                 FaceStorage thisFaceAsSubentity;
                 thisFaceAsSubentity.geometryType = gt;
                 thisFaceAsSubentity.globalIndex  = 0;                  // At this stage the globalId is not known yet
-                thisFaceAsSubentity.structuralType = DomainBoundaryType;
+                thisFaceAsSubentity.ptype = Dune::PartitionType::InteriorEntity;
+                thisFaceAsSubentity.boundaryType = GridStorageType::FaceBoundaryType::DomainBoundary;  // !! When periodic and internal boundaries are introduced this line will change
+
                 thisFaceAsSubentity.element1Index = associatedElementIndex;
                 thisFaceAsSubentity.element2Index = -1;              // Boundary Segments do not have a 2nd neighbor
                 thisFaceAsSubentity.element1SubentityIndex = j;
@@ -387,8 +386,8 @@ public:
         loggingtimer.time("CurvilinearGridConstructor: EntityGeneration");
         generateEdges();
         generateFaces();
-        markBoundaryVertexStructuralType();
-        markBoundaryEdgeStructuralType();
+        markBorderVertex();
+        markBorderEdge();
         loggingtimer.time("CurvilinearGridConstructor: EntityGeneration");
 
         if (size_ > 1)
@@ -424,7 +423,7 @@ public:
             for (int i = 0; i < gridstorage_.element_.size(); i++)  { gridstorage_.element_[i].globalIndex = i;  gridstorage_.entityIndexMap_[ELEMENT_CODIM][i] = i;  gridstorage_.entityInternalIndexSet_[ELEMENT_CODIM].insert(i); }
 
             for (FaceMapIterator faceIter = internalFaceKey2LocalIndexMap_.begin(); faceIter != internalFaceKey2LocalIndexMap_.end(); faceIter++)              { LocalIndexType localIndex = (*faceIter).second;        gridstorage_.entityInternalIndexSet_[FACE_CODIM].insert(localIndex); }
-            for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)  { LocalIndexType localIndex = (*faceIter).second;        gridstorage_.entityDomainBoundaryIndexSet_[FACE_CODIM].insert(localIndex); }
+            for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)  { LocalIndexType localIndex = (*faceIter).second;        gridstorage_.faceDomainBoundaryIndexSet_.insert(localIndex); }
 
             gridstorage_.nEntityTotal_[EDGE_CODIM] = gridstorage_.edge_.size();
             gridstorage_.nEntityTotal_[FACE_CODIM] = gridstorage_.face_.size();
@@ -574,7 +573,7 @@ protected:
                     // Note: Edges do not have physical tag at all so we do not even store it
                     EdgeStorage thisEdge;
                     thisEdge.globalIndex = 0;        // GlobalId for edge determined later using global communication
-                    thisEdge.structuralType = GridStorageType::PartitionType::Internal;   // For process boundaries will be redefined later
+                    thisEdge.ptype = Dune::PartitionType::InteriorEntity;   // For process boundaries will be redefined later
                     thisEdge.elementIndex = iElem;
                     thisEdge.subentityIndex = iEdge;
 
@@ -715,7 +714,9 @@ protected:
             // Store internal, domain and process boundaries separately for faster iterators
             if (connectedFaceInfo.size() == 2)
             {
-                thisFace.structuralType = ProcessBoundaryType;
+                thisFace.ptype = Dune::PartitionType::BorderEntity;
+                thisFace.boundaryType = GridStorageType::FaceBoundaryType::None;
+
                 processBoundaryFaceKey2LocalIndexMap_[(*iter).first] = localFaceIndex;  // Store Map (key -> faceIndex)
                 thisFace.element2Index = 0;                                             // Eventually this will be the Ghost Element Index
 
@@ -735,7 +736,9 @@ protected:
                 log_stream << " InternalSubentityIndex2=" << thisFaceSubentityIndex2;
 
                 // Add this face to the internal map
-                thisFace.structuralType = InternalType;
+                thisFace.ptype = Dune::PartitionType::InteriorEntity;
+                thisFace.boundaryType = GridStorageType::FaceBoundaryType::None;
+
                 internalFaceKey2LocalIndexMap_[(*iter).first] = localFaceIndex;    // Store Map (key -> faceIndex)
                 thisFace.element2Index = thisAssociatedElement2Index;              // This is the 2nd neighbor of this internal face
                 log_stream << " StructuralType=internal";
@@ -763,25 +766,13 @@ protected:
      * Then, give all process boundary corners a unique index by storing them in the
      * processBoundaryIndexMap_[VERTEX_CODIM]. These are later used for communication
      *
+     * NOTE: VERTICES CAN NO LONGER BE DOMAIN BOUNDARIES. ONLY PROCESS BOUNDARIES, INTERNALS, AND GHOSTS
+     *
      * [TODO] To make work with arbitrary geometries, must replace numbers, as well as make FaceKeys more abstract
      *
      * */
-    void markBoundaryVertexStructuralType()
+    void markBorderVertex()
     {
-    	// Mark domain boundary vertices
-    	// ********************************************************
-    	loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking domain boundary vertices");
-        for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
-        {
-        	EntityStorage thisFace = gridbase_.entityData(1, (*faceIter).second);
-
-            for (int i = 0; i < thisFace.vertexIndexSet.size(); i++)
-            {
-            	LocalIndexType thisVertexLocalIndex = thisFace.vertexIndexSet[i];
-            	gridstorage_.point_[thisVertexLocalIndex].structuralType = GridStorageType::PartitionType::DomainBoundary;
-            }
-        }
-
     	// Mark process boundary vertices - overwrite domain boundary vertices where necessary
         // ********************************************************
         loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking process boundary vertices");
@@ -792,7 +783,7 @@ protected:
             for (int i = 0; i < thisFace.vertexIndexSet.size(); i++)
             {
             	LocalIndexType thisVertexLocalIndex = thisFace.vertexIndexSet[i];
-            	gridstorage_.point_[thisVertexLocalIndex].structuralType = GridStorageType::PartitionType::ProcessBoundary;
+            	gridstorage_.point_[thisVertexLocalIndex].ptype = Dune::PartitionType::BorderEntity;
             }
         }
 
@@ -838,35 +829,13 @@ protected:
      * Then, give all process boundary edges a unique index by storing them in the
      * processBoundaryIndexMap_[EDGE_CODIM]. These are later used for communication
      *
+     * NOTE: EDGES CAN NO LONGER BE DOMAIN BOUNDARIES. ONLY PROCESS BOUNDARIES, INTERNALS, AND GHOSTS
+     *
      * [TODO] To make work with arbitrary geometries, must replace numbers, as well as make FaceKeys more abstract
      *
      * */
-    void markBoundaryEdgeStructuralType()
+    void markBorderEdge()
     {
-        // Construct the set of EdgeKeys corresponding to edges of processBoundaries
-        // ********************************************************
-    	loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking domain boundary edges");
-        for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
-        {
-            // Get global indices of the associated vertices from the map
-            FaceKey thisFaceKey = (*faceIter).first;
-            EdgeKey thisEdgeKey[3];
-
-            thisEdgeKey[0].node0 = thisFaceKey.node0;  thisEdgeKey[0].node1 = thisFaceKey.node1;
-            thisEdgeKey[1].node0 = thisFaceKey.node0;  thisEdgeKey[1].node1 = thisFaceKey.node2;
-            thisEdgeKey[2].node0 = thisFaceKey.node1;  thisEdgeKey[2].node1 = thisFaceKey.node2;
-
-            for (int i = 0; i < 3; i++)
-            {
-            	LocalIndexType thisEdgeLocalIndex = edgeKey2LocalIndexMap_[thisEdgeKey[i]];
-            	gridstorage_.edge_[thisEdgeLocalIndex].structuralType = GridStorageType::PartitionType::DomainBoundary;
-
-                std::stringstream log_stream;
-                log_stream << "CurvilinearGridConstructor: -- From face index= " << (*faceIter).second << " marking domain boundary edge index=" << thisEdgeLocalIndex << " EdgeKey= (" << thisEdgeKey[i].node0 << ", " << thisEdgeKey[i].node1 << ")";
-                loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
-            }
-        }
-
         // Construct the set of EdgeKeys corresponding to edges of processBoundaries
         // ********************************************************
         loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started marking process boundary edges");
@@ -899,8 +868,8 @@ protected:
                 if (gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].find(thisEdgeLocalIndex) ==
                 	gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].end())
                 {
-                	// Change the structural type of this edge to ProcessBoundary
-                	gridstorage_.edge_[thisEdgeLocalIndex].structuralType = GridStorageType::PartitionType::ProcessBoundary;
+                	// Change the structural type of this edge to be ProcessBoundary
+                	gridstorage_.edge_[thisEdgeLocalIndex].ptype = Dune::PartitionType::BorderEntity;
 
                 	// Insert this edge into the local2local map
                 	// DO NOT combine these two lines into one - then the map returns the size after insertion which is +1 to expected
@@ -1047,7 +1016,7 @@ protected:
         for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)
         {
             if (edgeNonOwned.find(iEdge) == edgeNonOwned.end())  { gridstorage_.edge_[iEdge].globalIndex = iEdgeGlobalId++; }
-            else { loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: do not own edge localIndex=" + std::to_string(iEdge) + " of type=" + gridstorage_.PartitonTypeName[gridstorage_.edge_[iEdge].structuralType] ); }
+            else { loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridConstructor: do not own edge localIndex=" + std::to_string(iEdge) + " of type=" + Dune::PartitionName(gridstorage_.edge_[iEdge].ptype)); }
         }
 
 

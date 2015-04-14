@@ -101,9 +101,9 @@ namespace Dune
 
         	  //std::cout << "Constructing Intersection elementIndex=" << localIndexInside << " internal index=" << subIndexInside << " gets face index=" << localFaceIndex_ << std::endl;
 
-        	  StructuralType faceType = gridbase.entityStructuralType(FACE_CODIM, localFaceIndex_);
+        	  StructuralType faceType = gridbase.entityPartitionType(FACE_CODIM, localFaceIndex_);
 
-        	  if (faceType == GridStorageType::PartitionType::Ghost)
+        	  if (faceType == Dune::PartitionType::GhostEntity)
         	  {
         		  if (ghostcheck)  { next(); }
         		  else
@@ -166,35 +166,27 @@ namespace Dune
 
       Entity inside () const
       {
-    	  //std::cout << "inside" << std::endl;
-
     	  IndexSetIterator thisIter = gridbase_->entityIndexIterator(ELEMENT_CODIM, localIndexInside_);
-    	  StructuralType structtype = gridbase_->entityStructuralType(ELEMENT_CODIM, localIndexInside_);
     	  return Entity(EntityImpl(thisIter, *gridbase_, All_Partition));
       }
 
 
       Entity outside () const
       {
-    	  //std::cout << "outside" << std::endl;
-
     	  if (!neighbor())  {
     		  std::cout << "Error: Intersection: entityPointer of non-existing outside entity requested" << std::endl;
     		  DUNE_THROW(Dune::IOError, "Intersection: entityPointer of non-existing outside entity requested");
     	  }
 
     	  IndexSetIterator thisIter = gridbase_->entityIndexIterator(ELEMENT_CODIM, localIndexOutside_);
-    	  StructuralType structtype = gridbase_->entityStructuralType(ELEMENT_CODIM, localIndexOutside_);
     	  return Entity(EntityImpl(thisIter, *gridbase_, All_Partition));
       }
 
 
       // By dune-convention, domain and periodic boundaries are considered boundaries
       bool boundary () const {
-    	  //std::cout << "boundary" << std::endl;
-
-    	  StructuralType structtype = gridbase_->entityStructuralType(FACE_CODIM, localFaceIndex_);
-    	  return (structtype == GridStorageType::PartitionType::DomainBoundary);
+    	  StructuralType boundaryType = gridbase_->faceBoundaryType(localFaceIndex_);
+    	  return (boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary);
       }
 
 
@@ -205,13 +197,11 @@ namespace Dune
       // By dune-convention, everything has a neighbour, except domain boundaries, and (process boundaries in serial case)
       bool neighbor () const
       {
-    	  //std::cout << "neighbor" << std::endl;
-    	  StructuralType structtype = gridbase_->entityStructuralType(FACE_CODIM, localFaceIndex_);
+    	  StructuralType boundaryType  = gridbase_->faceBoundaryType(localFaceIndex_);
+    	  StructuralType partitionType = gridbase_->entityPartitionType(FACE_CODIM, localFaceIndex_);
 
-    	  if (structtype == GridStorageType::PartitionType::DomainBoundary)  { return false; }
-    	  if (structtype == GridStorageType::PartitionType::ProcessBoundary) { return !gridbase_->isSerial(); }
-
-    	  //std::cout << "finished neighbor" << std::endl;
+    	  if (boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary)  { return false; }
+    	  if (partitionType == Dune::PartitionType::BorderEntity) { return !gridbase_->isSerial(); }
 
     	  return true;
       }
@@ -338,7 +328,7 @@ namespace Dune
     	  {
     		  localFaceIndex_ = gridbase_->subentityLocalIndex (localIndexInside_, ELEMENT_CODIM, FACE_CODIM, subIndexInside_);
 
-    		  inc = (gridbase_->entityStructuralType(FACE_CODIM, localFaceIndex_) == GridStorageType::PartitionType::Ghost);
+    		  inc = (gridbase_->entityPartitionType(FACE_CODIM, localFaceIndex_) == Dune::PartitionType::GhostEntity);
     		  if (inc) { subIndexInside_++; }
     	  }
 
@@ -369,7 +359,7 @@ namespace Dune
         	  while (!found_face)
         	  {
         		  if (iFace >= 4)  {
-        			  std::cout << "*** when searching faceIndex=" << localFaceIndex_ << " of structural type" << gridbase_->entityStructuralType(FACE_CODIM, localFaceIndex_) <<" of outsideIndex=" << localIndexOutside_ << std::endl;
+        			  std::cout << "*** when searching faceIndex=" << localFaceIndex_ << " of structural type" << gridbase_->entityPartitionType(FACE_CODIM, localFaceIndex_) <<" of outsideIndex=" << localIndexOutside_ << std::endl;
         			  std::cout << "Error: Intersection: Not found face as its outside-element subentity" << std::endl;
         			  DUNE_THROW(Dune::IOError, "Intersection: Not found face as its outside-element subentity");
         		  }

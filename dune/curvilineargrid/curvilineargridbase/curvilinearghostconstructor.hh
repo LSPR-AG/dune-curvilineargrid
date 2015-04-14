@@ -98,10 +98,7 @@ public:
     static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
     // Face Structural Type
-    static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
-    static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
-    static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
-    static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
+    static const unsigned int BOUNDARY_SEGMENT_PARTITION_TYPE = GridStorageType::BOUNDARY_SEGMENT_PARTITION_TYPE;
 
     // Logging Message Typedefs
     static const unsigned int LOG_CATEGORY_DEBUG  = LoggingMessage::Category::DEBUG;
@@ -514,7 +511,7 @@ protected:
                 EntityStorage thisElement;
                 thisElement.geometryType = meshGeometryType;
                 thisElement.globalIndex = packageGhostElementData[iData++];
-                thisElement.structuralType = GhostType;
+                thisElement.ptype       = Dune::PartitionType::GhostEntity;
                 thisElement.interpOrder = neighborProcessGhostInterpOrder_[iProc][iGhost];
                 thisElement.physicalTag = packageGhostElementData[iData++];
 
@@ -548,7 +545,9 @@ protected:
                     	FaceStorage thisFace;
                     	thisFace.geometryType.makeTriangle();
                     	thisFace.globalIndex              = thisFaceGlobalIndex;
-                    	thisFace.structuralType           = GhostType;
+                    	thisFace.ptype                    = Dune::PartitionType::GhostEntity;
+                    	thisFace.boundaryType             = GridStorageType::FaceBoundaryType::None;
+
                     	thisFace.element1Index            = thisElementLocalIndex;
                     	thisFace.element2Index            = 0;      // Currently not implemented, user should not need a local index of an entity which is not on this process
                     	thisFace.element1SubentityIndex   = iFace;  // Faces should be communicated in the correct subentity order
@@ -585,7 +584,7 @@ protected:
 
                     	EdgeStorage thisEdge;
                 		thisEdge.globalIndex      = thisEdgeGlobalIndex;
-                		thisEdge.structuralType   = GhostType;
+                		thisEdge.ptype            = Dune::PartitionType::GhostEntity;
                 		thisEdge.elementIndex     = thisElementLocalIndex;
                 		thisEdge.subentityIndex   = iEdge;  // Edges should be communicated in the correct subentity order
 
@@ -627,7 +626,7 @@ protected:
                     	thisElement.vertexIndexSet.push_back(localVertexIndex);
 
                         // Insert the fake vertex into the mesh
-                        insertFakeVertex(thisVertexGlobalIndex, GhostType);
+                        insertFakeVertex(thisVertexGlobalIndex, Dune::PartitionType::GhostEntity);
 
                         // Note that this vertex needs communicating
                         missingVerticesFromThisProcess.insert(thisVertexGlobalIndex);
@@ -798,11 +797,11 @@ protected:
     }
 
 
-    void insertFakeVertex(GlobalIndexType globalIndex, StructuralType structtype = InternalType)
+    void insertFakeVertex(GlobalIndexType globalIndex, Dune::PartitionType ptype = Dune::PartitionType::InteriorEntity)
     {
         VertexStorage point;
         point.globalIndex = globalIndex;
-        point.structuralType = structtype;
+        point.ptype = ptype;
 
         gridstorage_.entityIndexMap_[VERTEX_CODIM][globalIndex] = gridstorage_.point_.size();
         gridstorage_.point_.push_back(point);

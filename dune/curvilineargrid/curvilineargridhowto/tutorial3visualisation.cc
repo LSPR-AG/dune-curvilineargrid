@@ -65,16 +65,16 @@ void writeVTKentities (
 	  std::vector<GlobalCoordinate>  interpVertices = geom.vertexSet();
 
 	  Dune::GeometryType gt              = it->type();
+	  Dune::PartitionType ptype          = it->partitionType();
 	  LocalIndexType  localIndex         = grid.leafIndexSet().index(*it);
 	  GlobalIndexType globalIndex        = grid.template entityGlobalIndex<codim>(*it);
 	  PhysicalTagType physicalTag        = grid.template entityPhysicalTag<codim>(*it);
-	  StructuralType  structType         = grid.template entityStructuralType<codim>(*it);
 	  InterpolatoryOrderType interpOrder = grid.template entityInterpolationOrder<codim>(*it);
 
 	  // If we requested to output entities of this type, we will write them to VTK
-	  if (typeset.find(structType) != typeset.end())
+	  if (typeset.find(ptype) != typeset.end())
 	  {
-		std::vector<int>         tags  { physicalTag, structType, mpihelper.rank() };
+		std::vector<int>         tags  { physicalTag, ptype, mpihelper.rank() };
 
     	vtkCurvWriter.template addCurvilinearElement<mydim>(
     			gt,
@@ -115,13 +115,6 @@ int main (int argc , char **argv) {
 	GridType * grid = createGrid<GridType>(mpihelper);
 
 
-	// Define the structural types used by the VTK writer
-	const int InternalType        = GridStorageType::PartitionType::Internal;
-	const int GhostType           = GridStorageType::PartitionType::Ghost;
-	const int DomainBoundaryType  = GridStorageType::PartitionType::DomainBoundary;
-	const int ProcessBoundaryType = GridStorageType::PartitionType::ProcessBoundary;
-
-
 	// Additional VTK writer constants
 	// Note that these can be specified uniquely for each element added to the writer if necessary
 	int N_DISCRETIZATION_POINTS = 5;    // Number of linear points to subdivide a curvilinear line (min=2 - linear)
@@ -140,8 +133,8 @@ int main (int argc , char **argv) {
 	WRITE_VTK_EDGES     = false;       // If edges should be used to discretize this element
 	WRITE_VTK_TRIANGLES = true;        // If triangles should be used to discretize this element
 	std::set<StructuralType>  writeElements;
-	writeElements.insert(InternalType);
-	writeElements.insert(GhostType);
+	writeElements.insert(Dune::PartitionType::InteriorEntity);
+	writeElements.insert(Dune::PartitionType::GhostEntity);
 	writeVTKentities<0, GridType>(
 			*grid,
 			mpihelper,

@@ -79,7 +79,8 @@ public:
     {
     	std::cout << " Error: DataHandleConstant: sending data from unexpected entity index=" << ind;
 
-    	std::cout << " of structural type " << grid_.gridbase().entityStructuralType(EntityType::codimension, ind);
+    	/*
+    	std::cout << " of structural type " << Dune::PartitionName(e.partitionType());
     	int parentIndex = grid_.gridbase().edgeNeighbor(ind);
     	std::cout << " of parent index " << parentIndex << " of structural type " << grid_.gridbase().entityStructuralType(0, parentIndex);
 
@@ -89,6 +90,7 @@ public:
     		std::cout << " has neighbor face " << storage.elementSubentityCodim1_[parentIndex][i] << " of type " << grid_.gridbase().entityStructuralType(0, parentIndex);
     	}
     	std::cout << std::endl;
+    	*/
 
 
     	DUNE_THROW( Dune::GridError, " DataHandleConst: sending data from entity that is not supposed to communicate" );

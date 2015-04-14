@@ -64,11 +64,6 @@ namespace Dune
         // Logging Message Typedefs
         static const unsigned int LOG_CATEGORY_DEBUG = LoggingMessage::Category::DEBUG;
 
-    	static const int  InternalType        = GridStorageType::PartitionType::Internal;
-    	static const int  ProcessBoundaryType = GridStorageType::PartitionType::ProcessBoundary;
-    	static const int  DomainBoundaryType  = GridStorageType::PartitionType::DomainBoundary;
-    	static const int  GhostType           = GridStorageType::PartitionType::Ghost;
-
 
     	struct InterfaceSubsetType
     	{
@@ -111,27 +106,36 @@ namespace Dune
     		logstr << " using interface " << interface2string(iftype, dir);
     		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, logstr.str());
 
-    		// Communication protocol ProcessBoundary -> ProcessBoundary
-    		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_ProcessBoundary))
+
+    		if (codim > 0)
     		{
-    			loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol PB->PB");
-    			communicateMain<DataHandle, Data, codim>(
-    				datahandle,
-    				gridbase_.selectCommMap(codim, ProcessBoundaryType),
-    				gridbase_.selectCommRankVector(codim, ProcessBoundaryType, ProcessBoundaryType)
-    			);
+        		// Communication protocol ProcessBoundary -> ProcessBoundary
+        		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_ProcessBoundary))
+        		{
+        			loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol PB->PB");
+        			communicateMain<DataHandle, Data, codim>(
+        				datahandle,
+        				gridbase_.selectCommMap(codim, PartitionType::BorderEntity),
+        				gridbase_.selectCommRankVector(codim, PartitionType::BorderEntity, PartitionType::BorderEntity)
+        			);
+        		}
+
+        		// Communication protocol ProcessBoundary -> Ghost
+        		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_Ghost))
+        		{
+        			loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol PB->G");
+        			communicateMain<DataHandle, Data, codim>(
+        				datahandle,
+        				gridbase_.selectCommMap(codim, PartitionType::BorderEntity),
+        				gridbase_.selectCommRankVector(codim, PartitionType::BorderEntity, PartitionType::GhostEntity)
+        			);
+        		}
+    		} else
+    		{
+    			loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Skipping PB communication for codim=" + std::to_string(codim));
     		}
 
-    		// Communication protocol ProcessBoundary -> Ghost
-    		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_Ghost))
-    		{
-    			loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol PB->G");
-    			communicateMain<DataHandle, Data, codim>(
-    				datahandle,
-    				gridbase_.selectCommMap(codim, ProcessBoundaryType),
-    				gridbase_.selectCommRankVector(codim, ProcessBoundaryType, GhostType)
-    			);
-    		}
+
 
     		// Communication protocol BoundaryInternal -> Ghost
     		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Internal_Ghost))
@@ -139,8 +143,8 @@ namespace Dune
     			loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol I->G");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
-    				gridbase_.selectCommMap(codim, InternalType),
-    				gridbase_.selectCommRankVector(codim, InternalType, GhostType)
+    				gridbase_.selectCommMap(codim, PartitionType::InteriorEntity),
+    				gridbase_.selectCommRankVector(codim, PartitionType::InteriorEntity, PartitionType::GhostEntity)
     			);
     		}
 
@@ -150,8 +154,8 @@ namespace Dune
     			loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol G->I");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
-    				gridbase_.selectCommMap(codim, GhostType),
-    				gridbase_.selectCommRankVector(codim, GhostType, InternalType)
+    				gridbase_.selectCommMap(codim, PartitionType::GhostEntity),
+    				gridbase_.selectCommRankVector(codim, PartitionType::GhostEntity, PartitionType::InteriorEntity)
     			);
     		}
 
@@ -161,8 +165,8 @@ namespace Dune
     			loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, " -- Using communication protocol G->G");
     			communicateMain<DataHandle, Data, codim>(
     				datahandle,
-    				gridbase_.selectCommMap(codim, GhostType),
-    				gridbase_.selectCommRankVector(codim, GhostType, GhostType)
+    				gridbase_.selectCommMap(codim, PartitionType::GhostEntity),
+    				gridbase_.selectCommRankVector(codim, PartitionType::GhostEntity, PartitionType::GhostEntity)
     			);
     		}
     	}
@@ -305,7 +309,7 @@ namespace Dune
     		std::stringstream logstr;
     		logstr << "---- contents of this comm map: total=" << mapSend.size() << " ";
     		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)  {
-    			logstr << "(" << (*iter).first << "," << gridbase_.entityStructuralType(codim, (*iter).first) << ") ";
+    			logstr << "(" << (*iter).first << "," << gridbase_.entityPartitionType(codim, (*iter).first) << ") ";
     		}
     		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, logstr.str());
 
@@ -322,7 +326,7 @@ namespace Dune
     			}
 
     			// Get Entity
-    			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
+    			//StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
     			Entity thisEntity = Entity(EntityImpl(thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition));
     			datahandle.gather(gathermessagebuffer, thisEntity);
 
@@ -382,7 +386,7 @@ namespace Dune
     				DUNE_THROW( GridError, " Communication: Local index of received entity with global index " << thisEntityGlobalIndex << " not found" );
     			}
 
-    			StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
+    			//StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
     			Entity thisEntity = Entity(EntityImpl(thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition));
 
     			// Scatter data

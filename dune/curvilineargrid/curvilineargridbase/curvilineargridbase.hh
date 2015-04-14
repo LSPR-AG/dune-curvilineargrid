@@ -219,10 +219,11 @@ public:
     static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
     // Partition type shorthands
-    static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
-    static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
-    static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
-    static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
+    static const unsigned int BOUNDARY_SEGMENT_PARTITION_TYPE = GridStorageType::BOUNDARY_SEGMENT_PARTITION_TYPE;
+
+    static const unsigned int NO_BOUNDARY_TYPE     = GridStorageType::FaceBoundaryType::None;
+    static const unsigned int DOMAIN_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::DomainBoundary;
+
 
 
 
@@ -346,29 +347,27 @@ public:
 
         log_stream << std::endl; "    *** ";
         log_stream << " nCorner="                    << nEntity(VERTEX_CODIM);
-        log_stream << " nCornerInternal="            << nEntity(VERTEX_CODIM, InternalType);
-        log_stream << " nCornerDomainBoundary="      << nEntity(VERTEX_CODIM, DomainBoundaryType);
-        log_stream << " nCornerProcessBoundary="     << nEntity(VERTEX_CODIM, ProcessBoundaryType);
-        log_stream << " nCornerGhost="               << nEntity(VERTEX_CODIM, GhostType);
+        log_stream << " nCornerInterior="            << nEntity(VERTEX_CODIM, PartitionType::InteriorEntity);
+        log_stream << " nCornerBorder="              << nEntity(VERTEX_CODIM, PartitionType::BorderEntity);
+        log_stream << " nCornerGhost="               << nEntity(VERTEX_CODIM, PartitionType::GhostEntity);
 
         log_stream << std::endl; "    *** ";
         log_stream << " nEdge="                      << nEntity(EDGE_CODIM);
-        log_stream << " nEdgeInternal="              << nEntity(EDGE_CODIM, InternalType);
-        log_stream << " nEdgeDomainBoundary="        << nEntity(EDGE_CODIM, DomainBoundaryType);
-        log_stream << " nEdgeProcessBoundary="       << nEntity(EDGE_CODIM, ProcessBoundaryType);
-        log_stream << " nEdgeGhost="                 << nEntity(EDGE_CODIM, GhostType);
+        log_stream << " nEdgeInterior="              << nEntity(EDGE_CODIM, PartitionType::InteriorEntity);
+        log_stream << " nEdgeBorder="                << nEntity(EDGE_CODIM, PartitionType::BorderEntity);
+        log_stream << " nEdgeGhost="                 << nEntity(EDGE_CODIM, PartitionType::GhostEntity);
 
         log_stream << std::endl; "    *** ";
         log_stream << " nFace="                      << nEntity(FACE_CODIM);
-        log_stream << " nFaceInternal="              << nEntity(FACE_CODIM, InternalType);
-        log_stream << " nFaceDomainBoundary="        << nEntity(FACE_CODIM, DomainBoundaryType);
-        log_stream << " nFaceProcessBoundary="       << nEntity(FACE_CODIM, ProcessBoundaryType);
-        log_stream << " nFaceGhost="                 << nEntity(FACE_CODIM, GhostType);
+        log_stream << " nFaceInterior="              << nEntity(FACE_CODIM, PartitionType::InteriorEntity);
+        log_stream << " nFaceBoundarySegment="       << nEntity(FACE_CODIM, PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
+        log_stream << " nFaceBorder="                << nEntity(FACE_CODIM, PartitionType::BorderEntity);
+        log_stream << " nFaceGhost="                 << nEntity(FACE_CODIM, PartitionType::GhostEntity);
 
         log_stream << std::endl; "    *** ";
         log_stream << " nElement="                   << nEntity(ELEMENT_CODIM);
-        log_stream << " nInternalElement="           << nEntity(ELEMENT_CODIM, InternalType);
-        log_stream << " nGhostElement="              << nEntity(ELEMENT_CODIM, GhostType);
+        log_stream << " nElementInterior="           << nEntity(ELEMENT_CODIM, PartitionType::InteriorEntity);
+        log_stream << " nElementGhost="              << nEntity(ELEMENT_CODIM, PartitionType::GhostEntity);
 
         loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
     }
@@ -423,7 +422,10 @@ public:
 
 
     /** Get total number of entities of specific type on this process  */
-    int nEntity(int codim, StructuralType structtype) const  { return entityIndexSetSelect(codim, structtype).size(); }
+    int nEntity(int codim, PartitionType ptype, StructuralType btype = NO_BOUNDARY_TYPE) const
+    {
+    	return entityIndexSetSelect(codim, ptype, btype).size();
+    }
 
 
     /** Get the GeometryType of entities on this process  */
@@ -480,6 +482,7 @@ public:
 
 
     /** Checks if the entity with specified codim and local index exists, and if it has the specified structtype  */
+    /*
     bool verifyEntity(int codim, LocalIndexType localIndex, StructuralType structtype) const
     {
     	LocalIndexSet & thisSet = entityIndexSetSelect(codim, structtype);
@@ -487,6 +490,7 @@ public:
     	if (thisSet.find(localIndex) == thisSet.end())  { return false; }
     	else  { return true; }
     }
+    */
 
 
     /** Returns the globalId of the entity  */
@@ -501,21 +505,20 @@ public:
     /** Get boundary segment index of this entity if it is a Domain Boundary Face */
     LocalIndexType boundarySegmentIndex(LocalIndexType localIndex) const
     {
-    	StructuralType thisstructtype = entityStructuralType(FACE_CODIM, localIndex);
-    	assert(thisstructtype == DomainBoundaryType);
+    	assert(gridstorage_.face_[localIndex].boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary);
     	return gridstorage_.boundarySegmentIndexMap_.at(localIndex);
     }
 
 
     /** Get Structural Type of an entity */
-    StructuralType entityStructuralType(int codim, LocalIndexType localIndex) const
+    PartitionType entityPartitionType(int codim, LocalIndexType localIndex) const
     {
     	switch(codim)
     	{
-    	case VERTEX_CODIM  : assert(localIndex < gridstorage_.point_.size());    return gridstorage_.point_[localIndex].structuralType;    break;
-    	case EDGE_CODIM    : assert(localIndex < gridstorage_.edge_.size());     return gridstorage_.edge_[localIndex].structuralType;     break;
-    	case FACE_CODIM    : assert(localIndex < gridstorage_.face_.size());     return gridstorage_.face_[localIndex].structuralType;     break;
-    	case ELEMENT_CODIM : assert(localIndex < gridstorage_.element_.size());  return gridstorage_.element_[localIndex].structuralType;  break;
+    	case VERTEX_CODIM  : assert(localIndex < gridstorage_.point_.size());    return gridstorage_.point_[localIndex].ptype;    break;
+    	case EDGE_CODIM    : assert(localIndex < gridstorage_.edge_.size());     return gridstorage_.edge_[localIndex].ptype;     break;
+    	case FACE_CODIM    : assert(localIndex < gridstorage_.face_.size());     return gridstorage_.face_[localIndex].ptype;     break;
+    	case ELEMENT_CODIM : assert(localIndex < gridstorage_.element_.size());  return gridstorage_.element_[localIndex].ptype;  break;
     	default :
     	{
     		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridBase: unexpected codim " + std::to_string(codim));
@@ -523,6 +526,12 @@ public:
     		break;
     	}
     	}
+    }
+
+    /** Get Boundary type of an face */
+    StructuralType faceBoundaryType(LocalIndexType localIndex) const
+    {
+    	return gridstorage_.face_[localIndex].boundaryType;
     }
 
 
@@ -624,7 +633,7 @@ public:
 
     /** Get the neighbour ranks of this communication entity  */
     std::vector<int> & commEntityNeighborRankSet(
-    	int codim, LocalIndexType localIndex, StructuralType structSend, StructuralType structRecv
+    	int codim, LocalIndexType localIndex, PartitionType structSend, PartitionType structRecv
     )
 	{
     	typedef typename std::map<LocalIndexType,LocalIndexType>::const_iterator Local2LocalConstIter;
@@ -893,9 +902,9 @@ public:
     }
 
     // Iterator for entities of a given codimension and structural type only
-    IndexSetIterator entityIndexIterator(int codim, StructuralType structtype, LocalIndexType localIndex) const
+    IndexSetIterator entityIndexIterator(int codim, PartitionType ptype, LocalIndexType localIndex, StructuralType btype = NO_BOUNDARY_TYPE) const
     {
-    	return entityIndexSetSelect(codim, structtype).find(localIndex);
+    	return entityIndexSetSelect(codim, ptype, btype).find(localIndex);
     }
 
     // Iterator for entities of a given codimension and Dune partition type only
@@ -912,9 +921,15 @@ public:
 
     // Iterators over specific entities of a given codimension
     // This construction allows fast iteration over entities of specific structural type
-    IndexSetIterator entityIndexBegin(int codim, StructuralType structtype)  { return entityIndexSetSelect(codim, structtype).begin(); }
+    IndexSetIterator entityIndexBegin(int codim, PartitionType ptype, StructuralType btype = NO_BOUNDARY_TYPE) const
+    {
+    	return entityIndexSetSelect(codim, ptype, btype).begin();
+    }
 
-    IndexSetIterator entityIndexEnd(int codim, StructuralType structtype)    { return entityIndexSetSelect(codim, structtype).end(); }
+    IndexSetIterator entityIndexEnd(int codim, PartitionType ptype, StructuralType btype = NO_BOUNDARY_TYPE) const
+    {
+    	return entityIndexSetSelect(codim, ptype, btype).end();
+    }
 
 
     IndexSetIterator entityDuneIndexBegin(int codim, Dune::PartitionIteratorType pitype) const { return entityIndexSetDuneSelect(codim, pitype).begin(); }
@@ -929,41 +944,27 @@ public:
      * Section: Public Auxiliary Methods
      * ***************************************************************************/
 
-    Dune::PartitionType structural2PartitionType(StructuralType structtype) const
-    {
-    	switch (structtype)
-    	{
-    	  case GridStorageType::PartitionType::Internal          : return PartitionType::InteriorEntity;
-    	  case GridStorageType::PartitionType::DomainBoundary    : return PartitionType::InteriorEntity;
-    	  case GridStorageType::PartitionType::ProcessBoundary   : return PartitionType::BorderEntity;
-    	  case GridStorageType::PartitionType::Ghost             : return PartitionType::GhostEntity;
-    	  default : DUNE_THROW(Dune::IOError, "CurvilinearGridBase: unexpected structural type for conversion");  break;
-    	}
-    }
-
-
-    /** \brief Retrieves the string associated with the specified structural type */
-    std::string PartitonTypeName(StructuralType structtype) const  { return gridstorage_.PartitonTypeName[structtype]; }
-
     // Checks if entities of a given codim are allowed to be of a given structural type
     // If not throws an error
-    void assertValidCodimStructuralType(int codim, StructuralType structtype) const
+    void assertValidCodimStructuralType(int codim, StructuralType ptype) const
     {
-    	bool fail = false;
+    	bool pass = false;
 
-    	fail |= (structtype == GridStorageType::PartitionType::FrontBoundary);    // Not Implemented
-    	fail |= (structtype == GridStorageType::PartitionType::Overlap);          // Not Implemented
-    	fail |= (structtype == GridStorageType::PartitionType::InternalBoundary); // Not Implemented
+    	pass |= (ptype == Dune::PartitionType::InteriorEntity);
+    	pass |= (ptype == Dune::PartitionType::GhostEntity);
 
-    	if (codim == 0)
+    	if (codim > 0)
     	{
     		// Elements are not allowed to be boundaries
-    		fail |= ((structtype == GridStorageType::PartitionType::ProcessBoundary));
-    		fail |= ((structtype == GridStorageType::PartitionType::DomainBoundary));
+    		pass |= (ptype == Dune::PartitionType::BorderEntity);
     	}
 
-    	if (fail)  {
-    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridBase: Unexpected codim-structtype pair");
+
+    	if (!pass)  {
+    		std::stringstream logstr;
+    		logstr << "CurvilinearGridBase: Unexpected codim-structtype pair codim=" << codim;
+    		logstr << " ptype=" << ptype;
+    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, logstr.str());
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codim-structtype pair");
     	}
     }
@@ -974,43 +975,45 @@ public:
      * Section: Selector methods for shorthand access of specific arrays
      * ***************************************************************************/
 
-    Local2LocalMap & selectCommMap(int codim, StructuralType structtype)
+    Local2LocalMap & selectCommMap(int codim, PartitionType ptype)
     {
-    	switch (structtype)
+    	switch (ptype)
     	{
-    	case InternalType          :  return gridstorage_.boundaryInternalEntityIndexMap_[codim];  break;
-    	case ProcessBoundaryType   :  return gridstorage_.processBoundaryIndexMap_[codim];         break;
-    	case GhostType             :  return gridstorage_.ghostIndexMap_[codim];                   break;
-    	default                    :  DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected comm structural type");  break;
+    	case Dune::PartitionType::InteriorEntity :  return gridstorage_.boundaryInternalEntityIndexMap_[codim];  break;
+    	case Dune::PartitionType::BorderEntity   :  return gridstorage_.processBoundaryIndexMap_[codim];         break;
+    	case Dune::PartitionType::GhostEntity    :  return gridstorage_.ghostIndexMap_[codim];                   break;
+    	default                                  :  DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected comm structural type");  break;
     	}
     }
 
 
-    EntityNeighborRankVector & selectCommRankVector(int codim, StructuralType structSend, StructuralType structRecv)
+    EntityNeighborRankVector & selectCommRankVector(int codim, PartitionType ptypesend, PartitionType ptyperecv)
     {
     	// Can only communicate over these 3 PartitionTypes
-    	assert((structRecv == InternalType)||(structRecv == ProcessBoundaryType)||(structRecv == GhostType));
+    	//assertValidCodimStructuralType(codim, ptypesend);
+    	//assertValidCodimStructuralType(codim, ptyperecv);
 
-    	switch (structSend)
+    	switch (ptypesend)
     	{
-    	case InternalType          :   // Internal -> Ghost protocol
+    	case Dune::PartitionType::InteriorEntity :   // Internal -> Ghost protocol
     	{
-    		assert(structRecv == GhostType);
+    		assert(ptyperecv == Dune::PartitionType::GhostEntity);
     		return gridstorage_.BI2GNeighborRank_[codim];
     	} break;
-    	case ProcessBoundaryType   :   // PB -> PB and PB -> Ghost protocols
+    	case Dune::PartitionType::BorderEntity   :   // PB -> PB and PB -> Ghost protocols
     	{
-    		assert((structRecv == ProcessBoundaryType)||(structRecv == GhostType));
-    		if (structRecv == ProcessBoundaryType)  { return gridstorage_.PB2PBNeighborRank_[codim]; }
-    		if (structRecv == GhostType)            { return gridstorage_.PB2GNeighborRank_[codim]; }
+    		if      (ptyperecv == Dune::PartitionType::BorderEntity)  { return gridstorage_.PB2PBNeighborRank_[codim]; }
+    		else if (ptyperecv == Dune::PartitionType::GhostEntity)   { return gridstorage_.PB2GNeighborRank_[codim]; }
+    		else { assert(0); }
     	} break;
-    	case GhostType             :   // Ghost -> (Internal & PB) and Ghost -> Ghost protocols
+    	case Dune::PartitionType::GhostEntity    :   // Ghost -> (Internal & PB) and Ghost -> Ghost protocols
     	{
-    		assert((structRecv == InternalType)||(structRecv == ProcessBoundaryType)||(structRecv == GhostType));
-    		if (structRecv == InternalType)         { return gridstorage_.G2BIPBNeighborRank_[codim]; }
-    		if (structRecv == ProcessBoundaryType)  { return gridstorage_.G2BIPBNeighborRank_[codim]; }
-    		if (structRecv == GhostType)            { return gridstorage_.G2GNeighborRank_[codim]; }
+    		if      (ptyperecv == Dune::PartitionType::InteriorEntity) { return gridstorage_.G2BIPBNeighborRank_[codim]; }
+    		else if (ptyperecv == Dune::PartitionType::BorderEntity)   { return gridstorage_.G2BIPBNeighborRank_[codim]; }
+    		else if (ptyperecv == Dune::PartitionType::GhostEntity)    { return gridstorage_.G2GNeighborRank_[codim]; }
+    		else { assert(0); }
     	} break;
+    	default: assert(0);  break;
 
     	}
     }
@@ -1030,16 +1033,23 @@ protected:
     }
 
     // Returns a link to the set of all local indices of entities of a given codimension and specific structural type
-    const LocalIndexSet & entityIndexSetSelect(int codim, StructuralType structtype) const
+    const LocalIndexSet & entityIndexSetSelect(int codim, PartitionType ptype, StructuralType boundaryType) const
     {
-    	assertValidCodimStructuralType(codim, structtype);
+    	assertValidCodimStructuralType(codim, ptype);
 
-    	switch(structtype)
+    	// Check if this is a request for a boundary index set
+    	if (boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary)
     	{
-    	case InternalType          : return gridstorage_.entityInternalIndexSet_[codim];          break;
-    	case DomainBoundaryType    : return gridstorage_.entityDomainBoundaryIndexSet_[codim];    break;
-    	case ProcessBoundaryType   : return gridstorage_.entityProcessBoundaryIndexSet_[codim];   break;
-    	case GhostType             : return gridstorage_.entityGhostIndexSet_[codim];             break;
+    		assert(codim == FACE_CODIM);  // According to convention, only faces can be boundarySegments
+    		return gridstorage_.faceDomainBoundaryIndexSet_;
+    	}
+
+    	// Otherwise, this must be a request for a standard dune entity iterator
+    	switch(ptype)
+    	{
+    	case Dune::PartitionType::InteriorEntity   : return gridstorage_.entityInternalIndexSet_[codim];          break;
+    	case Dune::PartitionType::BorderEntity     : return gridstorage_.entityProcessBoundaryIndexSet_[codim];   break;
+    	case Dune::PartitionType::GhostEntity      : return gridstorage_.entityGhostIndexSet_[codim];             break;
     	}
     }
 
@@ -1072,10 +1082,10 @@ protected:
 
         EntityStorage thisPoint;
         thisPoint.geometryType.makeVertex();
-        thisPoint.globalIndex     = thisPointData.globalIndex;
-        thisPoint.structuralType  = thisPointData.structuralType;
-        thisPoint.interpOrder     = 0;                    // Note: Points do not have an interpolation order
-        thisPoint.physicalTag     = -1;                   // Note: Points do not have a physical tag
+        thisPoint.globalIndex  = thisPointData.globalIndex;
+        thisPoint.ptype        = thisPointData.ptype;
+        thisPoint.interpOrder  = 0;                    // Note: Points do not have an interpolation order
+        thisPoint.physicalTag  = -1;                   // Note: Points do not have a physical tag
         thisPoint.vertexIndexSet.push_back(localIndex);   // Note: Point has only one vertex, and its index is the point index
 
         return thisPoint;
@@ -1089,10 +1099,10 @@ protected:
 
         EntityStorage thisEdge;
         thisEdge.geometryType.makeLine();
-        thisEdge.globalIndex     = thisEdgeData.globalIndex;
-        thisEdge.structuralType  = thisEdgeData.structuralType;
-        thisEdge.interpOrder     = assocElement.interpOrder;
-        thisEdge.physicalTag     = -1;        // Note: Edges do not have a physical tag
+        thisEdge.globalIndex  = thisEdgeData.globalIndex;
+        thisEdge.ptype        = thisEdgeData.ptype;
+        thisEdge.interpOrder  = assocElement.interpOrder;
+        thisEdge.physicalTag  = -1;        // Note: Edges do not have a physical tag
 
         // Get the internal element vertex indices associated with this face as a subentity
         std::vector<InternalIndexType> subentityVertexIndices =
@@ -1113,10 +1123,12 @@ protected:
 
         EntityStorage thisFace;
         thisFace.geometryType.makeTriangle();
-        thisFace.globalIndex     = thisFaceData.globalIndex;
-        thisFace.structuralType  = thisFaceData.structuralType;
-        thisFace.interpOrder     = assocElement.interpOrder;
-        thisFace.physicalTag     = thisFaceData.physicalTag;
+        thisFace.globalIndex  = thisFaceData.globalIndex;
+        thisFace.ptype        = thisFaceData.ptype;
+        //if (thisFaceData.boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary)  { thisFace.ptype = BOUNDARY_SEGMENT_PARTITION_TYPE; }
+
+        thisFace.interpOrder  = assocElement.interpOrder;
+        thisFace.physicalTag  = thisFaceData.physicalTag;
 
         // Get the internal element vertex indices associated with this face as a subentity
         std::vector<InternalIndexType> subentityVertexIndices =

@@ -145,6 +145,11 @@ namespace Dune
     static const unsigned int InternalType         = GridBaseType::InternalType;
     static const unsigned int GhostType            = GridBaseType::GhostType;
 
+    static const unsigned int BOUNDARY_SEGMENT_PARTITION_TYPE = GridStorageType::BOUNDARY_SEGMENT_PARTITION_TYPE;
+    static const int NO_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::None;
+    static const int DOMAIN_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::DomainBoundary;
+
+
     static const int   VERTEX_CODIM   = GridStorageType::VERTEX_CODIM;
     static const int   EDGE_CODIM     = GridStorageType::EDGE_CODIM;
     static const int   FACE_CODIM     = GridStorageType::FACE_CODIM;
@@ -303,9 +308,19 @@ namespace Dune
      */
     size_t numBoundarySegments () const
     {
-    	return gridbase_->nEntity(FACE_CODIM, GridStorageType::PartitionType::DomainBoundary);
+    	return gridbase_->nEntity(FACE_CODIM, PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
     }
     /** \} */
+
+    size_t numProcessBoundaries () const
+    {
+    	return gridbase_->nEntity(FACE_CODIM, PartitionType::BorderEntity);
+    }
+
+    size_t numInternal(int codim) const
+    {
+    	return gridbase_->nEntity(codim, PartitionType::InteriorEntity);
+    }
 
     const GlobalIdSet &globalIdSet () const  { return globalIdSet_; }
 
@@ -479,7 +494,7 @@ namespace Dune
      *
      *  \param[in]  codim  codimension for with the information is desired
      */
-    int ghostSize( int codim ) const  { return gridbase_->nEntity(codim, GridStorageType::PartitionType::Ghost); }
+    int ghostSize( int codim ) const  { return gridbase_->nEntity(codim, Dune::PartitionType::GhostEntity); }
 
     /** \brief obtain size of overlap region for a grid level
      *
@@ -668,12 +683,6 @@ namespace Dune
     InterpolatoryOrderType entityInterpolationOrder (const typename Traits::template Codim< codim >::Entity &entity)
     {
     	return gridbase_->entityInterpolationOrder(codim, leafIndexSet().index(entity));
-    }
-
-    template<int codim>
-    StructuralType entityStructuralType (const typename Traits::template Codim< codim >::Entity &entity)
-    {
-    	return gridbase_->entityStructuralType(codim, leafIndexSet().index(entity));
     }
 
     template<int codim>

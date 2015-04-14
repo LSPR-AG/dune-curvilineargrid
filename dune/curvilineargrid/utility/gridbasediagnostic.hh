@@ -24,8 +24,8 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef DUNE_CURVILINEARGRIDDIAGNOSTIC_HH
-#define DUNE_CURVILINEARGRIDDIAGNOSTIC_HH
+#ifndef DUNE_CURVILINEARGRIDBASEDIAGNOSTIC_HH
+#define DUNE_CURVILINEARGRIDBASEDIAGNOSTIC_HH
 
 #include <limits>
 #include <map>
@@ -62,7 +62,7 @@
 namespace Dune {
 
 template <class GridType>
-class CurvilinearGridDiagnostic
+class CurvilinearGridBaseDiagnostic
 {
 private:
 
@@ -98,16 +98,17 @@ private:
     static const unsigned int LOG_CATEGORY_DEBUG  = LoggingMessage::Category::DEBUG;
     static const unsigned int LOG_CATEGORY_ERROR  = LoggingMessage::Category::ERROR;
 
-    static const unsigned int DomainBoundaryType   = GridStorageType::PartitionType::DomainBoundary;
-    static const unsigned int ProcessBoundaryType  = GridStorageType::PartitionType::ProcessBoundary;
-    static const unsigned int InternalType         = GridStorageType::PartitionType::Internal;
-    static const unsigned int GhostType            = GridStorageType::PartitionType::Ghost;
+    // Face Boundary Type
+    static const int NO_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::None;
+    static const int DOMAIN_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::DomainBoundary;
+    static const int BOUNDARY_SEGMENT_PARTITION_TYPE = GridStorageType::BOUNDARY_SEGMENT_PARTITION_TYPE;
+
 
 	const int MASTER_PROCESS = 0;
 
 public:
 
-	CurvilinearGridDiagnostic(
+	CurvilinearGridBaseDiagnostic(
 		MPIHelper & mpihelper,
 		GridBaseType & gridbase) :
 			mpihelper_(mpihelper),
@@ -132,8 +133,8 @@ public:
 		 analyticTests(meshStatistics);
 
 		 writeCommunicateVector(diagnosticFile, "NELEMENT",                       meshStatistics[0]);
-		 writeCommunicateVector(diagnosticFile, "NDBFACE",                        meshStatistics[1]);
-		 writeCommunicateVector(diagnosticFile, "NPBFACE",                        meshStatistics[2]);
+		 writeCommunicateVector(diagnosticFile, "NPBFACE",                        meshStatistics[1]);
+		 writeCommunicateVector(diagnosticFile, "NDBFACE",                        meshStatistics[2]);
 		 writeCommunicateVector(diagnosticFile, "ElementShortestEdge",            meshStatistics[3]);
 		 writeCommunicateVector(diagnosticFile, "ElementLongestEdge",             meshStatistics[4]);
 		 writeCommunicateVector(diagnosticFile, "ElementLinearVolume",            meshStatistics[5]);
@@ -173,9 +174,12 @@ public:
 
     	Dune::CurvilinearVTKWriter<GridType> vtkCurvWriter(mpihelper_);
 
-
-    	typedef typename GridStorageType::PartitionType  CurvPT;
-    	std::vector<StructuralType>  structTypeSet {InternalType, GhostType, DomainBoundaryType, ProcessBoundaryType};
+    	std::vector<PartitionType>  structTypeSet
+    	{
+    		PartitionType::InteriorEntity,
+    		PartitionType::GhostEntity,
+    		PartitionType::BorderEntity
+    	};
 
     	for (int iType = 0; iType < structTypeSet.size(); iType++)
     	{
@@ -186,6 +190,9 @@ public:
     		if ((iType < 2) && (withElements[iType]))
     		                          { addVTKentity<ELEMENT_CODIM> (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeVtkEdges, writeVtkTriangles); }
     	}
+
+    	// Write boundarySegments if requested
+    	if (withFaces[3])  { addVTKentity<FACE_CODIM> (vtkCurvWriter, PartitionType::InteriorEntity, nDiscretizationPoints, interpolate, explode, writeVtkEdges, writeVtkTriangles, DOMAIN_BOUNDARY_TYPE); }
 
 
 		// Writing Mesh
@@ -215,9 +222,9 @@ protected:
 		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started collecting mesh statistics");
 
 
-		rez[0].push_back(gridbase_.template nEntity(ELEMENT_CODIM, InternalType));
-		rez[1].push_back(gridbase_.template nEntity(FACE_CODIM, DomainBoundaryType));
-		rez[2].push_back(gridbase_.template nEntity(FACE_CODIM, ProcessBoundaryType));
+		rez[0].push_back(gridbase_.template nEntity(ELEMENT_CODIM,  Dune::PartitionType::InteriorEntity));
+		rez[1].push_back(gridbase_.template nEntity(FACE_CODIM, Dune::PartitionType::BorderEntity));
+		rez[2].push_back(gridbase_.template nEntity(FACE_CODIM, Dune::PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE));
 
 		// 1) Collect statistics related to the elements of the mesh
 		// ***********************************************************************8
@@ -273,8 +280,8 @@ protected:
 		// ***********************************************************************
 		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Process Boundary statistics");
 		rez[12].push_back(0.0);  // processBoundarySurfaceArea
-		IndexSetIterator pbIterB = gridbase_.template entityIndexBegin(FACE_CODIM, ProcessBoundaryType);
-		IndexSetIterator pbIterE = gridbase_.template entityIndexEnd(FACE_CODIM, ProcessBoundaryType);
+		IndexSetIterator pbIterB = gridbase_.template entityIndexBegin(FACE_CODIM, Dune::PartitionType::BorderEntity);
+		IndexSetIterator pbIterE = gridbase_.template entityIndexEnd  (FACE_CODIM, Dune::PartitionType::BorderEntity);
 
 		for (IndexSetIterator pbIter = pbIterB;  pbIter != pbIterE;  pbIter++)
 		{
@@ -291,8 +298,8 @@ protected:
 		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Domain Boundary Statistics");
 
 		rez[13].push_back(0.0);  // domainBoundarySurfaceArea
-		IndexSetIterator dbIterB = gridbase_.template entityIndexBegin(FACE_CODIM, DomainBoundaryType);
-		IndexSetIterator dbIterE = gridbase_.template entityIndexEnd(FACE_CODIM, DomainBoundaryType);
+		IndexSetIterator dbIterB = gridbase_.template entityIndexBegin(FACE_CODIM, Dune::PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
+		IndexSetIterator dbIterE = gridbase_.template entityIndexEnd  (FACE_CODIM, Dune::PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
 
 		for (IndexSetIterator dbIter = dbIterB;  dbIter != dbIterE;  dbIter++)
 		{
@@ -316,34 +323,38 @@ protected:
 	template <int codim>
 	void addVTKentity(
 		Dune::CurvilinearVTKWriter<GridType> & vtkCurvWriter,
-		StructuralType structtype,
+		PartitionType ptype,
 		int nDiscretizationPoints,
 		bool interpolate,
 		bool explode,
 		bool VTK_WRITE_EDGES,
-		bool VTK_WRITE_TRIANGLES
+		bool VTK_WRITE_TRIANGLES,
+		StructuralType boundaryType = NO_BOUNDARY_TYPE
 	)
 	{
 		typedef typename GridBaseType::template Codim<codim>::EntityGeometry     EntityGeometry;
 
-		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started writing entities codim=" + std::to_string(codim) + " type=" + gridbase_.PartitonTypeName(structtype));
-
-		IndexSetIterator elemIterB =  gridbase_.template entityIndexBegin(codim, structtype);
-		IndexSetIterator elemIterE =  gridbase_.template entityIndexEnd(codim, structtype);
+		IndexSetIterator elemIterB =  gridbase_.template entityIndexBegin(codim, ptype, boundaryType);
+		IndexSetIterator elemIterE =  gridbase_.template entityIndexEnd(codim, ptype, boundaryType);
 
 		for (IndexSetIterator elemIter = elemIterB;  elemIter != elemIterE;  elemIter++)
 		{
-			LocalIndexType           thisLocalIndex = *elemIter;
-			StructuralType           thisStructType = gridbase_.entityStructuralType(codim, thisLocalIndex);
+			LocalIndexType    thisLocalIndex = *elemIter;
+			PartitionType     thisPType = gridbase_.entityPartitionType(codim, thisLocalIndex);
 
-			assert(thisStructType == structtype);  // Checking grid self-consistency
+			// Checking grid self-consistency
+			assert(thisPType == ptype);
+
+			// Since dune does not have tags assigned to boundaries, we assign special tag in this case
+			// [TODO] Rewrite this line when Periodic or Internal boundaries are implemented
+			StructuralType typeTag = (boundaryType != NO_BOUNDARY_TYPE) ? BOUNDARY_SEGMENT_PARTITION_TYPE : ptype;
 
 			PhysicalTagType          physicalTag       = gridbase_.physicalTag(codim, thisLocalIndex);
 			EntityGeometry           thisGeometry      = gridbase_.template entityGeometry<codim>(thisLocalIndex);
 			Dune::GeometryType       gt                = thisGeometry.type();
 			InterpolatoryOrderType   order             = thisGeometry.order();
 			std::vector<Vertex>      point             = thisGeometry.vertexSet();
-			std::vector<int>         tags  { physicalTag, structtype, rank_ };
+			std::vector<int>         tags  { physicalTag, typeTag, rank_ };
 
 	    	vtkCurvWriter.template addCurvilinearElement<cdim - codim>(
 	    			gt,
@@ -464,4 +475,4 @@ private:
 
 } // namespace Dune
 
-#endif  // DUNE_CURVILINEARGRIDDIAGNOSTIC_HH
+#endif  // DUNE_CURVILINEARGRIDBASEDIAGNOSTIC_HH

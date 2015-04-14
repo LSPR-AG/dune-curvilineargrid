@@ -67,11 +67,7 @@ namespace Dune
       typedef typename GridType::LoggingMessage           LoggingMessage;
       static const unsigned int LOG_CATEGORY_DEBUG = LoggingMessage::Category::DEBUG;
 
-      // Typedefs from GridBase
-      static const unsigned int DomainBoundaryType   = GridType::DomainBoundaryType;
-      static const unsigned int ProcessBoundaryType  = GridType::ProcessBoundaryType;
-      static const unsigned int InternalType         = GridType::InternalType;
-      static const unsigned int GhostType            = GridType::GhostType;
+      static const unsigned int BOUNDARY_SEGMENT_PARTITION_TYPE = GridType::BOUNDARY_SEGMENT_PARTITION_TYPE;
 
       // VTK constants
       const std::string VTK_XML_VERSION = "1.0";
@@ -124,17 +120,26 @@ namespace Dune
 
             )
     {
-    	const std::string PartitonTypeName[7] = {"Internal", "ProcessBoundary", "DomainBoundary", "InternalBoundary", "FrontBoundary", "Ghost", "Overlap"};
-
-        int thisElmPhysTag        = (thisElmTagSet.size() > 0 ) ? thisElmTagSet[0] : 0;
-        int thisElmStructuralType = (thisElmTagSet.size() > 1 ) ? thisElmTagSet[1] : 0;
-        int thisElmProcessRank    = (thisElmTagSet.size() > 2 ) ? thisElmTagSet[2] : 0;
+        int   thisElmPhysTag        = (thisElmTagSet.size() > 0 ) ? thisElmTagSet[0] : 0;
+        int   thisElmPartitionType  = (thisElmTagSet.size() > 1 ) ? thisElmTagSet[1] : 0;
+        int   thisElmProcessRank    = (thisElmTagSet.size() > 2 ) ? thisElmTagSet[2] : 0;
 
         // 0.0 - no shrinking, 0.99 - very small element (must be < 1)
         double shrinkMagnitude = explode ? 0.2 : 0.0;
 
         // Expand all domain boundary surfaces a little bit so that they do not interlay with element surfaces
-        double boundaryMagnification = (thisElmStructuralType == DomainBoundaryType) ? 1.2 : 1.0;
+        double boundaryMagnification;
+        std::string pname;
+
+        if (thisElmPartitionType == BOUNDARY_SEGMENT_PARTITION_TYPE)
+        {
+        	boundaryMagnification = 1.2;
+        	pname = "BoundarySegment";
+        } else
+        {
+        	boundaryMagnification = 1.0;
+        	pname = Dune::PartitionName(static_cast<Dune::PartitionType> (thisElmPartitionType));
+        }
 
         // It is not possible to write triangle data for edges
         if (mydim == 1)  { writeTriangleData = false; }
@@ -143,7 +148,7 @@ namespace Dune
         log_message << "VTK_WRITER: Adding a curvilinear element Type=" << Dune::CurvilinearGeometryHelper::geometryName(thisElmType);
         log_message << " Order="               << thisElmOrder;
         log_message << " PhysicalTag="         << thisElmPhysTag;
-        log_message << " StructuralType="      << PartitonTypeName[thisElmStructuralType];
+        log_message << " StructuralType="      << pname;
         log_message << " ProcessRank="         << thisElmProcessRank;
         log_message << " nDiscretization="     << nDiscretizationPoints;
         log_message << " useInterpolation="    << interpolate;
@@ -151,6 +156,7 @@ namespace Dune
         log_message << " explosionMagnitude="  << shrinkMagnitude;
         log_message << " writeVTK_edges="      << writeEdgeData;
         log_message << " writeVTK_triangles="  << writeTriangleData;
+        //log_message << " vertices=" << Dune::VectorHelper::vector2string(thisElmNodeSet);
         LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, log_message.str());
 
         addCurvilinearSimplex<mydim>(thisElmType, thisElmNodeSet, thisElmTagSet, thisElmOrder, nDiscretizationPoints, shrinkMagnitude, boundaryMagnification, interpolate, writeEdgeData, writeTriangleData);

@@ -63,21 +63,17 @@ public:
 
     // Entity Definition Structures
     // ******************************************************************
-	struct PartitionType
+	struct FaceBoundaryType
 	{
 		enum {
-			Internal           = 0,   // Entity that is not on the process boundary
-			DomainBoundary     = 1,   // Boundary entity that is not a process boundary [codim > 0]
-			ProcessBoundary    = 2,   // Boundary entity shared by more than one process
-			InternalBoundary   = 3,   // Artificial user-defined boundary that is not the process boundary [Not Implemented]
-			FrontBoundary      = 4,   // Faces of Overlap partition [Not Implemented]
-			Ghost              = 5,   // Entities stored on this process but not owned by it [all codim]
-			Overlap            = 6,   // Dune-Magic [Not Implemented]
-			Periodic           = 7,   // Periodic boundary [Not Implemented]
+			None               = 0,   // Faces that do not belong to any boundaries
+			DomainBoundary     = 1,   // Faces on the boundary of computational domain
+			InternalBoundary   = 2,   // Artificial user-defined boundary that may include interior faces [Not Implemented]
+			PeriodicBoundary   = 3,   // Periodic boundary [Not Implemented]
 		};
 	};
 
-	const std::string PartitonTypeName[7];
+	static const int BOUNDARY_SEGMENT_PARTITION_TYPE = 500;
 
 
     // Entity Key Structures
@@ -177,17 +173,17 @@ public:
     // ******************************************************************
 	struct VertexStorage
 	{
-		GlobalIndexType                       globalIndex;
-		StructuralType                        structuralType;
-    	Dune::FieldVector<ctype, cdim>        coord;
+		GlobalIndexType                 globalIndex;
+		Dune::PartitionType             ptype;
+    	Dune::FieldVector<ctype, cdim>  coord;
 	};
 
 	struct EdgeStorage
 	{
-		GlobalIndexType    globalIndex;
-		StructuralType     structuralType;
-		LocalIndexType     elementIndex;
-		InternalIndexType  subentityIndex;
+		GlobalIndexType      globalIndex;
+		Dune::PartitionType  ptype;
+		LocalIndexType       elementIndex;
+		InternalIndexType    subentityIndex;
 	};
 
 	// Face stores indices to 2 intersecting elements, and subentity index for the first one
@@ -195,20 +191,21 @@ public:
 	// Note: element2Index is an internal element index only for internal faces, it is a ghost element index for process boundaries, and it is -1 for domain boundaries.
 	struct FaceStorage
 	{
-		Dune::GeometryType geometryType;
-		GlobalIndexType   globalIndex;
-		StructuralType    structuralType;
-		LocalIndexType    element1Index;
-		LocalIndexType    element2Index;
-		InternalIndexType element1SubentityIndex;
-		PhysicalTagType   physicalTag;
+		Dune::GeometryType   geometryType;
+		GlobalIndexType      globalIndex;
+		Dune::PartitionType  ptype;
+		StructuralType       boundaryType;
+		LocalIndexType       element1Index;
+		LocalIndexType       element2Index;
+		InternalIndexType    element1SubentityIndex;
+		PhysicalTagType      physicalTag;
 	};
 
 	struct EntityStorage
 	{
 		Dune::GeometryType geometryType;
 		GlobalIndexType globalIndex;
-		StructuralType structuralType;
+		Dune::PartitionType ptype;
 		std::vector<LocalIndexType> vertexIndexSet;
 		InterpolatoryOrderType interpOrder;
 		PhysicalTagType physicalTag;
@@ -297,8 +294,8 @@ public:
     LocalIndexSet  entityAllIndexSet_[4];
     LocalIndexSet  entityInternalIndexSet_[4];
     LocalIndexSet  entityProcessBoundaryIndexSet_[4];
-    LocalIndexSet  entityDomainBoundaryIndexSet_[4];
     LocalIndexSet  entityGhostIndexSet_[4];
+    LocalIndexSet  faceDomainBoundaryIndexSet_;
 
     // Two additional composite sets to represent Dune-specific composite partition types
     LocalIndexSet  entityDuneInteriorIndexSet_[4];         // In Dune interior entities are (internal + domain boundaries)
@@ -309,7 +306,7 @@ public:
     // PB - Process Boundary Entity (corners, edges, faces. Not elements)
     // G -  Ghost
     EntityNeighborRankVector BI2GNeighborRank_[4];    // boundary internal entity index -> vector{neighbor ranks}
-    EntityNeighborRankVector PB2PBNeighborRank_[4];  // (entityPBIndex<codim> -> vector{neighbour ranks})
+    EntityNeighborRankVector PB2PBNeighborRank_[4];   // (entityPBIndex<codim> -> vector{neighbour ranks})
     EntityNeighborRankVector PB2GNeighborRank_[4];    // process boundary entity index -> vector{neighbor ranks}
     EntityNeighborRankVector G2BIPBNeighborRank_[4];  // ghost entity index -> vector{neighbor ranks}
     EntityNeighborRankVector G2GNeighborRank_[4];     // ghost entity index -> vector{neighbor ranks}
@@ -325,7 +322,6 @@ public:
     CurvilinearGridStorage (bool withGhostElements) :
     	withGhostElements_(withGhostElements),
     	nEntityTotal_ {0, 0, 0, 0},
-    	PartitonTypeName { "Internal", "ProcessBoundary", "DomainBoundary", "InternalBoundary", "FrontBoundary", "Ghost", "Overlap" },
     	octree_(0)
     {
     	GEOMETRY_TOLERANCE = 1.0e-5;    // Default value for tolerance. Can be adjusted using gridbase.setGeometryTolerance(tolerance)

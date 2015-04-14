@@ -18,9 +18,9 @@
 
 #include <dune/grid/common/mcmgmapper.hh>
 
-#include <dune/curvilineargrid/curvilineargrid/factory.hh>
+#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbasefactory.hh>
 #include <dune/curvilineargrid/io/file/curvilineargmshreader.hh>
-#include <dune/curvilineargrid/utility/griddiagnostic.hh>
+#include <dune/curvilineargrid/utility/gridbasediagnostic.hh>
 
 
 
@@ -61,7 +61,8 @@ int main(int argc, char** argv)
     LoggingMessageDev::getInstance().init(mpihelper, true, true);
     LoggingTimerDev::getInstance().init(false);
 
-    typedef Dune::CurvilinearGrid<double, 3, isGeometryCached, LoggingMessageDev> GridType;
+    // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
+    typedef Dune::CurvilinearGridBase<double, 3, isGeometryCached, LoggingMessageDev>  SimplexGridType;
 
 
     bool insertBoundarySegment = true;
@@ -70,19 +71,19 @@ int main(int argc, char** argv)
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper);
+    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, mpihelper);
 
 
     // Assemble the file name
     std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE2000_ORD3;
-    Dune::CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper, writeReaderVTKFile, insertBoundarySegment);
+    Dune::CurvilinearGmshReader< SimplexGridType >::read(factory, filename, mpihelper, writeReaderVTKFile, insertBoundarySegment);
 
-    GridType * gridbase = factory.createGrid();
+    SimplexGridType * gridbase = factory.createGrid();
 
 
 
     // Perform diagnostics tests on the constructed grid
-    Dune::CurvilinearGridDiagnostic<GridType> diagnostic(mpihelper, *gridbase);
+    Dune::CurvilinearGridBaseDiagnostic<SimplexGridType> diagnostic(mpihelper, *gridbase);
 
 	std::vector<bool> withElements {true, true};                 // Whether to add elements to VTK: Internal / Ghost
 	std::vector<bool> withFaces    {false, false, true, true};   // Whether to add faces to VTK: Internal / Ghost / ProcessBoundary / DomainBoundary

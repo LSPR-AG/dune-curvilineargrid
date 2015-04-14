@@ -150,8 +150,7 @@ namespace Dune
 
 	  /** \brief obtain the partition type of this entity */
 	  PartitionType partitionType () const  {
-	  	StructuralType stype = gridbase_->entityStructuralType(codim, *gridbaseIndexIterator_);
-	  	return gridbase_->structural2PartitionType(stype);
+	  	return gridbase_->entityPartitionType(codim, *gridbaseIndexIterator_);
       }
 
 
@@ -498,9 +497,9 @@ namespace Dune
     	for (InternalIndexType i = 0; i < 4; i++)
     	{
     		LocalIndexType thisFaceIndex = gridbase_->subentityLocalIndex(*gridbaseIndexIterator_, ELEMENT_CODIM, FACE_CODIM, i);
-    		StructuralType thisStructType = gridbase_->entityStructuralType(FACE_CODIM, thisFaceIndex);
+    		StructuralType thisBoundaryType = gridbase_->faceBoundaryType(thisFaceIndex);
 
-    		if (thisStructType == GridStorageType::PartitionType::DomainBoundary)  { return true; }
+    		if (thisBoundaryType == GridStorageType::FaceBoundaryType::DomainBoundary)  { return true; }
     	}
 
     	return false;

@@ -128,47 +128,54 @@ public:
 	{
 		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started collecting mesh statistics");
 
-		MeshStatType meshStatistics;
+		MeshStatType meshStatistics(14, std::vector<double>());
 		meshStatistics[0].push_back(grid_.numInternal(ELEMENT_CODIM));
 		meshStatistics[1].push_back(grid_.numBoundarySegments());
 		meshStatistics[2].push_back(grid_.numProcessBoundaries());
 		meshStatistics[12].push_back(0.0);  // processBoundarySurfaceArea
 		meshStatistics[13].push_back(0.0);  // domainBoundarySurfaceArea
 
+
+
 		LeafGridView leafView = grid_.leafGridView();
 
-		// Iterate over entities of this codimension
-		ElementIterator iElemB = leafView.template begin<ELEMENT_CODIM>();
-		ElementIterator iElemE   = leafView.template end<ELEMENT_CODIM>();
-		for (ElementIterator it = iElemB; it != iElemE; ++it)
+		for (auto&& e : elements(leafView, Dune::Partitions::interior))
 		{
-			const ElementType & e = *it;
+			// Perform Volume tests
+			ElementGeometry thisGeometry = e.geometry();
 
-			if (e.partitionType() != Dune::PartitionType::GhostEntity)
+			DiagnosticsHelper<GridType>::volumeTests(thisGeometry, meshStatistics);
+
+
+			// Perform Face Tests
+	        const IntersectionIterator nend = leafView.iend(e);
+			for( IntersectionIterator nit = leafView.ibegin(e); nit != nend; ++nit )
 			{
-				// Perform Volume tests
-				ElementGeometry thisGeometry = e.geometry ();
-				DiagnosticsHelper<GridType>::volumeTests(thisGeometry, meshStatistics);
-
-
-				// Perform Face Tests
-		        const IntersectionIterator nend = leafView.iend(e);
-				for( IntersectionIterator nit = leafView.ibegin(e); nit != nend; ++nit )
-				{
-				  if (!nit->boundary())   {
-					  // Domain Boundaries
-					  FaceGeometry thisGeometry = nit->geometry();
-					  DiagnosticsHelper<GridType>::domainBoundaryTests(thisGeometry, meshStatistics);
-				  }
-				  else if (nit->outside().partitionType() == Dune::PartitionType::GhostEntity)
-				  {
-					  // Process Boundaries
-					  FaceGeometry thisGeometry = nit->geometry();
-					  DiagnosticsHelper<GridType>::processBoundaryTests(thisGeometry, meshStatistics);
-				  }
-				}
+			  if ((nit->boundary()) && (!nit->neighbor()) )   {
+				  // Domain Boundaries
+				  FaceGeometry thisGeometry = nit->geometry();
+				  DiagnosticsHelper<GridType>::domainBoundaryTests(thisGeometry, meshStatistics);
+			  }
+			  else if ((nit->neighbor())&&(nit->outside().partitionType() == Dune::PartitionType::GhostEntity))
+			  {
+				  // Process Boundaries
+				  FaceGeometry thisGeometry = nit->geometry();
+				  DiagnosticsHelper<GridType>::processBoundaryTests(thisGeometry, meshStatistics);
+			  }
 			}
 		}
+
+		// Iterate over entities of this codimension
+		//ElementIterator iElemB = leafView.template begin<ELEMENT_CODIM, InteriorBorder_Partition>();
+		//ElementIterator iElemE   = leafView.template end<ELEMENT_CODIM, InteriorBorder_Partition>();
+		//for (ElementIterator it = iElemB; it != iElemE; ++it)
+		//{
+		//    const ElementType & e = *it;
+
+		//    if (e.partitionType() != Dune::PartitionType::GhostEntity)
+		//    {
+		//    }
+		//}
 
 		// Write diagnostics result to a file
 		Dune::DiagnosticsHelper<GridType>::writeAnalyticTestResult(filename, meshStatistics, mpihelper_);

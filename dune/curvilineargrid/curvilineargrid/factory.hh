@@ -72,6 +72,7 @@ class CurvilinearGridFactory
     	gridbase_ = new GridBaseType(withGhostElements, mpihelper);
     }
 
+    // The grid pointer is deleted within the main program
     ~CurvilinearGridFactory ()  {}
 
     void insertVertex ( const VertexCoordinate &pos, const GlobalIndexType globalId )

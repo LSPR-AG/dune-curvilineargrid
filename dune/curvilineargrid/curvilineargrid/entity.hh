@@ -72,7 +72,8 @@ namespace Dune
 
 	  //! Fake constructor
 	  CurvEntityBase ()
-        : gridbase_(nullptr)
+        : gridbase_(nullptr),
+          geometry_(nullptr)
       { }
 
 	  // Constructor that allows the iterator class to iterate over the entities
@@ -84,7 +85,8 @@ namespace Dune
 	  	  :
 	  		gridbaseIndexIterator_(iter),
 	  	    gridbase_(&gridbase),
-	  	    pitype_(pitype)
+	  	    pitype_(pitype),
+	        geometry_(nullptr)
 	  {  }
 
 
@@ -97,7 +99,8 @@ namespace Dune
 	  	  :
 	  		gridbaseIndexIterator_(gridbase.entityIndexIterator(codim, localIndex)),
 	  	    gridbase_(&gridbase),
-	  	    pitype_(pitype)
+	  	    pitype_(pitype),
+	        geometry_(nullptr)
 	  {  }
 
 
@@ -105,7 +108,8 @@ namespace Dune
 	  CurvEntityBase(const CurvEntityBase& other) :
 		  gridbaseIndexIterator_ (other.gridbaseIndexIterator_),
 		  gridbase_ (other.gridbase_),
-		  pitype_ (other.pitype_)
+		  pitype_ (other.pitype_),
+          geometry_(nullptr)
 	  {
 	  }
 
@@ -119,8 +123,15 @@ namespace Dune
 	      gridbaseIndexIterator_ = other.gridbaseIndexIterator_;
 	      gridbase_ = other.gridbase_;
 	      pitype_ = other.pitype_;
+	      geometry_ = nullptr;
 	      return *this;
 	  }
+
+	  ~CurvEntityBase()
+	  {
+		  if (geometry_)  { delete geometry_; }
+	  }
+
 
 	  //! Move assignment operator from an existing entity.
 	  //CurvEntityBase& operator=(CurvEntityBase&& other)  { realEntity = std::move(other.realEntity);  return *this; }
@@ -155,7 +166,12 @@ namespace Dune
 
 
 	  /** \brief obtain geometric realization of the entity */
-	  Geometry geometry () const { return Geometry(GeometryImpl(gridbase_->template entityGeometry<codim>(*gridbaseIndexIterator_), *gridbase_)); }
+	  Geometry geometry () const {
+		  if (!geometry_) {
+			  geometry_ = new Geometry(GeometryImpl(gridbase_->template entityGeometry<codim>(*gridbaseIndexIterator_), *gridbase_));
+		  }
+		  return *geometry_;
+	  }
 
 
 	  /** \brief obtain the entity's index */
@@ -208,10 +224,14 @@ namespace Dune
 
 
 	  /** \brief moves to the next entity within the base storage. Additional functionality used by iterators */
-	  void next()  { gridbaseIndexIterator_++; }
+	  void next()  {
+		  gridbaseIndexIterator_++;
+		  if (geometry_)  { delete geometry_;    geometry_ = nullptr; }
+	  }
 
   protected:
 	    IndexSetIterator gridbaseIndexIterator_;
+	    mutable Geometry * geometry_;
 	    GridBaseType * gridbase_;
 	    Dune::PartitionIteratorType pitype_;
   };

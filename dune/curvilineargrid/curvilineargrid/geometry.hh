@@ -121,6 +121,14 @@ namespace Dune
     	  return localC;
       }
 
+
+      bool local(const GlobalCoordinate &globalC, LocalCoordinate &localC) const
+      {
+    	  return mapping_.local(globalC, localC);
+      }
+
+
+
       // Integration Elements
       ctype integrationElement ( const LocalCoordinate &local )  const { return mapping_.integrationElement( local ); }
       Polynomial JacobianDeterminantAnalytical()                 const { return mapping_.JacobianDeterminantAnalytical(); }

@@ -26,17 +26,20 @@ typedef Dune::FieldVector<double, 3>  GlobalCoordinate;
 template<class Grid, int mydim>
 struct NormalFunctor
 {
-	typedef Dune::FieldVector<double, mydim>       LocalCoordinate;
-	typedef typename Grid::Traits::LeafIntersection               Intersection;
+	typedef Dune::FieldVector<double, mydim>           LocalCoordinate;
+	typedef typename Grid::Traits::LeafIntersection    Intersection;
+
+    static const unsigned int RETURN_SIZE = 1;
+    typedef typename std::vector<GlobalCoordinate>  ResultType;
 
 	Intersection I_;
 
 	NormalFunctor(const Intersection & I) : I_(I)  { }
 
 	// Calculates the outer normal to the intersection times the integration element
-	GlobalCoordinate operator()(const LocalCoordinate & x) const
+	ResultType operator()(const LocalCoordinate & x) const
     {
-    	return I_.integrationOuterNormal(x);
+    	return ResultType(1, I_.unitOuterNormal(x));
     }
 };
 
@@ -64,9 +67,8 @@ void Integrate (GridType& grid)
   typedef typename LeafGridView::template Codim<0>::Iterator EntityLeafIterator;
   typedef typename LeafGridView::template Codim<1>::Geometry FaceGeometry;
 
-  typedef Dune::QuadratureIntegrator<double, 2, 1>  Integrator2DScalar;
-  typedef Dune::QuadratureIntegrator<double, 2, 3>  Integrator2DVector;
-  typedef Dune::FieldVector<double, 1>              ResultType;
+  typedef NormalFunctor<GridType, 2>                                Integrand2DVector;
+  typedef Dune::QuadratureIntegrator<double, 2, Integrand2DVector>  Integrator2DVector;
 
   GlobalCoordinate  normalintegral(0.0);
   double rel_tol = 1.0e-5;
@@ -91,13 +93,14 @@ void Integrate (GridType& grid)
 		  if (!intersection.neighbor())
 		  {
 			  Dune::GeometryType gt = intersection.type();
+			  FaceGeometry geometry = intersection.geometry();
 
-			  NormalFunctor<GridType, 2> n(intersection);
+			  Integrand2DVector n(intersection);
 
-			  Integrator2DVector::StatInfo thisIntegralN = Integrator2DVector::integrateRecursive(gt, n, rel_tol);
-			  std::cout << "---- adding normal contribution from " << gt << "  " << thisIntegralN.second << ". Needed order " << thisIntegralN.first << std::endl;
+			  typename Integrator2DVector::StatInfo thisIntegralN = Integrator2DVector::integrateRecursive(geometry, n, rel_tol);
+			  std::cout << "---- adding normal contribution from " << gt << "  " << thisIntegralN.second[0] << ". Needed order " << thisIntegralN.first << std::endl;
 
-			  normalintegral += thisIntegralN.second;
+			  normalintegral += thisIntegralN.second[0];
 		  }
 	  }
   }

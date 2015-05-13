@@ -1,8 +1,5 @@
 set(modules
-DuneCurvilineargrid.cmake
-DuneCurvilineargridMacros.cmake
-AddMETISFlags.cmake
-AddParMETISFlags.cmake
+  DuneCurvilineargridMacros.cmake
 )
 
 install(FILES ${modules} DESTINATION ${DUNE_INSTALL_MODULEDIR})

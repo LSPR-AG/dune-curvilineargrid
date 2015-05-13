@@ -1158,7 +1158,7 @@ protected:
     	//std::cout << "started geom constructor " << thisData.geometryType << " " << thisData.interpOrder << std::endl;
 
         std::vector<Vertex> entityVertices;
-        for (int i = 0; i < thisData.vertexIndexSet.size(); i++) { entityVertices.push_back(gridstorage_.point_[thisData.vertexIndexSet[i]].coord); }
+        for (unsigned int i = 0; i < thisData.vertexIndexSet.size(); i++) { entityVertices.push_back(gridstorage_.point_[thisData.vertexIndexSet[i]].coord); }
 
         //std::cout << "  -- assembled vertices " << Dune::VectorHelper::vector2string(entityVertices) << std::endl;#
 

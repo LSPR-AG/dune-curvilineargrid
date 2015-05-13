@@ -644,8 +644,12 @@ namespace Dune
     /** \} */
 
 
+    // Returns reference to the GridBase class
     const GridBaseType & gridbase() const  { return *gridbase_; }
 
+
+    // Returns the default communicator
+    static MPI_Comm defaultCommunicator()  { return Dune::MPIHelper::getCommunicator(); }
 
 
 
@@ -662,7 +666,7 @@ namespace Dune
 
     // Obtains global index of an entity
     template<int codim>
-    GlobalIndexType entityGlobalIndex(const typename Traits::template Codim< codim >::Entity &entity)
+    GlobalIndexType entityGlobalIndex(const typename Traits::template Codim< codim >::Entity &entity) const
     {
     	GlobalIndexType globalIndex;
     	bool exist = gridbase_->findEntityGlobalIndex(codim, leafIndexSet().index(entity), globalIndex);
@@ -673,20 +677,20 @@ namespace Dune
 
     // Obtains physical tag of an entity
     template<int codim>
-    PhysicalTagType entityPhysicalTag(const typename Traits::template Codim< codim >::Entity &entity)
+    PhysicalTagType entityPhysicalTag(const typename Traits::template Codim< codim >::Entity &entity) const
     {
     	return gridbase_->physicalTag(codim, leafIndexSet().index(entity));
     }
 
     // Obtain interpolation order of an entity
     template<int codim>
-    InterpolatoryOrderType entityInterpolationOrder (const typename Traits::template Codim< codim >::Entity &entity)
+    InterpolatoryOrderType entityInterpolationOrder (const typename Traits::template Codim< codim >::Entity &entity) const
     {
     	return gridbase_->entityInterpolationOrder(codim, leafIndexSet().index(entity));
     }
 
     template<int codim>
-    typename Codim<codim>::EntityGeometryMappingImpl entityBaseGeometry (const typename Traits::template Codim< codim >::Entity &entity)
+    typename Codim<codim>::EntityGeometryMappingImpl entityBaseGeometry (const typename Traits::template Codim< codim >::Entity &entity) const
     {
     	return gridbase_->template entityGeometry<codim>(leafIndexSet().index(entity));
     }

@@ -63,6 +63,8 @@ struct GaussFunctor
 
     	return ResultType(1, normal * field);
     }
+
+    double zeroValue(unsigned int rezIndex) const { return 0.0; }
 };
 
 

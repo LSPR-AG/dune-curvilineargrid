@@ -41,6 +41,8 @@ struct NormalFunctor
     {
     	return ResultType(1, I_.unitOuterNormal(x));
     }
+
+	GlobalCoordinate zeroValue(unsigned int rezIndex) const { return GlobalCoordinate(0.0); }
 };
 
 

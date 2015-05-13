@@ -63,9 +63,9 @@ namespace Dune
           const GeometryType &type,
           const Vertices &vertices,
           InterpolatoryOrderType order,
-          const GridBaseType & gridbase)
-      	      : mapping_ (type, vertices, order),
-      	      gridbase_(&gridbase)
+          const GridBaseType & gridbase) :
+          	  gridbase_(&gridbase),
+          	  mapping_ (type, vertices, order)
       {
           assert( int( type.dim() ) == mydimension );
       }
@@ -74,14 +74,15 @@ namespace Dune
       CurvGeometry (
           const BasicMapping & mapping,
           const GridBaseType & gridbase)
-              : mapping_ ( mapping ),
-                gridbase_(&gridbase)
+              : gridbase_(&gridbase),
+                mapping_ ( mapping )
       { }
 
 
       CurvGeometry ( const This &other )
-          : mapping_( other.mapping_ ),
-            gridbase_(other.gridbase_)
+          : gridbase_(other.gridbase_),
+            mapping_( other.mapping_ )
+
       { }
 
 

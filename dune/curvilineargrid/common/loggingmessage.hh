@@ -13,7 +13,7 @@
 
 #include <dune/common/parallel/mpihelper.hh>
 
-#include <boost/date_time/posix_time/posix_time.hpp>
+//#include <boost/date_time/posix_time/posix_time.hpp>
 
 namespace Dune
 {
@@ -95,7 +95,7 @@ public:
     }
 
 
-    //
+    // Initialises the logging message
     void init(MPIHelper & mpihelper, bool verbose, bool processVerbose)
     {
     	verbose_ = verbose;
@@ -103,6 +103,13 @@ public:
 
     	rank_ = mpihelper.rank();
     	size_ = mpihelper.size();
+    }
+
+
+    template <unsigned int messageCat>
+    static void writeStatic(std::string filename, unsigned int linenumber, std::string message)
+    {
+    	getInstance().template write<messageCat>(filename, linenumber, message);
     }
 
 
@@ -141,9 +148,9 @@ public:
             } else
             {
                 // Get the time ...
-                boost::posix_time::ptime time = boost::posix_time::microsec_clock::local_time();
+                //boost::posix_time::ptime time = boost::posix_time::microsec_clock::local_time();
                 // ... and print it out.
-                printedMessage << time << " ::: ";
+                //printedMessage << time << " ::: ";
             }
 
             if (messageCat != Category::CLEAN)

@@ -83,8 +83,8 @@ namespace Dune
     		  InternalIndexType subIndexInside,   // Internal index of the face as the element subentity
     		  GridBaseType & gridbase,
     		  bool ghostcheck = false             // If ghostcheck=true, then subIndex should be the first index that does not point to a ghost
-      )
-    	: localIndexInside_(localIndexInside),
+      ) :
+    	  localIndexInside_(localIndexInside),
     	  subIndexInside_(subIndexInside),
     	  gridbase_(&gridbase),
     	  geo_(nullptr),
@@ -116,13 +116,13 @@ namespace Dune
       }
 
 
-      CurvIntersection ( const CurvIntersection &other )
-  	    : localIndexInside_(other.localIndexInside_),
-  	      subIndexInside_(other.subIndexInside_),
-  	      gridbase_(other.gridbase_),
-  	      localFaceIndex_(other.localFaceIndex_),
+      CurvIntersection ( const CurvIntersection &other ) :
+    	  localFaceIndex_(other.localFaceIndex_),
+  	      localIndexInside_(other.localIndexInside_),
   	      localIndexOutside_(other.localIndexOutside_),
+  	      subIndexInside_(other.subIndexInside_),
   	      subIndexOutside_(other.subIndexOutside_),
+  	      gridbase_(other.gridbase_),
   	      geo_(nullptr),
   	      insideGeo_(nullptr),
     	  geoInInside_(nullptr),

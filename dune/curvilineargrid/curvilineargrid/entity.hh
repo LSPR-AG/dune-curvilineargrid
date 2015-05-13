@@ -72,8 +72,8 @@ namespace Dune
 
 	  //! Fake constructor
 	  CurvEntityBase ()
-        : gridbase_(nullptr),
-          geometry_(nullptr)
+        : geometry_(nullptr),
+          gridbase_(nullptr)
       { }
 
 	  // Constructor that allows the iterator class to iterate over the entities
@@ -84,9 +84,9 @@ namespace Dune
 	    )
 	  	  :
 	  		gridbaseIndexIterator_(iter),
+	  		geometry_(nullptr),
 	  	    gridbase_(&gridbase),
-	  	    pitype_(pitype),
-	        geometry_(nullptr)
+	        pitype_(pitype)
 	  {  }
 
 
@@ -98,18 +98,18 @@ namespace Dune
 	    )
 	  	  :
 	  		gridbaseIndexIterator_(gridbase.entityIndexIterator(codim, localIndex)),
-	  	    gridbase_(&gridbase),
-	  	    pitype_(pitype),
-	        geometry_(nullptr)
+	  		geometry_(nullptr),
+	  		gridbase_(&gridbase),
+	        pitype_(pitype)
 	  {  }
 
 
 	  //! Copy constructor from an existing entity.
 	  CurvEntityBase(const CurvEntityBase& other) :
 		  gridbaseIndexIterator_ (other.gridbaseIndexIterator_),
+		  geometry_(nullptr),
 		  gridbase_ (other.gridbase_),
-		  pitype_ (other.pitype_),
-          geometry_(nullptr)
+          pitype_ (other.pitype_)
 	  {
 	  }
 
@@ -121,9 +121,9 @@ namespace Dune
 	  CurvEntityBase& operator=(const CurvEntityBase& other)
 	  {
 	      gridbaseIndexIterator_ = other.gridbaseIndexIterator_;
+	      geometry_ = nullptr;
 	      gridbase_ = other.gridbase_;
 	      pitype_ = other.pitype_;
-	      geometry_ = nullptr;
 	      return *this;
 	  }
 

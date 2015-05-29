@@ -35,9 +35,13 @@ int main (int argc , char **argv) {
 	// Create Grid
 	GridType * grid = createGrid<GridType>(mpihelper);
 
+
+
     // **********************************************
     // Do all sort of fancy things with the grid here
     // **********************************************
+	std::cout << "the number of grid nElement=" << grid->size(0) << " rank_ = " << grid->comm().rank() << " size_ is " << grid->comm().size() << std::endl;
+
 	LoggingTimerDev::getInstance().reportParallel(mpihelper);
 
     // Delete the grid

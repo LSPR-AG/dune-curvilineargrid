@@ -227,18 +227,18 @@ namespace Dune
      *
      *  [FIXME] Must initialize levelIndexSets_
      */
-    CurvilinearGrid (GridBaseType & gridbase, MPIHelper &mpihelper)
-      : gridbase_(&gridbase),
-        mpihelper_(mpihelper),
+    CurvilinearGrid (GridBaseType & gridbase, MPIHelper & mpihelperref)
+      : gridbase_(gridbase),
+        mpihelper_(mpihelperref),
         globalIdSet_(),
         leafIndexSet_(gridbase)
     {
-
+    	commobj_ = mpihelper_.getCollectiveCommunication();
     }
 
 
     /** \brief destructor */
-    ~CurvilinearGrid ()  { delete gridbase_; }
+    ~CurvilinearGrid ()  { }
 
     /** \} */
 
@@ -277,7 +277,7 @@ namespace Dune
      */
     int size ( int codim ) const
     {
-      return gridbase_->nEntity(codim);
+      return gridbase_.nEntity(codim);
     }
 
     /** \brief obtain number of entites on a level
@@ -308,18 +308,18 @@ namespace Dune
      */
     size_t numBoundarySegments () const
     {
-    	return gridbase_->nEntity(FACE_CODIM, PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
+    	return gridbase_.nEntity(FACE_CODIM, PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
     }
     /** \} */
 
     size_t numProcessBoundaries () const
     {
-    	return gridbase_->nEntity(FACE_CODIM, PartitionType::BorderEntity);
+    	return gridbase_.nEntity(FACE_CODIM, PartitionType::BorderEntity);
     }
 
     size_t numInternal(int codim) const
     {
-    	return gridbase_->nEntity(codim, PartitionType::InteriorEntity);
+    	return gridbase_.nEntity(codim, PartitionType::InteriorEntity);
     }
 
     const GlobalIdSet &globalIdSet () const  { return globalIdSet_; }
@@ -396,7 +396,7 @@ namespace Dune
     typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator lbegin (int level) const
     {
     	assert(level == 0);
-    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityDuneIndexBegin(cd, pitype), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_.entityDuneIndexBegin(cd, pitype), gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator(iterImpl);
     }
 
@@ -405,7 +405,7 @@ namespace Dune
     typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator lend (int level) const
     {
     	assert(level == 0);
-    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityDuneIndexEnd(cd, pitype), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_.entityDuneIndexEnd(cd, pitype), gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator(iterImpl);
     }
 
@@ -414,7 +414,7 @@ namespace Dune
     typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator lbegin (int level) const
     {
     	assert(level == 0);
-    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityDuneIndexBegin(cd, All_Partition), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_.entityDuneIndexBegin(cd, All_Partition), gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator(iterImpl);
     }
 
@@ -423,7 +423,7 @@ namespace Dune
     typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator lend (int level) const
     {
     	assert(level == 0);
-    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityDuneIndexEnd(cd, All_Partition), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_.entityDuneIndexEnd(cd, All_Partition), gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator(iterImpl);
     }
 
@@ -431,7 +431,7 @@ namespace Dune
     template<int cd, PartitionIteratorType pitype>
     typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator leafbegin () const
     {
-    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityDuneIndexBegin(cd, pitype), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_.entityDuneIndexBegin(cd, pitype), gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator(iterImpl);
     }
 
@@ -439,7 +439,7 @@ namespace Dune
     template<int cd, PartitionIteratorType pitype>
     typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator leafend () const
     {
-    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityDuneIndexEnd(cd, pitype), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_.entityDuneIndexEnd(cd, pitype), gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator(iterImpl);
     }
 
@@ -447,7 +447,7 @@ namespace Dune
     template<int cd>
     typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator leafbegin () const
     {
-    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityDuneIndexBegin(cd, All_Partition), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_.entityDuneIndexBegin(cd, All_Partition), gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator(iterImpl);
     }
 
@@ -455,7 +455,7 @@ namespace Dune
     template<int cd>
     typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator leafend () const
     {
-    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityDuneIndexEnd(cd, All_Partition), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_.entityDuneIndexEnd(cd, All_Partition), gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator(iterImpl);
     }
 
@@ -494,7 +494,7 @@ namespace Dune
      *
      *  \param[in]  codim  codimension for with the information is desired
      */
-    int ghostSize( int codim ) const  { return gridbase_->nEntity(codim, Dune::PartitionType::GhostEntity); }
+    int ghostSize( int codim ) const  { return gridbase_.nEntity(codim, Dune::PartitionType::GhostEntity); }
 
     /** \brief obtain size of overlap region for a grid level
      *
@@ -554,7 +554,7 @@ namespace Dune
                        CommunicationDirection direction ) const
     {
     	std::cout << "called grid.communicate()" << std::endl;
-    	Dune::CurvGrid::Communication<Grid> communicator(*gridbase_, mpihelper_);
+    	Dune::CurvGrid::Communication<Grid> communicator(gridbase_, mpihelper_);
     	if (dataHandle.contains(dimension, ELEMENT_CODIM)) { communicator.template communicate<DataHandle, Data, ELEMENT_CODIM>(dataHandle, interface, direction); }
     	if (dataHandle.contains(dimension, FACE_CODIM))    { communicator.template communicate<DataHandle, Data, FACE_CODIM>(dataHandle, interface, direction); }
     	if (dataHandle.contains(dimension, EDGE_CODIM))    { communicator.template communicate<DataHandle, Data, EDGE_CODIM>(dataHandle, interface, direction); }
@@ -569,7 +569,9 @@ namespace Dune
      *  \note The CollectiveCommunication object returned is identical to the
      *        one returned by the host grid.
      */
-    const CollectiveCommunication &comm () const  { return mpihelper_.getCollectiveCommunication(); }
+    const CollectiveCommunication &comm () const  { return commobj_; }
+
+    MPIHelper & mpihelper()  const { return mpihelper_; }
 
 
     // data handle interface different between geo and interface
@@ -622,7 +624,7 @@ namespace Dune
       typedef typename Traits::template Codim< EntitySeed::codimension >::EntityPointer        EntityPointer;
       typedef typename Dune::CurvGrid::CurvEntityPointer<EntitySeed::codimension, const Grid>  EntityPointerImpl;
 
-      return EntityPointer(EntityPointerImpl( seed, *gridbase_ ));
+      return EntityPointer(EntityPointerImpl( seed, gridbase_ ));
     }
 
 
@@ -637,7 +639,7 @@ namespace Dune
 
       SeedImpl seedImpl = Grid::getRealImplementation(seed);
 
-      return Entity(EntityImpl( seedImpl, *gridbase_ ));
+      return Entity(EntityImpl( seedImpl, gridbase_ ));
     }
 
 
@@ -645,7 +647,7 @@ namespace Dune
 
 
     // Returns reference to the GridBase class
-    const GridBaseType & gridbase() const  { return *gridbase_; }
+    const GridBaseType & gridbase() const  { return gridbase_; }
 
 
     // Returns the default communicator
@@ -658,10 +660,10 @@ namespace Dune
     // *******************************************************************
 
     // User sets the relative error tolerance for computing volumes of curvilinear entities
-    void geometryRelativeTolerance(double tolerance)  { gridbase_->geometryRelativeTolerance(tolerance); }
+    void geometryRelativeTolerance(double tolerance)  { gridbase_.geometryRelativeTolerance(tolerance); }
 
     // User gets the relative error tolerance for computing volumes of curvilinear entities
-    double geometryRelativeTolerance()                { return gridbase_->geometryRelativeTolerance(); }
+    double geometryRelativeTolerance()                { return gridbase_.geometryRelativeTolerance(); }
 
 
     // Obtains global index of an entity
@@ -669,7 +671,7 @@ namespace Dune
     GlobalIndexType entityGlobalIndex(const typename Traits::template Codim< codim >::Entity &entity) const
     {
     	GlobalIndexType globalIndex;
-    	bool exist = gridbase_->findEntityGlobalIndex(codim, leafIndexSet().index(entity), globalIndex);
+    	bool exist = gridbase_.findEntityGlobalIndex(codim, leafIndexSet().index(entity), globalIndex);
     	assert(exist);  // Check if the index exists for self-consistency
     	return globalIndex;
     }
@@ -679,28 +681,31 @@ namespace Dune
     template<int codim>
     PhysicalTagType entityPhysicalTag(const typename Traits::template Codim< codim >::Entity &entity) const
     {
-    	return gridbase_->physicalTag(codim, leafIndexSet().index(entity));
+    	return gridbase_.physicalTag(codim, leafIndexSet().index(entity));
     }
 
     // Obtain interpolation order of an entity
     template<int codim>
     InterpolatoryOrderType entityInterpolationOrder (const typename Traits::template Codim< codim >::Entity &entity) const
     {
-    	return gridbase_->entityInterpolationOrder(codim, leafIndexSet().index(entity));
+    	return gridbase_.entityInterpolationOrder(codim, leafIndexSet().index(entity));
     }
 
     template<int codim>
     typename Codim<codim>::EntityGeometryMappingImpl entityBaseGeometry (const typename Traits::template Codim< codim >::Entity &entity) const
     {
-    	return gridbase_->template entityGeometry<codim>(leafIndexSet().index(entity));
+    	return gridbase_.template entityGeometry<codim>(leafIndexSet().index(entity));
     }
 
 
 
 
   private:
-    GridBaseType * gridbase_;
+    GridBaseType & gridbase_;
     MPIHelper & mpihelper_;
+
+    // Explicit storage of collective communication object to ensure it is not temporary
+    CollectiveCommunication commobj_;
 
     //mutable std::vector< LevelIndexSet *, typename Allocator::template rebind< LevelIndexSet * >::other > levelIndexSets_;
     IndexSetImpl leafIndexSet_;

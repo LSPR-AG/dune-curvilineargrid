@@ -65,6 +65,7 @@ class CurvilinearGridFactory
 
   public:
 
+	// Real constructor
     CurvilinearGridFactory(
     		bool withGhostElements,
     		MPIHelper &mpihelper)
@@ -72,8 +73,9 @@ class CurvilinearGridFactory
     	gridbase_ = new GridBaseType(withGhostElements, mpihelper);
     }
 
-    // The grid pointer is deleted within the main program
-    ~CurvilinearGridFactory ()  {}
+    // GridBase is constructed and deleted here
+    // The Grid pointer is deleted within the main program
+    ~CurvilinearGridFactory ()  { if (gridbase_)  { delete gridbase_; } }
 
     void insertVertex ( const VertexCoordinate &pos, const GlobalIndexType globalId )
     {

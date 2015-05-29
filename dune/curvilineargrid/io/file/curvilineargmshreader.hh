@@ -154,14 +154,14 @@ namespace Dune
     {
     	Dune::LoggingTimer<LoggingMessage> & loggingtimer = Dune::LoggingTimer<LoggingMessage>::getInstance();
 
-    	std::string log_string;
+    	fileName = f;
 
+    	std::string log_string;
         loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, ":: using file " + fileName);
         loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, ":: reading" + std::to_string(dim_) + "d curvilinear gmsh grid...");
 
         // open file name, we use C I/O
         // ***********************************************
-        fileName = f;
         FILE* file = fopen(fileName.c_str(),"r");
         if (file==0)  { DUNE_THROW(Dune::IOError, "Could not open " << fileName); }
 

@@ -20,13 +20,13 @@ add_executable(tutorial4IntegrationGauss tutorial4IntegrationGauss.cc)
 add_executable(tutorial4IntegrationNormal tutorial4IntegrationNormal.cc)
 add_executable(tutorial6CommunicationConstant tutorial6CommunicationConstant.cc)
 add_executable(tutorial6CommunicationGlobalIndex tutorial6CommunicationGlobalIndex.cc)
-target_link_libraries(tutorial1gettingstarted dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
-target_link_libraries(tutorial2traversal dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
-target_link_libraries(tutorial3visualisation dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
-target_link_libraries(tutorial4IntegrationGauss dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
-target_link_libraries(tutorial4IntegrationNormal dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
-target_link_libraries(tutorial6CommunicationConstant dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
-target_link_libraries(tutorial6CommunicationGlobalIndex dunecommon dunegeometry dunegrid ${ParMETIS_LIBRARIES}) # dunecurvilineargeometry
+target_link_libraries(tutorial1gettingstarted dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial2traversal dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial3visualisation dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial4IntegrationGauss dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial4IntegrationNormal dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial6CommunicationConstant dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial6CommunicationGlobalIndex dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 
 
 # We do not want want to build the tests during make all,

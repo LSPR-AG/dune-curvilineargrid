@@ -62,7 +62,7 @@ private:
 	typedef LoggingMessageHelper  Helper;
 
 	LoggingMessage()  {  }
-	LoggingMessage(This const&)  = delete;
+	LoggingMessage(This const&)  = delete;          // Disallow copy-constructors
     void operator=(This const&)  = delete;
 
 

@@ -98,6 +98,7 @@ public:
     typedef typename GridStorageType::Local2LocalMap            Local2LocalMap;
     typedef typename GridStorageType::Local2LocalIterator       Local2LocalIterator;
 
+    typedef typename GridStorageType::LocalIndexSet             LocalIndexSet;
     typedef typename GridStorageType::IndexSetIterator          IndexSetIterator;
 
     typedef typename GridStorageType::EntityNeighborRankVector  EntityNeighborRankVector;
@@ -169,6 +170,23 @@ public: /* public methods */
     {
     	loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating iterator lists");
 
+    	// Initialize all index sets
+    	// ***************************************************************
+    	gridstorage_.faceDomainBoundaryIndexSet_ = LocalIndexSet();
+    	for (unsigned int iCodim = 0; iCodim <= dimension; iCodim++)
+    	{
+            gridstorage_.entityAllIndexSet_[iCodim] = LocalIndexSet();
+            gridstorage_.entityInternalIndexSet_[iCodim] = LocalIndexSet();
+            gridstorage_.entityProcessBoundaryIndexSet_[iCodim] = LocalIndexSet();
+            gridstorage_.entityGhostIndexSet_[iCodim] = LocalIndexSet();
+
+        	gridstorage_.entityDuneInteriorIndexSet_[iCodim] = LocalIndexSet();
+        	gridstorage_.entityDuneInteriorBorderIndexSet_[iCodim] = LocalIndexSet();
+
+    	}
+
+    	// Generate iterator lists
+    	// ***************************************************************
         for (Local2LocalIterator iCorner = gridstorage_.cornerIndexMap_.begin();
         	                     iCorner != gridstorage_.cornerIndexMap_.end(); iCorner++) { fillPartitionIterator(VERTEX_CODIM, (*iCorner).first, gridstorage_.point_[(*iCorner).first].ptype); }
 

@@ -351,7 +351,7 @@ private:
 	int rank_;
 	int size_;
 
-	GridType & grid_;
+	const GridType & grid_;
 
 
 };

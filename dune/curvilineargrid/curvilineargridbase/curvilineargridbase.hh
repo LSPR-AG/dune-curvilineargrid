@@ -932,9 +932,13 @@ public:
     }
 
 
-    IndexSetIterator entityDuneIndexBegin(int codim, Dune::PartitionIteratorType pitype) const { return entityIndexSetDuneSelect(codim, pitype).begin(); }
+    IndexSetIterator entityDuneIndexBegin(int codim, Dune::PartitionIteratorType pitype) const {
+    	return entityIndexSetDuneSelect(codim, pitype).begin();
+    }
 
-    IndexSetIterator entityDuneIndexEnd(int codim, Dune::PartitionIteratorType pitype)   const { return entityIndexSetDuneSelect(codim, pitype).end(); }
+    IndexSetIterator entityDuneIndexEnd(int codim, Dune::PartitionIteratorType pitype)   const {
+    	return entityIndexSetDuneSelect(codim, pitype).end();
+    }
 
 
 

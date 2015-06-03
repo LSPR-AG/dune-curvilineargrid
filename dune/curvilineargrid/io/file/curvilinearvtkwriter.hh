@@ -64,6 +64,23 @@ const int   ELEMENT_CODIM  = 0;
 
 
 
+/** \brief Splits provided triangular prism into 2 or 3 tetrahedrons, depending on whether the prism is reduced or not  */
+SubEntityIndexVector prism2tetrahedron(std::vector<int> prismIndex) {
+	assert((prismIndex.size() == 5) ||(prismIndex.size() == 6));  // Allow only triangular and reduced-triangular prisms
+
+	SubEntityIndexVector rez;
+
+	rez.push_back(std::vector<int>  {prismIndex[0], prismIndex[1], prismIndex[2], prismIndex[4]}  );
+	rez.push_back(std::vector<int>  {prismIndex[0], prismIndex[2], prismIndex[3], prismIndex[4]}  );
+
+	if (prismIndex.size() == 6)  // Add the 3rd tetrahedron only if the prism is not reduced
+	{
+		rez.push_back(std::vector<int>  {prismIndex[2], prismIndex[3], prismIndex[4], prismIndex[5]}  );
+	}
+
+	return rez;
+}
+
 
 /** \brief Connects discretization points of an entity<mydim> using linear subentities<subdim>, adds these subentities for writing to VTK
  *
@@ -266,7 +283,83 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
     for (int iFace = 0; iFace < 4; iFace++)
     {
     	SubEntityIndexVector faceSub = refineEntitySubset<FACE_CODIM, FACE_CODIM> (triangleEnumeratorReduced, nInterval, consistingTriangles[iFace]);
-    	rez.insert (rez.begin(), faceSub.begin(), faceSub.end());
+    	rez.insert (rez.end(), faceSub.begin(), faceSub.end());
+    }
+
+    return rez;
+}
+
+
+/** \brief Connects discretization points of a curvilinear tetrahedron using linear tetrahedrons  */
+template<>
+SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
+        ElemGridEnumerate & tetrahedralEnumeratorReduced,
+        int nInterval,
+        LocalCoordinate2GlobalIdMap & parametricToIndex
+        )
+{
+	SubEntityIndexVector rez;
+
+    // For each discretization point, takes associated cube, splits it into 2 prisms, then each prism into 3 tets
+    for (int i = 0; i < tetrahedralEnumeratorReduced.size(); i++)
+    {
+        int x = tetrahedralEnumeratorReduced[i][0];
+        int y = tetrahedralEnumeratorReduced[i][1];
+        int z = tetrahedralEnumeratorReduced[i][2];
+
+        // If this is the boundary tetrahedron, it will not have any opposite tetrahedrons
+        if (x + y + z + 1 == nInterval)
+        {
+        	rez.push_back(
+                std::vector<int>
+                {
+        			parametricToIndex[ std::vector<int>{x,     y,     z}     ],
+        			parametricToIndex[ std::vector<int>{x + 1, y,     z}     ],
+        			parametricToIndex[ std::vector<int>{x,     y + 1, z}     ],
+        			parametricToIndex[ std::vector<int>{x,     y,     z + 1} ]
+                }
+        	);
+        } else {  // Otherwise, all opposite tetrahedrons need to be enumerated as well
+
+            std::vector<std::vector<int> > cubeIndex   // Enumerate all vertices of a cube associated with this discretization point
+            {
+            	{x,     y,     z},
+            	{x + 1, y,     z},
+            	{x,     y + 1, z},
+            	{x + 1, y + 1, z},
+            	{x,     y,     z + 1},
+            	{x + 1, y,     z + 1},
+            	{x,     y + 1, z + 1},
+            	{x + 1, y + 1, z + 1}
+            };
+
+            std::vector<int> prismIndex1  {            // Split the cube into 2 prisms
+            	parametricToIndex[cubeIndex[0]],
+                parametricToIndex[cubeIndex[1]],
+                parametricToIndex[cubeIndex[2]],
+                parametricToIndex[cubeIndex[4]],
+                parametricToIndex[cubeIndex[5]],
+                parametricToIndex[cubeIndex[6]]
+            };
+
+            std::vector<int> prismIndex2  {            // This prism might only have 5 points if the last corner of the cube is not inside original tetrahedron
+            	parametricToIndex[cubeIndex[1]],
+                parametricToIndex[cubeIndex[2]],
+                parametricToIndex[cubeIndex[3]],
+                parametricToIndex[cubeIndex[5]],
+                parametricToIndex[cubeIndex[6]]
+            };
+
+            // If the top-most corner of the cube exists, then add it as well to the 2nd prism
+            // Otherwise the 2nd prism is a reduced prism with only 5 corners
+            if (x + y + z + 2 < nInterval) { prismIndex2.push_back(parametricToIndex[cubeIndex[7]]); }
+
+            SubEntityIndexVector prism2tetIndex1 = prism2tetrahedron(prismIndex1);
+            SubEntityIndexVector prism2tetIndex2 = prism2tetrahedron(prismIndex2);
+
+            rez.insert (rez.end(), prism2tetIndex1.begin(), prism2tetIndex1.end());
+            rez.insert (rez.end(), prism2tetIndex2.begin(), prism2tetIndex2.end());
+        }
     }
 
     return rez;
@@ -379,11 +472,10 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
             int nDiscretizationPoint,
             bool interpolate,
             bool explode,
-            bool writeEdgeData,
-            bool writeTriangleData
-
-            )
+            std::vector<bool> writeCodim)
     {
+    	assert((mydim > 0) && (mydim <= 3));  // Forbid writing vertices and hypergeometric entities
+
         int   thisElmPhysTag        = (tagSet.size() > 0 ) ? tagSet[0] : 0;
         int   thisElmPartitionType  = (tagSet.size() > 1 ) ? tagSet[1] : 0;
         int   thisElmProcessRank    = (tagSet.size() > 2 ) ? tagSet[2] : 0;
@@ -405,8 +497,10 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
         	pname = Dune::PartitionName(static_cast<Dune::PartitionType> (thisElmPartitionType));
         }
 
-        // It is not possible to write triangle data for edges
-        if (mydim == 1)  { writeTriangleData = false; }
+        // It is not possible to write entities of dimension higher than that of the discretized entity
+        assert(writeCodim.size() >= dimension);  // Ensure that there enough info provided
+        if (mydim == 2)  { writeCodim[ELEMENT_CODIM] = false; }
+        if (mydim == 1)  { writeCodim[ELEMENT_CODIM] = false;  writeCodim[FACE_CODIM] = false; }
 
         std::stringstream log_message;
         log_message << "VTK_WRITER: Adding a curvilinear element Type=" << Dune::CurvilinearGeometryHelper::geometryName(geomtype);
@@ -418,13 +512,15 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
         log_message << " useInterpolation="    << interpolate;
         log_message << " explodeElements="     << explode;
         log_message << " explosionMagnitude="  << shrinkMagnitude;
-        log_message << " writeVTK_edges="      << writeEdgeData;
-        log_message << " writeVTK_triangles="  << writeTriangleData;
+        log_message << " writeVTK_edges="      << writeCodim[EDGE_CODIM];
+        log_message << " writeVTK_triangles="  << writeCodim[FACE_CODIM];
+        log_message << " writeVTK_triangles="  << writeCodim[ELEMENT_CODIM];
         //log_message << " vertices=" << Dune::VectorHelper::vector2string(nodeSet);
         LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, log_message.str());
 
-        addCurvilinearSimplex<mydim>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, shrinkMagnitude, boundaryMagnification, interpolate, writeEdgeData, writeTriangleData);
+        addCurvilinearSimplex<mydim>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, shrinkMagnitude, boundaryMagnification, interpolate, writeCodim);
     }
+
 
     /** \brief After an element has been added, one has the option attach one or more vector fields to the discretization vertices */
     template <class VTKElementaryFunction>
@@ -456,6 +552,8 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
     		// Evaluate field
     		GlobalVector field = vtkfunction.evaluate(local);
 
+    		//std::cout << "VTKWriter sampling local coordinate " << local << " coordinate index " << vertexIndex << " field=" << field << std::endl;
+
     		// Append coordinate index and field
     		vtkFieldVector_[fieldIndex].insert(std::pair<int, GlobalVector>(vertexIndex, field));
     	}
@@ -468,34 +566,56 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
     {
         FILE* vtkFile = fopen(filename.c_str(), "w");
 
-        int nElements = vtkEdgeVertexIndex_.size() + vtkTriangleVertexIndex_.size();
-        int nCells = vtkEdgeVertexIndex_.size()*3 + vtkTriangleVertexIndex_.size()*4;
+        std::vector<int> nEntity
+        {
+        	vtkCodimVertexIndex_[ELEMENT_CODIM].size(),
+        	vtkCodimVertexIndex_[FACE_CODIM].size(),
+        	vtkCodimVertexIndex_[EDGE_CODIM].size(),
+        	vtkPoint_.size()
+        };
+
+        int nEntityTot =   nEntity[EDGE_CODIM] +   nEntity[FACE_CODIM] +   nEntity[ELEMENT_CODIM];
+        int nCellTot   = 3*nEntity[EDGE_CODIM] + 4*nEntity[FACE_CODIM] + 5*nEntity[ELEMENT_CODIM];
+
+        // Check if the datasize is consistent for writing
+        writerSelfCheck(nEntity);
 
         fprintf(vtkFile, "# vtk DataFile Version 2.0\n");
         fprintf(vtkFile, "CurvilinearGmshReader test output\n");
         fprintf(vtkFile, "ASCII\n");
         fprintf(vtkFile, "DATASET UNSTRUCTURED_GRID\n");
-        fprintf(vtkFile, "POINTS %d double\n", vtkPoint_.size() );
+
 
         // Write all points
-        for (int i = 0; i < vtkPoint_.size(); i++ ) {
+        fprintf(vtkFile, "POINTS %d double\n", vtkPoint_.size() );
+        for (int i = 0; i < nEntity[VERTEX_CODIM]; i++ ) {
             for (int d = 0; d < dimension; d++)  { fprintf(vtkFile, "%lg ", vtkPoint_[i][d]); }
             fprintf(vtkFile, "\n");
         }
 
-        fprintf(vtkFile, "\n");
-        fprintf(vtkFile, "CELLS %d %d\n", nElements, nCells );
 
         // Write all elements
-        for (int i = 0; i < vtkEdgeVertexIndex_.size(); i++ )        { fprintf(vtkFile, "2 %d %d \n", vtkEdgeVertexIndex_[i][0], vtkEdgeVertexIndex_[i][1]); }
-        for (int i = 0; i < vtkTriangleVertexIndex_.size(); i++ )    { fprintf(vtkFile, "3 %d %d %d\n", vtkTriangleVertexIndex_[i][0], vtkTriangleVertexIndex_[i][1], vtkTriangleVertexIndex_[i][2] ); }
-
         fprintf(vtkFile, "\n");
-        fprintf(vtkFile, "CELL_TYPES %d\n", nElements );
+        fprintf(vtkFile, "CELLS %d %d\n", nEntityTot, nCellTot );
+        for (int iCodim = EDGE_CODIM; iCodim >= ELEMENT_CODIM; iCodim--)  // Write edges first, elements last
+        {
+            for (int i = 0; i < nEntity[iCodim]; i++)     {
+            	int nSubVertex = vtkCodimVertexIndex_[iCodim][i].size();
+				fprintf(vtkFile, "%d ", nSubVertex);
+
+            	for (int iV = 0; iV < nSubVertex; iV++)  { fprintf(vtkFile, "%d ", vtkCodimVertexIndex_[iCodim][i][iV]); }
+
+            	fprintf(vtkFile, "\n");
+            }
+        }
+
 
         // Write edge and triangle cell types
-        for (int i = 0; i < vtkEdgeVertexIndex_.size(); i++ )        { fprintf(vtkFile, "3\n"); }
-        for (int i = 0; i < vtkTriangleVertexIndex_.size(); i++ )    { fprintf(vtkFile, "5\n"); }
+        fprintf(vtkFile, "\n");
+        fprintf(vtkFile, "CELL_TYPES %d\n", nEntityTot );
+        for (int i = 0; i < nEntity[EDGE_CODIM]; i++ )     { fprintf(vtkFile, "3\n"); }
+        for (int i = 0; i < nEntity[FACE_CODIM]; i++ )     { fprintf(vtkFile, "5\n"); }
+        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++ )  { fprintf(vtkFile, "10\n"); }
 
 
         // If are defined fields associated with vertices, then write them too
@@ -524,33 +644,39 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
         	}
         }
 
-
-
         fprintf(vtkFile, "\n");
-        fprintf(vtkFile, "CELL_DATA %d\n", nElements );
+        fprintf(vtkFile, "CELL_DATA %d\n", nEntityTot );
+
 
         // Write edge and triangle Structural type
         fprintf(vtkFile, "SCALARS physicalTag FLOAT\n");
         fprintf(vtkFile, "LOOKUP_TABLE default\n");
-        for (int i = 0; i < vtkEdgePhysicalTag_.size(); i++ )        { fprintf(vtkFile, "%d\n", vtkEdgePhysicalTag_[i]); }
-        for (int i = 0; i < vtkTrianglePhysicalTag_.size(); i++ )    { fprintf(vtkFile, "%d\n", vtkTrianglePhysicalTag_[i]); }
+        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimPhysicalTag_[EDGE_CODIM][i]); }
+        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimPhysicalTag_[FACE_CODIM][i]); }
+        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtkFile, "%d\n", vtkCodimPhysicalTag_[ELEMENT_CODIM][i]); }
+
 
         // Write edge and triangle physicalTags
         fprintf(vtkFile, "SCALARS structuralType FLOAT\n");
         fprintf(vtkFile, "LOOKUP_TABLE default\n");
-        for (int i = 0; i < vtkEdgeStructuralType_.size(); i++ )        { fprintf(vtkFile, "%d\n", vtkEdgeStructuralType_[i]); }
-        for (int i = 0; i < vtkTriangleStructuralType_.size(); i++ )    { fprintf(vtkFile, "%d\n", vtkTriangleStructuralType_[i]); }
+        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimStructuralType_[EDGE_CODIM][i]); }
+        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimStructuralType_[FACE_CODIM][i]); }
+        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtkFile, "%d\n", vtkCodimStructuralType_[ELEMENT_CODIM][i]); }
+
 
         // Write edge and triangle provider process ranks
         fprintf(vtkFile, "SCALARS processRank FLOAT\n");
         fprintf(vtkFile, "LOOKUP_TABLE default\n");
-        for (int i = 0; i < vtkEdgeProcessRank_.size(); i++ )        { fprintf(vtkFile, "%d\n", vtkEdgeProcessRank_[i]); }
-        for (int i = 0; i < vtkTriangleProcessRank_.size(); i++ )    { fprintf(vtkFile, "%d\n", vtkTriangleProcessRank_[i]); }
+        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimProcessRank_[EDGE_CODIM][i]); }
+        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimProcessRank_[FACE_CODIM][i]); }
+        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtkFile, "%d\n", vtkCodimProcessRank_[ELEMENT_CODIM][i]); }
+
 
         // Empty line at the end of file
         fprintf(vtkFile, "\n");
         fclose(vtkFile);
     }
+
 
     // Writes a PVTU parallel file (no data in this file)
     void writePVTU(std::string filenameBody, int size)
@@ -617,26 +743,36 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
         fclose(pvtuFile);
     }
 
+
     // Writes serial VTU file
     void writeVTU( std::string filename)
     {
         FILE* vtuFile = fopen(filename.c_str(), "w");
 
-        int nVertices = vtkPoint_.size();
-        int nElements = vtkEdgeVertexIndex_.size() + vtkTriangleVertexIndex_.size();
+        std::vector<int> nEntity
+        {
+        	vtkCodimVertexIndex_[ELEMENT_CODIM].size(),
+        	vtkCodimVertexIndex_[FACE_CODIM].size(),
+        	vtkCodimVertexIndex_[EDGE_CODIM].size(),
+        	vtkPoint_.size()
+        };
+
+        // Check if the datasize is consistent for writing
+        writerSelfCheck(nEntity);
 
         // Compute offsets which is a general way to determine the number of vertices per element
         std::vector<int> offsets;
         int tmp_offset = 0;
-        for (int i = 0; i < vtkEdgeVertexIndex_.size(); i++ )        { tmp_offset += 2;  offsets.push_back(tmp_offset); }
-        for (int i = 0; i < vtkTriangleVertexIndex_.size(); i++ )    { tmp_offset += 3;  offsets.push_back(tmp_offset); }
+        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { tmp_offset += 2;  offsets.push_back(tmp_offset); }
+        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { tmp_offset += 3;  offsets.push_back(tmp_offset); }
+        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { tmp_offset += 4;  offsets.push_back(tmp_offset); }
 
         // Write header
         // *****************************************************
         fprintf(vtuFile, "<?xml version=\"%s\"?>\n", VTK_XML_VERSION.c_str());
         fprintf(vtuFile, "<VTKFile type=\"%s\" version=\"%s\" byte_order=\"%s\">\n", VTK_GRID_TYPE.c_str(), VTK_VTU_VERSION.c_str(), VTK_BYTE_ORDER.c_str());
         fprintf(vtuFile, "<%s>\n", VTK_GRID_TYPE.c_str());
-        fprintf(vtuFile, "<Piece NumberOfPoints=\"%d\" NumberOfCells=\"%d\">\n", nVertices, nElements);
+        fprintf(vtuFile, "<Piece NumberOfPoints=\"%d\" NumberOfCells=\"%d\">\n", nEntity[VERTEX_CODIM], nEntity[EDGE_CODIM] + nEntity[FACE_CODIM] + nEntity[ELEMENT_CODIM]);
 
 
         // PointData could be provided here
@@ -651,22 +787,25 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
         fprintf(vtuFile, "<DataArray type=\"Float32\" Name=\"physicalTag\" NumberOfComponents=\"1\" format=\"ascii\">\n");
 
         // Write edge and triangle physicalTags
-        for (int i = 0; i < vtkEdgePhysicalTag_.size(); i++ )        { fprintf(vtuFile, "%d ", vtkEdgePhysicalTag_[i]); }
-        for (int i = 0; i < vtkTrianglePhysicalTag_.size(); i++ )    { fprintf(vtuFile, "%d ", vtkTrianglePhysicalTag_[i]); }
+        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimPhysicalTag_[EDGE_CODIM][i]); }
+        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimPhysicalTag_[FACE_CODIM][i]); }
+        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtuFile, "%d ", vtkCodimPhysicalTag_[ELEMENT_CODIM][i]); }
 
         fprintf(vtuFile, "\n</DataArray>\n");
         fprintf(vtuFile, "<DataArray type=\"Float32\" Name=\"structuralType\" NumberOfComponents=\"1\" format=\"ascii\">\n");
 
         // Write edge and triangle structural type
-        for (int i = 0; i < vtkEdgeStructuralType_.size(); i++ )        { fprintf(vtuFile, "%d ", vtkEdgeStructuralType_[i]); }
-        for (int i = 0; i < vtkTriangleStructuralType_.size(); i++ )    { fprintf(vtuFile, "%d ", vtkTriangleStructuralType_[i]); }
+        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimStructuralType_[EDGE_CODIM][i]); }
+        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimStructuralType_[FACE_CODIM][i]); }
+        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtuFile, "%d ", vtkCodimStructuralType_[ELEMENT_CODIM][i]); }
 
         fprintf(vtuFile, "\n</DataArray>\n");
         fprintf(vtuFile, "<DataArray type=\"Float32\" Name=\"processRank\" NumberOfComponents=\"1\" format=\"ascii\">\n");
 
         // Write edge and triangle provider process ranks
-        for (int i = 0; i < vtkEdgeProcessRank_.size(); i++ )        { fprintf(vtuFile, "%d ", vtkEdgeProcessRank_[i]); }
-        for (int i = 0; i < vtkTriangleProcessRank_.size(); i++ )    { fprintf(vtuFile, "%d ", vtkTriangleProcessRank_[i]); }
+        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimProcessRank_[EDGE_CODIM][i]); }
+        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimProcessRank_[FACE_CODIM][i]); }
+        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtuFile, "%d ", vtkCodimProcessRank_[ELEMENT_CODIM][i]); }
 
         fprintf(vtuFile, "\n");
         fprintf(vtuFile, "</DataArray>\n");
@@ -679,7 +818,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
         fprintf(vtuFile, "<DataArray type=\"Float32\" NumberOfComponents=\"3\" format=\"ascii\">\n");
 
         // Write all points
-        for (int i = 0; i < vtkPoint_.size(); i++ ) {
+        for (int i = 0; i < nEntity[VERTEX_CODIM]; i++ ) {
             for (int d = 0; d < dimension; d++)  { fprintf(vtuFile, "%lg ", vtkPoint_[i][d]); }
             fprintf(vtuFile, "\n");
         }
@@ -693,8 +832,14 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
         fprintf(vtuFile, "<Cells>\n");
         fprintf(vtuFile, "<DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">\n");   // Vertex indices
 
-        for (int i = 0; i < vtkEdgeVertexIndex_.size(); i++ )        { fprintf(vtuFile, "%d %d ", vtkEdgeVertexIndex_[i][0], vtkEdgeVertexIndex_[i][1]); }
-        for (int i = 0; i < vtkTriangleVertexIndex_.size(); i++ )    { fprintf(vtuFile, "%d %d %d ", vtkTriangleVertexIndex_[i][0], vtkTriangleVertexIndex_[i][1], vtkTriangleVertexIndex_[i][2] ); }
+        for (int iCodim = EDGE_CODIM; iCodim >= ELEMENT_CODIM; iCodim--)  // Write edges first, elements last
+        {
+            for (int i = 0; i < nEntity[iCodim]; i++)     {
+            	for (int iV = 0; iV < vtkCodimVertexIndex_[iCodim][i].size(); iV++)  { fprintf(vtuFile, "%d ", vtkCodimVertexIndex_[iCodim][i][iV]); }
+            	fprintf(vtuFile, "\n");
+            }
+        }
+
 
         fprintf(vtuFile, "\n");
         fprintf(vtuFile, "</DataArray>\n");
@@ -706,8 +851,9 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
         fprintf(vtuFile, "</DataArray>\n");
         fprintf(vtuFile, "<DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">\n");   // Element types
 
-        for (int i = 0; i < vtkEdgeVertexIndex_.size(); i++ )        { fprintf(vtuFile, "3 "); }
-        for (int i = 0; i < vtkTriangleVertexIndex_.size(); i++ )    { fprintf(vtuFile, "5 "); }
+        for (int i = 0; i < nEntity[EDGE_CODIM]; i++ )     { fprintf(vtuFile, "3 "); }
+        for (int i = 0; i < nEntity[FACE_CODIM]; i++ )     { fprintf(vtuFile, "5 "); }
+        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++ )  { fprintf(vtuFile, "10 "); }
 
         fprintf(vtuFile, "\n");
         fprintf(vtuFile, "</DataArray>\n");
@@ -722,6 +868,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
         fclose(vtuFile);
     }
 
+
     // Writes a VTU file on all processes and a PVTU on Master Process
     void writeParallelVTU(std::string filenameBody)
     {
@@ -733,32 +880,38 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
     }
 
 
+    // Checks if the storage arrays are consistent before writing to file
+    void writerSelfCheck(std::vector<int> nEntity)
+    {
+        for (int iCodim = ELEMENT_CODIM; iCodim <= EDGE_CODIM; iCodim++)
+        {
+            assert(vtkCodimPhysicalTag_[iCodim].size()    == nEntity[iCodim]);
+            assert(vtkCodimStructuralType_[iCodim].size() == nEntity[iCodim]);
+            assert(vtkCodimProcessRank_[iCodim].size()    == nEntity[iCodim]);
+        }
+    }
+
   protected:
 
     // ***********************************************
     // Auxiliary Methods
     // ***********************************************
 
-    /** \brief Adds an edge which will be explicitly written to the file
+    /** \brief Adds a set of linear discretization entities which will be explicitly written to the file
      *  Note: Only add tags if they are provided by the user
      * */
-    void addDiscretizationEdge(IndexVector & indexSet, std::vector<int> & tagSet)
+    template<int codim, int subcodim>
+    void refineEntity(ElemGridEnumerate & simplexEnumerateReduced, int nInterval, LocalCoordinate2GlobalIdMap & parametricToIndex, std::vector<int> & tagSet)
     {
-        vtkEdgeVertexIndex_.push_back(indexSet);
-        vtkEdgePhysicalTag_.push_back(    (tagSet.size() > 0) ? tagSet[0] : 0);
-        vtkEdgeStructuralType_.push_back( (tagSet.size() > 1) ? tagSet[1] : 0);
-        vtkEdgeProcessRank_.push_back(    (tagSet.size() > 2) ? tagSet[2] : 0);
-    }
+    	LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKWriter: Computing and writing refinement-edges" );
+    	SubEntityIndexVector thisEntitySubset = VTKEntitySubset::refineEntitySubset<codim, subcodim>(simplexEnumerateReduced, nInterval, parametricToIndex);
 
-    /** \brief Adds a triangle which will be explicitly written to the file
-     *  Note: Only add tags if they are provided by the user
-     * */
-    void addDiscretizationTriangle(IndexVector & indexSet, std::vector<int> & tagSet)
-    {
-        vtkTriangleVertexIndex_.push_back(indexSet);
-        vtkTrianglePhysicalTag_.push_back(    (tagSet.size() > 0) ? tagSet[0] : 0);
-        vtkTriangleStructuralType_.push_back( (tagSet.size() > 1) ? tagSet[1] : 0);
-        vtkTriangleProcessRank_.push_back(    (tagSet.size() > 2) ? tagSet[2] : 0);
+    	for (int i = 0; i < thisEntitySubset.size(); i++) {
+            vtkCodimVertexIndex_[subcodim].push_back(thisEntitySubset[i]);
+            vtkCodimPhysicalTag_[subcodim].push_back(    (tagSet.size() > 0) ? tagSet[0] : 0);
+            vtkCodimStructuralType_[subcodim].push_back( (tagSet.size() > 1) ? tagSet[1] : 0);
+            vtkCodimProcessRank_[subcodim].push_back(    (tagSet.size() > 2) ? tagSet[2] : 0);
+    	}
     }
 
     /** \brief Calculates the centre of mass of a vector of points (equal-weighted) */
@@ -769,10 +922,6 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
         rez /= cornerVector.size();
         return rez;
     }
-
-
-
-
 
 
     /** \brief Checks if the tetrahedral discretization point corresponds to tetrahedral boundary
@@ -787,8 +936,6 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
     }
 
 
-
-
     template <int mydim>
     void addCurvilinearSimplex(
             const Dune::GeometryType & geomtype,
@@ -799,9 +946,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
             double shrinkMagnitude,
             double boundaryMagnification,
             bool interpolate,
-            bool writeEdgeData,
-            bool writeTriangleData
-            )
+            std::vector<bool> writeCodim)
     {
         typedef FieldVector< double, mydim >      LocalVector;
 
@@ -850,8 +995,8 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
             // Find if this vertex is internal or boundary
             bool isBoundaryPoint = (mydim == 3) ? onTetrahedronBoundary(simplexEnumerate[i], nInterval) : true;
 
-            // Write this vertex only if we are going to write an element using it
-            if (writeEdgeData || (writeTriangleData && isBoundaryPoint)) {
+            // Always write the vertices as there is field associated with them
+            //if (writeEdgeData || (writeTriangleData && isBoundaryPoint)) {
                 // If we interpolate, then all points will be taken from new sample grid
                 // Otherwise we take the intrinsic interpolation point grid which has the same shape
                 GlobalVector tmpPoint = interpolate ? elementInterpolator.realCoordinate(simplexLocalGrid[i]) : nodeSet[i];
@@ -864,7 +1009,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
 
                 // Add point to the point map
                 parametricToIndex[simplexEnumerate[i]] = vtkPoint_.size() - 1;
-            }
+            //}
             //std::cout << "* coords " << parUV[0] << ", " << parUV[1] << ", in the map cooresponds to " << parametricToIndex[parUV] << std::endl;
         }
 
@@ -875,28 +1020,14 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
         tmpParameter2Index_ = parametricToIndex;
 
         // *******************************************************************************
-        // Step 4: Write edges that discretize this element to VTK
+        // Step 4: Write entities that discretize this element to VTK
+        // Current paradigm is to either discretize all inserted entities with edges, making sort of a net
+        // Or to discretize each inserted entity with smaller entities of the same codim
         // *******************************************************************************
-        if (writeEdgeData)
-        {
-        	LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKWriter: Computing and writing refinement-edges" );
-        	SubEntityIndexVector thisEntitySubset = VTKEntitySubset::refineEntitySubset<codim, EDGE_CODIM>(simplexEnumerateReduced, nInterval, parametricToIndex);
-        	for (int i = 0; i < thisEntitySubset.size(); i++) { addDiscretizationEdge(thisEntitySubset[i], tagSet); }
-        }
-
-        // *******************************************************************************
-        // Step 5: Split this face into tiny triangles and add them to the triangle array
-        // *******************************************************************************
-        if (writeTriangleData)
-        {
-        	LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKWriter: Computing and writing refinement-triangles" );
-        	SubEntityIndexVector thisEntitySubset = VTKEntitySubset::refineEntitySubset<codim, FACE_CODIM>(simplexEnumerateReduced, nInterval, parametricToIndex);
-
-        	for (int i = 0; i < thisEntitySubset.size(); i++) {
-        		//std::cout << "subentity " << i << " consists of " << Dune::VectorHelper::vector2string(thisEntitySubset[i]) << std::endl;
-        		addDiscretizationTriangle(thisEntitySubset[i], tagSet);
-        	}
-        }
+        if      (writeCodim[EDGE_CODIM])  { refineEntity<codim, EDGE_CODIM>(simplexEnumerateReduced, nInterval, parametricToIndex, tagSet);  }
+        else if (writeCodim[codim])       { refineEntity<codim, codim>(simplexEnumerateReduced, nInterval, parametricToIndex, tagSet);  }
+        //if (writeCodim[FACE_CODIM])     { refineEntity<codim, FACE_CODIM>(simplexEnumerateReduced, nInterval, parametricToIndex, tagSet);  }
+        //if (writeCodim[ELEMENT_CODIM])  { refineEntity<codim, ELEMENT_CODIM>(simplexEnumerateReduced, nInterval, parametricToIndex, tagSet);  }
     }
 
 
@@ -909,16 +1040,12 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
     LocalCoordinate2GlobalIdMap tmpParameter2Index_;   // Stores the set of vertex indices used when inserting the last entity
 
     std::vector<GlobalVector> vtkPoint_;
-    std::vector<IndexVector> vtkEdgeVertexIndex_;
-    std::vector<IndexVector> vtkTriangleVertexIndex_;
 
-    TagVector vtkEdgePhysicalTag_;
-    TagVector vtkEdgeStructuralType_;
-    TagVector vtkEdgeProcessRank_;
-
-    TagVector vtkTrianglePhysicalTag_;
-    TagVector vtkTriangleStructuralType_;
-    TagVector vtkTriangleProcessRank_;
+    // Discretization entity storage
+    std::vector<IndexVector> vtkCodimVertexIndex_[4];   // Vertices that discretize the entity of a given codimension
+    TagVector vtkCodimPhysicalTag_[4];                  // Physical tag of the entity
+    TagVector vtkCodimStructuralType_[4];               // Structural type of the entity
+    TagVector vtkCodimProcessRank_[4];                  // Process rank of the entity
 
     // Field storage
     FieldNameMap                 fieldName2Index_;

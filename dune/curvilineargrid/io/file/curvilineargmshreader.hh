@@ -1161,8 +1161,7 @@ namespace Dune
     	int VTK_DISCRETIZATION_POINTS = 2;    // Sampling frequency over curved element. min=2 is linear sampling
     	bool VTK_INTERPOLATE = true;          // Whether to use lagrange interpolation or intrinsic interpolatory vertices
     	bool VTK_EXPLODE = true;              // Whether to make gaps between all elements by scaling them away from center
-    	bool VTK_WRITE_EDGES = false;         // Whether to write volume discretization edges to file
-    	bool VTK_WRITE_TRIANGLES = true;      // Whether to write surface discretization triangles to file
+    	std::vector<bool> writeCodim {true, true, false, false};  // Use tetrahedrons and triangles to discretize the inserted entities
 
     	// Defines what structural purpose this element has in the grid.
     	// Different elements will have different structural tags
@@ -1178,8 +1177,7 @@ namespace Dune
     			VTK_DISCRETIZATION_POINTS,
     			VTK_INTERPOLATE,
     			VTK_EXPLODE,
-    			VTK_WRITE_EDGES,
-    			VTK_WRITE_TRIANGLES);
+    			writeCodim);
     }
 
 

@@ -98,13 +98,10 @@ public:
 		// Properties
         int nDiscretizationPoint = 6;
         bool interpolate = true;
-        bool explode = true;
-        bool writeEdgeData = false;
-        bool writeTriangleData = true;
+        bool explode = false;
+        std::vector<bool>  writeCodim { true, false, false, false };  // Use elements for discretization, and do not use entities of other codimensions
 
 		// Iterate over elements
-
-
   		/** \brief Iterate ove all elements of Interior Border partition */
 		LeafGridView leafView = grid_.leafGridView();
 
@@ -126,7 +123,7 @@ public:
 			// Write element to VTK
 			const int mydim = EntityElement::dimension;
 			LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting element geometry" );
-			writer_.template addCurvilinearElement<mydim>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, interpolate, explode, writeEdgeData, writeTriangleData);
+			writer_.template addCurvilinearElement<mydim>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, interpolate, explode, writeCodim);
 
 
 			for (int i = 0; i < vtkFunctionSet.size(); i++)
@@ -143,7 +140,7 @@ public:
 		}
 
 		// Write the data to vtk file
-		LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Writing .vtk file" );
+		LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Writing .vtk file = " + filename);
 		writer_.writeVTK(filename);
 
 		// Delete vtk functions

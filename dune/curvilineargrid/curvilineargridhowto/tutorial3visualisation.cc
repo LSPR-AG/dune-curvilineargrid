@@ -30,8 +30,7 @@ void writeVTKentities (
 	int N_DISCRETIZATION_POINTS,
 	bool interpolate,
 	bool explode,
-	bool WRITE_VTK_EDGES,
-	bool WRITE_VTK_TRIANGLES,
+	std::vector<bool> writeCodim,
 	std::set<typename GridType::StructuralType > typeset)
 {
   const int dim =  GridType::dimension;
@@ -84,8 +83,7 @@ void writeVTKentities (
     			N_DISCRETIZATION_POINTS,
     			interpolate,
     			explode,
-    			WRITE_VTK_EDGES,
-    			WRITE_VTK_TRIANGLES);
+    			writeCodim);
 	  }
   }
 
@@ -120,8 +118,7 @@ int main (int argc , char **argv) {
 	int N_DISCRETIZATION_POINTS = 5;    // Number of linear points to subdivide a curvilinear line (min=2 - linear)
 	bool interpolate = true;            // If interpolate=false, vtk writer just uses the interpolatory vertices as discretization vertices and ignores above constant
 	bool explode = true;                // Artificially increase distance between all entities, by shrinking all entities a bit wrt their center of mass
-	bool WRITE_VTK_EDGES;               // If edges should be used to discretize this element
-	bool WRITE_VTK_TRIANGLES;           // If triangles should be used to discretize this element
+	std::vector<bool> writeCodim {true, false, false, false};  // For now, only use linear elements to discretize inserted entities
 
 
     // Construct the VTK writer
@@ -130,8 +127,6 @@ int main (int argc , char **argv) {
 
 	// write elements
 	// *************************************************
-	WRITE_VTK_EDGES     = false;       // If edges should be used to discretize this element
-	WRITE_VTK_TRIANGLES = true;        // If triangles should be used to discretize this element
 	std::set<StructuralType>  writeElements;
 	writeElements.insert(Dune::PartitionType::InteriorEntity);
 	writeElements.insert(Dune::PartitionType::GhostEntity);
@@ -142,8 +137,7 @@ int main (int argc , char **argv) {
 			N_DISCRETIZATION_POINTS,
 			interpolate,
 			explode,
-			WRITE_VTK_EDGES,
-			WRITE_VTK_TRIANGLES,
+			writeCodim,
 			writeElements);
 
 

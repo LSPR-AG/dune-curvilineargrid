@@ -197,8 +197,7 @@ public:
 		int nDiscretizationPoints,
 		bool interpolate,
 		bool explode,
-		bool writeVtkEdges,
-		bool writeVtkTriangles
+		std::vector<bool> writeCodim
 	)
 	{
 		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Grid to VTK");
@@ -214,16 +213,16 @@ public:
 
     	for (int iType = 0; iType < structTypeSet.size(); iType++)
     	{
-    		if (withEdges[iType])     { addVTKentitySet<EDGE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeVtkEdges, writeVtkTriangles); }
-    		if (withFaces[iType])     { addVTKentitySet<FACE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeVtkEdges, writeVtkTriangles); }
+    		if (withEdges[iType])     { addVTKentitySet<EDGE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeCodim); }
+    		if (withFaces[iType])     { addVTKentitySet<FACE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeCodim); }
 
     		// For elements there is no Domain and Process boundaries, so only Internal and Ghost requests are processed
     		if ((iType < 2) && (withElements[iType]))
-    		                          { addVTKentitySet<ELEMENT_CODIM> (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeVtkEdges, writeVtkTriangles); }
+    		                          { addVTKentitySet<ELEMENT_CODIM> (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeCodim); }
     	}
 
     	// Write boundarySegments if requested
-    	if (withFaces[3])  { addVTKentitySet<FACE_CODIM> (vtkCurvWriter, PartitionType::InteriorEntity, nDiscretizationPoints, interpolate, explode, writeVtkEdges, writeVtkTriangles, DOMAIN_BOUNDARY_TYPE); }
+    	if (withFaces[3])  { addVTKentitySet<FACE_CODIM> (vtkCurvWriter, PartitionType::InteriorEntity, nDiscretizationPoints, interpolate, explode, writeCodim, DOMAIN_BOUNDARY_TYPE); }
 
 
 		// Writing Mesh
@@ -255,9 +254,7 @@ protected:
 			int nDiscretizationPoints,
 			bool interpolate,
 			bool explode,
-			bool VTK_WRITE_EDGES,
-			bool VTK_WRITE_TRIANGLES
-	)
+			std::vector<bool> writeCodim)
 	{
 		typedef typename GridType::GridBaseType::template Codim<codim>::EntityGeometry   EntityGeometry;
 		typedef typename EntityGeometry::GlobalCoordinate  GlobalCoordinate;
@@ -281,8 +278,7 @@ protected:
 	    			nDiscretizationPoints,
 	    			interpolate,
 	    			explode,
-	    			VTK_WRITE_EDGES,
-	    			VTK_WRITE_TRIANGLES);
+	    			writeCodim);
 	}
 
 
@@ -294,8 +290,7 @@ protected:
 		int nDiscretizationPoints,
 		bool interpolate,
 		bool explode,
-		bool VTK_WRITE_EDGES,
-		bool VTK_WRITE_TRIANGLES,
+		std::vector<bool> writeCodim,
 		StructuralType boundaryType = NO_BOUNDARY_TYPE
 	)
 	{
@@ -318,7 +313,7 @@ protected:
 				  {
 					// Gets indexInInside from intersection
 					const FaceType & face = e.template subEntity<FACE_CODIM>(nit->indexInInside());
-					addVTKentity<FaceType, FACE_CODIM>(vtkCurvWriter, face, BOUNDARY_SEGMENT_PARTITION_TYPE, nDiscretizationPoints, interpolate, explode, VTK_WRITE_EDGES, VTK_WRITE_TRIANGLES);
+					addVTKentity<FaceType, FACE_CODIM>(vtkCurvWriter, face, BOUNDARY_SEGMENT_PARTITION_TYPE, nDiscretizationPoints, interpolate, explode, writeCodim);
 				  }
 				}
 			}
@@ -332,7 +327,7 @@ protected:
 			  if (thisPType == ptype)
 			  {
 				  typedef typename LeafGridView::template Codim<codim >::Entity   EntityType;
-				  addVTKentity<EntityType, codim>(vtkCurvWriter, e, ptype, nDiscretizationPoints, interpolate, explode, VTK_WRITE_EDGES, VTK_WRITE_TRIANGLES);
+				  addVTKentity<EntityType, codim>(vtkCurvWriter, e, ptype, nDiscretizationPoints, interpolate, explode, writeCodim);
 			  }
 			}
 		}

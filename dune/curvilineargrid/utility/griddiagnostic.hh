@@ -112,8 +112,7 @@ public:
 		MPIHelper & mpihelper,
 		GridType & grid) :
 			mpihelper_(mpihelper),
-			grid_(grid),
-			loggingmessage_(LoggingMessage::getInstance())
+			grid_(grid)
 	{
 		rank_ = mpihelper.rank();
 		size_ = mpihelper.size();
@@ -126,7 +125,7 @@ public:
 	// [TODO] add test to check number of ghost elements
 	void runAnalyticTest(std::string filename)
 	{
-		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started collecting mesh statistics");
+		LoggingMessage::template writeStatic<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started collecting mesh statistics");
 
 		MeshStatType meshStatistics(14, std::vector<double>());
 		meshStatistics[0].push_back(grid_.numInternal(ELEMENT_CODIM));
@@ -165,73 +164,10 @@ public:
 			}
 		}
 
-		// Iterate over entities of this codimension
-		//ElementIterator iElemB = leafView.template begin<ELEMENT_CODIM, InteriorBorder_Partition>();
-		//ElementIterator iElemE   = leafView.template end<ELEMENT_CODIM, InteriorBorder_Partition>();
-		//for (ElementIterator it = iElemB; it != iElemE; ++it)
-		//{
-		//    const ElementType & e = *it;
-
-		//    if (e.partitionType() != Dune::PartitionType::GhostEntity)
-		//    {
-		//    }
-		//}
-
 		// Write diagnostics result to a file
 		Dune::DiagnosticsHelper<GridType>::writeAnalyticTestResult(filename, meshStatistics, mpihelper_);
 	}
 
-
-
-	// VTK Tests
-	// *************************************************************
-
-	// Writes the mesh to VTK, including the additional constructions made by the mesh generator
-	// [TODO] Implement LoggingMessage
-	// [TODO] Use physicalTag=-1 for entities that do not have physicalTag
-	// [TODO] Use another scalar = "OwnerRank" for entities
-	void vtkWriteMesh (
-		std::vector<bool> withElements,
-		std::vector<bool> withFaces,
-		std::vector<bool> withEdges,
-		int nDiscretizationPoints,
-		bool interpolate,
-		bool explode,
-		std::vector<bool> writeCodim
-	)
-	{
-		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Grid to VTK");
-
-    	Dune::CurvilinearVTKWriter<GridType> vtkCurvWriter(mpihelper_);
-
-    	std::vector<PartitionType>  structTypeSet
-    	{
-    		PartitionType::InteriorEntity,
-    		PartitionType::GhostEntity,
-    		PartitionType::BorderEntity
-    	};
-
-    	for (int iType = 0; iType < structTypeSet.size(); iType++)
-    	{
-    		if (withEdges[iType])     { addVTKentitySet<EDGE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeCodim); }
-    		if (withFaces[iType])     { addVTKentitySet<FACE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeCodim); }
-
-    		// For elements there is no Domain and Process boundaries, so only Internal and Ghost requests are processed
-    		if ((iType < 2) && (withElements[iType]))
-    		                          { addVTKentitySet<ELEMENT_CODIM> (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeCodim); }
-    	}
-
-    	// Write boundarySegments if requested
-    	if (withFaces[3])  { addVTKentitySet<FACE_CODIM> (vtkCurvWriter, PartitionType::InteriorEntity, nDiscretizationPoints, interpolate, explode, writeCodim, DOMAIN_BOUNDARY_TYPE); }
-
-
-		// Writing Mesh
-    	// *************************************************************************
-		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Writing VTK File");
-    	//vtkCurvWriter.writeVTK("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
-    	vtkCurvWriter.writeParallelVTU("./curvreader_output");
-    	loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Finished writing");
-	}
 
 	// Writes OCTree to VTK
 	// [TODO] Move this functionality here from OCTree impl, edit it
@@ -239,108 +175,7 @@ public:
 
 
 
-
-
-
-protected:
-
-
-
-	template<class Entity, int codim>
-	void addVTKentity(
-			Dune::CurvilinearVTKWriter<GridType> & vtkCurvWriter,
-			const Entity & e,
-			StructuralType typeTag,
-			int nDiscretizationPoints,
-			bool interpolate,
-			bool explode,
-			std::vector<bool> writeCodim)
-	{
-		typedef typename GridType::GridBaseType::template Codim<codim>::EntityGeometry   EntityGeometry;
-		typedef typename EntityGeometry::GlobalCoordinate  GlobalCoordinate;
-
-		Dune::GeometryType gt              = e.type();
-
-		// Constructing a geometry is quite expensive, do it only once
-		//EntityGeometry geom = it->geometry();
-		EntityGeometry geom = grid_.template entityBaseGeometry<codim>(e);
-		std::vector<GlobalCoordinate>  interpVertices = geom.vertexSet();
-
-		PhysicalTagType physicalTag        = grid_.template entityPhysicalTag<codim>(e);
-		InterpolatoryOrderType interpOrder = grid_.template entityInterpolationOrder<codim>(e);
-		std::vector<int>         tags  { physicalTag, typeTag, mpihelper_.rank() };
-
-		vtkCurvWriter.template addCurvilinearElement<cdim - codim>(
-	    			gt,
-	    			interpVertices,
-	    			tags,
-	    			interpOrder,
-	    			nDiscretizationPoints,
-	    			interpolate,
-	    			explode,
-	    			writeCodim);
-	}
-
-
-
-	template <int codim>
-	void addVTKentitySet(
-		Dune::CurvilinearVTKWriter<GridType> & vtkCurvWriter,
-		PartitionType ptype,
-		int nDiscretizationPoints,
-		bool interpolate,
-		bool explode,
-		std::vector<bool> writeCodim,
-		StructuralType boundaryType = NO_BOUNDARY_TYPE
-	)
-	{
-
-
-		LeafGridView leafView = grid_.leafGridView();
-
-		// To insert boundary segments into writer
-		if (boundaryType == DOMAIN_BOUNDARY_TYPE)
-		{
-			assert(codim == FACE_CODIM);
-
-			for( auto && e : elements( leafView, Partitions::interior ) )
-			{
-		        const IntersectionIterator nend = leafView.iend(e);
-				for( IntersectionIterator nit = leafView.ibegin(e); nit != nend; ++nit )
-				{
-				  // Checks if intersection is border
-				  if(nit->boundary())
-				  {
-					// Gets indexInInside from intersection
-					const FaceType & face = e.template subEntity<FACE_CODIM>(nit->indexInInside());
-					addVTKentity<FaceType, FACE_CODIM>(vtkCurvWriter, face, BOUNDARY_SEGMENT_PARTITION_TYPE, nDiscretizationPoints, interpolate, explode, writeCodim);
-				  }
-				}
-			}
-		} else // To insert entities
-		{
-			for( auto && e : entities( leafView, Dune::Dim<cdim - codim>()) )
-			{
-			  Dune::PartitionType thisPType      = e.partitionType();
-
-			  // If we requested to output entities of this type, we will write them to VTK
-			  if (thisPType == ptype)
-			  {
-				  typedef typename LeafGridView::template Codim<codim >::Entity   EntityType;
-				  addVTKentity<EntityType, codim>(vtkCurvWriter, e, ptype, nDiscretizationPoints, interpolate, explode, writeCodim);
-			  }
-			}
-		}
-	}
-
-
-
-
-
-
 private:
-
-	LoggingMessage & loggingmessage_;
 
 	MPIHelper & mpihelper_;
 	int rank_;

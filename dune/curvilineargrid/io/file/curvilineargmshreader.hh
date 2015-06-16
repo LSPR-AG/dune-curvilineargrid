@@ -128,6 +128,7 @@ namespace Dune
         loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
 
         // Initialize triangular point renumberings for GMSH->DUNE convention
+        // [TODO] Move to a separate mapper class, with possible extension to write algorithmic arbitrary order mapper
         triangularInterpolatoryVertexGmsh2DuneMap.push_back( std::vector<int> {0, 1, 2} );
         triangularInterpolatoryVertexGmsh2DuneMap.push_back( std::vector<int> {0, 3, 1, 5, 4, 2} );
         triangularInterpolatoryVertexGmsh2DuneMap.push_back( std::vector<int> {0, 3, 4, 1, 8, 9, 5, 7, 6, 2} );
@@ -364,6 +365,7 @@ namespace Dune
     // ***********************************************************************
 
     // Constructs a DUNE geometry type based on GMSH element index
+    // [TODO] Move to Gmsh2DuneMapper.hh
     GeometryType gmshGeometryType(int gmshIndex)
     {
         GeometryType rez;
@@ -394,7 +396,9 @@ namespace Dune
         return rez;
     }
 
+
     // Returns the type name of the element given its GMSH_index
+    // [TODO] Move to Gmsh2DuneMapper.hh
     int gmshElementOrder(int gmshIndex)
     {
         // Hexahedra of high dimension have funny index
@@ -407,6 +411,9 @@ namespace Dune
         return elemOrder[gmsh2DuneIndex(gmshIndex)];
     }
 
+
+    // Tells which GMSH indices point to entities of incomplete polynomial order
+    // [TODO] Move to Gmsh2DuneMapper.hh
     bool gmshElementIsIncomplete(int gmshIndex)
     {
         // Both high-order hexahedrons are complete
@@ -418,8 +425,10 @@ namespace Dune
         return elemIncomplete[gmsh2DuneIndex(gmshIndex)];
     }
 
+
     // Returns the number of degrees of freedom of the element given its GMSH_index
     // note: This info can not simply be obtained from referenceElement, because some of the elements in GMSH have incomplete order, so less DoF than expected
+    // [TODO] Move to Gmsh2DuneMapper.hh
     int gmshElementDofNumber(int gmshIndex)
     {
         // Array copy-pasted from GMSH Brute-Force because it does not seem to have any pattern :)
@@ -428,7 +437,9 @@ namespace Dune
         return nDofs[gmsh2DuneIndex(gmshIndex)];
     }
 
+
     // Returns the total number of DoF associated with all subentities of a given dimension for this element, subtracting the ones that come from the corners
+    // [TODO] Move to Gmsh2DuneMapper.hh
     int gmshElementSubentityExtraDim(int gmshIndex, int dim)
     {
         const int nDofsExtraEdge[32] = {0, 0, 0, 0, 0, 0, 0, 1, 3, 4, 6, 12, 9, 8, 0, 4, 12, 9, 8, 6, 6, 9, 9, 12, 12, 2, 3, 4, 12, 18, 24};
@@ -445,8 +456,10 @@ namespace Dune
         return -1;
     }
 
+
     // correct differences between gmsh and Dune in the local vertex numbering
-    // NOTE: THIS METHOD DOES NOT WORK WITH INCOMPLETE ORDER GMSH ELEMENTS AT THE MOMENT
+    // [FIXME] THIS METHOD DOES NOT WORK WITH INCOMPLETE ORDER GMSH ELEMENTS AT THE MOMENT
+    // [TODO] Move to Gmsh2DuneMapper.hh
     void gmsh2DuneElementDofNumbering(GeometryType gt, int thisElmOrder, std::vector<int> &elementDofSet) {
         int thisElmDofNo = elementDofSet.size();
         std::vector<int> tmp;
@@ -467,7 +480,9 @@ namespace Dune
         }
     }
 
+
     // In GMSH the global vertex index starts at 1, in Dune it starts at 0, therefore correction
+    // [TODO] Move to Gmsh2DuneMapper.hh
     int  gmsh2DuneIndex (int gmshIndex) { return gmshIndex - 1; }
 
 
@@ -477,6 +492,7 @@ namespace Dune
     // ***********************************************************************
 
     // Testing if the current element type can be handled by DUNE
+    // [TODO] Move to Gmsh2DuneMapper.hh
     bool checkElementAllowed(int gmshIndex)
     {
     	GeometryType gt = gmshGeometryType(gmshIndex);
@@ -493,6 +509,7 @@ namespace Dune
 
         return isAllowedElement;
     }
+
 
     // Checks whether this element (or boundary element) belongs on this parallel process
     bool elementOnProcess(int eIndex, int eTotal) {
@@ -523,8 +540,6 @@ namespace Dune
      *
      *  \return The total number of vertices on this process
      *  \note Assumes it is in the correct position in the file
-     *
-     *  TODO: Make factory.insertVertex() work with globalId
      *
      */
     int readVertices(
@@ -987,12 +1002,16 @@ namespace Dune
 
     /** \brief Adds all internal elements to factory, also writes them to .vtk file.
      *
-     *  \param[in]  vtk_curv_writer                A class that writes debug output to .vtk file(s)
-     *  \param[in]  vertexGlobal2LocalIndexMap  the map from vertex globalID to localID
-     *  \param[in]  vertexIndex2CoordinateMap                       the map from vertex globalID to vertex coordinate.
-     *  \param[in]  internalElementVector              A vector in which the globalID's of internal elements are stored
+     *  \param[in]  vtk_curv_writer               A class that writes debug output to .vtk file(s)
+     *  \param[in]  vertexGlobal2LocalIndexMap    the map from vertex globalID to localID
+     *  \param[in]  vertexIndex2CoordinateMap     the map from vertex globalID to vertex coordinate.
+     *  \param[in]  internalElementVector         A vector in which the globalID's of internal elements are stored
      *
-     *  TODO: The vertex and element vectors are stored twice - once inside the read procedure and once in factory
+     *  [FIXME] Currently, physical tag is inserted explicitly, which may be unsatisfactory for Dune community.
+     *          A possible workaround is to create compiler directive -DHAVE_PHYSICAL_TAG, which would determine
+     *          whether to use extra argument in the factory.insertElement() routine
+     *
+     *  [TODO] The vertex and element vectors are stored twice - once inside the read procedure and once in factory
      *  as they are being added. Maybe possible to save space
      */
     void addInternalElements(
@@ -1064,13 +1083,19 @@ namespace Dune
 
     /** \brief Adds all boundary elements to factory, also writes them to .vtk file.
      *
-     *  \param[in]  vtk_curv_writer                A class that writes debug output to .vtk file(s)
-     *  \param[in]  vertexGlobal2LocalIndexMap  the map from vertex globalID to localID
-     *  \param[in]  vertexIndex2CoordinateMap                       the map from vertex globalID to vertex coordinate.
-     *  \param[in]  boundaryElementVector              A vector in which the globalID's of boundary elements are stored
+     *  \param[in]  vtk_curv_writer              A class that writes debug output to .vtk file(s)
+     *  \param[in]  vertexGlobal2LocalIndexMap   the map from vertex globalID to localID
+     *  \param[in]  vertexIndex2CoordinateMap    the map from vertex globalID to vertex coordinate.
+     *  \param[in]  boundaryElementVector        A vector in which the globalID's of boundary elements are stored
      *  \param[in]  linkedElementLocalIndexSet   A vector that stores a vector of localID's of all elements linked this boundary, for each boundary localID
      *
-     *  TODO: The vertex and element vectors are stored twice - once inside the read procedure and once in factory
+     *  [FIXME] Currently factory.insertBoundarySegment() inserts index of element associated with this element, which Dune might not like:
+     *  Possible solutions:
+     *    * Extend Dune-interface with this function. Otherwise inserting boundary segment is pointless - having to find which element this boundary segment is associated with
+     *    * Recompute in CurvGrid - not too expensive to redo, but annoying
+     *    * Introduce compiler directive -DHAVE_CURVREADER_BOUNDARY_SEGMENT_ASSOCIATION
+     *
+     *  [TODO] The vertex and element vectors are stored twice - once inside the read procedure and once in factory
      *  as they are being added. Maybe possible to save space
      */
     void addBoundaryElements(
@@ -1481,7 +1506,7 @@ namespace Dune
     static void read (FactoryType & factory,
                       const std::string& fileName,
                       MPIHelper &mpihelper,
-                      bool writeVTKFile,
+                      bool writeVTKFile = false,
                       bool insertBoundarySegment=true
                      )
     {

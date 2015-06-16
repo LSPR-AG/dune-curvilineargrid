@@ -166,9 +166,9 @@ public:
 		int nDiscretizationPoints,
 		bool interpolate,
 		bool explode,
-		bool writeVtkEdges,
-		bool writeVtkTriangles
+		std::vector<bool> writeCodim
 	)
+
 	{
 		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Grid to VTK");
 
@@ -183,16 +183,16 @@ public:
 
     	for (int iType = 0; iType < structTypeSet.size(); iType++)
     	{
-    		if (withEdges[iType])     { addVTKentity<EDGE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeVtkEdges, writeVtkTriangles); }
-    		if (withFaces[iType])     { addVTKentity<FACE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeVtkEdges, writeVtkTriangles); }
+    		if (withEdges[iType])     { addVTKentity<EDGE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeCodim); }
+    		if (withFaces[iType])     { addVTKentity<FACE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeCodim); }
 
     		// For elements there is no Domain and Process boundaries, so only Internal and Ghost requests are processed
     		if ((iType < 2) && (withElements[iType]))
-    		                          { addVTKentity<ELEMENT_CODIM> (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeVtkEdges, writeVtkTriangles); }
+    		                          { addVTKentity<ELEMENT_CODIM> (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeCodim); }
     	}
 
     	// Write boundarySegments if requested
-    	if (withFaces[3])  { addVTKentity<FACE_CODIM> (vtkCurvWriter, PartitionType::InteriorEntity, nDiscretizationPoints, interpolate, explode, writeVtkEdges, writeVtkTriangles, DOMAIN_BOUNDARY_TYPE); }
+    	if (withFaces[3])  { addVTKentity<FACE_CODIM> (vtkCurvWriter, PartitionType::InteriorEntity, nDiscretizationPoints, interpolate, explode, writeCodim, DOMAIN_BOUNDARY_TYPE); }
 
 
 		// Writing Mesh
@@ -327,8 +327,7 @@ protected:
 		int nDiscretizationPoints,
 		bool interpolate,
 		bool explode,
-		bool VTK_WRITE_EDGES,
-		bool VTK_WRITE_TRIANGLES,
+		std::vector<bool> writeCodim,
 		StructuralType boundaryType = NO_BOUNDARY_TYPE
 	)
 	{
@@ -364,8 +363,7 @@ protected:
 	    			nDiscretizationPoints,
 	    			interpolate,
 	    			explode,
-	    			VTK_WRITE_EDGES,
-	    			VTK_WRITE_TRIANGLES);
+	    			writeCodim);
 		}
 	}
 

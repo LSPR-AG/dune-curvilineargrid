@@ -66,6 +66,7 @@ class CurvilinearVTKGridWriter
 	typedef typename Grid::LeafGridView   LeafGridView;
 
 	typedef typename GridType::template Codim<ELEMENT_CODIM>::Entity                         EntityElement;
+	typedef typename GridType::template Codim<FACE_CODIM>::Entity                            EntityFace;
 	typedef typename GridType::GridBaseType::template Codim<ELEMENT_CODIM>::EntityGeometry   EntityGeometry;
 	typedef typename EntityGeometry::GlobalCoordinate  GlobalCoordinate;
 
@@ -93,20 +94,29 @@ public:
 	}
 
 
+	// Write Grid only to VTK
+	void write(std::string filename)
+	{
+		std::vector<VTKFunction *> emptyFieldSet;
+		write(filename, emptyFieldSet);
+	}
+
+
+	// Write Grid to VTK, including vector field set defined over each element
 	void write(std::string filename, std::vector<VTKFunction *> & vtkFunctionSet)
 	{
 		// Properties
         int nDiscretizationPoint = 6;
         bool interpolate = true;
         bool explode = false;
-        std::vector<bool>  writeCodim { true, false, false, false };  // Use elements for discretization, and do not use entities of other codimensions
+        std::vector<bool>  writeCodim { true, true, false, false };  // Use elements for discretization, and do not use entities of other codimensions
 
 		// Iterate over elements
   		/** \brief Iterate ove all elements of Interior Border partition */
 		LeafGridView leafView = grid_.leafGridView();
 
-		LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Writing Elements" );
-		for (auto&& elementThis : elements(leafView, Dune::Partitions::interiorBorder))
+		LoggingMessage::template writeStatic<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Writing Elements" );
+		for (auto&& elementThis : elements(leafView, Dune::Partitions::all))
 		{
 			Dune::GeometryType geomtype            = elementThis.type();
 			Dune::PartitionType thisPType          = elementThis.partitionType();
@@ -121,26 +131,63 @@ public:
 			std::vector<int>        tagSet  { physicalTag, thisPType, grid_.comm().rank() };
 
 			// Write element to VTK
-			const int mydim = EntityElement::dimension;
-			LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting element geometry" );
-			writer_.template addCurvilinearElement<mydim>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, interpolate, explode, writeCodim);
+			LoggingMessage::template writeStatic<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting element geometry" );
+			writer_.template addCurvilinearElement<dimension - ELEMENT_CODIM>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, interpolate, explode, writeCodim);
 
 
-			for (int i = 0; i < vtkFunctionSet.size(); i++)
+			if (thisPType != Dune::PartitionType::GhostEntity)
 			{
-				LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Computing element field" );
-				// Construct VTKElementaryFunction
-				VTKElementaryFunction<EntityElement, VTKFunction> vtkefunc(elementThis, vtkFunctionSet[i]);
+				// Write faces - Domain and Process Boundaries
+				for (auto&& intersection : intersections(leafView, elementThis))
+				{
+					const EntityFace faceThis = elementThis.template subEntity<FACE_CODIM>(intersection.indexInInside());
 
-				LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Inserting element field" );
-				// Write field
-				writer_.addField(vtkFunctionSet[i]->name(), vtkefunc);
+					Dune::GeometryType  faceGeomType   = faceThis.type();
+					Dune::PartitionType thisFacePType  = faceThis.partitionType();
+
+					if ((thisFacePType == Dune::PartitionType::BorderEntity) || intersection.boundary())
+					{
+						// Constructing a geometry is quite expensive, do it only once
+						//EntityGeometry geom = it->geometry();
+						EntityGeometry facegeom                    = grid_.template entityBaseGeometry<ELEMENT_CODIM>(faceThis);
+						std::vector<GlobalCoordinate>  faceNodeSet = facegeom.vertexSet();
+
+						PhysicalTagType         faceTag            = grid_.template entityPhysicalTag<ELEMENT_CODIM>(faceThis);
+						std::vector<int>        faceTagSet  { faceTag, thisFacePType, grid_.comm().rank() };
+
+						// Write element to VTK
+						LoggingMessage::template writeStatic<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting face geometry" );
+						writer_.template addCurvilinearElement<dimension - FACE_CODIM>(faceGeomType, faceNodeSet, faceTagSet, elementOrder, nDiscretizationPoint, interpolate, explode, writeCodim);
+					}
+				}
+
+
+				// It is unexpected that the process would know the field on its own Ghost element. It is most likely that for memory reasons this field
+				// will be stored only once, and on a process for which this element is an interior element
+				for (int i = 0; i < vtkFunctionSet.size(); i++)
+				{
+					LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Computing element field" );
+					// Construct VTKElementaryFunction
+					VTKElementaryFunction<EntityElement, VTKFunction> vtkefunc(elementThis, vtkFunctionSet[i]);
+
+					LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Inserting element field" );
+					// Write field
+					writer_.addField(vtkFunctionSet[i]->name(), vtkefunc);
+				}
 			}
+		}
+
+
+		// Write all faces
+		LoggingMessage::template writeStatic<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Writing Faces" );
+		for (auto&& faceThis : faces(leafView, Dune::Partitions::interiorBorder))
+		{
 
 		}
 
+
 		// Write the data to vtk file
-		LoggingMessage::getInstance().template write<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Writing .vtk file = " + filename);
+		LoggingMessage::template writeStatic<LOG_CATEGORY_DEBUG>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Writing .vtk file = " + filename);
 		writer_.writeVTK(filename);
 
 		// Delete vtk functions

@@ -138,26 +138,33 @@ namespace Dune
 
       // Subentity geometry wrapper for Geometry
       // Return pointer to save computation time inside intersection class
+      /*
       template<int subdim>
       CurvGeometry<subdim, cdim, Grid> * subentityGeometry(InternalIndexType subentityIndex)
       {
           return new CurvGeometry<subdim, cdim, Grid>(mapping_.template subentityGeometry<subdim>(subentityIndex), *gridbase_);
       }
 
+      // Functions that return the normal of a face that is a subentity of this element
       GlobalCoordinate subentityIntegrationNormal (InternalIndexType subIndex, const LocalCoordinate & localCoord)  const { return mapping_.subentityIntegrationNormal(subIndex, localCoord); }
       GlobalCoordinate subentityNormal            (InternalIndexType subIndex, const LocalCoordinate & localCoord)  const { return mapping_.subentityNormal(subIndex, localCoord); }
       GlobalCoordinate subentityUnitNormal        (InternalIndexType subIndex, const LocalCoordinate & localCoord)  const { return mapping_.subentityUnitNormal(subIndex, localCoord); }
-
 
       // Explicit integrals
       ctype integrateScalar(const Polynomial & P, double tolerance) const { return mapping_.integrateScalar(P, tolerance); }
       template <typename Functor>
       ctype integrateNumerical(const Functor & f, double tolerance) const { return mapping_.integrateNumerical(f, tolerance); }
       ctype integrateAnalyticalDot(const PolynomialVector & PVec)   const { return mapping_.integrateAnalyticalDot(PVec); }
+      */
+
       ctype volume () const  { return mapping_.volume(gridbase_->geometryRelativeTolerance()); }
 
       JacobianTransposed jacobianTransposed ( const LocalCoordinate &local )                const { return mapping_.jacobianTransposed( local ); }
       JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local )  const { return mapping_.jacobianInverseTransposed( local ); }
+
+
+      const BasicMapping & basegeometry()  { return mapping_; }
+
 
     private:
 

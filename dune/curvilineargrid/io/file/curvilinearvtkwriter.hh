@@ -566,7 +566,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     {
         FILE* vtkFile = fopen(filename.c_str(), "w");
 
-        std::vector<int> nEntity
+        std::vector<unsigned int> nEntity
         {
         	vtkCodimVertexIndex_[ELEMENT_CODIM].size(),
         	vtkCodimVertexIndex_[FACE_CODIM].size(),
@@ -574,8 +574,8 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         	vtkPoint_.size()
         };
 
-        int nEntityTot =   nEntity[EDGE_CODIM] +   nEntity[FACE_CODIM] +   nEntity[ELEMENT_CODIM];
-        int nCellTot   = 3*nEntity[EDGE_CODIM] + 4*nEntity[FACE_CODIM] + 5*nEntity[ELEMENT_CODIM];
+        unsigned int nEntityTot =   nEntity[EDGE_CODIM] +   nEntity[FACE_CODIM] +   nEntity[ELEMENT_CODIM];
+        unsigned int nCellTot   = 3*nEntity[EDGE_CODIM] + 4*nEntity[FACE_CODIM] + 5*nEntity[ELEMENT_CODIM];
 
         // Check if the datasize is consistent for writing
         writerSelfCheck(nEntity);
@@ -588,7 +588,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
         // Write all points
         fprintf(vtkFile, "POINTS %d double\n", vtkPoint_.size() );
-        for (int i = 0; i < nEntity[VERTEX_CODIM]; i++ ) {
+        for (unsigned int i = 0; i < nEntity[VERTEX_CODIM]; i++ ) {
             for (int d = 0; d < dimension; d++)  { fprintf(vtkFile, "%lg ", vtkPoint_[i][d]); }
             fprintf(vtkFile, "\n");
         }
@@ -599,11 +599,11 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         fprintf(vtkFile, "CELLS %d %d\n", nEntityTot, nCellTot );
         for (int iCodim = EDGE_CODIM; iCodim >= ELEMENT_CODIM; iCodim--)  // Write edges first, elements last
         {
-            for (int i = 0; i < nEntity[iCodim]; i++)     {
-            	int nSubVertex = vtkCodimVertexIndex_[iCodim][i].size();
+            for (unsigned int i = 0; i < nEntity[iCodim]; i++)     {
+            	unsigned int nSubVertex = vtkCodimVertexIndex_[iCodim][i].size();
 				fprintf(vtkFile, "%d ", nSubVertex);
 
-            	for (int iV = 0; iV < nSubVertex; iV++)  { fprintf(vtkFile, "%d ", vtkCodimVertexIndex_[iCodim][i][iV]); }
+            	for (unsigned int iV = 0; iV < nSubVertex; iV++)  { fprintf(vtkFile, "%d ", vtkCodimVertexIndex_[iCodim][i][iV]); }
 
             	fprintf(vtkFile, "\n");
             }
@@ -613,9 +613,9 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         // Write edge and triangle cell types
         fprintf(vtkFile, "\n");
         fprintf(vtkFile, "CELL_TYPES %d\n", nEntityTot );
-        for (int i = 0; i < nEntity[EDGE_CODIM]; i++ )     { fprintf(vtkFile, "3\n"); }
-        for (int i = 0; i < nEntity[FACE_CODIM]; i++ )     { fprintf(vtkFile, "5\n"); }
-        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++ )  { fprintf(vtkFile, "10\n"); }
+        for (unsigned int i = 0; i < nEntity[EDGE_CODIM]; i++ )     { fprintf(vtkFile, "3\n"); }
+        for (unsigned int i = 0; i < nEntity[FACE_CODIM]; i++ )     { fprintf(vtkFile, "5\n"); }
+        for (unsigned int i = 0; i < nEntity[ELEMENT_CODIM]; i++ )  { fprintf(vtkFile, "10\n"); }
 
 
         // If are defined fields associated with vertices, then write them too
@@ -631,7 +631,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
         		fprintf(vtkFile, "VECTORS %s FLOAT\n", fieldName.c_str());
 
-                for (int i = 0; i < vtkPoint_.size(); i++ ) {
+                for (unsigned int i = 0; i < vtkPoint_.size(); i++ ) {
                 	// If there is no field defined for this vertex, just print a zero vector for consistency
                 	FieldCoordMapIter iterField = vtkFieldVector_[fieldIndex].find(i);
                 	if (iterField == vtkFieldVector_[fieldIndex].end())  { fprintf(vtkFile, "0.0 0.0 0.0\n"); }
@@ -651,25 +651,25 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         // Write edge and triangle Structural type
         fprintf(vtkFile, "SCALARS physicalTag FLOAT\n");
         fprintf(vtkFile, "LOOKUP_TABLE default\n");
-        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimPhysicalTag_[EDGE_CODIM][i]); }
-        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimPhysicalTag_[FACE_CODIM][i]); }
-        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtkFile, "%d\n", vtkCodimPhysicalTag_[ELEMENT_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimPhysicalTag_[EDGE_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimPhysicalTag_[FACE_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtkFile, "%d\n", vtkCodimPhysicalTag_[ELEMENT_CODIM][i]); }
 
 
         // Write edge and triangle physicalTags
         fprintf(vtkFile, "SCALARS structuralType FLOAT\n");
         fprintf(vtkFile, "LOOKUP_TABLE default\n");
-        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimStructuralType_[EDGE_CODIM][i]); }
-        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimStructuralType_[FACE_CODIM][i]); }
-        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtkFile, "%d\n", vtkCodimStructuralType_[ELEMENT_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimStructuralType_[EDGE_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimStructuralType_[FACE_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtkFile, "%d\n", vtkCodimStructuralType_[ELEMENT_CODIM][i]); }
 
 
         // Write edge and triangle provider process ranks
         fprintf(vtkFile, "SCALARS processRank FLOAT\n");
         fprintf(vtkFile, "LOOKUP_TABLE default\n");
-        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimProcessRank_[EDGE_CODIM][i]); }
-        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimProcessRank_[FACE_CODIM][i]); }
-        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtkFile, "%d\n", vtkCodimProcessRank_[ELEMENT_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimProcessRank_[EDGE_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtkFile, "%d\n", vtkCodimProcessRank_[FACE_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtkFile, "%d\n", vtkCodimProcessRank_[ELEMENT_CODIM][i]); }
 
 
         // Empty line at the end of file
@@ -749,7 +749,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     {
         FILE* vtuFile = fopen(filename.c_str(), "w");
 
-        std::vector<int> nEntity
+        std::vector<unsigned int> nEntity
         {
         	vtkCodimVertexIndex_[ELEMENT_CODIM].size(),
         	vtkCodimVertexIndex_[FACE_CODIM].size(),
@@ -761,11 +761,11 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         writerSelfCheck(nEntity);
 
         // Compute offsets which is a general way to determine the number of vertices per element
-        std::vector<int> offsets;
+        std::vector<unsigned int> offsets;
         int tmp_offset = 0;
-        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { tmp_offset += 2;  offsets.push_back(tmp_offset); }
-        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { tmp_offset += 3;  offsets.push_back(tmp_offset); }
-        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { tmp_offset += 4;  offsets.push_back(tmp_offset); }
+        for (unsigned int i = 0; i < nEntity[EDGE_CODIM]; i++)     { tmp_offset += 2;  offsets.push_back(tmp_offset); }
+        for (unsigned int i = 0; i < nEntity[FACE_CODIM]; i++)     { tmp_offset += 3;  offsets.push_back(tmp_offset); }
+        for (unsigned int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { tmp_offset += 4;  offsets.push_back(tmp_offset); }
 
         // Write header
         // *****************************************************
@@ -787,25 +787,25 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         fprintf(vtuFile, "<DataArray type=\"Float32\" Name=\"physicalTag\" NumberOfComponents=\"1\" format=\"ascii\">\n");
 
         // Write edge and triangle physicalTags
-        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimPhysicalTag_[EDGE_CODIM][i]); }
-        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimPhysicalTag_[FACE_CODIM][i]); }
-        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtuFile, "%d ", vtkCodimPhysicalTag_[ELEMENT_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimPhysicalTag_[EDGE_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimPhysicalTag_[FACE_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtuFile, "%d ", vtkCodimPhysicalTag_[ELEMENT_CODIM][i]); }
 
         fprintf(vtuFile, "\n</DataArray>\n");
         fprintf(vtuFile, "<DataArray type=\"Float32\" Name=\"structuralType\" NumberOfComponents=\"1\" format=\"ascii\">\n");
 
         // Write edge and triangle structural type
-        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimStructuralType_[EDGE_CODIM][i]); }
-        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimStructuralType_[FACE_CODIM][i]); }
-        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtuFile, "%d ", vtkCodimStructuralType_[ELEMENT_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimStructuralType_[EDGE_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimStructuralType_[FACE_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtuFile, "%d ", vtkCodimStructuralType_[ELEMENT_CODIM][i]); }
 
         fprintf(vtuFile, "\n</DataArray>\n");
         fprintf(vtuFile, "<DataArray type=\"Float32\" Name=\"processRank\" NumberOfComponents=\"1\" format=\"ascii\">\n");
 
         // Write edge and triangle provider process ranks
-        for (int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimProcessRank_[EDGE_CODIM][i]); }
-        for (int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimProcessRank_[FACE_CODIM][i]); }
-        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtuFile, "%d ", vtkCodimProcessRank_[ELEMENT_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[EDGE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimProcessRank_[EDGE_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[FACE_CODIM]; i++)     { fprintf(vtuFile, "%d ", vtkCodimProcessRank_[FACE_CODIM][i]); }
+        for (unsigned int i = 0; i < nEntity[ELEMENT_CODIM]; i++)  { fprintf(vtuFile, "%d ", vtkCodimProcessRank_[ELEMENT_CODIM][i]); }
 
         fprintf(vtuFile, "\n");
         fprintf(vtuFile, "</DataArray>\n");
@@ -818,7 +818,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         fprintf(vtuFile, "<DataArray type=\"Float32\" NumberOfComponents=\"3\" format=\"ascii\">\n");
 
         // Write all points
-        for (int i = 0; i < nEntity[VERTEX_CODIM]; i++ ) {
+        for (unsigned int i = 0; i < nEntity[VERTEX_CODIM]; i++ ) {
             for (int d = 0; d < dimension; d++)  { fprintf(vtuFile, "%lg ", vtkPoint_[i][d]); }
             fprintf(vtuFile, "\n");
         }
@@ -834,8 +834,8 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
         for (int iCodim = EDGE_CODIM; iCodim >= ELEMENT_CODIM; iCodim--)  // Write edges first, elements last
         {
-            for (int i = 0; i < nEntity[iCodim]; i++)     {
-            	for (int iV = 0; iV < vtkCodimVertexIndex_[iCodim][i].size(); iV++)  { fprintf(vtuFile, "%d ", vtkCodimVertexIndex_[iCodim][i][iV]); }
+            for (unsigned int i = 0; i < nEntity[iCodim]; i++)     {
+            	for (unsigned int iV = 0; iV < vtkCodimVertexIndex_[iCodim][i].size(); iV++)  { fprintf(vtuFile, "%d ", vtkCodimVertexIndex_[iCodim][i][iV]); }
             	fprintf(vtuFile, "\n");
             }
         }
@@ -845,15 +845,15 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         fprintf(vtuFile, "</DataArray>\n");
         fprintf(vtuFile, "<DataArray type=\"Int32\" Name=\"offsets\" format=\"ascii\">\n");
 
-        for (int i = 0; i < offsets.size(); i++ )        { fprintf(vtuFile, "%d ", offsets[i]); }
+        for (unsigned int i = 0; i < offsets.size(); i++ )        { fprintf(vtuFile, "%d ", offsets[i]); }
 
         fprintf(vtuFile, "\n");
         fprintf(vtuFile, "</DataArray>\n");
         fprintf(vtuFile, "<DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">\n");   // Element types
 
-        for (int i = 0; i < nEntity[EDGE_CODIM]; i++ )     { fprintf(vtuFile, "3 "); }
-        for (int i = 0; i < nEntity[FACE_CODIM]; i++ )     { fprintf(vtuFile, "5 "); }
-        for (int i = 0; i < nEntity[ELEMENT_CODIM]; i++ )  { fprintf(vtuFile, "10 "); }
+        for (unsigned int i = 0; i < nEntity[EDGE_CODIM]; i++ )     { fprintf(vtuFile, "3 "); }
+        for (unsigned int i = 0; i < nEntity[FACE_CODIM]; i++ )     { fprintf(vtuFile, "5 "); }
+        for (unsigned int i = 0; i < nEntity[ELEMENT_CODIM]; i++ )  { fprintf(vtuFile, "10 "); }
 
         fprintf(vtuFile, "\n");
         fprintf(vtuFile, "</DataArray>\n");
@@ -881,7 +881,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
 
     // Checks if the storage arrays are consistent before writing to file
-    void writerSelfCheck(std::vector<int> nEntity)
+    void writerSelfCheck(std::vector<unsigned int> nEntity)
     {
         for (int iCodim = ELEMENT_CODIM; iCodim <= EDGE_CODIM; iCodim++)
         {

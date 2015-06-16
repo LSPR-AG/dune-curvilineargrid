@@ -26,91 +26,70 @@
 
 using namespace Dune;
 
-
-// Define path to meshes
-const std::string CURVILINEARGRID_TEST_GRID_PATH = std::string(DUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH) + "curvilinear/";
-
-// Define mesh file names
-const std::string    GMSH_FILE_NAME_SPHERE32_ORD1     =    "sphere32.msh";
-const std::string    GMSH_FILE_NAME_SPHERE32_ORD2     =    "sphere32ord2.msh";
-const std::string    GMSH_FILE_NAME_SPHERE32_ORD3     =    "sphere32ord3.msh";
-const std::string    GMSH_FILE_NAME_SPHERE32_ORD4     =    "sphere32ord4.msh";
-const std::string    GMSH_FILE_NAME_SPHERE32_ORD5     =    "sphere32ord5.msh";
-const std::string    GMSH_FILE_NAME_SPHERE2000_ORD3   =    "sphere2000ord3.msh";
-const std::string    GMSH_FILE_NAME_BULLSEYE400_ORD1  =    "bullseye-rev-400.msh";
-const std::string    GMSH_FILE_NAME_SPHEREINSPHERE100_ORD1  =    "sphere-in-sphere-in-sphere-rev-100.msh";
-
-
-
-const bool isGeometryCached = true;
-
-
+const bool isGeometryCached = true;    // We will be using CachedCurvilinearGeometry class
+const bool withGhostElements = true;   // We want to create a mesh with ghost elements
 
 /**\brief Test program which visualizes the base functions on a dgf mesh to
  * a vtk file. */
 int main(int argc, char** argv)
 {
     // initialize MPI, finalize is done automatically on exit
-    static MPIHelper &mpihelper=Dune::MPIHelper::instance(argc,argv);
-    int rank=mpihelper.rank();
-    int size=mpihelper.size();
+    static MPIHelper &mpihelper = Dune::MPIHelper::instance(argc,argv);
+    int rank = mpihelper.rank();
+    int size = mpihelper.size();
 
-    // Instantiation of the logging message and loggingtimer
+    //
+    /***************************************************************/
+    /** Instantiation of the logging message and loggingtimer      */
+    /***************************************************************/
     typedef Dune::LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
     typedef Dune::LoggingTimer<LoggingMessageDev>                                        LoggingTimerDev;
     LoggingMessageDev::getInstance().init(mpihelper, true, true);
     LoggingTimerDev::getInstance().init(false);
 
+
+    /******************************************************/
+    /** Define GridType and associated factory class      */
+    /******************************************************/
     typedef Dune::CurvilinearGrid<double, 3, isGeometryCached, LoggingMessageDev> GridType;
 
-
-    bool insertBoundarySegment = true;
-    bool withGhostElements = true;
-    bool writeReaderVTKFile = false;
-
-    /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
     Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper);
 
+    /******************************************************/
+    /* Pass filename as command line argument             */
+    /******************************************************/
+    assert(argc > 1);
+    std::string filename = std::string(argv[1]);
 
-    // Assemble the file name
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE2000_ORD3;
-    Dune::CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper, writeReaderVTKFile, insertBoundarySegment);
+    /******************************************************/
+    /* Read mesh and create grid                          */
+    /******************************************************/
+    Dune::CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper);
+    GridType * grid = factory.createGrid();
 
-    GridType * gridbase = factory.createGrid();
-
-
-
-    // Perform diagnostics tests on the constructed grid
-    Dune::CurvilinearGridDiagnostic<GridType> diagnostic(mpihelper, *gridbase);
-
-	std::vector<bool> withElements {true, true};                 // Whether to add elements to VTK: Internal / Ghost
-	std::vector<bool> withFaces    {false, false, true, true};   // Whether to add faces to VTK: Internal / Ghost / ProcessBoundary / DomainBoundary
-	std::vector<bool> withEdges    {false, false, false};        // Whether to add edges to VTK: Internal / Ghost / ProcessBoundary
-
-	int  VTK_CURV_DISCRETIZATION = 7;       // 2=linear, minimal allowed discretization
-	bool VTK_INTERPOLATE_DISCRETIZATION = true;
-	bool VTK_EXPLODE_ELEMENTS = true;
-	std::vector<bool> writeCodim {true, true, false, false};  // Use tetrahedra and triangles to discretize inserted entities
-
-    diagnostic.vtkWriteMesh(
-    	withElements,
-    	withFaces,
-    	withEdges,
-    	VTK_CURV_DISCRETIZATION,
-    	VTK_INTERPOLATE_DISCRETIZATION,
-    	VTK_EXPLODE_ELEMENTS,
-    	writeCodim
-    );
-
-    diagnostic.vtkWriteOctree();
-
+    /******************************************************/
+    /* Perform diagnostics tests on the constructed grid  */
+    /******************************************************/
+    Dune::CurvilinearGridDiagnostic<GridType> diagnostic(mpihelper, *grid);
     diagnostic.runAnalyticTest("curvilinearMeshAnalyticTest.txt");
+
+    /******************************************************/
+    /* Write grid to VTK                                  */
+    /******************************************************/
+	Dune::CurvilinearVTKGridWriter<GridType> gridwriter(grid);
+	gridwriter.write("basis_test.vtk");
+
+
+    /******************************************************/
+    /* Write OCTree to VTK                                */
+    /******************************************************/
+    diagnostic.vtkWriteOctree();
 
 
 
     // Delete the GridBase
-    delete gridbase;
+    delete grid;
 
 
     /** \brief leave program peacefully */

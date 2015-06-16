@@ -64,7 +64,8 @@ namespace Dune
       typedef typename Traits::template Codim< FACE_CODIM >::GeometryImpl GeometryImpl;
       typedef typename Traits::template Codim< ELEMENT_CODIM >::GeometryImpl ElementGeometryImpl;
 
-      typedef Dune::FieldVector< ctype, dimension-1 >      LocalCoordinate;
+      typedef Dune::FieldVector< ctype, dimension-1 >      LocalCoordinateFace;
+      typedef Dune::FieldVector< ctype, dimension   >      LocalCoordinateElement;
       typedef Dune::FieldVector< ctype, dimensionworld >   GlobalCoordinate;
 
 
@@ -237,7 +238,10 @@ namespace Dune
         if(!geo_)  {
         	// Compute the geometry of inside entity if it is not yet there, then use it to get the intersection geometry
         	computeInsideGeo();
-        	geo_ = insideGeo_->template subentityGeometry<dimension - FACE_CODIM>(subIndexInside_);
+        	geo_ = new GeometryImpl(
+        		insideGeo_->basegeometry().template subentityGeometry<dimension - FACE_CODIM>(subIndexInside_),
+        		*gridbase_
+        		);
         }
 
         assert(geo_);
@@ -267,25 +271,25 @@ namespace Dune
 
       // All normals as viewed from the calling element
 
-      GlobalCoordinate integrationOuterNormal ( const LocalCoordinate &localFaceCoord ) const
+      GlobalCoordinate integrationOuterNormal ( const LocalCoordinateFace &localFaceCoord ) const
       {
     	  computeInsideGeo();
-    	  GlobalCoordinate localElemCoord( geometryInInside().global( localFaceCoord ) );
-    	  return insideGeo_->subentityIntegrationNormal( indexInInside(), localElemCoord );
+    	  LocalCoordinateElement localElemCoord( geometryInInside().global( localFaceCoord ) );
+    	  return insideGeo_->basegeometry().subentityIntegrationNormal( indexInInside(), localElemCoord );
       }
 
-      GlobalCoordinate outerNormal ( const LocalCoordinate &localFaceCoord ) const
+      GlobalCoordinate outerNormal ( const LocalCoordinateFace &localFaceCoord ) const
       {
     	  computeInsideGeo();
-    	  GlobalCoordinate localElemCoord( geometryInInside().global( localFaceCoord ) );
-    	  return insideGeo_->subentityNormal( indexInInside(), localElemCoord );
+    	  LocalCoordinateElement localElemCoord( geometryInInside().global( localFaceCoord ) );
+    	  return insideGeo_->basegeometry().subentityNormal( indexInInside(), localElemCoord );
       }
 
-      GlobalCoordinate unitOuterNormal ( const LocalCoordinate &localFaceCoord ) const
+      GlobalCoordinate unitOuterNormal ( const LocalCoordinateFace &localFaceCoord ) const
       {
     	  computeInsideGeo();
-    	  GlobalCoordinate localElemCoord( geometryInInside().global( localFaceCoord ) );
-    	  return insideGeo_->subentityUnitNormal( indexInInside(), localElemCoord );
+    	  LocalCoordinateElement localElemCoord( geometryInInside().global( localFaceCoord ) );
+    	  return insideGeo_->basegeometry().subentityUnitNormal( indexInInside(), localElemCoord );
       }
 
       // TODO: This does not work in 2D

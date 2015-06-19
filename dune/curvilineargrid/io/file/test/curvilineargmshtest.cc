@@ -88,7 +88,7 @@ int main(int argc, char** argv)
 
 
     // Assemble the file name
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE2000_ORD3;
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHEREINSPHERE100_ORD1;
 
     // Properties of the grid
     bool insertBoundarySegment = true;
@@ -97,13 +97,12 @@ int main(int argc, char** argv)
     const bool isCached = true;
 
     // Instantiation of the logging message
-    typedef LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
-    typedef LoggingTimer<LoggingMessageDev>                                        LoggingTimerDev;
-    LoggingMessageDev::getInstance().init(mpihelper, true, true);
+    typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+    Dune::LoggingMessage::getInstance().init(mpihelper, true, true);
     LoggingTimerDev::getInstance().init(false);
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
-    typedef Dune::CurvilinearGridBase<double, 3, isCached, LoggingMessageDev>  SimplexGridType;
+    typedef Dune::CurvilinearGridBase<double, 3, isCached, Dune::LoggingMessage>  SimplexGridType;
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;

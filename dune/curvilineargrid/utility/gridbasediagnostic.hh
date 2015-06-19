@@ -49,6 +49,7 @@
 #include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 #include <dune/curvilineargeometry/curvilineargeometry.hh>
 
+#include <dune/curvilineargrid/common/constant.hh>
 #include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/common/vectorhelper.hh>
 
@@ -60,6 +61,8 @@
 
 
 namespace Dune {
+
+using namespace CurvGrid;
 
 template <class GridType>
 class CurvilinearGridBaseDiagnostic
@@ -94,17 +97,9 @@ private:
 	typedef typename GridBaseType::template Codim<FACE_CODIM>::EntityGeometry        GridFaceGeometry;
 	typedef typename GridBaseType::template Codim<ELEMENT_CODIM>::EntityGeometry     GridElementGeometry;
 
-    // Logging Message Typedefs
-    static const unsigned int LOG_CATEGORY_DEBUG  = LoggingMessage::Category::DEBUG;
-    static const unsigned int LOG_CATEGORY_ERROR  = LoggingMessage::Category::ERROR;
-
     // Face Boundary Type
     static const int NO_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::None;
     static const int DOMAIN_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::DomainBoundary;
-    static const int BOUNDARY_SEGMENT_PARTITION_TYPE = GridStorageType::BOUNDARY_SEGMENT_PARTITION_TYPE;
-
-
-	const int MASTER_PROCESS = 0;
 
 public:
 
@@ -112,8 +107,7 @@ public:
 		MPIHelper & mpihelper,
 		GridBaseType & gridbase) :
 			mpihelper_(mpihelper),
-			gridbase_(gridbase),
-			loggingmessage_(LoggingMessage::getInstance())
+			gridbase_(gridbase)
 	{
 		rank_ = mpihelper.rank();
 		size_ = mpihelper.size();
@@ -121,13 +115,13 @@ public:
 
 
 	// Runs analytic tests that collect statistics on the elements and the faces of the mesh
-	// Statistics is communicated to MASTER_PROCESS, which writes it to a file
+	// Statistics is communicated to MPI_MASTER_RANK, which writes it to a file
 	// [TODO] When calculating total volume, calculate it separately for all tags and provide tags
 	void runAnalyticTest(std::string filename)
 	{
 		 std::ofstream diagnosticFile;
 
-		 if (rank_ == MASTER_PROCESS)  { diagnosticFile.open(filename.c_str()); }
+		 if (rank_ == MPI_MASTER_RANK)  { diagnosticFile.open(filename.c_str()); }
 
 		 std::vector<std::vector<double> > meshStatistics (14, std::vector<double>());
 		 analyticTests(meshStatistics);
@@ -147,7 +141,7 @@ public:
 		 writeCommunicateSum(diagnosticFile, "ProcssBoundarySurfaceArea",         meshStatistics[12][0]);
 		 writeCommunicateSum(diagnosticFile, "DomainBoundarySurfaceArea",         meshStatistics[13][0]);
 
-		 if (rank_ == MASTER_PROCESS)  { diagnosticFile.close(); }
+		 if (rank_ == MPI_MASTER_RANK)  { diagnosticFile.close(); }
 	}
 
 
@@ -170,7 +164,7 @@ public:
 	)
 
 	{
-		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Grid to VTK");
+		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Grid to VTK");
 
     	Dune::CurvilinearVTKWriter<GridType> vtkCurvWriter(mpihelper_);
 
@@ -197,10 +191,10 @@ public:
 
 		// Writing Mesh
     	// *************************************************************************
-		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Writing VTK File");
+		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Writing VTK File");
     	//vtkCurvWriter.writeVTK("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
     	vtkCurvWriter.writeParallelVTU("./curvreader_output");
-    	loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Finished writing");
+    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Finished writing");
 	}
 
 	// Writes OCTree to VTK
@@ -219,7 +213,7 @@ protected:
 
 	void analyticTests(std::vector<std::vector<double> > & rez)
 	{
-		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started collecting mesh statistics");
+		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started collecting mesh statistics");
 
 
 		rez[0].push_back(gridbase_.template nEntity(ELEMENT_CODIM,  Dune::PartitionType::InteriorEntity));
@@ -228,7 +222,7 @@ protected:
 
 		// 1) Collect statistics related to the elements of the mesh
 		// ***********************************************************************8
-		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting element statistics");
+		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting element statistics");
 		IndexSetIterator elemIterB = gridbase_.template entityIndexBegin(ELEMENT_CODIM);
 		IndexSetIterator elemIterE = gridbase_.template entityIndexEnd(ELEMENT_CODIM);
 
@@ -278,7 +272,7 @@ protected:
 
 		// 2) Collect statistics related to the process boundary of the mesh
 		// ***********************************************************************
-		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Process Boundary statistics");
+		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Process Boundary statistics");
 		rez[12].push_back(0.0);  // processBoundarySurfaceArea
 		IndexSetIterator pbIterB = gridbase_.template entityIndexBegin(FACE_CODIM, Dune::PartitionType::BorderEntity);
 		IndexSetIterator pbIterE = gridbase_.template entityIndexEnd  (FACE_CODIM, Dune::PartitionType::BorderEntity);
@@ -295,7 +289,7 @@ protected:
 
 		// 3) Collect statistics related to the domain boundary of the mesh
 		// ***********************************************************************
-		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Domain Boundary Statistics");
+		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Domain Boundary Statistics");
 
 		rez[13].push_back(0.0);  // domainBoundarySurfaceArea
 		IndexSetIterator dbIterB = gridbase_.template entityIndexBegin(FACE_CODIM, Dune::PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
@@ -418,7 +412,7 @@ protected:
 		// *************************************************************
 		int dataSize = data.size();
 		std::vector<int> dataSizeArray(size_);
-		collective_comm.gather (&dataSize, reinterpret_cast<int*> (dataSizeArray.data()), 1, MASTER_PROCESS);
+		collective_comm.gather (&dataSize, reinterpret_cast<int*> (dataSizeArray.data()), 1, MPI_MASTER_RANK);
 
 
 		// 2) Communicate actual data to root
@@ -431,12 +425,12 @@ protected:
 			displ.push_back((i == 0) ? 0  :  displ[i-1] + dataSizeArray[i-1]);
 		}
 		std::vector<T> dataTotal(dataSizeTotal);
-		collective_comm.gatherv (data.data(), dataSize, reinterpret_cast<T*> (dataTotal.data()), dataSizeArray.data(), displ.data(), MASTER_PROCESS);
+		collective_comm.gatherv (data.data(), dataSize, reinterpret_cast<T*> (dataTotal.data()), dataSizeArray.data(), displ.data(), MPI_MASTER_RANK);
 
 
 		// 3) Write output to file on Master process
 		// *************************************************************
-		if (rank_ == MASTER_PROCESS)
+		if (rank_ == MPI_MASTER_RANK)
 		{
 			filestr << "<" << title << ">";
 			for (int i = 0; i < dataTotal.size(); i++) { filestr << dataTotal[i] << " ";  }
@@ -451,15 +445,13 @@ protected:
 	{
 		Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
 		T sum = collective_comm.sum(data);
-		if (rank_ == MASTER_PROCESS)  { filestr << "<" << title << ">" << sum << "</" << title << ">" << std::endl; }
+		if (rank_ == MPI_MASTER_RANK)  { filestr << "<" << title << ">" << sum << "</" << title << ">" << std::endl; }
 	}
 
 
 
 
 private:
-
-	LoggingMessage & loggingmessage_;
 
 	MPIHelper & mpihelper_;
 	int rank_;

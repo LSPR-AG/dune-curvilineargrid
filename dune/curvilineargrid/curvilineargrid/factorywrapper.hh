@@ -32,15 +32,7 @@
 
 #include <dune/grid/common/gridfactory.hh>
 
-//#include <dune/grid/utility/globalindex.hh>
 
-//#include <dune/alugrid/common/transformation.hh>
-//#include <dune/alugrid/3d/alugrid.hh>
-//#include <dune/alugrid/3d/gridfactory.hh>
-//#include <dune/alugrid/3d/gridfactory.cc>
-
-#include <dune/curvilineargrid/common/loggingmessage.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
 
 
 
@@ -49,40 +41,38 @@ namespace Dune
 {
 
 
-template< class GridType >
-class CurvilinearGridFactory
+template< class GridType, class HostFactory >
+class CurvilinearGridFactoryWrapper
 {
   private:
 
 	typedef typename GridType::ctype  ctype;
 	typedef typename GridType::GridBaseType            GridBaseType;
-	typedef typename GridBaseType::LocalIndexType      LocalIndexType;
-	typedef typename GridBaseType::GlobalIndexType     GlobalIndexType;
 
 	static const int dimension = GridType::dimension;
-	typedef FieldVector< ctype, dimension >                 VertexCoordinate;
+	typedef FieldVector< ctype, dimension >            Coordinate;
 
+	typedef int    LocalIndexType;
+	typedef int    GlobalIndexType;
 
   public:
 
 	// Real constructor
-    CurvilinearGridFactory(
-    		bool withGhostElements,
-    		MPIHelper &mpihelper)
+	CurvilinearGridFactoryWrapper(HostFactory & hostfactory)
+  	  : hostfactory_(hostfactory)
     {
-    	gridbase_ = new GridBaseType(withGhostElements, mpihelper);
+
     }
 
-    // GridBase is constructed and deleted here
-    // NOTE: FACTORY SHOULD NOT DELETE GRIDBASE, BECAUSE THAT KILLS THE GRID IF THE FACTORY IS DESTROYED BEFORE THE GRID
-    ~CurvilinearGridFactory ()  {
-    	//if (gridbase_)  { delete gridbase_; }
+
+    ~CurvilinearGridFactoryWrapper ()  { }
+
+    void insertVertex ( const Coordinate &pos, const GlobalIndexType globalId )
+    {
+    	hostfactory_.insertVertex(pos);
+    	//hostfactory_.insertVertex(pos, globalId);
     }
 
-    void insertVertex ( const VertexCoordinate &pos, const GlobalIndexType globalId )
-    {
-    	gridbase_->insertVertex(pos, globalId);
-    }
 
     void insertElement(
       GeometryType &geometry,
@@ -90,8 +80,9 @@ class CurvilinearGridFactory
       const int elemOrder,
       const int physicalTag)
     {
-    	gridbase_->insertElement(geometry, vertexIndexSet, elemOrder, physicalTag);
+    	hostfactory_.insertElement(geometry, vertexIndexSet);
     }
+
 
     void insertBoundarySegment(
         GeometryType &geometry,
@@ -100,18 +91,21 @@ class CurvilinearGridFactory
         const LocalIndexType associatedElementIndex,
         const int physicalTag)
     {
-    	gridbase_->insertBoundarySegment(geometry, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag);
+    	hostfactory_.insertBoundarySegment(vertexIndexSet);
     }
 
-    void insertNVertexTotal(int nVertexTotal)  { gridbase_->insertNVertexTotal(nVertexTotal); }
+    void insertNVertexTotal(int nVertexTotal)  {
+    	// GMSH reader knows the total number of vertices, so one may save time by reusing this quantity, not needing extra global communication
+    }
 
-    void insertNElementTotal(int nElementTotal)  { gridbase_->insertNElementTotal(nElementTotal); }
+    void insertNElementTotal(int nElementTotal)  {
+    	// GMSH reader knows the total number of elements, so one may save time by reusing this quantity, not needing extra global communication
+    }
 
 
     GridType * createGrid()
     {
-    	gridbase_->generateMesh();
-    	GridType * grid = new GridType(gridbase_);
+    	GridType * grid = hostfactory_.createGrid();
 
     	return grid;
     }
@@ -121,7 +115,7 @@ class CurvilinearGridFactory
     // -----------------------------------------------------------
   private:
 
-    GridBaseType * gridbase_;
+    HostFactory & hostfactory_;
 
 
 

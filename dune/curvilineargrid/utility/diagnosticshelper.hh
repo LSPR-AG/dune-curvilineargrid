@@ -1,9 +1,14 @@
 #ifndef DUNE_CURVILINEARDIAGNOSTICHELPER_HH
 #define DUNE_CURVILINEARDIAGNOSTICHELPER_HH
 
+#include <dune/curvilineargrid/common/constant.hh>
+#include <dune/curvilineargeometry/utility/curvilinearvaliditycheck.hh>
+
 
 namespace Dune
 {
+
+using namespace CurvGrid;
 
 template <class GridType>
 struct DiagnosticsHelper
@@ -31,18 +36,24 @@ struct DiagnosticsHelper
 
 	typedef typename GridStorageType::Vertex                Vertex;
 
-	static const int MASTER_PROCESS = 0;
-
 
 
 	typedef std::vector<std::vector<double> >  MeshStatType;
 
 
 
+	// Checks if the entities of the grid are well-defined
+	template <class CurvGeometry>
+	static void consistencyTests(CurvGeometry & elemGeom)
+	{
+		// Validate that the element is not self-intersecting
+		Dune::CurvilinearValidityCheck::SelfIntersection(elemGeom);
+	}
 
 
+	// Collect statistics about the volume element
 	template <class Geometry>
-	static void volumeTests(Geometry & elemGeom, MeshStatType & meshStatistics)
+	static void elementStatistics(Geometry & elemGeom, MeshStatType & meshStatistics)
 	{
 		std::vector<Vertex> cr;
 		for (int i = 0; i < elemGeom.corners(); i++)  { cr.push_back(elemGeom.corner(i)); }
@@ -50,9 +61,9 @@ struct DiagnosticsHelper
 		Vertex CoM = cr[0] + cr[1] + cr[2] + cr[3];
 		CoM /= 4;
 
-		std::vector<double>     comCornerRadius { (CoM-cr[0]).two_norm(), (CoM-cr[1]).two_norm(), (CoM-cr[2]).two_norm(), (CoM-cr[3]).two_norm() };
-		std::vector<Vertex> linearEdges   { cr[3]-cr[0], cr[3]-cr[1], cr[3]-cr[2], cr[2]-cr[0], cr[2]-cr[1], cr[1]-cr[0] };
-		std::vector<double>     linearEdgeLen;
+		std::vector<double> comCornerRadius { (CoM-cr[0]).two_norm(), (CoM-cr[1]).two_norm(), (CoM-cr[2]).two_norm(), (CoM-cr[3]).two_norm() };
+		std::vector<Vertex> linearEdges     { cr[3]-cr[0], cr[3]-cr[1], cr[3]-cr[2], cr[2]-cr[0], cr[2]-cr[1], cr[1]-cr[0] };
+		std::vector<double> linearEdgeLen;
 		for (int i = 0; i < linearEdges.size(); i++)  { linearEdgeLen.push_back(linearEdges[i].two_norm()); }
 
 		double elementShortestEdge = vectorMin(linearEdgeLen);
@@ -84,8 +95,9 @@ struct DiagnosticsHelper
 	}
 
 
+	// Collect statistics about a process boundary
 	template <class Geometry>
-	static void processBoundaryTests(Geometry & faceGeom, MeshStatType & meshStatistics)
+	static void processBoundaryStatistics(Geometry & faceGeom, MeshStatType & meshStatistics)
 	{
 		double faceCurvilinearArea = faceGeom.volume();
 		meshStatistics[12][0] += faceCurvilinearArea;
@@ -93,19 +105,12 @@ struct DiagnosticsHelper
 	}
 
 
+	// Collect statistics about a domain boundary
 	template <class Geometry>
-	static void domainBoundaryTests(Geometry & faceGeom, MeshStatType & meshStatistics)
+	static void domainBoundaryStatistics(Geometry & faceGeom, MeshStatType & meshStatistics)
 	{
 		double faceCurvilinearArea = faceGeom.volume();
 		meshStatistics[13][0] += faceCurvilinearArea;
-
-		//std::cout << "size=" << faceGeom.vertexSet().size() <<" vertices = " << Dune::VectorHelper::vector2string(faceGeom.vertexSet()) << std::endl;
-
-		//Dune::CurvilinearGeometry<double,2,3>::PolynomialVector polyMap = faceGeom.interpolatoryVectorAnalytical();
-
-		//std::cout << "Polynomial[0] = " << polyMap[0].to_string() << std::endl;
-		//std::cout << "Polynomial[1] = " << polyMap[0].to_string() << std::endl;
-		//std::cout << "Polynomial[2] = " << polyMap[0].to_string() << std::endl;
 
 		std::cout << "Area: " << faceCurvilinearArea << std::endl;
 	}
@@ -118,12 +123,12 @@ struct DiagnosticsHelper
 
 
 	// Runs analytic tests that collect statistics on the elements and the faces of the mesh
-	// Statistics is communicated to MASTER_PROCESS, which writes it to a file
+	// Statistics is communicated to MPI_MASTER_RANK, which writes it to a file
 	// [TODO] When calculating total volume, calculate it separately for all tags and provide tags
 	static void writeAnalyticTestResult(std::string & filename, MeshStatType & meshStatistics, MPIHelper & mpihelper)
 	{
 		 std::ofstream diagnosticFile;
-		 if (mpihelper.rank() == MASTER_PROCESS)  { diagnosticFile.open(filename.c_str()); }
+		 if (mpihelper.rank() == MPI_MASTER_RANK)  { diagnosticFile.open(filename.c_str()); }
 
 		 writeCommunicateVector(mpihelper, diagnosticFile, "NELEMENT",                       meshStatistics[0]);
 		 writeCommunicateVector(mpihelper, diagnosticFile, "NDBFACE",                        meshStatistics[1]);
@@ -140,7 +145,7 @@ struct DiagnosticsHelper
 		 writeCommunicateSum(   mpihelper, diagnosticFile, "ProcssBoundarySurfaceArea",      meshStatistics[12][0]);
 		 writeCommunicateSum(   mpihelper, diagnosticFile, "DomainBoundarySurfaceArea",      meshStatistics[13][0]);
 
-		 if (mpihelper.rank() == MASTER_PROCESS)  { diagnosticFile.close(); }
+		 if (mpihelper.rank() == MPI_MASTER_RANK)  { diagnosticFile.close(); }
 	}
 
 
@@ -198,7 +203,7 @@ struct DiagnosticsHelper
 		// *************************************************************
 		int dataSize = data.size();
 		std::vector<int> dataSizeArray(size);
-		collective_comm.gather (&dataSize, reinterpret_cast<int*> (dataSizeArray.data()), 1, MASTER_PROCESS);
+		collective_comm.gather (&dataSize, reinterpret_cast<int*> (dataSizeArray.data()), 1, MPI_MASTER_RANK);
 
 
 		// 2) Communicate actual data to root
@@ -211,12 +216,12 @@ struct DiagnosticsHelper
 			displ.push_back((i == 0) ? 0  :  displ[i-1] + dataSizeArray[i-1]);
 		}
 		std::vector<T> dataTotal(dataSizeTotal);
-		collective_comm.gatherv (data.data(), dataSize, reinterpret_cast<T*> (dataTotal.data()), dataSizeArray.data(), displ.data(), MASTER_PROCESS);
+		collective_comm.gatherv (data.data(), dataSize, reinterpret_cast<T*> (dataTotal.data()), dataSizeArray.data(), displ.data(), MPI_MASTER_RANK);
 
 
 		// 3) Write output to file on Master process
 		// *************************************************************
-		if (rank == MASTER_PROCESS)
+		if (rank == MPI_MASTER_RANK)
 		{
 			filestr << "<" << title << ">";
 			for (int i = 0; i < dataTotal.size(); i++) { filestr << dataTotal[i] << " ";  }
@@ -233,7 +238,7 @@ struct DiagnosticsHelper
 		int size = mpihelper.size();
 		Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper.getCollectiveCommunication();
 		T sum = collective_comm.sum(data);
-		if (rank == MASTER_PROCESS)  { filestr << "<" << title << ">" << sum << "</" << title << ">" << std::endl; }
+		if (rank == MPI_MASTER_RANK)  { filestr << "<" << title << ">" << sum << "</" << title << ">" << std::endl; }
 	}
 };
 

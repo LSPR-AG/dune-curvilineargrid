@@ -1,5 +1,5 @@
-#ifndef DUNE_LOGGING_MESSAGE_HH
-#define DUNE_LOGGING_MESSAGE_HH
+#ifndef DUNE_LOGGING_MESSAGE_X_HH
+#define DUNE_LOGGING_MESSAGE_X_HH
 
 #include <config.h>
 
@@ -9,9 +9,11 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <time.h>
 
 
 #include <dune/common/parallel/mpihelper.hh>
+#include <dune/curvilineargrid/common/constant.hh>
 
 //#include <boost/date_time/posix_time/posix_time.hpp>
 
@@ -19,47 +21,81 @@ namespace Dune
 {
 
 
-
-
-
-
-
-
-struct LoggingMessageHelper
+// A specialized set of templated functions that determine whether to write output based on compile parameters
+namespace LoggingMessageCompile
 {
-    /** \brief Determine if the logging message is only used in the development
-     *  phase or also during the production runs */
-    struct Phase
-    {
-        enum
-        {
-          DEVELOPMENT_PHASE = 0,
-          PRODUCTION_PHASE  = 1
-        };
-    };
-};
+	template <unsigned int messageCat>
+    bool writeMsg(bool writeThisProcess)  { return false; }
+
+    template <>
+    bool writeMsg<CurvGrid::LOG_MSG_PERSISTENT>(bool writeThisProcess)  { return true; }
+
+    template <>
+    bool writeMsg<CurvGrid::LOG_MSG_PRODUCTION>(bool writeThisProcess)  { return writeThisProcess; }
+
+    template <>
+    bool writeMsg<CurvGrid::LOG_MSG_DVERB>(bool writeThisProcess)  {
+#if HAVE_LOG_MSG_DVERB || HAVE_LOG_MSG_DDVERB || HAVE_LOG_MSG_DDDVERB || HAVE_LOG_MSG_DDDDVERB || HAVE_LOG_MSG_DDDDVERB || HAVE_LOG_MSG_DDDDDDVERB
+    	return writeThisProcess;
+#endif
+    	return false;
+    }
+
+    template <>
+    bool writeMsg<CurvGrid::LOG_MSG_DDVERB>(bool writeThisProcess)  {
+#if HAVE_LOG_MSG_DDVERB || HAVE_LOG_MSG_DDDVERB || HAVE_LOG_MSG_DDDDVERB || HAVE_LOG_MSG_DDDDVERB || HAVE_LOG_MSG_DDDDDDVERB
+    	return writeThisProcess;
+#endif
+    	return false;
+    }
+
+    template <>
+    bool writeMsg<CurvGrid::LOG_MSG_DDDVERB>(bool writeThisProcess)  {
+#if HAVE_LOG_MSG_DDDVERB || HAVE_LOG_MSG_DDDDVERB || HAVE_LOG_MSG_DDDDVERB || HAVE_LOG_MSG_DDDDDDVERB
+    	return writeThisProcess;
+#endif
+    	return false;
+    }
+
+    template <>
+    bool writeMsg<CurvGrid::LOG_MSG_DDDDVERB>(bool writeThisProcess)  {
+#if HAVE_LOG_MSG_DDDDVERB || HAVE_LOG_MSG_DDDDVERB || HAVE_LOG_MSG_DDDDDDVERB
+    	return writeThisProcess;
+#endif
+    	return false;
+    }
+
+    template <>
+    bool writeMsg<CurvGrid::LOG_MSG_DDDDDVERB>(bool writeThisProcess)  {
+#if HAVE_LOG_MSG_DDDDVERB || HAVE_LOG_MSG_DDDDDDVERB
+    	return writeThisProcess;
+#endif
+    	return false;
+    }
+
+    template <>
+    bool writeMsg<CurvGrid::LOG_MSG_DDDDDDVERB>(bool writeThisProcess)  {
+#if HAVE_LOG_MSG_DDDDDDVERB
+    	return writeThisProcess;
+#endif
+    	return false;
+    }
+
+}
 
 
-/** \brief Provide a logging message.
- * The output behaviour can be controlled with some compilation flags:
- *  HAVE_DEBUG:          We get all output including line number and file
- *                       name; only the root cpu says something.
- *  HAVE_DEBUG_PARALLEL: Instead to the option above you get output from all
- *                       cpus!
- *  If neither HAVE_DEBUG nor HAVE_DEBUG_PARALLEL is defined we get only:
- *  -poduction messages (phase == PRODUCTION_PHASE) without any additional
- *   information like line number and file (except the time, if selected).
- */
-/*-----------------------------------------------------------------------
-| loggingmessage                                                        |
------------------------------------------------------------------------*/
 
-template<unsigned int phase>
+
+
+
+
+
+
+
 class LoggingMessage
 {
 private:
-	typedef LoggingMessage<phase> This;
-	typedef LoggingMessageHelper  Helper;
+	typedef LoggingMessage   This;
 
 	LoggingMessage()  {  }
 	LoggingMessage(This const&)  = delete;          // Disallow copy-constructors
@@ -67,26 +103,6 @@ private:
 
 
 public:
-    static const int MPI_MASTER_RANK = 0;
-
-    /** \brief Define the type of logging message */
-    struct Category
-    {
-        enum
-        {
-          DEBUG    = 0,
-          MESSAGE  = 1,
-          WARNING  = 2,
-          ERROR    = 3,
-          TIME     = 4,
-          MEMORY   = 5,
-          PARALLEL = 6,
-          CLEAN    = 7
-        };
-    };
-
-    static const std::vector<std::string> PHASE_TEXT;
-    static const std::vector<std::string> CATEGORY_TEXT;
 
     static This & getInstance()
     {
@@ -95,7 +111,13 @@ public:
     }
 
 
-    // Initialises the logging message
+    /** \brief Initialises the logging message. This is compulsory before calling write routines
+     *
+     * \param[in]  mpihelper       Parallel MPIHelper class (or its fake) provided by Dune
+     * \param[in]  verbose         To log or not to log
+     * \param[in]  parallelVerbose If parallel=false, only master process logs, otherwise every process logs
+     *
+     *  */
     void init(MPIHelper & mpihelper, bool verbose, bool processVerbose)
     {
     	verbose_ = verbose;
@@ -106,79 +128,101 @@ public:
     }
 
 
-    template <unsigned int messageCat>
-    static void writeStatic(std::string filename, unsigned int linenumber, std::string message)
-    {
-    	getInstance().template write<messageCat>(filename, linenumber, message);
-    }
-
-
-    /** \brief Logging message writer
+    /** \brief Logging message writer. This is a singleton routine intended to be run like LoggingMessage::write(...);
      *
-     * \param[in]  mpihelper       Parallel MPIHelper class (or its fake) provided by Dune
-     * \param[in]  verbose         To log or not to log
-     * \param[in]  parallel        If parallel=false, only master process logs, otherwise every process logs
      * \param[in]  filename        Name of the logged file (via C macro command __FILE__)
      * \param[in]  linenumber      Number of the line the writer is called from (via C macro command __LINE__)
      * \param[in]  message         User defined text output message
      *
-     * [FIXME] - Include boost in CMAKE
-     * [FIXME] - How exactly is the memory calculated
-     *
      *  */
     template <unsigned int messageCat>
-    void write(std::string filename, unsigned int linenumber, std::string message)
+    static void write(std::string filename, unsigned int linenumber, std::string message)
     {
-        if (processVerbose_ || (verbose_ && (rank_ == MPI_MASTER_RANK)))
-        {
-
-            /** Set the stream to create for the message. */
-            std::stringstream printedMessage;
-            printedMessage.clear();
-
-            /** Set the phase string text: */
-            std::string phasestring = PHASE_TEXT[phase];
-            std::string categorystring = std::string("");
+    	getInstance().template writeImpl<messageCat>(filename, linenumber, message);
+    }
 
 
-            /** Set the category string text: */
-            if ((messageCat != Category::TIME) && (messageCat != Category::MEMORY))
-            {
-                categorystring = CATEGORY_TEXT[messageCat];
-            } else
-            {
-                // Get the time ...
-                //boost::posix_time::ptime time = boost::posix_time::microsec_clock::local_time();
-                // ... and print it out.
-                //printedMessage << time << " ::: ";
-            }
-
-            if (messageCat != Category::CLEAN)
-            {
-                printedMessage << std::setw(20) << filename << ":" << std::setw(6) << linenumber;
-                printedMessage << " ::: process[" << rank_ << "]";
-
-                printedMessage << " ::: " << phasestring << " ";
-                printedMessage << categorystring;
-            }
-
-            if (messageCat == Category::MEMORY)
-            {
-                unsigned int memTotal  = 0; //getMemoryTotal();
-                unsigned int memShared = 0; //getMemoryShared();
-                printedMessage << " ::: total memory = " << std::setw(10) << memTotal << " [kb]"
-                               << " ::: shared memory = " << std::setw(10) << memShared << " [kb]";
-                printedMessage << " ::: ";
-            }
-
-            printedMessage << message;
+    /** \brief Logging message patience writer. This is a singleton routine intended to be run like LoggingMessage::write(...); */
+    static void writePatience(std::string message, int iter, int total ) {
+    	getInstance().writePatienceImpl(message, iter, total);
+    }
 
 
-            // Only print, if there is something written.
-            if (printedMessage.str().length() > 0 )  { std::cout << printedMessage.str() << std::endl; }
-            else                                     { std::cout << std::endl; }
-        }
+protected:
 
+    //*******************************************************/
+    // Auxiliary routines                                  **/
+    //*******************************************************/
+
+    // Checks if we intend to write anything on this process.
+    bool writeThisProcess() const  { return processVerbose_ || (verbose_ && (rank_ == CurvGrid::MPI_MASTER_RANK)); }
+
+
+    // Creates a string with current time using C-style <time.h>
+    std::string time2string() const
+    {
+    	time_t rawtime;
+    	time ( &rawtime );
+
+    	std::string strtime = asctime(localtime ( &rawtime ));
+    	strtime.resize(strtime.size() - 1);                      // Remove the unnecessary end of line at the end of the timestring
+
+    	return strtime;
+    }
+
+
+    // Increases the length of a string with white space until it is of desired length
+    std::string extendString(std::string s, unsigned int n)  {
+    	s.resize(n, ' ');
+    	return s;
+    }
+
+
+    //*******************************************************/
+    // Write process implementation                        **/
+    //*******************************************************/
+
+    void writePatienceImpl(std::string message, int iter, int total ) {
+    	if (rank_ == CurvGrid::MPI_MASTER_RANK)
+    	{
+    		int totalInclusive = (total > 1) ? total - 1 : 1;
+    		int percent    = std::round((100.0 * iter     )  / totalInclusive);
+    		int percentOld = std::round((100.0 * (iter - 1)) / totalInclusive);
+
+    		if ((iter == 0) || (percent != percentOld))
+    		{
+    			std::cout << "\r[" << extendString(std::to_string(percent) + "%", 4) << "] " << message;
+    			if (percent == 100)  { std::cout << std::endl; }
+    			else                 { std::cout.flush(); }
+    		}
+    	}
+    }
+
+
+
+    template <unsigned int messageCat>
+    void writeImpl(std::string filename, unsigned int linenumber, std::string message)
+    {
+    	if (LoggingMessageCompile::writeMsg<messageCat>(writeThisProcess()))
+    	{
+    		bool withPath = (messageCat > 1);
+    		bool withRank = (messageCat > 1);
+    		writeImpl(filename, linenumber, message, withPath, withRank);
+    	}
+    }
+
+
+    void writeImpl(const std::string & filename, unsigned int linenumber, const std::string & message, bool withPath, bool withRank) const
+    {
+        /** Set the stream to create for the message. */
+        std::stringstream printedMessage;
+
+        printedMessage << time2string();
+        if (withRank)  { printedMessage << "| process[" << rank_ << "] | "; }
+        if (withPath)  { printedMessage << std::setw(20) << filename << ":" << std::setw(6) << linenumber; }
+        printedMessage << " ::: " << message << std::endl;
+
+        std::cout << printedMessage.str();
     };
 
 
@@ -191,36 +235,6 @@ private:
 };
 
 
-
-
-
-/** Define the text output for LoggingMessagePhase. */
-template<unsigned int phase>
-const std::vector<std::string> LoggingMessage<phase>::PHASE_TEXT
-(
-	{
-		"DEVELOPMENT",
-		"PRODUCTION "
-	}
-);
-
-
-/** Define the text output for LoggingMessageCategory. */
-template<unsigned int phase>
-const std::vector<std::string> LoggingMessage<phase>::CATEGORY_TEXT
-(
-	{
-    	"DEBUG   ",
-    	"MESSAGE ",
-    	"WARNING ",
-    	"ERROR   ",
-    	"TIME    ",
-    	"MEMORY  ",
-    	"PARALLEL",
-    	"CLEAN   "
-	}
-);
-
 } // End namespace Dune.
 
-#endif // DUNE_LOGGING_MESSAGE_HH
+#endif // DUNE_LOGGING_MESSAGE_X_HH

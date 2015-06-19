@@ -18,8 +18,8 @@ namespace Dune
     // External Forward Declarations
     // -----------------------------
 
-    template< int, int, class >
-    class Entity;
+    //template< int, int, class >
+    //class Entity;
 
 
 

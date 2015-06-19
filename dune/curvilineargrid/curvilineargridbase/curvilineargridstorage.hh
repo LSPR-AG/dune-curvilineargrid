@@ -73,8 +73,6 @@ public:
 		};
 	};
 
-	static const int BOUNDARY_SEGMENT_PARTITION_TYPE = 500;
-
 
     // Entity Key Structures
     // ******************************************************************
@@ -240,6 +238,8 @@ public:
     static const int   EDGE_CODIM     = 2;
     static const int   FACE_CODIM     = 1;
     static const int   ELEMENT_CODIM  = 0;
+
+    static const int BOUNDARY_SEGMENT_PARTITION_TYPE = 500;
 
 
     // Curvilinear Grid User Constants

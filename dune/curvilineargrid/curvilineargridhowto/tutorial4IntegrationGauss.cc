@@ -32,7 +32,8 @@ struct GaussFunctor
 	typedef Dune::FieldVector<double, mydim>       LocalCoordinate;
 
     static const unsigned int RETURN_SIZE = 1;
-    typedef typename std::vector<double>  ResultType;
+    typedef double                    ResultValue;
+    typedef std::vector<ResultValue>  ResultType;
 
 	typedef typename Grid::Traits::LeafIntersection               Intersection;
 
@@ -93,8 +94,9 @@ void Integrate (GridType& grid)
   typedef typename LeafGridView::template Codim<1>::Geometry FaceGeometry;
 
 
-  typedef GaussFunctor<GridType, 2>                           Integrand2D;
-  typedef Dune::QuadratureIntegrator<double, 2, Integrand2D>  Integrator2DScalar;
+  typedef GaussFunctor<GridType, 2>              Integrand2D;
+  typedef Dune::QuadratureIntegrator<double, 2>  Integrator2DScalar;
+  typedef typename Integrator2DScalar::template Traits<Integrand2D>::StatInfo  StatInfo;
 
 
   double gaussintegral = 0.0;
@@ -125,7 +127,7 @@ void Integrate (GridType& grid)
 
 			  Integrand2D g(intersection);
 
-			  typename Integrator2DScalar::StatInfo thisIntegralG = Integrator2DScalar::integrateRecursive(geometry, g, rel_tol);
+			  StatInfo thisIntegralG = Integrator2DScalar::integrateRecursive(geometry, g, rel_tol);
 			  std::cout << "---- adding gauss contribution from " << gt << "  " << thisIntegralG.second[0] << ". Needed order " << thisIntegralG.first << std::endl;
 
 			  gaussintegral += thisIntegralG.second[0];
@@ -146,12 +148,11 @@ int main (int argc , char **argv) {
 	typedef  double    ctype;
 
     // Instantiation of the logging message and loggingtimer
-    typedef Dune::LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
-    typedef Dune::LoggingTimer<LoggingMessageDev>                                        LoggingTimerDev;
-    LoggingMessageDev::getInstance().init(mpihelper, true, true);
+    typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+    Dune::LoggingMessage::getInstance().init(mpihelper, true, true);
     LoggingTimerDev::getInstance().init(false);
 
-	typedef Dune::CurvilinearGrid<ctype, dim, isCached, LoggingMessageDev> GridType;
+	typedef Dune::CurvilinearGrid<ctype, dim, isCached, Dune::LoggingMessage> GridType;
 
 	// Create Grid
 	GridType * grid = createGrid<GridType>(mpihelper);

@@ -18,8 +18,10 @@
 
 #include <dune/grid/common/mcmgmapper.hh>
 
+#include <dune/curvilineargrid/curvilineargrid/grid.hh>
 #include <dune/curvilineargrid/curvilineargrid/factory.hh>
 #include <dune/curvilineargrid/io/file/curvilineargmshreader.hh>
+#include <dune/curvilineargrid/io/file/curvilinearvtkgridwriter.hh>
 #include <dune/curvilineargrid/utility/griddiagnostic.hh>
 
 
@@ -42,16 +44,14 @@ int main(int argc, char** argv)
     /***************************************************************/
     /** Instantiation of the logging message and loggingtimer      */
     /***************************************************************/
-    typedef Dune::LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
-    typedef Dune::LoggingTimer<LoggingMessageDev>                                        LoggingTimerDev;
-    LoggingMessageDev::getInstance().init(mpihelper, true, true);
+    typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+    Dune::LoggingMessage::getInstance().init(mpihelper, true, true);
     LoggingTimerDev::getInstance().init(false);
-
 
     /******************************************************/
     /** Define GridType and associated factory class      */
     /******************************************************/
-    typedef Dune::CurvilinearGrid<double, 3, isGeometryCached, LoggingMessageDev> GridType;
+    typedef Dune::CurvilinearGrid<double, 3, isGeometryCached, Dune::LoggingMessage> GridType;
 
     //Dune::GridFactory<ALUSimplexGridType> factory;
     Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper);
@@ -77,8 +77,8 @@ int main(int argc, char** argv)
     /******************************************************/
     /* Write grid to VTK                                  */
     /******************************************************/
-	Dune::CurvilinearVTKGridWriter<GridType> gridwriter(grid);
-	gridwriter.write("basis_test.vtk");
+	Dune::CurvilinearVTKGridWriter<GridType> gridwriter(*grid);
+	gridwriter.write("basis_test");
 
 
     /******************************************************/

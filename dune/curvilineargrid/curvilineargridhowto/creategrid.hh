@@ -16,19 +16,13 @@ GridType * createGrid(Dune::MPIHelper & mpihelper)
     std::string filename = CURVILINEARGRID_TEST_GRID_PATH  + GMSH_FILE_NAME[interpOrder - 1]; //"bullseye-rev-400.msh";//
 
     // Additional constants
-    bool insertBoundarySegment = true;  // If boundary segments will be inserted from GMSH. At the moment MUST BE true
     bool withGhostElements = true;      // to create Ghost elements
-    bool writeReaderVTKFile = false;    // to write mesh to VTK during reading stage
 
     // Construct the grid factory
     Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper);
 
     // Read the mesh into the factory using Curvilinear GMSH Reader
-    Dune::CurvilinearGmshReader< GridType >::read(factory,
-                                                  filename,
-                                                  mpihelper,
-                                                  writeReaderVTKFile,
-                                                  insertBoundarySegment);
+    Dune::CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper);
 
     // Create the grid
     return factory.createGrid();

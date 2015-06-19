@@ -207,19 +207,11 @@ public:
     	>::type  EntityGeometry;
     };
 
-
-    // Logging Message Typedefs
-    static const unsigned int LOG_PHASE_DEV      = LoggingMessage::Phase::DEVELOPMENT_PHASE;
-    static const unsigned int LOG_CATEGORY_DEBUG = LoggingMessage::Category::DEBUG;
-
     // Codimensions of entity types for better code readability
     static const int   VERTEX_CODIM   = GridStorageType::VERTEX_CODIM;
     static const int   EDGE_CODIM     = GridStorageType::EDGE_CODIM;
     static const int   FACE_CODIM     = GridStorageType::FACE_CODIM;
     static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
-
-    // Partition type shorthands
-    static const unsigned int BOUNDARY_SEGMENT_PARTITION_TYPE = GridStorageType::BOUNDARY_SEGMENT_PARTITION_TYPE;
 
     static const unsigned int NO_BOUNDARY_TYPE     = GridStorageType::FaceBoundaryType::None;
     static const unsigned int DOMAIN_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::DomainBoundary;
@@ -234,8 +226,7 @@ public: /* public methods */
         gridstage_(0),
         mpihelper_(mpihelper),
         gridstorage_(withGhostElements),
-        gridconstructor_(gridstorage_, *this, mpihelper),
-        loggingmessage_(LoggingMessage::getInstance())
+        gridconstructor_(gridstorage_, *this, mpihelper)
     {
         //assert(instance_ == 0);
         //instance_ = this;
@@ -244,7 +235,7 @@ public: /* public methods */
         size_ = mpihelper_.size();
 
         std::string log_string = "Initialized CurvilinearGridBase withGhostElements=" + std::to_string(withGhostElements);
-        loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_string);
+        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
     }
 
 private:
@@ -333,7 +324,7 @@ public:
     	assertStage(Stage::GRID_CONSTRUCTION);
     	gridstage_ = Stage::GRID_OPERATION;
 
-        loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridBase: Initializing mesh");
+        LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "[[CurvilinearGridBase: Generating curvilinear mesh...");
 
         gridconstructor_.generateMesh();
 
@@ -369,7 +360,8 @@ public:
         log_stream << " nElementInterior="           << nEntity(ELEMENT_CODIM, PartitionType::InteriorEntity);
         log_stream << " nElementGhost="              << nEntity(ELEMENT_CODIM, PartitionType::GhostEntity);
 
-        loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, log_stream.str());
+        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
+        LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "...CurvilinearGridBase: Finished generating curvilinear mesh]]");
     }
 
 
@@ -521,7 +513,7 @@ public:
     	case ELEMENT_CODIM : assert(localIndex < gridstorage_.element_.size());  return gridstorage_.element_[localIndex].ptype;  break;
     	default :
     	{
-    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridBase: unexpected codim " + std::to_string(codim));
+    		LoggingMessage::template write<CurvGrid::LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridBase: unexpected codim " + std::to_string(codim));
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codimension");
     		break;
     	}
@@ -676,7 +668,7 @@ public:
 
     	if (subcodim == codim)  { return entityIndex; }  // In this case return itself as own subentity
     	if (subcodim < codim) {                          // Wrong by definition
-    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair = (" + std::to_string(codim) + "," + std::to_string(subcodim) + ")");
+    		LoggingMessage::template write<CurvGrid::LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair = (" + std::to_string(codim) + "," + std::to_string(subcodim) + ")");
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair");
     	}
 
@@ -769,7 +761,7 @@ public:
         case 1 : rez = gridstorage_.face_[localIndex].element2Index;  break;
         default:
         {
-        	loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearPostConstructor: Unexpected neighbor subentity index =" + std::to_string(internalNeighborIndex));
+        	LoggingMessage::template write<CurvGrid::LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearPostConstructor: Unexpected neighbor subentity index =" + std::to_string(internalNeighborIndex));
         	DUNE_THROW(Dune::IOError, "CurvilinearGrid: faceNeighbor() unexpected neighbor index");  break;
         }
         }
@@ -968,7 +960,7 @@ public:
     		std::stringstream logstr;
     		logstr << "CurvilinearGridBase: Unexpected codim-structtype pair codim=" << codim;
     		logstr << " ptype=" << ptype;
-    		loggingmessage_.template write<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, logstr.str());
+    		LoggingMessage::template write<CurvGrid::LOG_MSG_PERSISTENT>( __FILE__, __LINE__, logstr.str());
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codim-structtype pair");
     	}
     }
@@ -1159,16 +1151,13 @@ protected:
     {
     	assert(thisData.geometryType.dim() == cdim - codim);
 
-    	//std::cout << "started geom constructor " << thisData.geometryType << " " << thisData.interpOrder << std::endl;
-
         std::vector<Vertex> entityVertices;
-        for (unsigned int i = 0; i < thisData.vertexIndexSet.size(); i++) { entityVertices.push_back(gridstorage_.point_[thisData.vertexIndexSet[i]].coord); }
-
-        //std::cout << "  -- assembled vertices " << Dune::VectorHelper::vector2string(entityVertices) << std::endl;#
+        for (unsigned int i = 0; i < thisData.vertexIndexSet.size(); i++) {
+        	LocalIndexType thisIndex = thisData.vertexIndexSet[i];
+        	entityVertices.push_back(gridstorage_.point_[thisIndex].coord);
+        }
 
         return typename Codim<codim>::EntityGeometry (thisData.geometryType, entityVertices, thisData.interpOrder);
-
-        //return typename Codim<codim>::EntityGeometry (thisData.geometryType, entityVertices, thisData.interpOrder);
     }
 
 
@@ -1192,8 +1181,6 @@ protected:
 
 
 private: // Private members
-
-    LoggingMessage & loggingmessage_;
 
     // The stage of the grid determines if the grid has already been assembled or not
     int gridstage_;

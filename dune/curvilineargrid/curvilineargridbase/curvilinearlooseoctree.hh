@@ -54,10 +54,6 @@ public:
 	typedef Dune::FieldVector<ctype, cdim>                    Vertex;
 	typedef Dune::CurvilinearOctant<ctype, cdim, NodeType>    CurvilinearOctant;
 
-    // Logging Message Typedefs
-    static const unsigned int LOG_CATEGORY_DEBUG = LoggingMessage::Category::DEBUG;
-
-
 	/** Filter function deciding whether a point is inside a an OctreeNode */
 	// FIXME: DO FUNCTOR DO NOT DO UGLY POINTER
 	// FIXME: DO FUNCTOR DO NOT DO UGLY POINTER
@@ -109,7 +105,7 @@ public:
     	std::stringstream log_stream;
     	log_stream << "CurvilinearLooseOctree: Adding a node ElementIndex=" << thisNode->elementIndex() <<  " Octant=" << octant << " Depth=" << depth;
 
-    	LoggingMessage::write<LOG_CATEGORY_DEBUG>(mpihelper_, __FILE__, __LINE__, log_stream.str());
+    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(mpihelper_, __FILE__, __LINE__, log_stream.str());
 
         // root is the default octant
         if (octant == 0)  { octant = root_; }

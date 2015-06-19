@@ -1,5 +1,6 @@
 # Define variable with path to the grids to be used in the code
 add_definitions("-DDUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH=\"${PROJECT_SOURCE_DIR}/doc/grids/\"")
+#add_definitions("-DHAVE_LOG_MSG_DVERB")
 
 # Define tests to be run
 set(TESTS
@@ -15,6 +16,7 @@ add_executable(test-diagnostics-base test-diagnostics-base.cc)
 add_executable(test-allcommunicate test-allcommunicate.cc)
 add_executable(test-vectorhelper test-vectorhelper.cc)
 add_executable(test-curvgrid test-curvgrid.cc)
+
 target_link_libraries(test-diagnostics dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-diagnostics-base dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-allcommunicate dunecommon dunegeometry dunegrid) # dunecurvilineargeometry

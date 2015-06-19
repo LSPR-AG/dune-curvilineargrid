@@ -77,8 +77,6 @@ private:
     static const unsigned int LOG_CATEGORY_DEBUG  = LoggingMessage::Category::DEBUG;
     static const unsigned int LOG_CATEGORY_ERROR  = LoggingMessage::Category::ERROR;
 
-    const int MASTER_PROCESS = 0;
-
     // Codimensions of entity types for better code readability
     static const int   VERTEX_CODIM   = GridType::GridStorageType::VERTEX_CODIM;
     static const int   EDGE_CODIM     = GridType::GridStorageType::EDGE_CODIM;
@@ -92,16 +90,15 @@ private:
     typedef typename GridType::GridStorageType  GridStorageType;
     static const int NO_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::None;
     static const int DOMAIN_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::DomainBoundary;
-    static const int BOUNDARY_SEGMENT_PARTITION_TYPE = GridStorageType::BOUNDARY_SEGMENT_PARTITION_TYPE;
-
 
 	typedef typename LeafGridView::template Codim<ELEMENT_CODIM >::Entity   ElementType;
 	typedef typename LeafGridView::template Codim<FACE_CODIM >::Entity      FaceType;
 
 	typedef typename LeafGridView::template Codim<ELEMENT_CODIM>::Iterator  ElementIterator;
 
-	typedef typename LeafGridView::template Codim<ELEMENT_CODIM>::Geometry  ElementGeometry;
-	typedef typename LeafGridView::template Codim<FACE_CODIM>::Geometry     FaceGeometry;
+	typedef typename GridType::template Codim<ELEMENT_CODIM>::EntityGeometryMappingImpl  ElementGeometryImpl;
+	typedef typename GridType::template Codim<ELEMENT_CODIM>::Geometry                   ElementGeometry;
+	typedef typename GridType::template Codim<FACE_CODIM>::Geometry                      FaceGeometry;
 
 
     typedef std::vector<std::vector<double> >  MeshStatType;
@@ -125,8 +122,6 @@ public:
 	// [TODO] add test to check number of ghost elements
 	void runAnalyticTest(std::string filename)
 	{
-		LoggingMessage::template writeStatic<LOG_CATEGORY_DEBUG>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started collecting mesh statistics");
-
 		MeshStatType meshStatistics(14, std::vector<double>());
 		meshStatistics[0].push_back(grid_.numInternal(ELEMENT_CODIM));
 		meshStatistics[1].push_back(grid_.numBoundarySegments());
@@ -134,32 +129,33 @@ public:
 		meshStatistics[12].push_back(0.0);  // processBoundarySurfaceArea
 		meshStatistics[13].push_back(0.0);  // domainBoundarySurfaceArea
 
-
-
 		LeafGridView leafView = grid_.leafGridView();
-
+		int elemIterCount = 0;         // Count elements
 		for (auto&& e : elements(leafView, Dune::Partitions::interior))
 		{
-			// Perform Volume tests
+	        LoggingMessage::writePatience("CurvilinearDiagnostics: Collecting mesh statistics", elemIterCount++, grid_.size(ELEMENT_CODIM));
+
+	        //std::cout << "element index " << grid_.leafIndexSet().index(e) << std::endl;
+
 			ElementGeometry thisGeometry = e.geometry();
+			ElementGeometryImpl thisGeometryImpl = grid_.template entityBaseGeometry<ELEMENT_CODIM>(e);
 
-			DiagnosticsHelper<GridType>::volumeTests(thisGeometry, meshStatistics);
+			DiagnosticsHelper<GridType>::consistencyTests(thisGeometryImpl);                  // Test if element is well-formed
+			DiagnosticsHelper<GridType>::elementStatistics(thisGeometry, meshStatistics);     // Collect statistics on the element
 
-
-			// Perform Face Tests
 	        const IntersectionIterator nend = leafView.iend(e);
 			for( IntersectionIterator nit = leafView.ibegin(e); nit != nend; ++nit )
 			{
 			  if ((nit->boundary()) && (!nit->neighbor()) )   {
 				  // Domain Boundaries
 				  FaceGeometry thisGeometry = nit->geometry();
-				  DiagnosticsHelper<GridType>::domainBoundaryTests(thisGeometry, meshStatistics);
+				  DiagnosticsHelper<GridType>::domainBoundaryStatistics(thisGeometry, meshStatistics);
 			  }
 			  else if ((nit->neighbor())&&(nit->outside().partitionType() == Dune::PartitionType::GhostEntity))
 			  {
 				  // Process Boundaries
 				  FaceGeometry thisGeometry = nit->geometry();
-				  DiagnosticsHelper<GridType>::processBoundaryTests(thisGeometry, meshStatistics);
+				  DiagnosticsHelper<GridType>::processBoundaryStatistics(thisGeometry, meshStatistics);
 			  }
 			}
 		}

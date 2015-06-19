@@ -43,31 +43,26 @@ void traversal (GridType& grid)
   typedef typename GridType::template Codim<codim>::EntityGeometryMappingImpl  BaseGeometry;
   typedef typename BaseGeometry::GlobalCoordinate                              GlobalCoordinate;
 
-  // Iterate over entities of this codimension
-  EntityLeafIterator ibegin = leafView.template begin<codim>();
-  EntityLeafIterator iend   = leafView.template end<codim>();
-
-  for (EntityLeafIterator it = ibegin; it != iend; ++it)
+  for (auto&& elementThis : entities(leafView, Dune::Dim<dim - codim>()))
   {
-	  Dune::GeometryType gt              = it->type();
-	  LocalIndexType  localIndex         = grid.leafIndexSet().index(*it);
-	  GlobalIndexType globalIndex        = grid.template entityGlobalIndex<codim>(*it);
-	  PhysicalTagType physicalTag        = grid.template entityPhysicalTag<codim>(*it);
-	  InterpolatoryOrderType interpOrder = grid.template entityInterpolationOrder<codim>(*it);
+	Dune::GeometryType gt              = elementThis.type();
+	LocalIndexType  localIndex         = grid.leafIndexSet().index(elementThis);
+	GlobalIndexType globalIndex        = grid.template entityGlobalIndex<codim>(elementThis);
+	PhysicalTagType physicalTag        = grid.template entityPhysicalTag<codim>(elementThis);
+	InterpolatoryOrderType interpOrder = grid.template entityInterpolationOrder<codim>(elementThis);
 
-	  // Constructing a geometry is quite expensive, do it only once
-	  //EntityGeometry geom = it->geometry();
-	  BaseGeometry geom = grid.template entityBaseGeometry<codim>(*it);
-	  std::vector<GlobalCoordinate>  interpVertices = geom.vertexSet();
+	// Constructing a geometry is quite expensive, do it only once
+	//EntityGeometry geom = it->geometry();
+	BaseGeometry geom = grid.template entityBaseGeometry<codim>(elementThis);
+	std::vector<GlobalCoordinate>  interpVertices = geom.vertexSet();
 
-	  std::cout << "visiting leaf " << gt                /*@\label{tc:print}@*/
-                << " localIndex=" << localIndex
-                << " globalIndex=" << globalIndex
-                << " physicalTag=" << physicalTag
-                << " interpolationOrder=" << interpOrder
-                << " consisting of interpolatory vertices " << Dune::VectorHelper::vector2string(interpVertices)
-                << std::endl;
-
+	std::cout << "visiting leaf " << gt
+              << " localIndex=" << localIndex
+              << " globalIndex=" << globalIndex
+              << " physicalTag=" << physicalTag
+              << " interpolationOrder=" << interpOrder
+              << " consisting of interpolatory vertices " << Dune::VectorHelper::vector2string(interpVertices)
+              << std::endl;
   }
 }
 
@@ -78,20 +73,21 @@ int main (int argc , char **argv) {
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
 
 	// Define curvilinear grid
-	const int dim = 3;
+	const int dimension = 3;
 	typedef  double    ctype;
 
     // Instantiation of the logging message and loggingtimer
-    typedef Dune::LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
-    typedef Dune::LoggingTimer<LoggingMessageDev>                                        LoggingTimerDev;
-    LoggingMessageDev::getInstance().init(mpihelper, true, true);
+    typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+    Dune::LoggingMessage::getInstance().init(mpihelper, true, true);
     LoggingTimerDev::getInstance().init(false);
 
-	typedef Dune::CurvilinearGrid<ctype, dim, isCached, LoggingMessageDev> GridType;
+	typedef Dune::CurvilinearGrid<ctype, dimension, isCached, Dune::LoggingMessage> GridType;
 
 
 	// Create Grid
 	GridType * grid = createGrid<GridType>(mpihelper);
+
+	//std::cout << "check " << Dune::VectorHelper::vector2string(grid->gridbase().entityData(0, 0).vertexIndexSet) << std::endl;
 
 	// Traverse all entities of the grid and write information about each entity
 	traversal<0, GridType>(*grid);  // Elements

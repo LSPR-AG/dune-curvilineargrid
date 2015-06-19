@@ -24,12 +24,11 @@ int main (int argc , char **argv) {
 	typedef  double    ctype;
 
     // Instantiation of the logging message and loggingtimer
-    typedef Dune::LoggingMessage<Dune::LoggingMessageHelper::Phase::DEVELOPMENT_PHASE>   LoggingMessageDev;
-    typedef Dune::LoggingTimer<LoggingMessageDev>                                        LoggingTimerDev;
-    LoggingMessageDev::getInstance().init(mpihelper, true, true);
+    typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+    Dune::LoggingMessage::getInstance().init(mpihelper, true, true);
     LoggingTimerDev::getInstance().init(false);
 
-	typedef Dune::CurvilinearGrid<ctype, dim, isCached, LoggingMessageDev> GridType;
+	typedef Dune::CurvilinearGrid<ctype, dim, isCached, Dune::LoggingMessage> GridType;
 
 
 	// Create Grid

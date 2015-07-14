@@ -55,19 +55,24 @@ int main(int argc, char** argv)
     int rank=mpihelper.rank();
     int size=mpihelper.size();
 
+    const bool LOGGING_MESSAGE_VERBOSE   = true;   // If the master process should report diagnostics
+    const bool LOGGING_MESSAGE_PVERBOSE  = false;  // If all processes should report diagnostics (not recommended)
+    const bool LOGGING_TIMER_REALVERBOSE = false;  // If LoggingTimer should report during timing (only for debug)
+
     // Instantiation of the logging message and loggingtimer
     typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
-    Dune::LoggingMessage::getInstance().init(mpihelper, true, true);
-    LoggingTimerDev::getInstance().init(false);
+    Dune::LoggingMessage::getInstance().init(mpihelper, LOGGING_MESSAGE_VERBOSE, LOGGING_MESSAGE_PVERBOSE);
+    LoggingTimerDev::getInstance().init(LOGGING_TIMER_REALVERBOSE);
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
     typedef Dune::CurvilinearGridBase<double, 3, isGeometryCached, Dune::LoggingMessage>  SimplexGridType;
 
     bool withGhostElements = true;
+    bool withGmshElementIndex = true;
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, mpihelper);
+    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, withGmshElementIndex, mpihelper);
 
 
     // Assemble the file name

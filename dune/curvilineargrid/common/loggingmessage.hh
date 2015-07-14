@@ -14,6 +14,7 @@
 
 #include <dune/common/parallel/mpihelper.hh>
 #include <dune/curvilineargrid/common/constant.hh>
+#include <dune/curvilineargrid/common/colorcoding.hh>
 
 //#include <boost/date_time/posix_time/posix_time.hpp>
 
@@ -144,7 +145,12 @@ public:
 
     /** \brief Logging message patience writer. This is a singleton routine intended to be run like LoggingMessage::write(...); */
     static void writePatience(std::string message, int iter, int total ) {
-    	getInstance().writePatienceImpl(message, iter, total);
+#if HAVE_LOG_MSG_DVERB || HAVE_LOG_MSG_DDVERB || HAVE_LOG_MSG_DDDVERB || HAVE_LOG_MSG_DDDDVERB || HAVE_LOG_MSG_DDDDVERB || HAVE_LOG_MSG_DDDDDDVERB
+    // Do nothing. For debugging purposes patience writer is harmful, as inside log file it overwrites debug output.
+    // It is only useful for production/optimization time, where clean report of performance of a fully working code is required
+#else
+    getInstance().writePatienceImpl(message, iter, total);
+#endif
     }
 
 
@@ -191,7 +197,7 @@ protected:
 
     		if ((iter == 0) || (percent != percentOld))
     		{
-    			std::cout << "\r[" << extendString(std::to_string(percent) + "%", 4) << "] " << message;
+    			std::cout << "\r[" << ColorCoding::FG_BLUE << extendString(std::to_string(percent) + "%", 4) << ColorCoding::FG_DEFAULT << "] " << message;
     			if (percent == 100)  { std::cout << std::endl; }
     			else                 { std::cout.flush(); }
     		}

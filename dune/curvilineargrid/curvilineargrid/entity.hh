@@ -183,16 +183,16 @@ namespace Dune
 	  }
 
 
-	  /** \brief obtain the index of a subentity from a host IndexSet
+	  /** \brief obtain the local index of a subentity
 	   *
 	   *  \param[in]  i         number of the subentity
 	   *  \param[in]  codim        codimension of the subentity
 	   */
 	  int subIndex (int internalIndex, unsigned int subcodim ) const  {
-	      LocalIndexType thisIndex = subIndexBase(internalIndex, subcodim);
+	      LocalIndexType subInd = subIndexBase(internalIndex, subcodim);
 
-		  if (subcodim == dimension)  { return gridbase_->cornerUniqueLocalIndex(thisIndex); }
-		  else                        { return thisIndex; }
+		  if (subcodim == dimension)  { return gridbase_->cornerUniqueLocalIndex(subInd); }
+		  else                        { return subInd; }
 	  }
 
 
@@ -211,7 +211,9 @@ namespace Dune
 
 	  IdType subId ( int internalIndex, unsigned int subcodim ) const
 	  {
-	      int subentityLocalIndex = subIndex(internalIndex, subcodim);
+		  // DO NOT CALL subIndex, because for the corners it uses uniqueCornerIndex, but globalId is defined for vertex local index
+	      //int subentityLocalIndex = subIndex(internalIndex, subcodim);
+		  int subentityLocalIndex = subIndexBase(internalIndex, subcodim);
 	      return gridbase_->globalId(subcodim, subentityLocalIndex);
 	  }
 

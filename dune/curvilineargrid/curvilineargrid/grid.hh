@@ -124,7 +124,8 @@ namespace Dune
     static const int dimensionworld = cdim;
     static const bool is_cached     = isCached;
     typedef ct                        ctype;
-    typedef LogMsg                    LoggingMessage;
+    typedef LogMsg                              LoggingMessage;
+    typedef Dune::LoggingTimer<LoggingMessage>  LoggingTimer;
 
 
     // Curvilinear Grid Implementation

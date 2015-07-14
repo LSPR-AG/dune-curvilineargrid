@@ -230,9 +230,6 @@ public: /* public methods */
     {
     	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating communication maps");
 
-		IndexSetIterator iterB = gridbase_.entityIndexBegin(FACE_CODIM , Dune::PartitionType::BorderEntity);
-		IndexSetIterator iterE = gridbase_.entityIndexEnd(FACE_CODIM , Dune::PartitionType::BorderEntity);
-
 		int nEdgeTriangle = 3;
 		int nVertexTriangle = 3;
 		int nTriangleTet = 4;
@@ -259,6 +256,9 @@ public: /* public methods */
 
 		// Iterate over all PB faces
 		int faceCount = 0;
+
+		IndexSetIterator iterB = gridbase_.entityIndexBegin(FACE_CODIM , Dune::PartitionType::BorderEntity);
+		IndexSetIterator iterE = gridbase_.entityIndexEnd(FACE_CODIM , Dune::PartitionType::BorderEntity);
 		for (IndexSetIterator iter = iterB; iter != iterE; iter++)
 		{
 			Dune::LoggingMessage::writePatience("Generating communication maps...", faceCount++, gridbase_.nEntity(FACE_CODIM, Dune::PartitionType::BorderEntity));
@@ -269,9 +269,9 @@ public: /* public methods */
 			// 1) Find all Internal and Ghost entities associated with this PB Face
 			// **********************************************************************
 
-			// Fill in the sets associated with this face
+			// Find local indices of all subentities of this PB face
 			std::vector<LocalIndexType> faceSubentityIndex[4];
-			faceSubentityIndex[1].push_back(thisFaceLocalIndex);
+			faceSubentityIndex[FACE_CODIM].push_back(thisFaceLocalIndex);
 			for (int i = 0; i < nEdgeTriangle; i++)    { faceSubentityIndex[EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, EDGE_CODIM, i)); }
 			for (int i = 0; i < nVertexTriangle; i++)  { faceSubentityIndex[VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, VERTEX_CODIM, i)); }
 
@@ -282,6 +282,7 @@ public: /* public methods */
 				// Gets either internal or ghost element depending on iTmp
 				LocalIndexType thisElementLocalIndex = gridbase_.faceNeighbor(thisFaceLocalIndex, iTmp);
 
+				// Find local indices of all subentities of this element
 				faceNeighborSubentityIndex[iTmp][ELEMENT_CODIM].push_back(thisElementLocalIndex);
 				for (int i = 0; i < nTriangleTet; i++)  { faceNeighborSubentityIndex[iTmp][FACE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, i)); }
 				for (int i = 0; i < nEdgeTet; i++)      { faceNeighborSubentityIndex[iTmp][EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, EDGE_CODIM, i)); }
@@ -290,7 +291,7 @@ public: /* public methods */
 
 				for (int iCodim = 0; iCodim <= dimension; iCodim++)
 				{
-					// Sort subentity vectors
+					// Sort subentity index vectors
 					std::sort(faceSubentityIndex[iCodim].begin(), faceSubentityIndex[iCodim].end());
 					std::sort(faceNeighborSubentityIndex[iTmp][iCodim].begin(), faceNeighborSubentityIndex[iTmp][iCodim].end());
 
@@ -380,6 +381,20 @@ public: /* public methods */
 				}
 			}
 		}
+
+
+		// Compactify I -> G, as this array will not be accessed at a later stage
+		// Compactification means deleting repeating elements, because each neighbor rank set should only contain each of its neighbour ranks once
+		// The reason for them being added more than one time, is because a boundary entity can be assigned a neighbour rank by more than one PB face
+		for (int iCodim = 0; iCodim <= dimension; iCodim++)
+		{
+			for (int iEntity = 0; iEntity < gridstorage_.BI2GNeighborRank_[iCodim].size(); iEntity++)
+			{
+				Dune::VectorHelper::compactify(gridstorage_.BI2GNeighborRank_[iCodim][iEntity]);
+			}
+		}
+
+
 
 		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating communication maps");
     }

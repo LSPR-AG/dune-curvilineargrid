@@ -13,13 +13,22 @@ GridType * createGrid(Dune::MPIHelper & mpihelper)
 
     // Choice of file name
     int interpOrder = 2;
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH  + GMSH_FILE_NAME[interpOrder - 1]; //"bullseye-rev-400.msh";//
+    std::string filename = CURVILINEARGRID_TEST_GRID_PATH  + "sphere2000ord3.msh"; //GMSH_FILE_NAME[interpOrder - 1]; //"bullseye-rev-400.msh";//
 
     // Additional constants
-    bool withGhostElements = true;      // to create Ghost elements
+    bool withGhostElements    = true;      // to create Ghost elements
+    bool withGmshElementIndex = true;
+
+    const bool LOGGING_MESSAGE_VERBOSE   = true;   // If the master process should report diagnostics
+    const bool LOGGING_MESSAGE_PVERBOSE  = false;  // If all processes should report diagnostics (not recommended)
+    const bool LOGGING_TIMER_REALVERBOSE = false;  // If LoggingTimer should report during timing (only for debug)
+
+    // Initialize LoggingMessage and LoggingTimer
+    Dune::LoggingMessage::getInstance().init(mpihelper, LOGGING_MESSAGE_VERBOSE, LOGGING_MESSAGE_PVERBOSE);
+    Dune::LoggingTimer<Dune::LoggingMessage>::getInstance().init(LOGGING_TIMER_REALVERBOSE);
 
     // Construct the grid factory
-    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper);
+    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, withGmshElementIndex, mpihelper);
 
     // Read the mesh into the factory using Curvilinear GMSH Reader
     Dune::CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper);

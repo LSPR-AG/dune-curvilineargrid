@@ -2,6 +2,7 @@
 #define DUNE_VECTORHELPER_HH
 
 #include <limits>
+#include <set>
 #include <map>
 #include <string>
 #include <utility>
@@ -73,6 +74,26 @@ public:
         for (int i = 0; i < nEntry; i++) {
         	tmp_stream << V[i];
         	if (i != nEntry - 1) { tmp_stream << ", "; }
+        }
+        tmp_stream << ")";
+        return tmp_stream.str();
+    }
+
+
+    // Converts an arbitrary vector into string by sticking all of the entries together
+    // Whitespace separated
+	template<typename T>
+    static std::string set2string(const T & V)
+    {
+        std::stringstream tmp_stream;
+        tmp_stream << "(";
+
+        int nEntry = V.size();
+        if (nEntry == 0)  { tmp_stream << "Null"; }
+        int elemCount = 0;
+        for (typename T::iterator iter = V.begin(); iter != V.end(); iter++) {
+        	tmp_stream << *iter;
+        	if (elemCount++ != nEntry - 1) { tmp_stream << ", "; }
         }
         tmp_stream << ")";
         return tmp_stream.str();
@@ -178,6 +199,52 @@ public:
 
 		return rez;
 	}
+
+
+	// Calculates the complement between two sets (A / B).
+	// That is, returns all entries of A which are not present in B
+	template <typename T>
+	static std::set<T> setComplement(const std::set<T> & A, const std::set<T> & B)
+	{
+		std::set<T> rez;
+
+		for (typename std::set<T>::iterator iter = A.begin(); iter != A.end(); ++iter)
+		{
+			T val = *iter;
+			if (B.find(val) == B.end())  { rez.insert(val); }
+		}
+
+		return rez;
+	}
+
+
+	// Calculates the intersection between two sets (A && B).
+	// That is, returns all entries which are present in both A and B
+	template <typename T>
+	static std::set<T> setIntersection(const std::set<T> & A, const std::set<T> & B)
+	{
+		std::set<T> rez;
+
+		for (typename std::set<T>::iterator iter = A.begin(); iter != A.end(); ++iter)
+		{
+			T val = *iter;
+			if (B.find(val) != B.end())  { rez.insert(val); }
+		}
+
+		return rez;
+	}
+
+
+	// Computes the smallest element in a set
+	template <typename T>
+	static T setMin(const std::set<T> & A)
+	{
+		T rez = *(A.begin());
+		for (typename std::set<T>::iterator iter = A.begin(); iter != A.end(); ++iter)  { rez = std::min(rez, *iter); }
+		return rez;
+	}
+
+
 
 
 	// For two arrays of the same size, no repeating entries, some entries present in both arrays, output an array of indices

@@ -101,7 +101,7 @@ struct DiagnosticsHelper
 	{
 		double faceCurvilinearArea = faceGeom.volume();
 		meshStatistics[12][0] += faceCurvilinearArea;
-		std::cout << "Area: " << faceCurvilinearArea << std::endl;
+		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB> (__FILE__, __LINE__, "Area: " + std::to_string(faceCurvilinearArea) );
 	}
 
 
@@ -111,8 +111,7 @@ struct DiagnosticsHelper
 	{
 		double faceCurvilinearArea = faceGeom.volume();
 		meshStatistics[13][0] += faceCurvilinearArea;
-
-		std::cout << "Area: " << faceCurvilinearArea << std::endl;
+		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB> (__FILE__, __LINE__, "Area: " + std::to_string(faceCurvilinearArea) );
 	}
 
 

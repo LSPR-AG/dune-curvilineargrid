@@ -76,15 +76,8 @@ int main (int argc , char **argv) {
 	const int dimension = 3;
 	typedef  double    ctype;
 
-    // Instantiation of the logging message and loggingtimer
-    typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
-    Dune::LoggingMessage::getInstance().init(mpihelper, true, true);
-    LoggingTimerDev::getInstance().init(false);
-
+    // Create Grid
 	typedef Dune::CurvilinearGrid<ctype, dimension, isCached, Dune::LoggingMessage> GridType;
-
-
-	// Create Grid
 	GridType * grid = createGrid<GridType>(mpihelper);
 
 	//std::cout << "check " << Dune::VectorHelper::vector2string(grid->gridbase().entityData(0, 0).vertexIndexSet) << std::endl;
@@ -95,6 +88,8 @@ int main (int argc , char **argv) {
 	traversal<2, GridType>(*grid);  // Edges
 	traversal<3, GridType>(*grid);  // Corners
 
+	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+	LoggingTimerDev::reportParallel(mpihelper);
 
     // Delete the grid
     delete grid;

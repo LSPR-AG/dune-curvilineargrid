@@ -41,9 +41,10 @@ struct CurvFactory
 
     std::string filename = CURVILINEARGRID_TEST_GRID_PATH + "sphere2000ord3.msh"; //GMSH_FILE_NAME[order - 1];
 
-    bool withGhostElements = true;
+    bool withGhostElements    = true;
+    bool withGmshElementIndex = true;
 
-    Dune::CurvilinearGridFactory< GridType > factory(withGhostElements, mpihelper);
+    Dune::CurvilinearGridFactory< GridType > factory(withGhostElements, withGmshElementIndex, mpihelper);
     Dune::CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper);
 
     return factory.createGrid();
@@ -95,10 +96,14 @@ int main (int argc , char **argv) {
 	// Initialize MPI, if present
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
 
+	const bool LOGGING_MESSAGE_VERBOSE   = true;   // If the master process should report diagnostics
+	const bool LOGGING_MESSAGE_PVERBOSE  = false;  // If all processes should report diagnostics (not recommended)
+	const bool LOGGING_TIMER_REALVERBOSE = false;  // If LoggingTimer should report during timing (only for debug)
+
     // Instantiation of the logging message and loggingtimer
     typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
-    Dune::LoggingMessage::getInstance().init(mpihelper, true, true);
-    LoggingTimerDev::getInstance().init(false);
+    Dune::LoggingMessage::getInstance().init(mpihelper, LOGGING_MESSAGE_VERBOSE, LOGGING_MESSAGE_PVERBOSE);
+    LoggingTimerDev::getInstance().init(LOGGING_TIMER_REALVERBOSE);
 
 	typedef Dune::CurvilinearGrid<double, 3, isGeometryCached, Dune::LoggingMessage> GridType;
 

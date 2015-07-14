@@ -252,7 +252,8 @@ public:
     // ******************************************************************
 
     // Properties of the grid
-    bool withGhostElements_;   // Whether ghost elements will be constructed or not
+    bool withGhostElements_;        // Whether ghost elements will be constructed or not
+    bool withElementGlobalIndex_;   // Whether the grid will be supplied with element global indices using insertElement
 
 
     // Storage of process bounding box, since its computation is expensive
@@ -319,8 +320,9 @@ public:
 
     // Constructor and Destructor
     // ******************************************************************
-    CurvilinearGridStorage (bool withGhostElements) :
+    CurvilinearGridStorage (bool withGhostElements, bool withElementGlobalIndex) :
     	withGhostElements_(withGhostElements),
+    	withElementGlobalIndex_(withElementGlobalIndex),
     	nEntityTotal_ {0, 0, 0, 0},
     	octree_(0)
     {

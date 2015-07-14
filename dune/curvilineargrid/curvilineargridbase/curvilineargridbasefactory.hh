@@ -57,36 +57,41 @@ class CurvilinearGridBaseFactory
 
 	typedef FieldVector< ctype, dimensionworld >                           VertexCoordinate;
 
-	typedef int VertexGlobalId;
+	typedef int VertexGlobalIndex;
 	typedef int VertexLocalIndex;
 	typedef int ElementLocalIndex;
+	typedef int ElementGlobalIndex;
 
   public:
 
-    CurvilinearGridBaseFactory(bool withGhostElements, MPIHelper &mpihelper)
+    CurvilinearGridBaseFactory(
+    	bool withGhostElements,
+    	bool withGmshElementIndex,
+    	MPIHelper &mpihelper)
     {
-    	gridbase_ = new GridBaseType(withGhostElements, mpihelper);
+    	gridbase_ = new GridBaseType(withGhostElements, withGmshElementIndex, mpihelper);
     }
 
     ~CurvilinearGridBaseFactory ()  {}
 
-    void insertVertex ( const VertexCoordinate &pos, const VertexGlobalId globalId )
+    void insertVertex ( const VertexCoordinate &pos, const VertexGlobalIndex globalIndex )
     {
-    	gridbase_->insertVertex(pos, globalId);
+    	gridbase_->insertVertex(pos, globalIndex);
     }
 
     void insertElement(
       GeometryType &geometry,
       const std::vector< VertexLocalIndex > &vertexIndexSet,
+      const ElementGlobalIndex globalIndex,
       const int elemOrder,
       const int physicalTag)
     {
-    	gridbase_->insertElement(geometry, vertexIndexSet, elemOrder, physicalTag);
+    	gridbase_->insertElement(geometry, vertexIndexSet, globalIndex, elemOrder, physicalTag);
     }
 
     void insertBoundarySegment(
         GeometryType &geometry,
-        const std::vector< VertexGlobalId > &vertexIndexSet,
+        const std::vector< VertexLocalIndex > &vertexIndexSet,
         const int elemOrder,
         const ElementLocalIndex associatedElementIndex,
         const int physicalTag)

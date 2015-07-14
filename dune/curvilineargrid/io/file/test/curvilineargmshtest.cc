@@ -91,26 +91,32 @@ int main(int argc, char** argv)
     std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHEREINSPHERE100_ORD1;
 
     // Properties of the grid
-    bool insertBoundarySegment = true;
-    bool withGhostElements = true;
-    bool writeReaderVTKFile = true;
+    bool verbose        = true;   // Write debug output at all
+    bool processVerbose = false;  // Write debug output from all processes (NOT RECOMENDED)
+    bool withGhostElements    = true;
+    bool withGmshElementIndex = true;
+    bool withProcessPratition = true;
     const bool isCached = true;
 
     // Instantiation of the logging message
-    typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
-    Dune::LoggingMessage::getInstance().init(mpihelper, true, true);
-    LoggingTimerDev::getInstance().init(false);
+    typedef Dune::LoggingMessage                LoggingMessage;
+    typedef Dune::LoggingTimer<LoggingMessage>  LoggingTimer;
+    LoggingMessage::getInstance().init(mpihelper, verbose, processVerbose);
+    LoggingTimer::getInstance().init(false);
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
     typedef Dune::CurvilinearGridBase<double, 3, isCached, Dune::LoggingMessage>  SimplexGridType;
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, mpihelper);
+    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, withGmshElementIndex, mpihelper);
 
-    Dune::CurvilinearGmshReader< SimplexGridType>::read(factory, filename, mpihelper, writeReaderVTKFile, insertBoundarySegment);
+    Dune::CurvilinearGmshReader< SimplexGridType>::read(factory, filename, mpihelper, withGmshElementIndex, withProcessPratition);
 
     //factory.createGrid(nVertexTotal, nElementTotal);
+
+    //LoggingTimer::report();
+    LoggingTimer::reportParallel(mpihelper);
 
     /** \brief leave program peacefully */
     return(0);

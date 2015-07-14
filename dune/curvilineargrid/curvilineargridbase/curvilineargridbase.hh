@@ -222,10 +222,10 @@ public:
 public: /* public methods */
 
     /** Parallel constructor - USE THIS CONSTRUCTOR*/
-    CurvilinearGridBase(bool withGhostElements, MPIHelper &mpihelper) :
+    CurvilinearGridBase(bool withGhostElements, bool withElementGlobalIndex, MPIHelper &mpihelper) :
         gridstage_(0),
         mpihelper_(mpihelper),
-        gridstorage_(withGhostElements),
+        gridstorage_(withGhostElements, withElementGlobalIndex),
         gridconstructor_(gridstorage_, *this, mpihelper)
     {
         //assert(instance_ == 0);
@@ -272,11 +272,12 @@ public:
     void insertElement(
         	Dune::GeometryType gt,
         	const std::vector<LocalIndexType> & vertexIndexSet,
+        	GlobalIndexType globalIndex,
         	InterpolatoryOrderType order,
         	PhysicalTagType physicalTag)
     {
     	assertStage(Stage::GRID_CONSTRUCTION);
-    	gridconstructor_.insertElement(gt, vertexIndexSet, order, physicalTag);
+    	gridconstructor_.insertElement(gt, vertexIndexSet, globalIndex, order, physicalTag);
     }
 
     /** Insert a boundary segment into the mesh

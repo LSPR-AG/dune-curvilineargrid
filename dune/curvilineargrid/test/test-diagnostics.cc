@@ -28,8 +28,13 @@
 
 using namespace Dune;
 
-const bool isGeometryCached = true;    // We will be using CachedCurvilinearGeometry class
-const bool withGhostElements = true;   // We want to create a mesh with ghost elements
+const bool isGeometryCached     = true;      // We will be using CachedCurvilinearGeometry class
+const bool withGhostElements    = true;     // We want to create a mesh with ghost elements
+const bool withGmshElementIndex = true;
+
+const bool LOGGING_MESSAGE_VERBOSE   = true;   // If the master process should report diagnostics
+const bool LOGGING_MESSAGE_PVERBOSE  = false;  // If all processes should report diagnostics (not recommended)
+const bool LOGGING_TIMER_REALVERBOSE = false;  // If LoggingTimer should report during timing (only for debug)
 
 /**\brief Test program which visualizes the base functions on a dgf mesh to
  * a vtk file. */
@@ -45,8 +50,8 @@ int main(int argc, char** argv)
     /** Instantiation of the logging message and loggingtimer      */
     /***************************************************************/
     typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
-    Dune::LoggingMessage::getInstance().init(mpihelper, true, true);
-    LoggingTimerDev::getInstance().init(false);
+    Dune::LoggingMessage::getInstance().init(mpihelper, LOGGING_MESSAGE_VERBOSE, LOGGING_MESSAGE_PVERBOSE);
+    LoggingTimerDev::getInstance().init(LOGGING_TIMER_REALVERBOSE);
 
     /******************************************************/
     /** Define GridType and associated factory class      */
@@ -54,7 +59,7 @@ int main(int argc, char** argv)
     typedef Dune::CurvilinearGrid<double, 3, isGeometryCached, Dune::LoggingMessage> GridType;
 
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, mpihelper);
+    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, withGmshElementIndex, mpihelper);
 
     /******************************************************/
     /* Pass filename as command line argument             */
@@ -85,6 +90,12 @@ int main(int argc, char** argv)
     /* Write OCTree to VTK                                */
     /******************************************************/
     diagnostic.vtkWriteOctree();
+
+
+    /******************************************************/
+    /* Report timing information                          */
+    /******************************************************/
+    LoggingTimerDev::reportParallel(mpihelper);
 
 
 

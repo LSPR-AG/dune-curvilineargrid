@@ -68,9 +68,13 @@ class CurvilinearGridFactory
 	// Real constructor
     CurvilinearGridFactory(
     		bool withGhostElements,
+    		bool withGmshElementIndex,
     		MPIHelper &mpihelper)
     {
-    	gridbase_ = new GridBaseType(withGhostElements, mpihelper);
+    	gridbase_ = new GridBaseType(
+    		withGhostElements,
+    		withGmshElementIndex,
+    		mpihelper);
     }
 
     // GridBase is constructed and deleted here
@@ -79,18 +83,19 @@ class CurvilinearGridFactory
     	//if (gridbase_)  { delete gridbase_; }
     }
 
-    void insertVertex ( const VertexCoordinate &pos, const GlobalIndexType globalId )
+    void insertVertex ( const VertexCoordinate &pos, const GlobalIndexType globalIndex )
     {
-    	gridbase_->insertVertex(pos, globalId);
+    	gridbase_->insertVertex(pos, globalIndex);
     }
 
     void insertElement(
       GeometryType &geometry,
       const std::vector< LocalIndexType > &vertexIndexSet,
+      const GlobalIndexType globalIndex,
       const int elemOrder,
       const int physicalTag)
     {
-    	gridbase_->insertElement(geometry, vertexIndexSet, elemOrder, physicalTag);
+    	gridbase_->insertElement(geometry, vertexIndexSet, globalIndex, elemOrder, physicalTag);
     }
 
     void insertBoundarySegment(

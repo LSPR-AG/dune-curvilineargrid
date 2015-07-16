@@ -325,7 +325,7 @@ namespace Dune
         {
         	LoggingTimer::time("CurvilinearGMSHReader: Writing VTK output");
         	//vtkCurvWriter_.writeVTK("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
-        	vtkCurvWriter_.writeParallelVTU("./curvreader_output");
+        	vtkCurvWriter_.writeParallelVTU("./", "curvreader_output");
             LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__,  "Curvilinear VTK Writer finished writing" );
             LoggingTimer::time("CurvilinearGMSHReader: Writing VTK output");
         }

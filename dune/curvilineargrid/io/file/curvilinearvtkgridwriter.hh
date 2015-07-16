@@ -92,23 +92,23 @@ public:
 
 
 	// Write Grid only to VTK
-	void write(std::string filename)
+	void write(std::string path, std::string filenamePrefix)
 	{
 		std::vector<VTKFunction *> emptyFieldSet;
-		write(filename, emptyFieldSet);
+		write(path, filenamePrefix, emptyFieldSet);
 	}
 
 
 	// Write Grid to VTK, including vector field set defined over each element
-	void write(std::string filenamePrefix, std::vector<VTKFunction *> & vtkFunctionSet)
+	void write(std::string path, std::string filenamePrefix, std::vector<VTKFunction *> & vtkFunctionSet)
 	{
 		// Declare the curvilinear vtk writer
 		BaseWriter writer(grid_.comm().rank(), grid_.comm().size());
 
 		// Properties
-        int nDiscretizationPoint = 6;
+        //int nDiscretizationPoint = 6;
         bool interpolate = true;
-        bool explode = true;
+        bool explode = false;
         std::vector<bool>  writeCodim { true, true, false, false };  // Use elements for discretization, and do not use entities of other codimensions
 
 		// Iterate over elements
@@ -133,6 +133,7 @@ public:
 			std::vector<int>        tagSet  { physicalTag, thisPType, grid_.comm().rank() };
 
 			// Write element to VTK
+			int nDiscretizationPoint = elementOrder + 2;  // To accelerate vtk writer, do not overdiscretize low order meshes. Make discretization appropriate for element
 			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting element geometry" );
 			writer.template addCurvilinearElement<dimension - ELEMENT_CODIM>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, interpolate, explode, writeCodim);
 
@@ -182,10 +183,10 @@ public:
 		}
 
 		// Write the data to vtk file
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Writing .vtk file = " + filenamePrefix + ".pvtu");
+		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Writing .vtk file = " + path + filenamePrefix + ".pvtu");
 
 		//writer_.writeVTK(filenamePrefix + ".vtk");
-		writer.writeParallelVTU(filenamePrefix);
+		writer.writeParallelVTU(path, filenamePrefix);
 
 		// Delete vtk functions
 		for (int i = 0; i < vtkFunctionSet.size(); i++)  { delete vtkFunctionSet[i]; }

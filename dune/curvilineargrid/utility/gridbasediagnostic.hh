@@ -193,7 +193,7 @@ public:
     	// *************************************************************************
 		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Writing VTK File");
     	//vtkCurvWriter.writeVTK("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
-    	vtkCurvWriter.writeParallelVTU("./curvreader_output");
+    	vtkCurvWriter.writeParallelVTU("./", "curvreader_output");
     	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Finished writing");
 	}
 

@@ -139,7 +139,7 @@ int main (int argc , char **argv) {
 
 
 	// Writing the PVTU and VTU files
-	vtkCurvWriter.writeParallelVTU("./curvreader_output");
+	vtkCurvWriter.writeParallelVTU("./", "curvreader_output");
 
     // Delete the grid
     delete grid;

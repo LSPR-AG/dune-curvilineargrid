@@ -83,7 +83,7 @@ int main(int argc, char** argv)
     /* Write grid to VTK                                  */
     /******************************************************/
 	Dune::CurvilinearVTKGridWriter<GridType> gridwriter(*grid);
-	gridwriter.write("basis_test");
+	gridwriter.write("./", "basis_test");
 
 
     /******************************************************/

@@ -294,7 +294,7 @@ protected:
     			{
         			thisStatStorage.minDuration_ = std::min(thisStatStorage.minDuration_, durationTimeSet[i]);
         			thisStatStorage.maxDuration_ = std::max(thisStatStorage.maxDuration_, durationTimeSet[i]);
-        			thisStatStorage.minCount_    = std::max(thisStatStorage.minCount_, countTimeSet[i]);
+        			thisStatStorage.minCount_    = std::min(thisStatStorage.minCount_, countTimeSet[i]);
         			thisStatStorage.maxCount_    = std::max(thisStatStorage.maxCount_, countTimeSet[i]);
     			}
     			timeIntervalStorage.push_back(thisStatStorage);

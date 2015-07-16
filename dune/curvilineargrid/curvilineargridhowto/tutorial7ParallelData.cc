@@ -40,12 +40,12 @@ int main (int argc , char **argv) {
 	const int dim = 3;
 	typedef  double    ctype;
 
+	const bool isCached = true;
+	const int ELEMENT_CODIM = 0;  // Codimension of element in 3D
+
 	// Create Grid
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached, Dune::LoggingMessage> GridType;
 	GridType * grid = createGrid<GridType>(mpihelper);
-
-	const bool isCached = true;
-	const int ELEMENT_CODIM = 0;  // Codimension of element in 3D
 
 	// Reporting vector
 	typedef int     IndexType;

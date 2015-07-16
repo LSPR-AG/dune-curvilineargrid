@@ -675,9 +675,10 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
 
     // Writes a PVTU parallel file (no data in this file)
-    void writePVTU(std::string filenameBody, int size)
+    // Requite path and filename as separate strings, because
+    void writePVTU(std::string path, std::string filenameBody, int size)
     {
-    	std::string filename = filenameBody + ".pvtu";
+    	std::string filename = path + filenameBody + ".pvtu";
         FILE* pvtuFile = fopen(filename.c_str(), "w");
 
 
@@ -746,7 +747,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
 
     // Writes serial VTU file
-    void writeVTU( std::string filename)
+    void writeVTU(std::string filename)
     {
         FILE* vtuFile = fopen(filename.c_str(), "w");
 
@@ -895,13 +896,13 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
 
     // Writes a VTU file on all processes and a PVTU on Master Process
-    void writeParallelVTU(std::string filenameBody)
+    void writeParallelVTU(std::string path, std::string filenameBody)
     {
         // Write a PVTU file on master process
-        if (rank_ == 0) { writePVTU(filenameBody, size_); }
+        if (rank_ == 0) { writePVTU(path, filenameBody, size_); }
 
         // Write a VTU file on all processes
-        writeVTU(filenameBody  + "_process_" + std::to_string(rank_) + ".vtu");
+        writeVTU(path + filenameBody  + "_process_" + std::to_string(rank_) + ".vtu");
     }
 
 

@@ -133,7 +133,7 @@ public:
 			std::vector<int>        tagSet  { physicalTag, thisPType, grid_.comm().rank() };
 
 			// Write element to VTK
-			int nDiscretizationPoint = elementOrder + 2;  // To accelerate vtk writer, do not overdiscretize low order meshes. Make discretization appropriate for element
+			int nDiscretizationPoint = elementOrder + 4;  // To accelerate vtk writer, do not overdiscretize low order meshes. Make discretization appropriate for element
 			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting element geometry" );
 			writer.template addCurvilinearElement<dimension - ELEMENT_CODIM>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, interpolate, explode, writeCodim);
 

@@ -311,14 +311,6 @@ namespace Dune
         LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, ":: total boundary elements = " + std::to_string(nBoundaryElementTotal_) + " of which on this process " + std::to_string(nBoundaryElement) );
 
 
-        Dune::CollectiveCommunication<MPI_Comm> comm = mpihelper_.getCollectiveCommunication();
-        int nElementParallelSum  = comm.sum(nInternalElement);    assert(nElementParallelSum  == nInternalElementTotal_);
-        int nBoundaryParallelSum = comm.sum(nBoundaryElement);    assert(nBoundaryParallelSum == nBoundaryElementTotal_);
-
-        LoggingTimer::time("CurvilinearGMSHReader: Inserting Entities into the factory");
-
-
-
         // TESTING SECTION - WRITES TEST ELEMENTS TO .VTK FILE
         // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         if (writeVtkFile_)
@@ -329,6 +321,26 @@ namespace Dune
             LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__,  "Curvilinear VTK Writer finished writing" );
             LoggingTimer::time("CurvilinearGMSHReader: Writing VTK output");
         }
+
+
+
+        Dune::CollectiveCommunication<MPI_Comm> comm = mpihelper_.getCollectiveCommunication();
+        int nElementParallelSum  = comm.sum(nInternalElement);
+        int nBoundaryParallelSum = comm.sum(nBoundaryElement);
+
+        if ((nElementParallelSum  != nInternalElementTotal_) && (comm.rank() == 0))
+        {
+        	std::cout << "The initially-calculated nInternal=" << nInternalElementTotal_ << " does not match the inserted one = " << nElementParallelSum << std::endl;
+        	DUNE_THROW(IOError, "Wrong number of internal elements");
+        }
+        if ((nBoundaryParallelSum  != nBoundaryElementTotal_) && (comm.rank() == 0))
+        {
+        	std::cout << "The initially-calculated nBoundary=" << nBoundaryElementTotal_ << " does not match the inserted one = " << nBoundaryParallelSum << std::endl;
+        	DUNE_THROW(IOError, "Wrong number of boundary elements");
+        }
+
+        LoggingTimer::time("CurvilinearGMSHReader: Inserting Entities into the factory");
+
 
         // Close file
         fclose(file);
@@ -1051,7 +1063,7 @@ namespace Dune
     	const unsigned int INTERIOR_TYPE = Dune::PartitionType::InteriorEntity;
     	const unsigned int BOUNDARY_TYPE = CurvGrid::BOUNDARY_SEGMENT_PARTITION_TYPE;
 
-    	int VTK_DISCRETIZATION_POINTS = 2;    // Sampling frequency over curved element. min=2 is linear sampling
+    	int VTK_DISCRETIZATION_POINTS = 6;    // Sampling frequency over curved element. min=2 is linear sampling
     	bool VTK_INTERPOLATE = true;          // Whether to use lagrange interpolation or intrinsic interpolatory vertices
     	bool VTK_EXPLODE = true;              // Whether to make gaps between all elements by scaling them away from center
     	std::vector<bool> writeCodim {true, true, false, false};  // Use tetrahedrons and triangles to discretize the inserted entities

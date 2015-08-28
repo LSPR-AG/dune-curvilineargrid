@@ -100,7 +100,9 @@ void Integrate (GridType& grid)
 
 
   double gaussintegral = 0.0;
-  double rel_tol = 1.0e-5;
+  double RELATIVE_TOLERANCE = 1.0e-5;
+  double ACCURACY_GOAL = 1.0e-15;
+  const int NORM_TYPE = Dune::QUADRATURE_NORM_L2;
 
   // Iterate over entities of this codimension
   EntityLeafIterator ibegin = leafView.template begin<0>();
@@ -127,7 +129,7 @@ void Integrate (GridType& grid)
 
 			  Integrand2D g(intersection);
 
-			  StatInfo thisIntegralG = Integrator2DScalar::integrateRecursive(geometry, g, rel_tol);
+			  StatInfo thisIntegralG = Integrator2DScalar::template integrateRecursive<FaceGeometry, Integrand2D, NORM_TYPE>(geometry, g, RELATIVE_TOLERANCE, ACCURACY_GOAL);
 			  std::cout << "---- adding gauss contribution from " << gt << "  " << thisIntegralG.second[0] << ". Needed order " << thisIntegralG.first << std::endl;
 
 			  gaussintegral += thisIntegralG.second[0];
@@ -135,7 +137,10 @@ void Integrate (GridType& grid)
 	  }
   }
 
-  std::cout << "Gauss integral amounted to " << gaussintegral << std::endl;
+  // The actual integral is the sum over all processors
+  double rez = grid.comm().sum(gaussintegral);
+  if (grid.comm().rank() == 0)  { std::cout << "Gauss integral amounted to " << rez << std::endl; }
+
 }
 
 

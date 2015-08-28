@@ -476,20 +476,14 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         int   thisElmPartitionType  = (tagSet.size() > 1 ) ? tagSet[1] : 0;
         int   thisElmProcessRank    = (tagSet.size() > 2 ) ? tagSet[2] : 0;
 
-        // 0.0 - no shrinking, 0.99 - very small element (must be < 1)
-        double shrinkMagnitude = explode ? 0.2 : 0.0;
-
-        // Expand all domain boundary surfaces a little bit so that they do not interlay with element surfaces
-        double boundaryMagnification;
+        // Treat boundary segments in a special way
         std::string pname;
-
-        if (thisElmPartitionType == CurvGrid::BOUNDARY_SEGMENT_PARTITION_TYPE)
-        {
-        	boundaryMagnification = 1.2;
+        bool magnify;
+        if (thisElmPartitionType == CurvGrid::BOUNDARY_SEGMENT_PARTITION_TYPE) {
+        	magnify = true;
         	pname = "BoundarySegment";
-        } else
-        {
-        	boundaryMagnification = 1.0;
+        } else {
+        	magnify = false;
         	pname = Dune::PartitionName(static_cast<Dune::PartitionType> (thisElmPartitionType));
         }
 
@@ -507,14 +501,13 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         log_message << " nDiscretization="     << nDiscretizationPoint;
         log_message << " useInterpolation="    << interpolate;
         log_message << " explodeElements="     << explode;
-        log_message << " explosionMagnitude="  << shrinkMagnitude;
         log_message << " writeVTK_edges="      << writeCodim[EDGE_CODIM];
         log_message << " writeVTK_triangles="  << writeCodim[FACE_CODIM];
         log_message << " writeVTK_triangles="  << writeCodim[ELEMENT_CODIM];
         //log_message << " vertices=" << Dune::VectorHelper::vector2string(nodeSet);
         LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, log_message.str());
 
-        addCurvilinearSimplex<mydim>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, shrinkMagnitude, boundaryMagnification, interpolate, writeCodim);
+        addCurvilinearSimplex<mydim>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, explode, magnify, interpolate, writeCodim);
     }
 
 
@@ -956,9 +949,21 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
      *  \param[in]  nInterval                     Number of discretization intervals per edge (number of discretization points-per-edge minus 1)
      *
      */
-    bool onTetrahedronBoundary(const std::vector<int> & p, const int nInterval)
+    bool onTetrahedronBoundary(const std::vector<int> & p, const int nInterval) const
     {
           return ((p[0] == 0) || (p[1] == 0) || (p[2] == 0) || (p[0] + p[1] + p[2] == nInterval));
+    }
+
+
+    // Pass CoM, because it is more optimal to only calculate it once for all samples over the element
+    void shrinkMagnify(GlobalVector & point, const GlobalVector & CoM, bool explode, bool magnify) const
+    {
+        double shrinkMagnitude       = explode ? 0.2 : 0.0;  // 0.0 - no shrinking, 0.99 - very small element (must be < 1)
+        double boundaryMagnification = magnify ? 1.2 : 0.0;  // Expand all domain boundary surfaces a little bit so that they do not interlay with element surfaces
+
+        for (int d = 0; d < dimension; d++)  {
+        	point[d] = (point[d] + (CoM[d] - point[d]) * shrinkMagnitude) * boundaryMagnification;
+        }
     }
 
 
@@ -969,8 +974,8 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
             std::vector<int> & tagSet,
             int elementOrder,
             int nDiscretizationPoint,
-            double shrinkMagnitude,
-            double boundaryMagnification,
+            bool shrink,
+            bool magnify,
             bool interpolate,
             std::vector<bool> writeCodim)
     {
@@ -1021,22 +1026,18 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
             // Find if this vertex is internal or boundary
             bool isBoundaryPoint = (mydim == 3) ? onTetrahedronBoundary(simplexEnumerate[i], nInterval) : true;
 
-            // Always write the vertices as there is field associated with them
-            //if (writeEdgeData || (writeTriangleData && isBoundaryPoint)) {
-                // If we interpolate, then all points will be taken from new sample grid
-                // Otherwise we take the intrinsic interpolation point grid which has the same shape
-                GlobalVector tmpPoint = interpolate ? elementInterpolator.realCoordinate(simplexLocalGrid[i]) : nodeSet[i];
-                for (int d = 0; d < dimension; d++)  {
-                    tmpPoint[d] = (tmpPoint[d] + (CoM[d] - tmpPoint[d]) * shrinkMagnitude) * boundaryMagnification;
-                }
+            // If we interpolate, then all points will be taken from new sample grid
+            // Otherwise we take the intrinsic interpolation point grid which has the same shape
+            GlobalVector tmpPoint = interpolate ? elementInterpolator.realCoordinate(simplexLocalGrid[i]) : nodeSet[i];
 
-                // Add coordinates to the coordinates array
-                vtkPoint_.push_back(tmpPoint);
+            //Optionally, transform the element. Do not try to multipy element by 1.0 if it is not going to be transformed
+            if (shrink || magnify) { shrinkMagnify(tmpPoint, CoM, shrink, magnify); }
 
-                // Add point to the point map
-                parametricToIndex[simplexEnumerate[i]] = vtkPoint_.size() - 1;
-            //}
-            //std::cout << "* coords " << parUV[0] << ", " << parUV[1] << ", in the map cooresponds to " << parametricToIndex[parUV] << std::endl;
+            // Add coordinates to the coordinates array
+            vtkPoint_.push_back(tmpPoint);
+
+            // Add point to the point map
+            parametricToIndex[simplexEnumerate[i]] = vtkPoint_.size() - 1;
         }
 
         // *******************************************************************************

@@ -241,6 +241,8 @@ namespace Dune
     		CurvilinearMessageBuffer<DataType> scattermessagebuffer;
 
 
+
+    		/*
     		// [FIXME] Remove debug
     		std::cout << "Process " << rank_ << " mapsend : " << Dune::VectorHelper::map2string(mapSend) << std::endl;
     		std::cout << "Process " << rank_ << " ranksend : ";
@@ -257,6 +259,7 @@ namespace Dune
     		}
 
     		std::cout << std::endl;
+    		*/
 
 
 

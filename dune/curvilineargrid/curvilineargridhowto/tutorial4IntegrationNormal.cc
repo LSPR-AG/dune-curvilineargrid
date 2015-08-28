@@ -75,7 +75,9 @@ void Integrate (GridType& grid)
   typedef typename Integrator2DVector::template Traits<Integrand2DVector>::StatInfo  StatInfo;
 
   GlobalCoordinate  normalintegral(0.0);
-  double rel_tol = 1.0e-5;
+  double RELATIVE_TOLERANCE = 1.0e-5;
+  double ACCURACY_GOAL = 1.0e-15;
+  const int NORM_TYPE = Dune::QUADRATURE_NORM_L2;
 
   // Iterate over entities of this codimension
   EntityLeafIterator ibegin = leafView.template begin<0>();
@@ -101,14 +103,19 @@ void Integrate (GridType& grid)
 
 			  Integrand2DVector n(intersection);
 
-			  StatInfo thisIntegralN = Integrator2DVector::integrateRecursive(geometry, n, rel_tol);
-			  std::cout << "---- adding normal contribution from " << gt << "  " << thisIntegralN.second[0] << ". Needed order " << thisIntegralN.first << std::endl;
+			  StatInfo thisIntegralN = Integrator2DVector::template integrateRecursive<FaceGeometry, Integrand2DVector, NORM_TYPE>(geometry, n, RELATIVE_TOLERANCE, ACCURACY_GOAL);
+
+			  std::cout << "---- adding normal contribution " << thisIntegralN.second[0] << " from " << gt << ". Needed order " << thisIntegralN.first << std::endl;
 
 			  normalintegral += thisIntegralN.second[0];
 		  }
 	  }
   }
-  std::cout << "Normal integral amounted to " << normalintegral << std::endl;
+
+  // The actual integral is the sum over all processors
+  // Unfortunately, DynamicVector can not be directly communicated since it is dynamic
+  GlobalCoordinate rez = grid.comm().sum(normalintegral);
+  if (grid.comm().rank() == 0)  { std::cout << "Normal integral amounted to " << rez << std::endl; }
 }
 
 

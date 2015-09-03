@@ -671,8 +671,15 @@ namespace Dune
     template<int codim>
     GlobalIndexType entityGlobalIndex(const typename Traits::template Codim< codim >::Entity &entity) const
     {
+    	return entityGlobalIndex<codim>(leafIndexSet().index(entity));
+    }
+
+    // Obtains global index of an entity given its local index
+    template<int codim>
+    GlobalIndexType entityGlobalIndex(LocalIndexType localIndex) const
+    {
     	GlobalIndexType globalIndex;
-    	bool exist = gridbase_->findEntityGlobalIndex(codim, leafIndexSet().index(entity), globalIndex);
+    	bool exist = gridbase_->findEntityGlobalIndex(codim, localIndex, globalIndex);
     	assert(exist);  // Check if the index exists for self-consistency
     	return globalIndex;
     }

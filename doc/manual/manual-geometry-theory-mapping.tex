@@ -1,37 +1,37 @@
 \section{Coordinate transformation}
 
+In order to calculate the coordinate transformation properties, one requires the knowledge of the local-to-global map $\vec{p}(\vec{r})$ and its first partial derivatives. Currently, only the Lagrange Polynomials themselves are provided as hard-coded expressions, but their derivatives are not yet available as hard-coded quantities, and thus are extracted from the analytical map.
+
 \subsection{Jacobian and JacobianInverse}
 
-From the ElementInterpolation class one can request a complete analytical interpolatory polynomial for each of the coordinates $x,y,z$. Then one uses the polynomial methods differentiate and evaluate to calculate $J_{ij} = \partial_i p_j (u,v,w) |_{u_0, v_0, w_0}$. The inverse and determinant are obtained using JacobianInverse class, which uses MatrixHelper to invert matrix and calculate the pseudodeterminant $\sqrt{\det(JJ^T)}$. \\
+We construct the local-to-global map using the polynomial class, ant hence compute the Jacobian $J_{ij}(\vec{r}_0) = \partial_{r_i} p_j (\vec{R}) |_{\vec{r}_0}$. The inverse and integration element of the element are computed numerically, using Dune-MatrixHelper to invert matrix and calculate the pseudodeterminant $dI = \sqrt{\det(JJ^T)}$. \\
 
 \subsection{Local-to-Global mapping}
 
-The global coordinate is obtained by calling the corresponding method $realCoordinate()$ of the Interpolator class. It evaluates a linear combination of lagrange polynomials for each coordinate.
+To accelerate the calculation, the local-to-global map is computed numerically using hard-coded Lagrange polynomials
 
 \subsection{Global-to-Local mapping}
 
-This method finds local coordinate within this element from a given global coordinate. The $is\_inside()$ method is part of this method, as it returns false if the point is not within the element, and true + the local coordinate, if the point is. \\
-
-\noindent
-After a discussion the following was agreed on:
+The global-to-local method inverts the above map, and finds the local coordinate of this entities geometry that corresponds to the requested global coordinate. However, this is not always possible:
 \begin{itemize}
-	\item $local()$ method is not defined outside the element. Even for most simple polynomial maps, there exist global coordinates which do not correspond to any local coordinate at all. For example, $x^2$ is a perfectly valid local-to-global map for an edge defined on $[0,1]$, however, no local coordinate at all corresponds to the global coordinate $-1$. Therefore, if we have high evidence that a point is located outside the element, we only report that it is outside and do not report any local coordinate. As the local coordinate is found using an iterative process, it needs to have a termination condition, because, given that a local coordinate of interest does not exist, the method will not converge.
-	\item $local()$ method is only defined when $(dim_{elem} = dim_{world})$. For inequal dimensions, disregarding the question being a challenging computational task, it is also meaningless. The probability that a randomly selected point would belong to a manifold of dimension lower than the world dimension is negligibly small. If the point is non-random, it must have been generated using a local-to-global map of one of the elements, in which case there are much more cost-efficient ways of tracing it back, for example, by storing the local coordinate mapped.
+	\item Local coordinate is only defined for a global coordinate which happens to be inside of the element. Even for most simple polynomial maps, there exist global coordinates which do not correspond to any local coordinate at all. For example, $x^2$ is a perfectly valid local-to-global map for an edge defined on $[0,1]$. However, no local coordinate at all corresponds to the global coordinate $-1$. Therefore, if there is high evidence that a point is located outside the element, the method simply reports that the coordinate is outside, and does not report a local coordinate.
+	\item Local coordinate is only defined when $(dim_{elem} = dim_{world})$. For unequal dimensions, disregarding the question being a tedious computational task, it is also somewhat meaningless. The probability that a randomly selected point would belong to an infinitely thin object is negligibly small. 
 \end{itemize}
 
 \noindent
-Even considering the two above simplifications, this is still a very tricky problem. Since the map from local to global is polynomial, it is in principle non-invertible, at least not in terms of standard functions \\
+Even for $(dim_{elem} = dim_{world})$, this is still a very tricky problem. Since the map from local to global is polynomial, it is in principle non-invertible, at least not in terms of standard functions. It can be guaranteed that the map is one-to-one within the element, otherwise the the real element geometry would be self-intersecting, which is ensured to not be the case by meshing software when selecting interpolation points. However, there are no obvious reasons why the geometry should not be self-intersecting outside the element, which means that the map need not be one-to-one outside the element. \\
 
 \noindent
-It can be guaranteed that the map is one-to-one within the element, otherwise the the real element geometry would be self-intersecting, which should be ensured by GMSH when selecting interpolation points. However, there are no obvious reasons why the geometry should not be self-intersecting outside the element, which means that the map need not be one-to-one outside the element. \\
-
-\noindent
-For obvious reasons we will not solve the problem directly, as searching for roots of a system of polynomial equations with several parameters is a very challenging task. Instead we minimize the two-norm \[\vec{r} = \mathrm{argmin} \{ |\vec{p}(\vec{r}) - \vec{p}_0 |^2 \}. \] We think that the problem should not have local extrema inside the element, because that is equivalent to having $\det J = 0$. However, it will most likely have local extrema outside the element (especially for higher orders). The solutions proposed:
+For obvious reasons we will not solve the problem directly, as searching for roots of a system of polynomial equations with several parameters is a very challenging task \textbf{[POLYNOMIAL ROOTS PAPERS]}. Instead, the problem is solved by a Newton method \textbf{[CITE]}, originally implemented in dune-multilinear geometry:
 \begin{itemize}
-	\item Currently Dune uses Newton's method \[\vec{r}_{n+1} = \vec{r}_n + \mathrm{LinSolve}(J(\vec{r}_n), \vec{p}(\vec{r}_n) ). \] Since the mapping is 1-to-1 inside the element, it should definitely not have minima and maxima, not sure about extrema. Therefore Newton's method should converge to the right solution if the starting point is selected inside the element, for example its center.
-	
-	\item Termination condition:
-		- The iterative solution should not be strongly outside the element for some iteration, if the true solution is inside. Therefore, we terminate if at any point $|\vec{p}_{CoM} - \vec{p}|_2 > 4 R_{lin}$, using the notation from $is\_inside()$ descriotion.
-	
-	\item This method may fail if there indeed is an extrema inside the element, and after an unlucky step it is thrown out of the element even though the correct solution is inside. Thus, if the method fails to find the point within the element and its neighbors this way, it may make sense to try several starting locations within each tetrahedron hoping to avoid the extrema.
+	\item Let $\vec{x}_0$ be the requested global coordinate
+	\item Start with a local point $\vec{r}_0$ guaranteed to be inside the element (e.g. its center),
+	\item Iteratively choose better approximations for local coordinate using \[\vec{r}_{n+1} = \vec{r}_n + \vec{d}(\vec{r}_n)\] where $\vec{d}(\vec{r}_n)$ is the solution of
+	        \[ J(\vec{r}_n) \vec{d}(\vec{r}_n) = \vec{p}(\vec{r}_n) \] and $J(\vec{r})$ is the Jacobian matrix.
+	\item We finish the iterative process, if the global coordinate converges in terms of the two-norm
+	        \[\Delta_i = \{ |\vec{p}(\vec{r}_i) - \vec{x}_0 |^2 \}. \]
+	\item We also terminate the iteration if it is suspected that the vertex is outside the element. For this we use two criteria: the current iteration being far outside the element \[|\vec{p}_0 - \vec{p}_i|_2 > 4 R_{elem}\] and the convergence being slower than expected \[ 2 \Delta_{i + 10} > \Delta_{i} \]
 \end{itemize}
+
+\noindent
+We are still looking to improve this method. It correctly predicts the global coordinates being inside and outside the element for most of our tests, but fails to identify the boundary points inside the element for certain cases. We warmly welcome suggestions on this question.

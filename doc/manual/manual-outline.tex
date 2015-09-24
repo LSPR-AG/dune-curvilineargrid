@@ -4,31 +4,41 @@
 \subsection{Capabilities}
 \label{section-outline-capabilities}
 
-\noindent
-Currently the curvilinear grid supports the following functionality.
-\begin{itemize}
-	\item Self-consistent grid manager supporting 3D tetrahedral curvilinear grids. Depends on Dune and Parmetis only.
-	\item GMSH input files of curvilinear orders 1-5. Usual linear geometries also supported
-	\item Parallel mesh reader with scalability for large meshes and processors
-	\item Mesh partitioning using ParMetis \citeParMetis
-	\item Unique physical tag for each element and domain boundary. Read from GMSH file and accessible via grid methods.
-	\item Unique global index for entities of all codimensions.
-	\item Ghost elements of all codimensions (optional)
-	\item Communication protocols for all codimensions
-\end{itemize}
+The Curvilinear Grid (CurvGrid) is a self-consistent grid manager supporting 3D tetrahedral curvilinear grids. It depends on the core modules of Dune \citeDune{}, as well as an external parallel mesh partition library Parmetis \citeParMetis{}. Also, the CurvGrid depends on Curvilinear Geometry (CurvGeom), also developed by us as a separate dune-module. \\
 
 \noindent
-The following functionality is currently NOT supported. As seen below, some of this functionality will be implemented in the nearest future, some other is not currently foreseen. We welcome contributions from the community
-\begin{itemize}
-	\item $[1-2 months]$ Location of containing element by global coordinate (via OCTree)
-	\item $[1/2 year]$  Does NOT support global and local refinement
-	\item $[1/2 year]$  Does NOT support hanging nodes
-	\item $[1/2 year]$  Does NOT support periodic boundaries at the moment
-	\item $[1 year]$    Does Not support curvilinear meshes of non-uniform order
-	\item $[Undefined]$ Does NOT support 1D and 2D geometries. 
-	\item $[Undefined]$ Does NOT support non-tetrahedral meshes.
-	\item $[Undefined]$ Does NOT support front/overlap elements at the moment
-\end{itemize}
+CurvGeom is capable of managing curvilinear simplex elements of orders 1-5 via hard-coded Lagrange Polynomials. It also has the capability to manage arbitrary order simplex geometries via analytic Largange Interpolation method. CurvGeom complies with standard dune-geometry interface, providing methods for local-to-global and global-to-local coordinate conversion, computation of Jacobian matrix, integration element and volume. There is also a cached version of CurvGeom which pre-computes the local-to-global map and its determinant, and is thus considerably faster than its non-cached analogue. Additionally, CurvGeom provides the methods to obtain outer normals of subentities of this geometry, and the subentity geometries themselves. Also, CurvGeom implements a polynomial class and associated differential methods, which allow to obtain analytical expressions for local-to-global map and associated integration element, enabling exact manipulation of geometries of arbitrary order. Finally, CurvGeom contains its own recursive integration tool (based on quadrature provided by dune-geometry) for integrating non-polynomial integrands. The reason for implementing this functionality is due to integration elements being non-polynomial in general case (see \textbf{CHAPTER ON INTEGRATION}). For example, the face area of a curvilinear element is given as an integral over a square root of a polynomial. \\
+
+\noindent
+CurvGrid is supplied with its own Curvilinear GMSH Reader (CurvReader). CurvReader is designed to read curvilinear \textit{.msh} files of orders 1 to 5, where 1 corresponds to linear meshes. CurvReader is parallel-scalable meaning that each process only reads the necessary part of the mesh, avoiding memory overflow. CurvReader has the option to partition the mesh using ParMetis during the reading procedure, further decreasing the file access time. CurvReader also reads physical tags provided GMSH and supplies the Grid Factory with this information. \\
+
+\noindent
+Curvgrid is also supplied with its own Curvilinear VTK Writer (CurvWriter) to output the grid into VTK, VTU or PVTU file formats. CurvWriter will write either the entire grid, or the set of elements supplied by user. It provides each element with data about its rank, partition type and physical tag, which are very useful for visualisation of the grid \textbf{[BULLSEYE PICS HERE]}. The mesh can be supplied with arbitrary number of vector fields to visualise, e.g. the solution(s) of a PDE. We have tested the visualisation of CurvGrid using \textbf{[PARAVIEW, VISIT]} \\
+
+\noindent
+Among other features of CurvGrid are: Global Index for all entities, Ghost Elements, DataHandle communication for entities of all codimensions, Nearest neighbour communication, Logging and Timing mechanisms, Curvilinear Grid diagnostics. A set of tutorial programs is provided to demonstrate the usage of various features of the grid. \\
+
+\noindent
+Below we list the functionality that is currently NOT available in the CurvGrid, but would be desirable to have. We welcome contributions from the community \\
+
+\noindent
+\begin{tabularx}{\textwidth}{l X}
+\hline
+     Difficulty & Description \\
+\hline
+	 Easy & Using GMSH partition tags to read pre-partitioned meshes \\
+	 Medium & All-to-all communication paradigm to enable modelling of dense problems (e.g. Surface Integral Equation \textbf{[CITE OLIVIER HERE]}) \\
+	 Medium & Curvilinear Grid optimization for parallel scalability using nearest neighbour communication \\
+	 Medium & Curvilinear Meshes of non-uniform order \\
+	 Medium & Utility to efficiently locate the element containing a given global coordinate (via OCTree) \\
+	 Medium & Periodic and interior boundaries \\
+	 Medium & 1D and 2D geometries \\
+	 Medium & Does NOT support front/overlap elements at the moment \\
+	 Hard & Non-tetrahedral geometries (e.g. Hexahedral) \\
+	 Hard & Non-conformal meshes (Hanging nodes) \\
+	 Hard & Global and Local Refinement \\
+\hline
+\end{tabularx}
 
 \subsection{Design decisions}
 \label{section-outline-designdecisions}
@@ -42,31 +52,34 @@ The following functionality is currently NOT supported. As seen below, some of t
 \subsection{Internal Structure}
 \label{section-outline-internalstructure}
 
+Below we present a simplified structure of classes used by Curvilinear Grid and geometry \\
 
-Curvilinear Geometry:
-\begin{itemize}
-	\item Polynomial - Stores polynomials explicitly. Is able to perform basic arithmetic operations with polynomials, as well as differentiation and integration over a reference element.
-	\item CurvilinearElementInterpolator - Interpolates over curvilinear entity using Lagrange polynomials. Given a set of interpolatory vertices, provides explicit polynomial and numerical functions to transform local to global coordinates.
-	\item CurvilinearGeometryHelper - Incorporates a set of auxiliary functions, mostly helping to extract information about subentities of a curvilinear geometry.
-	\item NumericalRecursiveInterpolationIntegrator - Internal adaptive integration scheme. Works by recursively subdividing the reference entity, and interpolating the integrand using 4th order polynomial.
-	\item QuadratureIntegrator - Wrapper for the Dune quadrature integration scheme. Performs integration of a provided functor over a reference element. Iteratively increases the quadrature order, until the estimated integration error satisfies user-required.
-	\item CurvilinearGeometry - Provides information about the curvilinear entity. Provides access to curvilinear vertices, local and global mappings, normals, subentity geometries and integration elements. One of the new features is providing explicit polynomial mappings, and analytical integration of polynomial integrands over entities.
-\end{itemize}
-
-Curvilinear Grid
-\begin{itemize}
-	\item CurvilinearGMSHReader - Reads a $.msh$ file in parallel and fills it into a CurvilinearGridFactory. The mesh is partitioned directly in the reader (using $ParMetis$) in order to avoid unnecessary communication. Thus each process only reads entities that belong on it. Additionally, it is possible to directly write the data to PVTU files after reading, using CurvilinearVTKWriter.
-	\item CurvilinearVTKWriter - A tool allowing to write curvilinear entities in parallel to VTK, VTU and PVTU files. Each curvilinear entity is discretized using linear entities, which are then written. Each entity provides process rank, structural type, and physical tag for better visualisation.
-	\item CurvilinearGridBase - A self-consistent grid, that is later wrapped around. This grid does not have any additional user classes. It stores information about entities of the grid and their interconnection, and provides functions to access this information via local and global entity indices. It also provides iterators to iterate over underlying containers.
-		\subitem CurvilinearGridStorage - Auxiliary class that stores all of the information about the grid
-		\subitem CurvilinearGridConstructor - Auxiliary class that constructs the grid, namely entities, their local and global indices, ghost elements and communication maps.
-	\item CurvilinearGrid - Main grid class, according to $dune-grid$ standard. Provides additional access to curvilinear features of the entities, as well as to their physical tags.
-	\item AllCommunicate - Auxiliary user-friendly class, providing $MPI_alltoallv$ communication protocol wrapper for templated POD. Also, a scalable version, namely nearest neighbour all-to-all communication wrapper is provided.
-	\item VectorHelper - Auxiliary user-friendly class, performs set operations on sorted templated vectors (union, intersection, complement), as well as conversion to string.
-\end{itemize}
-
-Utilities
-\begin{itemize}
-	\item LoggingMessage - A tool used to write logging output for the grid
-	\item LoggingTimer - A tool that times different stages of mesh reading and grid construction, and reports on statistics over all processes. It can be used to identify time-bottlenecks in grid construction, as well as load imbalances among processors.
-\end{itemize}
+\noindent
+\begin{tabularx}{\textwidth}{ l | X }
+\hline
+   Class Name & Description \\ \hline
+   CurvilinearGeometry                & Core class complying with dune-geometry standard \\ \hline
+   * CurvilinearGeometryHelper        & Auxiliary functions, subentities for curvilinear elements \\ \hline
+   * LagrangeInterpolator             & Lagrange Interpolation of element geometry \\ \hline
+   * Polynomial                       & Analytic polynomial routines \\ \hline
+   * DifferentialHelper               & Analytic Curvilinear Jacobians and Integration elements \\ \hline
+   * IntegralHelper                   & Integral Functors, analytic integration routines  \\ \hline
+   * QuadratureIntegrator             & Recursive integration using numerical quadrature. Performs fast \\ \hline
+   * AdaptiveIntegrator               & Recursive integration using adaptive refinement. Performs slowly \\ \hline
+  CurvilinearGMSHReader               & Reads a $.msh$ file and supplies entities to a Grid Factory \\ \hline
+  * Gmsh2DuneMapper                   & Converts between interpolation vertex numbering paradigms \\ \hline
+  CurvilinearVTKWriter                & Writes curvilinear elements to VTK, VTU/PVTU files \\ \hline
+  CurvilinearVTKGridWriter            & Writes Curvilinear Grid to VTK, VTU/PVTU files \\ \hline
+  CurvilinearGridBase                 & Lower level grid implementation. All entities are given by their codimension and index \\ \hline
+  * CurvilinearGridStorage            & Storage class for entire grid \\ \hline
+  * CurvilinearGridConstructor        & Constructs entities of the grid, finds neighbouring processes, generates global index \\ \hline
+  * CurvilinearGhostConstructor       & Constructs ghost entities \\ \hline
+  * CurvilinearPostConstructor        & Enables DataHandle communication \\ \hline
+  Curvilinear Grid                    & Core class complying with dune-grid standard \\ \hline
+  * CurvilinearGridFactory            & Interface for constructing Curvilinear Grid \\ \hline
+  * CurvilinearGridDiagnostics        & Tests and collects statistics on Curvilinear Grid \\ \hline
+  * LoggingMessage                    & Logging output with varying levels of verbosity \\ \hline
+  * LoggingTimer                      & Parallel timing of parts of code. \\ \hline
+  * AllCommunicate                    & Nearest neighbor communication for POD. Wrapper for $MPI\_alltoallv$ \\ \hline
+  * VectorHelper                      & Manipulation of vectors (union, intersection, complement), as well as conversion to string \\ \hline
+\end{tabularx}

@@ -42,7 +42,6 @@
 #include <dune/grid/common/boundarysegment.hh>
 #include <dune/grid/common/gridfactory.hh>
 
-#include <dune/curvilineargeometry/interpolation/curvilinearelementinterpolator.hh>
 #include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 
 #include <dune/curvilineargrid/common/constant.hh>

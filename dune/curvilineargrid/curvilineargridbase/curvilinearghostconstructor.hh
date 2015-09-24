@@ -46,7 +46,6 @@
 #include <dune/geometry/type.hh>
 #include <dune/geometry/referenceelements.hh>
 
-#include <dune/curvilineargeometry/interpolation/curvilinearelementinterpolator.hh>
 #include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 #include <dune/curvilineargeometry/curvilineargeometry.hh>
 

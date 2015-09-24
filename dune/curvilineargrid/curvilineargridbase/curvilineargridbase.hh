@@ -47,7 +47,6 @@
 
 #include <dune/grid/common/gridenums.hh>
 
-#include <dune/curvilineargeometry/interpolation/curvilinearelementinterpolator.hh>
 #include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 #include <dune/curvilineargeometry/curvilineargeometry.hh>
 

@@ -14,10 +14,10 @@
 \usepackage[english]{babel}
 \usepackage{amsmath, esint}
 \usepackage{graphicx}
+\usepackage{tabularx}                                 %% for tabulars with controllable width
 \usepackage{caption}
 \usepackage{subcaption}
 %\usepackage{subfigure}                                %% for creating nested figures within figures
-\usepackage{graphicx}
 \usepackage{url}
 \usepackage{array}
 \usepackage{algorithm,algorithmic}
@@ -57,7 +57,7 @@ innerrightmargin=4pt,innertopmargin=2pt,innerbottommargin=2pt]{mybox}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \citestyle{plain}
 
-\newcommand{\citeParMetis}{\cite{schloegel+2002, lasalle+2013} }
+\newcommand{\citeParMetis}{\cite{schloegel+2002, lasalle+2013}}
 \newcommand{\citeGMSH}{\cite{geuzaine+2009}}
 \newcommand{\citeGMSHCurv}{\cite{johnen+2012, toulorge+2013}}
 \newcommand{\citeDune}{\cite{bastian+2008}}
@@ -146,8 +146,8 @@ innerrightmargin=4pt,innertopmargin=2pt,innerbottommargin=2pt]{mybox}
 \vfill
 
 \noindent \textbf{\textsc{ABSTRACT}} - We introduce the \texttt{dune-curvilineargrid} module. The module provides the self-contained, parallel
-grid manager \texttt{dune-curvilineargrid} for curvilinear tetrahedral elements up to $5^{\mathrm{th}}$  order and conforms to the \text{DUNE}
-\citeDune grid API.
+grid manager \texttt{dune-curvilineargrid} for curvilinear tetrahedral elements up to $5^{\mathrm{th}}$ order and conforms to the \text{DUNE}
+\citeDune grid API. We expect the reader to be at least briefly familiar with the Dune interface to fully benefit from this paper.
 %%
 In particular, \texttt{dune-curvilineargrid} is a grid manager in its own right which offers this functionality:
 %%
@@ -184,8 +184,9 @@ be communicated.
 The \texttt{dune-curvilineargrid} grid manager is continuously developed and improved. Among other things, we are working
 on local refinement, modelling hanging nodes, non-uniform curvilinear order, periodicity and internal boundaries which
 may become interesting for the implementation of hybrid finite-element-boundary-integral (FEBI) discretisation schemes.
-
-
+%%
+%%
+As more work is being done on \texttt{dune-curvilineargrid}, this document will be updated. For the most recent version, please contact the \textbf{[REPOSITORY]}
 
 
 
@@ -302,6 +303,33 @@ we reject any attempt of any other sovereign law to cover what we do.
 
 
 
+\chapter{Theory}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Theory for Lagrange Polynomials
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-geometry-theory-lagrange}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Theory for global and local mappings
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-geometry-theory-mapping}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Theory for integration over curvilinear entities
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-geometry-theory-integration}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Theory for point location (OCTree)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{manual-octree}
+
+
+
 
 
 
@@ -407,30 +435,7 @@ we reject any attempt of any other sovereign law to cover what we do.
 
 
 
-\chapter{Theory}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Theory for Lagrange Polynomials
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-geometry-theory-lagrange}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Theory for global and local mappings
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-geometry-theory-mapping}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Theory for integration over curvilinear entities
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-geometry-theory-integration}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Theory for point location (OCTree)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-octree}
 
 
 

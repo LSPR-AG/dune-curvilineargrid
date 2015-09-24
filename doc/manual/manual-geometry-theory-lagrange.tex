@@ -1,46 +1,56 @@
 \section{Lagrange Polynomial Interpolation}
 \label{theory-lagrange}
 
-This general theory describes construction of polynomial interpolatory basis for simplex geometries. \textbf{[wiki-lagrange]}. The general idea is to describe the real geometry of the curved entity in global coordinates as a mapping $\vec{p}(\vec{r})$ of its local geometry, which is a basic linear geometry called a reference element. \\
+Below we present the theory of interpolation using Lagrange Polynomials, applied to simplex geometries, This section is inspired by \textbf{[wiki-lagrange], [Papers]}, and is a summary of well-known results. The goal is to construct a mapping $\vec{x} = \vec{p}(\vec{r})$ from local coordinates of an entity to global coordinates of the domain. In its own local coordinates, the entity is called \citeDune{} a reference element. A simplex reference element is given by the following coordinates: \\
 
 \noindent
-Using the Dune-convention, a reference simplices are defined by
-\begin{itemize}
-	\item $\Delta_0 : \{ \}$
-	\item $\Delta_1 : \{ 0\}, \{ 1\}$
-	\item $\Delta_2 : \{ 0, 0 \}, \{ 1, 0 \}, \{ 0, 1 \}$
-	\item $\Delta_3 : \{ 0, 0, 0 \}, \{ 1, 0, 0 \}, \{ 0, 1, 0 \}, \{ 0, 0, 1 \}$
-\end{itemize}
+\begin{tabular}{l l l}
+\hline
+  Label & Dimension & Coordinates \\ \hline
+  $\Delta_0$ & 0 & $\{ \}$ \\
+  $\Delta_1$ & 1 & $\{ 0\}, \{ 1\}$ \\
+  $\Delta_2$ & 2 & $\{ 0, 0 \}, \{ 1, 0 \}, \{ 0, 1 \}$ \\
+  $\Delta_3$ & 3 & $\{ 0, 0, 0 \}, \{ 1, 0, 0 \}, \{ 0, 1, 0 \}, \{ 0, 0, 1 \}$ \\
+\end{tabular} \\
 
 \noindent
-Local simplex geometries can be parameterized using the local coordinate vector $\vec{r}$:
-\begin{itemize}
-	\item edge:			$\vec{r}=(u)$,		such that $u \in [0,1]$
-	\item triangle: 	$\vec{r}=(u,v)$,	such that $u \in [0,1]$ and $v \in [0, 1-u]$
-	\item tetrahedron:	$\vec{r}=(u,v,w)$,	such that $u \in [0,1]$, $v \in [0, 1-u]$ and $w \in [0, 1-u-v]$ 
-\end{itemize}
+Local simplex geometries can be parametrized using the local coordinate vector $\vec{r}$: \\
+
+\noindent
+\begin{tabular}{l l l}
+\hline
+  Entity      & Parametrization    & Range \\ \hline
+  Edge        & $\vec{r}=(u)$      & $u \in [0,1]$ \\
+  Triangle    & $\vec{r}=(u,v)$    & $u \in [0,1]$ and $v \in [0, 1-u]$ \\
+  Tetrahedron & $\vec{r}=(u,v,w)$  & $u \in [0,1]$, $v \in [0, 1-u]$ and $w \in [0, 1-u-v]$ \\
+\end{tabular} \\
 
 \subsection{Interpolatory Vertices}
 \label{theory-lagrange-vertices}
 
 \noindent
-In order to define the curvilinear geometry, a set of real geometry points $\vec{p}_i(\vec{r}_i)$ is provided, over which the real geometry is interpolated. By convention, the real geometry is sampled over a rectangular grid over the reference simplex, namely
+In order to define the curvilinear geometry, a set of real geometry points $\vec{x}_i = \vec{p}_i(\vec{r}_i)$ is given to be interpolated over. By convention, the real geometry is sampled over a structured grid on a reference simplex, namely
 \[\vec{r}_{i,j,k} = \frac{(i,j,k)}{Ord}, \;\;\; i=[0..Ord], \;\;\; j=[0..Ord-i], \;\;\; k=[0..Ord-i-j]\]
-where $Ord$ is the interpolation order of the surface. Thus, points from this uniform grid in local coordinates are mapped to arbitrary points in global coordinates. It is the job of the meshing software (in our case GMSH) to ensure that the global geometry is non-singular / non-self-intersecting. The uniform convention is taken by GMSH mostly because polynomial orders remain rather low. If higher orders would be required, a non-uniform (e.g. Chebyshev) sampling grid would have to be used in order to minimize the Runge phenomenon. \\
+where $Ord$ is the interpolation order of the surface. Thus, points from this uniform grid in local coordinates must be mapped to the provided points in global coordinates. It is the job of the meshing software (e.g. GMSH\citeGMSH{}) to ensure that the global geometry of an entity is non-singular / non-self-intersecting. In principle, a non-uniform grid could be used in order to minimize the effect of Runge phenomenon \textbf{CITE\_RUNGE}, However, it is not an issue for lower dimensions. \\
 
 \noindent
-It is easy to verify that the above discretization generates the following number of interpolatory points as a function of interpolatory order (starting with 1, mentioning first 5 orders)
-\begin{itemize}
-	\item edge:			$N_{Ord} = \{ 2,3,4,5,6 \}  $
-	\item face:			$N_{Ord} = \{ 3,6,10,15,21 \}  $
-	\item tetrahedron:	$N_{Ord} = \{ 4,10,20,35,56 \}  $
-\end{itemize}
+One can verify that the above discretization generates the following number of interpolatory points: \\
+
+\noindent
+\begin{tabular}{l l l l l l}
+\hline
+  Entity \textbackslash Order & 1 & 2  & 3  & 4  & 5 \\ \hline
+  Edge                        & 2 & 3  & 4  & 5  & 6 \\
+  Triangle                    & 3 & 6  & 10 & 15 & 21 \\
+  Tetrahedron                 & 4 & 10 & 20 & 35 & 56 \\
+\end{tabular} \\
+
 
 \subsection{Interpolatory Polynomials}
 \label{theory-lagrange-polynomials}
 
 \noindent
-It is easy to verify, that the number of interpolatory points above exactly matches the total number of monomials necessary to construct a complete polynomial of order $Ord$ or less. Define the functions $z^{(1,i)}(u)$, $z^{(2,i)}(u,v)$ and $z^{(3,i)}(u,v,w)$ as the set of all monomials of corresponding order, where the first parameter is dimension of the entity, and the 2nd is the polynomial order:
+The number of interpolatory points above exactly matches the total number of monomials necessary to construct a complete polynomial of order $Ord$ or less. It is quite obvious, since the above discretization matches the binomial/trinomial triangle. We define the functions $z^{(1,i)}(u)$, $z^{(2,i)}(u,v)$ and $z^{(3,i)}(u,v,w)$ as the set of all monomials of corresponding order, where the first parameter is dimension of the entity, and the 2nd is the polynomial order:
 \begin{itemize}
 	\item edge: \\
 		$z^{(1,1)}(u) = \{1, u\}$, \\
@@ -60,10 +70,10 @@ It is easy to verify, that the number of interpolatory points above exactly matc
 \end{itemize}
 
 \noindent
-This means that using such grid sampling allows using complete polynomials of a given order for interpolation. If one interpolates over other entities, for example, rectangles, one has to either use an incomplete basis of certain order in order to keep using the rectangular sampling grid convention, or change the sampling convention to have exact number of interpolatory points for a certain order. \textbf{[Volakis2010]} choose the first approach, thus interpolating a 9 node 2nd order rectangle with 4th order incomplete polynomial which has a convenient separable tensor product form. \\
+Ultimately, we wish to approximate the mapping $\vec{p}(\vec{r})$ by a polynomial of the order $Ord$, such that it exactly fits the provided interpolatory vertices $\vec{x}_i$. Since there are as many interpolatory vertices as there are monomials, such a polynomial will be unique. This allows the simplex geometries to be interpolated by \textit{complete} basis of a given order. This is not the same for all entities. For example, for hexahedra, these numbers do not match, therefore one either has to use interpolation of incomplete polynomial order, or choose a more sophisticated local discretization. \textbf{[Volakis2010]} choose the first approach, interpolating a 9 node 2nd order rectangle with 4th order incomplete polynomial which has a convenient separable tensor product form. \\
 
 \noindent
-\textbf{The main idea of Lagrange Polynomials} is to generate a polynomial vector function $\vec{p}(\vec{r})$, which would correspond to a correct global coordinate $\vec{p}_i = \vec{p}(\vec{r}_i)$ for each local coordinate $\vec{r}_i$. It can be easily seen that such function is unique and must take the form
+But back to simplices. One way to write such a polynomial approximation is
 \begin{equation}
 	\vec{p}(\vec{r}) = \sum_j L_j(\vec{r})\vec{p}_j 
 \end{equation}
@@ -74,10 +84,10 @@ where the Lagrange Polynomials $L_j$ are defined by their interpolatory property
 	L_j(\vec{r}_i) = \delta_{ij}
 \end{equation}
 \noindent
-for all interpolatory points $\vec{r}_i$. It is easy to see that the amount of free parameters of each Lagrange Polynomial must be equal to the number of interpolatory points, such that each of them can uniquely interpolate a set of $N_{Ord}$ points ($N_{Ord} - 1$ zeroes and 1 one). As we have discussed above, this is indeed the case, as the number of free parameters of a Lagrange polynomial is equal to the number of monomials \\
+for all interpolatory points $\vec{r}_i$. The advantage of this formulation is that the Lagrange Polynomials are independent of the exact coordinates ($\vec{x}_i$), and thus can be pre-computed and reused for all entities of a given order. \\
 
 \noindent
-Next, one slightly tricky part, and then we are done. We would like to prove that the following equation holds:
+It remains to determine the exact form of Lagrange Polynomials. We would like to prove that the following equation holds:
 \begin{equation}
 	\label{equation-lagrangepol-basis-link}
 	z_i(\vec{r}) = \sum_j L_j(\vec{r}) z_i (\vec{r}_j) 
@@ -98,21 +108,9 @@ where $V_{ij} = z_i (\vec{r}_j)$, and find the Lagrange polynomials by inverting
 \begin{equation}
 	\vec{L} (\vec{r}) = V^{-1} \vec{z} (\vec{r})
 \end{equation}
-\noindent
-Thus each Lagrange Polynomial is a linear combination of standard polynomials. They are polynomials of order (at most) $Ord$. Depending on whether we are dealing with edges, faces or tetrahedrons, $L_j$ will be a function of 1, 2 or 3 parameters.
-
-\subsection{Discussion}
 
 \noindent
-Important question is the interpretation of the interpolated manifold
-\begin{itemize}
-	\item edge: a bounded curve which connects a certain set of points
-	\item triangle: a bounded surface which connects a certain set of points
-	\item tetrahedron: a bounded volume which connects a certain set of points
-\end{itemize}
-
-\noindent
-It is important to understand, especially for the tetrahedral case, that the parameterized bounded manifold is not exhaustively defined by the shape of its boundary. In tetrahedral case, interpolation over points associated with the element itself does not only mean that the interpolatory point is located inside of the tetrahedron. What it means that the geometry within the tetrahedron is also curved, such that all points within the parametric reference tetrahedron are uniquely mapped to the points in the real tetrahedron.
+It is important to understand that the resulting interpolated geometry in global coordinates is NOT exhaustively defined by the shape of its boundary, as the geometry inside the entity also undergoes this polynomial transformation.
 
 
 \subsection{Implementation for Simplices}

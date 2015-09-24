@@ -31,7 +31,7 @@
 
 #include <dune/geometry/type.hh>
 
-#include <dune/curvilineargeometry/interpolation/curvilinearelementinterpolator.hh>
+#include <dune/curvilineargeometry/interpolation/lagrangeinterpolator.hh>
 #include <dune/curvilineargeometry/interpolation/curvilineargeometryhelper.hh>
 
 #include <dune/curvilineargrid/common/constant.hh>
@@ -981,7 +981,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     {
         typedef FieldVector< double, mydim >      LocalVector;
 
-        CurvilinearElementInterpolator<double, mydim, dimension> elementInterpolator(geomtype, nodeSet, elementOrder);
+        LagrangeInterpolator<double, mydim, dimension> elementInterpolator(geomtype, nodeSet, elementOrder);
 
         const int codim = dimension - mydim;
 
@@ -1028,7 +1028,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
             // If we interpolate, then all points will be taken from new sample grid
             // Otherwise we take the intrinsic interpolation point grid which has the same shape
-            GlobalVector tmpPoint = interpolate ? elementInterpolator.realCoordinate(simplexLocalGrid[i]) : nodeSet[i];
+            GlobalVector tmpPoint = interpolate ? elementInterpolator.global(simplexLocalGrid[i]) : nodeSet[i];
 
             //Optionally, transform the element. Do not try to multipy element by 1.0 if it is not going to be transformed
             if (shrink || magnify) { shrinkMagnify(tmpPoint, CoM, shrink, magnify); }

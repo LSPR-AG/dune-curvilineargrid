@@ -240,7 +240,7 @@ protected:
     	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     	// [FIXME] REMOVE DEBUG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    	for (int i = 0; i < timestorage_.size(); i++)  { std::cout << "process [" << rank << " operation " << timestorage_[i].first << std::endl;  }
+    	//for (int i = 0; i < timestorage_.size(); i++)  { std::cout << "process [" << rank << " operation " << timestorage_[i].first << std::endl;  }
 
 
     	// -------------------Self-Test-------------------------------------------

@@ -555,7 +555,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     {
         FILE* vtkFile = fopen(filename.c_str(), "w");
 
-        std::vector<unsigned int> nEntity
+        std::vector<std::size_t> nEntity
         {
         	vtkCodimVertexIndex_[ELEMENT_CODIM].size(),
         	vtkCodimVertexIndex_[FACE_CODIM].size(),
@@ -744,7 +744,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     {
         FILE* vtuFile = fopen(filename.c_str(), "w");
 
-        std::vector<unsigned int> nEntity
+        std::vector<std::size_t> nEntity
         {
         	vtkCodimVertexIndex_[ELEMENT_CODIM].size(),
         	vtkCodimVertexIndex_[FACE_CODIM].size(),
@@ -900,7 +900,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
 
     // Checks if the storage arrays are consistent before writing to file
-    void writerSelfCheck(std::vector<unsigned int> nEntity)
+    void writerSelfCheck(std::vector<std::size_t> nEntity)
     {
         for (int iCodim = ELEMENT_CODIM; iCodim <= EDGE_CODIM; iCodim++)
         {

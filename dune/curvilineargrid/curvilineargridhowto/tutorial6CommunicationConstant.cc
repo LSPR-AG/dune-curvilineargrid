@@ -327,12 +327,13 @@ int main (int argc , char **argv) {
 	// Define curvilinear grid
 	const int dim = 3;
 	typedef  double    ctype;
+	const int grid_file_type = 1;  // createGrid procedure provides 6 different example grids numbered 0 to 5
 
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached, Dune::LoggingMessage> GridType;
 
 
 	// Create Grid
-	GridType * grid = createGrid<GridType>(mpihelper);
+	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
 
 	// Construct all interfaces we are interested to test
 	// That is, IB->IB, IB->ALL, ALL->IB and ALL->ALL

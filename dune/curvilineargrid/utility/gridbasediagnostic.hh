@@ -302,7 +302,7 @@ protected:
 
 			std::cout << "size=" << faceGeom.vertexSet().size() <<" vertices = " << Dune::VectorHelper::vector2string(faceGeom.vertexSet()) << std::endl;
 
-			Dune::CurvilinearGeometry<double,2,3>::PolynomialVector polyMap = faceGeom.interpolatoryVectorAnalytical();
+			Dune::CurvilinearGeometry<double,2,3>::PolynomialGlobalCoordinate polyMap = faceGeom.interpolatoryVectorAnalytical();
 
 			std::cout << "Polynomial[0] = " << polyMap[0].to_string() << std::endl;
 			std::cout << "Polynomial[1] = " << polyMap[0].to_string() << std::endl;

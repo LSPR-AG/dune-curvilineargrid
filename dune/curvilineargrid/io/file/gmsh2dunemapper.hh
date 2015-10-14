@@ -4,6 +4,25 @@
 namespace Dune
 {
 
+
+// GMSH Triangle Strategy
+//   1) Vertices {0,1,2}
+//   2) Edges {(01), (12), (20)}
+//   3) Recursive internal triangle
+
+// GMSH Tetrahedron Strategy
+//   1) Vertices {0,3,1,2}
+//   2) Edges {01,12,20,30,32,31}
+//   3) Recursive Faces {021, 013, 032, 312}
+//   4) Recursive internal tetrahedron
+
+// TODO: Write analytic routine, and use less complicated recursive transformation
+// GMSH Tetrahedron Strategy
+//   1) Vertices {0,1,2,3}   3->1  1->2  2->3
+//   2) Edges {02,23,30,10,13,12}
+//   3) Recursive Faces {032, 021, 013, 123}
+//   4) Recursive internal tetrahedron
+
 class Gmsh2DuneMapper
 {
 

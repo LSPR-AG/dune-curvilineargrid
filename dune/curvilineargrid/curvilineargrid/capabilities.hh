@@ -39,11 +39,13 @@ namespace Dune
     };
 
 
+    /*
     template< class ctype, int cdim, bool isCached, class LogMsg>
     struct isParallel< Dune::CurvilinearGrid< ctype, cdim, isCached, LogMsg> >
     {
     	static const bool v = true;
     };
+    */
 
 
     // FIXME: Do I need to specialize this for all codimensions to avoid, say, 4D grid requests?

@@ -10,7 +10,11 @@
 #include <set>
 
 #include <dune/common/parallel/mpihelper.hh>
+
+#include <dune/grid/io/file/vtk/vtkwriter.hh>
+
 #include <dune/curvilineargrid/curvilineargrid/grid.hh>
+#include <dune/curvilineargrid/io/file/curvilinearvtkgridwriter.hh>
 #include <dune/curvilineargrid/curvilineargridhowto/creategrid.hh>
 
 
@@ -19,75 +23,88 @@
 const bool isCached = true;
 
 
-// example for a generic algorithm that traverses
-// the entities of a given mesh, extracts the relevant information
-// and inserts it to the VTK writer
-template<int codim, class GridType>
-void writeVTKentities (
-	GridType& grid,
-	Dune::MPIHelper & mpihelper,
-	Dune::CurvilinearVTKWriter<GridType> & vtkCurvWriter,
-	int N_DISCRETIZATION_POINTS,
-	bool interpolate,
-	bool explode,
-	std::vector<bool> writeCodim,
-	std::set<typename GridType::StructuralType > typeset)
+
+// Generates Sinusoid as function of local coordinates
+// Note: This method is very naive, as it does not even consider the global orientation of the element
+// Normally you can find out the global orientation by considering the global coordinates and/or global ID's of the associated geometry
+template <typename Grid>
+class VTKFunctionLocalSinusoid	:	public Dune::VTKFunction<typename Grid::LeafGridView>
 {
-  const int dim =  GridType::dimension;
-  const int mydim = dim - codim;
-  typedef typename GridType::ctype ct;
-  typedef typename GridType::LeafGridView LeafGridView;
+protected:
+	/***************************************************************************************************************/
+	/* extract information from the Grid and                                                                       */
+	/***************************************************************************************************************/
+    static const int dimension = Grid::dimensionworld;
+	typedef typename Grid::ctype CoordinateType;
 
-  typedef typename GridType::LocalIndexType          LocalIndexType;
-  typedef typename GridType::GlobalIndexType         GlobalIndexType;
-  typedef typename GridType::PhysicalTagType         PhysicalTagType;
-  typedef typename GridType::StructuralType          StructuralType;
-  typedef typename GridType::InterpolatoryOrderType  InterpolatoryOrderType;
+	typedef typename Grid::template Codim<0>::Entity EntityElement;
 
-  // get the instance of the LeafGridView
-  LeafGridView leafView = grid.leafGridView();
+    typedef Dune::FieldVector< CoordinateType, dimension >  LocalCoordinate;
+    typedef Dune::FieldVector< CoordinateType, dimension >  GlobalCoordinate;
 
-  typedef typename LeafGridView::template Codim<codim>::Iterator EntityLeafIterator;
-  //typedef typename LeafGridView::template Codim<codim>::Geometry EntityGeometry;
-  typedef typename GridType::template Codim<codim>::EntityGeometryMappingImpl  BaseGeometry;
-  typedef typename BaseGeometry::GlobalCoordinate                              GlobalCoordinate;
+public:
+    VTKFunctionLocalSinusoid()  {  }
 
-  // Iterate over entities of this codimension
-  EntityLeafIterator ibegin = leafView.template begin<codim>();
-  EntityLeafIterator iend   = leafView.template end<codim>();
+    // Number of components of the field (3 in 3d)
+	virtual int ncomps() const  { return(dimension); }
 
-  for (EntityLeafIterator it = ibegin; it != iend; ++it)
-  {
-	  // Constructing a geometry is quite expensive, do it only once
-	  //EntityGeometry geom = it->geometry();
-	  BaseGeometry geom = grid.template entityBaseGeometry<codim>(*it);
-	  std::vector<GlobalCoordinate>  interpVertices = geom.vertexSet();
+	// Component of the field
+	virtual double evaluate(int comp, const EntityElement & element, const LocalCoordinate &xi) const
+	{
+		return sin(5 * xi[comp]);
+	}
 
-	  Dune::GeometryType gt              = it->type();
-	  Dune::PartitionType ptype          = it->partitionType();
-	  LocalIndexType  localIndex         = grid.leafIndexSet().index(*it);
-	  GlobalIndexType globalIndex        = grid.template entityGlobalIndex<codim>(*it);
-	  PhysicalTagType physicalTag        = grid.template entityPhysicalTag<codim>(*it);
-	  InterpolatoryOrderType interpOrder = grid.template entityInterpolationOrder<codim>(*it);
+	/**********************************************************************/
+	virtual std::string name() const { return std::string("Local-Sinusoid"); }
+};
 
-	  // If we requested to output entities of this type, we will write them to VTK
-	  if (typeset.find(ptype) != typeset.end())
-	  {
-		std::vector<int>         tags  { physicalTag, ptype, mpihelper.rank() };
 
-    	vtkCurvWriter.template addCurvilinearElement<mydim>(
-    			gt,
-    			interpVertices,
-    			tags,
-    			interpOrder,
-    			N_DISCRETIZATION_POINTS,
-    			interpolate,
-    			explode,
-    			writeCodim);
-	  }
-  }
+/** \brief Describes a sinusoid function in the global coordinates of the world
+ *  The only difference to local sinusoid method is having to map from local to global coordinates
+ *    */
+template <typename Grid>
+class VTKFunctionGlobalSinusoid	:	public Dune::VTKFunction<typename Grid::LeafGridView>
+{
+protected:
+	/***************************************************************************************************************/
+	/* extract information from the Grid and                                                                       */
+	/***************************************************************************************************************/
+    static const int dimension = Grid::dimensionworld;
+	typedef typename Grid::ctype CoordinateType;
 
-}
+	typedef typename Grid::template Codim<0>::Entity EntityElement;
+
+    typedef Dune::FieldVector< CoordinateType, dimension >  LocalCoordinate;
+    typedef Dune::FieldVector< CoordinateType, dimension >  GlobalCoordinate;
+
+public:
+    VTKFunctionGlobalSinusoid(const Grid & grid) : grid_(grid)
+	{
+
+	}
+
+    // Number of components of the field (3 in 3d)
+	virtual int ncomps() const  { return(dimension); }
+
+	// Component of the field
+	virtual double evaluate(int comp, const EntityElement & element, const LocalCoordinate &xi) const
+	{
+		return sin(5 * element.geometry().global(xi)[comp]);
+	}
+
+	/**********************************************************************/
+	virtual std::string name() const { return std::string("Global-Sinusoid"); }
+
+private:
+	const Grid & grid_;
+};
+
+
+
+
+
+
+
 
 
 int main (int argc , char **argv) {
@@ -97,49 +114,34 @@ int main (int argc , char **argv) {
 	// Define curvilinear grid
 	const int dim = 3;
 	typedef  double    ctype;
+	const int grid_file_type = 4;  // createGrid procedure provides 6 different example grids numbered 0 to 5
 
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached, Dune::LoggingMessage> GridType;
 	typedef typename GridType::GridStorageType         GridStorageType;
 	typedef typename GridType::StructuralType          StructuralType;
+	typedef typename Dune::VTKFunction<typename GridType::LeafGridView>   DuneVTKFunction;
 
 	// Create Grid
-	GridType * grid = createGrid<GridType>(mpihelper);
-
-
-	// Additional VTK writer constants
-	// Note that these can be specified uniquely for each element added to the writer if necessary
-	int N_DISCRETIZATION_POINTS = 5;    // Number of linear points to subdivide a curvilinear line (min=2 - linear)
-	bool interpolate = true;            // If interpolate=false, vtk writer just uses the interpolatory vertices as discretization vertices and ignores above constant
-	bool explode = true;                // Artificially increase distance between all entities, by shrinking all entities a bit wrt their center of mass
-	std::vector<bool> writeCodim {true, false, false, false};  // For now, only use linear elements to discretize inserted entities
+	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
 
 
     // Construct the VTK writer
-	Dune::CurvilinearVTKWriter<GridType> vtkCurvWriter(mpihelper);
+	Dune::CurvilinearVTKGridWriter<GridType> writer(*grid);
 
+	// Set fixed virtual refinement to better resolve the fine sinusoidal fields
+	// This action is not recommended for large grids because it will severely slow down the writing procedure.
+	// If the function polynomial order is not higher than the curvature order of the element, then the writer
+	// will automatically adapt the correct virtual refinement order.
+	const int userDefinedVirtualRefinement = 15;
+	writer.useFixedVirtualRefinement(userDefinedVirtualRefinement);
 
-	// write elements
-	// *************************************************
-	std::set<StructuralType>  writeElements;
-	writeElements.insert(Dune::PartitionType::InteriorEntity);
-	writeElements.insert(Dune::PartitionType::GhostEntity);
-	writeVTKentities<0, GridType>(
-			*grid,
-			mpihelper,
-			vtkCurvWriter,
-			N_DISCRETIZATION_POINTS,
-			interpolate,
-			explode,
-			writeCodim,
-			writeElements);
+	// We will attempt to attach two fields to the grid and plot them
+	std::vector<DuneVTKFunction *> vtkFuncSet_; /** \brief Stores all functors that will be plotted over the mesh during diagnostics phase **/
+    vtkFuncSet_.push_back(new VTKFunctionLocalSinusoid<GridType>());        // Sinusoid in local coordinates
+    vtkFuncSet_.push_back(new VTKFunctionGlobalSinusoid<GridType>(*grid));  // Sinusoid in global coordinates
 
+    writer.write("./", "tutorial-3-output", vtkFuncSet_);
 
-
-
-
-
-	// Writing the PVTU and VTU files
-	vtkCurvWriter.writeParallelVTU("./", "curvreader_output");
 
     // Delete the grid
     delete grid;

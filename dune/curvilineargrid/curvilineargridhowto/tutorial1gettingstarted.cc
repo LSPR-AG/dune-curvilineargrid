@@ -22,17 +22,19 @@ int main (int argc , char **argv) {
 	// Define curvilinear grid
 	const int dim = 3;
 	typedef  double    ctype;
+	const int grid_file_type = 1;  // createGrid procedure provides 6 different example grids numbered 0 to 5
 
 	// Create Grid
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached, Dune::LoggingMessage> GridType;
-	GridType * grid = createGrid<GridType>(mpihelper);
-
+	GridType * grid = createGrid<GridType>(mpihelper, 2);
 
 
     // **********************************************
     // Do all sort of fancy things with the grid here
     // **********************************************
-	std::cout << "the number of grid nElement=" << grid->size(0) << " rank_ = " << grid->comm().rank() << " size_ is " << grid->comm().size() << std::endl;
+	std::cout << "the number of grid elements = " << grid->size(0) << " process rank = " << grid->comm().rank() << " process size = " << grid->comm().size() << std::endl;
+
+
 
 	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
 	LoggingTimerDev::getInstance().reportParallel(mpihelper);

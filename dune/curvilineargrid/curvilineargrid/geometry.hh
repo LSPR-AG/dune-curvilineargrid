@@ -54,8 +54,8 @@ namespace Dune
       typedef typename BasicMapping::JacobianTransposed JacobianTransposed;
       typedef typename BasicMapping::JacobianInverseTransposed JacobianInverseTransposed;
 
-      typedef typename BasicMapping::LocalPolynomial   Polynomial;
-      typedef typename BasicMapping::PolynomialVector  PolynomialVector;
+      typedef typename BasicMapping::LocalPolynomial             Polynomial;
+      typedef typename BasicMapping::PolynomialGlobalCoordinate  PolynomialGlobalCoordinate;
 
 
       template< class Vertices >
@@ -131,10 +131,10 @@ namespace Dune
 
 
       // Integration Elements
-      ctype integrationElement ( const LocalCoordinate &local )  const { return mapping_.integrationElement( local ); }
-      Polynomial JacobianDeterminantAnalytical()                 const { return mapping_.JacobianDeterminantAnalytical(); }
-      PolynomialVector NormalIntegrationElementAnalytical()      const { return mapping_.NormalIntegrationElementAnalytical(); }
-      Polynomial IntegrationElementSquaredAnalytical()           const { return mapping_.IntegrationElementSquaredAnalytical(); }
+      ctype integrationElement ( const LocalCoordinate &local )         const { return mapping_.integrationElement( local ); }
+      Polynomial JacobianDeterminantAnalytical()                        const { return mapping_.JacobianDeterminantAnalytical(); }
+      PolynomialGlobalCoordinate NormalIntegrationElementAnalytical()   const { return mapping_.NormalIntegrationElementAnalytical(); }
+      Polynomial IntegrationElementSquaredAnalytical()                  const { return mapping_.IntegrationElementSquaredAnalytical(); }
 
       // Subentity geometry wrapper for Geometry
       // Return pointer to save computation time inside intersection class

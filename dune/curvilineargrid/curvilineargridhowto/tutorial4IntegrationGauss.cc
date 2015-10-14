@@ -151,13 +151,14 @@ int main (int argc , char **argv) {
 	// Define curvilinear grid
 	const int dim = 3;
 	typedef  double    ctype;
+	const int grid_file_type = 2;  // createGrid procedure provides 6 different example grids numbered 0 to 5
 
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached, Dune::LoggingMessage> GridType;
 
 	// Create Grid
-	GridType * grid = createGrid<GridType>(mpihelper);
+	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
 
-	// Traverse all entities of the grid and write information about each entity
+	// Perform the integration
 	Integrate(*grid);
 
     // Delete the grid

@@ -184,16 +184,22 @@ namespace Dune
      *  \{ */
 
     /** \brief Types for GridView */
-    template< PartitionIteratorType pitype >
-    struct Partition
-    {
-      typedef typename GridFamily::Traits::template Partition< pitype >::LevelGridView    LevelGridView;
-      typedef typename GridFamily::Traits::template Partition< pitype >::LeafGridView     LeafGridView;
-    };
+    //template< PartitionIteratorType pitype >
+    //struct Partition
+    //{
+    //    typedef typename GridFamily::Traits::template Partition< pitype >::LevelGridView    LevelGridView;
+    //    typedef typename GridFamily::Traits::template Partition< pitype >::LeafGridView     LeafGridView;
+    //};
 
     /** \brief View types for All_Partition */
-    typedef typename Partition< All_Partition >::LevelGridView     LevelGridView;
-    typedef typename Partition< All_Partition >::LeafGridView      LeafGridView;
+    //typedef typename Partition< All_Partition >::LevelGridView     LevelGridView;
+    //typedef typename Partition< All_Partition >::LeafGridView      LeafGridView;
+
+    /** \brief type of view for leaf grid */
+    typedef typename GridFamily::Traits::LeafGridView LeafGridView;
+    /** \brief type of view for level grid */
+    typedef typename GridFamily::Traits::LevelGridView LevelGridView;
+
 
     /** \} */
 

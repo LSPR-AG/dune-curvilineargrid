@@ -85,11 +85,19 @@ class CurvilinearVTKGridWriter
 
 public:
 	CurvilinearVTKGridWriter(const Grid & grid) :
-		grid_(grid)
+		grid_(grid),
+		virtualRefinementOrder_(0),
+		writeInteriorOnly_(false)
 	{
 
 	}
 
+
+	// Allow user to fix virtual refiniment level
+	void useFixedVirtualRefinement(int newOrder)  { virtualRefinementOrder_ = newOrder; }
+
+	// Allow user to only write interior elements to accelerate writer
+	void writeInteriorOnly(bool interiorOnly)  { writeInteriorOnly_ = interiorOnly; }
 
 	// Write Grid only to VTK
 	void write(std::string path, std::string filenamePrefix)
@@ -106,7 +114,6 @@ public:
 		BaseWriter writer(grid_.comm().rank(), grid_.comm().size());
 
 		// Properties
-        //int nDiscretizationPoint = 6;
         bool interpolate = true;
         bool explode = false;
         std::vector<bool>  writeCodim { true, true, false, false };  // Use elements for discretization, and do not use entities of other codimensions
@@ -123,62 +130,71 @@ public:
 			Dune::GeometryType geomtype   = elementThis.type();
 			StructuralType     thisPType  = elementThis.partitionType();
 
-			// Constructing a geometry is quite expensive, do it only once
-			//EntityGeometry geom = it->geometry();
-			ElementGeometry geom                    = grid_.template entityBaseGeometry<ELEMENT_CODIM>(elementThis);
-			std::vector<GlobalCoordinate>  nodeSet = geom.vertexSet();
-
-			PhysicalTagType         physicalTag  = grid_.template entityPhysicalTag<ELEMENT_CODIM>(elementThis);
-			InterpolatoryOrderType  elementOrder = grid_.template entityInterpolationOrder<ELEMENT_CODIM>(elementThis);
-			std::vector<int>        tagSet  { physicalTag, thisPType, grid_.comm().rank() };
-
-			// Write element to VTK
-			int nDiscretizationPoint = elementOrder + 4;  // To accelerate vtk writer, do not overdiscretize low order meshes. Make discretization appropriate for element
-			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting element geometry" );
-			writer.template addCurvilinearElement<dimension - ELEMENT_CODIM>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, interpolate, explode, writeCodim);
-
-
-			if (thisPType != Dune::PartitionType::GhostEntity)
+			if ((!writeInteriorOnly_) || (thisPType != Dune::PartitionType::GhostEntity))
 			{
-				// It is unexpected that the process would know the field on its own Ghost element. It is most likely that for memory reasons this field
-				// will be stored only once, and on a process for which this element is an interior element
-				for (int i = 0; i < vtkFunctionSet.size(); i++)
+				// Constructing a geometry is quite expensive, do it only once
+				//EntityGeometry geom = it->geometry();
+				ElementGeometry geom                    = grid_.template entityBaseGeometry<ELEMENT_CODIM>(elementThis);
+				std::vector<GlobalCoordinate>  nodeSet = geom.vertexSet();
+
+				PhysicalTagType         physicalTag  = grid_.template entityPhysicalTag<ELEMENT_CODIM>(elementThis);
+				InterpolatoryOrderType  elementOrder = grid_.template entityInterpolationOrder<ELEMENT_CODIM>(elementThis);
+				std::vector<int>        tagSet  { physicalTag, thisPType, grid_.comm().rank() };
+
+				// To accelerate vtk writer, do not overdiscretize low order meshes. Make discretization appropriate for element, unless user specifically asks for fixed order
+				int nDiscretizationPoint = (virtualRefinementOrder_ > 0) ? virtualRefinementOrder_ : elementOrder + 4;
+
+				// Write element to VTK
+				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting element geometry" );
+				writer.template addCurvilinearElement<dimension - ELEMENT_CODIM>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, interpolate, explode, writeCodim);
+
+
+				if (thisPType != Dune::PartitionType::GhostEntity)
 				{
-
-					LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Computing element field" );
-					// Construct VTKElementaryFunction
-					VTKElementaryFunction<EntityElement, VTKFunction> vtkefunc(elementThis, vtkFunctionSet[i]);
-
-					LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Inserting element field" );
-					// Write field
-					writer.addField(vtkFunctionSet[i]->name(), vtkefunc);
-				}
-
-				// Write faces - Domain and Process Boundaries
-				for (auto&& intersection : intersections(leafView, elementThis))
-				{
-					const EntityFace faceThis = elementThis.template subEntity<FACE_CODIM>(intersection.indexInInside());
-
-					Dune::GeometryType  faceGeomType   = faceThis.type();
-					StructuralType      thisFacePType  = faceThis.partitionType();
-
-					if ((thisFacePType == Dune::PartitionType::BorderEntity) || intersection.boundary())
+					// It is unexpected that the process would know the field on its own Ghost element. It is most likely that for memory reasons this field
+					// will be stored only once, and on a process for which this element is an interior element
+					for (int i = 0; i < vtkFunctionSet.size(); i++)
 					{
-						if (intersection.boundary())  { thisFacePType = CurvGrid::BOUNDARY_SEGMENT_PARTITION_TYPE; }
 
-						// Constructing a geometry is quite expensive, do it only once
-						//EntityGeometry geom = it->geometry();
-						FaceGeometry facegeom                    = grid_.template entityBaseGeometry<FACE_CODIM>(faceThis);
-						std::vector<GlobalCoordinate>  faceNodeSet = facegeom.vertexSet();
+						LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Computing element field" );
+						// Construct VTKElementaryFunction
+						VTKElementaryFunction<EntityElement, VTKFunction> vtkefunc(elementThis, vtkFunctionSet[i]);
 
-						PhysicalTagType         faceTag          = grid_.template entityPhysicalTag<FACE_CODIM>(faceThis);
-						std::vector<int>        faceTagSet  { faceTag, thisFacePType, grid_.comm().rank() };
+						LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Inserting element field" );
+						// Write field
+						writer.addField(vtkFunctionSet[i]->name(), vtkefunc);
+					}
 
-						// Write element to VTK
-						LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting face geometry" );
-						writer.template addCurvilinearElement<dimension - FACE_CODIM>(faceGeomType, faceNodeSet, faceTagSet, elementOrder, nDiscretizationPoint, interpolate, explode, writeCodim);
+					// Write faces - Domain and Process Boundaries
+					if (!writeInteriorOnly_) // Do it only if user wants to see them
+					{
+						for (auto&& intersection : intersections(leafView, elementThis))
+						{
+							const EntityFace faceThis = elementThis.template subEntity<FACE_CODIM>(intersection.indexInInside());
+
+							Dune::GeometryType  faceGeomType   = faceThis.type();
+							StructuralType      thisFacePType  = faceThis.partitionType();
+
+							if ((thisFacePType == Dune::PartitionType::BorderEntity) || intersection.boundary())
+							{
+								if (intersection.boundary())  { thisFacePType = CurvGrid::BOUNDARY_SEGMENT_PARTITION_TYPE; }
+
+								// Constructing a geometry is quite expensive, do it only once
+								//EntityGeometry geom = it->geometry();
+								FaceGeometry facegeom                    = grid_.template entityBaseGeometry<FACE_CODIM>(faceThis);
+								std::vector<GlobalCoordinate>  faceNodeSet = facegeom.vertexSet();
+
+								PhysicalTagType         faceTag          = grid_.template entityPhysicalTag<FACE_CODIM>(faceThis);
+								std::vector<int>        faceTagSet  { faceTag, thisFacePType, grid_.comm().rank() };
+
+								// Write element to VTK
+								LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting face geometry" );
+								writer.template addCurvilinearElement<dimension - FACE_CODIM>(faceGeomType, faceNodeSet, faceTagSet, elementOrder, nDiscretizationPoint, interpolate, explode, writeCodim);
+							}
+						}
 					}
 				}
+
 			}
 		}
 
@@ -198,6 +214,8 @@ public:
 private:
 
 	const Grid & grid_;
+	int virtualRefinementOrder_;   // User-defined discretization order for element sub-refinement
+	bool writeInteriorOnly_;       // User can choose to only write interior elements, thus accelerating writing procedure
 
 };
 

@@ -52,6 +52,11 @@ void traversal (GridType& grid)
 	InterpolatoryOrderType interpOrder = grid.template entityInterpolationOrder<codim>(elementThis);
 
 	// Constructing a geometry is quite expensive, do it only once
+
+	// NOTE: As of time of writing, Dune::Grid::Geometry does not provide the interface to access properties specific to
+	// Curvilinear elements. Therefore, CurvilinearGrid provides direct access to CurvilinearGeometry, such that the user
+	// has access to all its features.
+
 	//EntityGeometry geom = it->geometry();
 	BaseGeometry geom = grid.template entityBaseGeometry<codim>(elementThis);
 	std::vector<GlobalCoordinate>  interpVertices = geom.vertexSet();
@@ -75,12 +80,11 @@ int main (int argc , char **argv) {
 	// Define curvilinear grid
 	const int dimension = 3;
 	typedef  double    ctype;
+	const int grid_file_type = 1;  // createGrid procedure provides 6 different example grids numbered 0 to 5
 
     // Create Grid
 	typedef Dune::CurvilinearGrid<ctype, dimension, isCached, Dune::LoggingMessage> GridType;
-	GridType * grid = createGrid<GridType>(mpihelper);
-
-	//std::cout << "check " << Dune::VectorHelper::vector2string(grid->gridbase().entityData(0, 0).vertexIndexSet) << std::endl;
+	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
 
 	// Traverse all entities of the grid and write information about each entity
 	traversal<0, GridType>(*grid);  // Elements

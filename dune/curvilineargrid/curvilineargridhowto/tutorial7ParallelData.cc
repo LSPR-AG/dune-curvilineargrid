@@ -39,13 +39,14 @@ int main (int argc , char **argv) {
 	// Define curvilinear grid
 	const int dim = 3;
 	typedef  double    ctype;
+	const int grid_file_type = 1;  // createGrid procedure provides 6 different example grids numbered 0 to 5
 
 	const bool isCached = true;
 	const int ELEMENT_CODIM = 0;  // Codimension of element in 3D
 
 	// Create Grid
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached, Dune::LoggingMessage> GridType;
-	GridType * grid = createGrid<GridType>(mpihelper);
+	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
 
 	// Reporting vector
 	typedef int     IndexType;

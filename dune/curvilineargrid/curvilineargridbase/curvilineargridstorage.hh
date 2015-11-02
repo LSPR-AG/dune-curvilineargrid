@@ -39,19 +39,15 @@ namespace Dune {
 
 
 
-template <class ct, int cdim, bool isCached, class LogMsg>
+template <class ct, int cdim, bool isCached>
 class CurvilinearGridStorage
 {
 
 public:
 
-    // Grid Base template parameters
-    // ******************************************************************
-	typedef ct      ctype;
-	typedef LogMsg  LoggingMessage;
-
     // Grid Variable Types
     // ******************************************************************
+	typedef  ct       ctype;
 	typedef  int      GlobalIndexType;
 	typedef  int      LocalIndexType;
 	typedef  Dune::CurvilinearGeometryHelper::InternalIndexType      InternalIndexType;
@@ -229,8 +225,8 @@ public:
 
     typedef std::vector<std::vector <int> >             EntityNeighborRankVector;
 
-    typedef Dune::CurvilinearOctreeNode<ctype, cdim, isCached, LoggingMessage>   NodeType;
-    typedef Dune::CurvilinearLooseOctree<ctype, cdim, NodeType, LoggingMessage>   CurvilinearLooseOctree;
+    typedef Dune::CurvilinearOctreeNode<ctype, cdim, isCached>   NodeType;
+    typedef Dune::CurvilinearLooseOctree<ctype, cdim, NodeType>   CurvilinearLooseOctree;
 
 
     // Codimensions of entity types for better code readability

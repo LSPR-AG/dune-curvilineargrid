@@ -86,8 +86,7 @@ public:
 
 	typedef          GridBase                                   GridBaseType;
 	typedef typename GridBase::GridStorageType                  GridStorageType;
-    typedef typename GridBase::LoggingMessage                   LoggingMessage;
-    typedef typename Dune::LoggingTimer<LoggingMessage>         LoggingTimer;
+    typedef typename GridBase::LoggingTimer                     LoggingTimer;
 
     typedef Dune::CurvilinearGhostConstructor<GridBase>         GridGhostConstructor;
     typedef Dune::CurvilinearPostConstructor<GridBase>		    GridPostConstructor;
@@ -276,7 +275,7 @@ public:
         // Search for the face among subentities of the element
         // **********************************************************************************
         int j = 0;
-        int nFacePerTetrahedron = 4;
+        int nFacePerTetrahedron = 4; // [FIXME] Replace number by ref elem subentity size
         bool found_face = false;
 
         while (!found_face)
@@ -407,9 +406,9 @@ public:
         	if (!gridstorage_.withElementGlobalIndex_) { giConstructor.generateElementGlobalIndex(); }   // Generate element global index unless it was explicitly provided by the factory
 
             // Fill in Global2Local maps
-            for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)    { gridstorage_.entityIndexMap_[EDGE_CODIM][gridstorage_.edge_[iEdge].globalIndex] = iEdge; }
-            for (LocalIndexType iFace = 0; iFace < gridstorage_.face_.size(); iFace++)    { gridstorage_.entityIndexMap_[FACE_CODIM][gridstorage_.face_[iFace].globalIndex] = iFace; }
-            for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++) {	gridstorage_.entityIndexMap_[ELEMENT_CODIM][gridstorage_.element_[iElem].globalIndex] = iElem; }
+            for (unsigned int iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)    { gridstorage_.entityIndexMap_[EDGE_CODIM][gridstorage_.edge_[iEdge].globalIndex] = iEdge; }
+            for (unsigned int iFace = 0; iFace < gridstorage_.face_.size(); iFace++)    { gridstorage_.entityIndexMap_[FACE_CODIM][gridstorage_.face_[iFace].globalIndex] = iFace; }
+            for (unsigned int iElem = 0; iElem < gridstorage_.element_.size(); iElem++) {	gridstorage_.entityIndexMap_[ELEMENT_CODIM][gridstorage_.element_[iElem].globalIndex] = iElem; }
 
             LoggingTimer::time("CurvilinearGridConstructor: Global Index Generation");
 
@@ -435,9 +434,9 @@ public:
             // * Fake globalIndex by making it equal to localIndex
 
             gridstorage_.withGhostElements_ = false;
-            for (int i = 0; i < gridstorage_.edge_.size();    i++)  { gridstorage_.edge_[i].globalIndex = i;     gridstorage_.entityIndexMap_[EDGE_CODIM][i] = i; }
-            for (int i = 0; i < gridstorage_.face_.size();    i++)  { gridstorage_.face_[i].globalIndex = i;     gridstorage_.entityIndexMap_[FACE_CODIM][i] = i; }
-            for (int i = 0; i < gridstorage_.element_.size(); i++)  { gridstorage_.element_[i].globalIndex = i;  gridstorage_.entityIndexMap_[ELEMENT_CODIM][i] = i;  gridstorage_.entityInternalIndexSet_[ELEMENT_CODIM].insert(i); }
+            for (unsigned int i = 0; i < gridstorage_.edge_.size();    i++)  { gridstorage_.edge_[i].globalIndex = i;     gridstorage_.entityIndexMap_[EDGE_CODIM][i] = i; }
+            for (unsigned int i = 0; i < gridstorage_.face_.size();    i++)  { gridstorage_.face_[i].globalIndex = i;     gridstorage_.entityIndexMap_[FACE_CODIM][i] = i; }
+            for (unsigned int i = 0; i < gridstorage_.element_.size(); i++)  { gridstorage_.element_[i].globalIndex = i;  gridstorage_.entityIndexMap_[ELEMENT_CODIM][i] = i;  gridstorage_.entityInternalIndexSet_[ELEMENT_CODIM].insert(i); }
 
             for (FaceMapIterator faceIter = internalFaceKey2LocalIndexMap_.begin(); faceIter != internalFaceKey2LocalIndexMap_.end(); faceIter++)              { LocalIndexType localIndex = (*faceIter).second;        gridstorage_.entityInternalIndexSet_[FACE_CODIM].insert(localIndex); }
             for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)  { LocalIndexType localIndex = (*faceIter).second;        gridstorage_.faceDomainBoundaryIndexSet_.insert(localIndex); }
@@ -517,7 +516,7 @@ protected:
         Vertex min = gridstorage_.point_[0].coord;
         Vertex max = min;
 
-        for (int i = 1; i < gridstorage_.point_.size(); i ++) {
+        for (unsigned int i = 1; i < gridstorage_.point_.size(); i ++) {
         	Dune::LoggingMessage::writePatience(" Computing process bounding box...", i, gridstorage_.point_.size());
 
             min[0] = std::min(min[0], gridstorage_.point_[i].coord[0]);
@@ -549,7 +548,7 @@ protected:
     void generateEdges()
     {
     	// Init the subentity index vector
-    	int nEdgePerTetrahedron = 6;
+    	int nEdgePerTetrahedron = 6;  // [FIXME] Use ref elem subentity size
     	int nElem = gridstorage_.element_.size();
     	gridstorage_.elementSubentityCodim2_ = std::vector<std::vector<int> > (nElem, std::vector<int>(nEdgePerTetrahedron));
 
@@ -634,6 +633,7 @@ protected:
     void generateFaces()
     {
     	// Init the subentity index vector
+    	// [FIXME] Use ref elem subentity size
         int nFacePerTetrahedron = 4;
     	int nElem = gridstorage_.element_.size();
     	gridstorage_.elementSubentityCodim1_ = std::vector<std::vector<LocalIndexType> > (nElem, std::vector<LocalIndexType>(nFacePerTetrahedron));
@@ -797,7 +797,7 @@ protected:
 
         	EntityStorage thisFace = gridbase_.entityData(1, (*faceIter).second);
 
-            for (int i = 0; i < thisFace.vertexIndexSet.size(); i++)
+            for (unsigned int i = 0; i < thisFace.vertexIndexSet.size(); i++)
             {
             	LocalIndexType thisVertexLocalIndex = thisFace.vertexIndexSet[i];
             	gridstorage_.point_[thisVertexLocalIndex].ptype = Dune::PartitionType::BorderEntity;
@@ -816,6 +816,7 @@ protected:
 
             GlobalIndexType thisVertexKey[3] = {thisFaceKey.node0, thisFaceKey.node1, thisFaceKey.node2};
 
+            // [FIXME] Use ref elem subentity size
             for (int i = 0; i < 3; i++)
             {
             	LocalIndexType thisCornerLocalIndex = gridstorage_.entityIndexMap_[VERTEX_CODIM][thisVertexKey[i]];
@@ -873,6 +874,7 @@ protected:
             thisEdgeKey[1].node0 = thisFaceKey.node0;  thisEdgeKey[1].node1 = thisFaceKey.node2;
             thisEdgeKey[2].node0 = thisFaceKey.node1;  thisEdgeKey[2].node1 = thisFaceKey.node2;
 
+            // [FIXME] Use ref elem subentity size
             for (int i = 0; i < 3; i++)
             {
             	LocalIndexType thisEdgeLocalIndex = edgeKey2LocalIndexMap_[thisEdgeKey[i]];
@@ -940,7 +942,7 @@ protected:
         gridstorage_.octree_ = new CurvilinearLooseOctree(center, length, 100, mpihelper_);
 
         // loop over all tets and insert them in the octree
-        for (int iElem = 0; iElem < gridstorage_.element_.size(); iElem++)
+        for (unsigned int iElem = 0; iElem < gridstorage_.element_.size(); iElem++)
         {
         	Dune::LoggingMessage::writePatience("Filling OCTree with elements...", iElem, gridstorage_.element_.size());
 

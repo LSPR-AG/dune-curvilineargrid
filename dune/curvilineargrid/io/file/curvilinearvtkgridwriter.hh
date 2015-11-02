@@ -76,8 +76,6 @@ class CurvilinearVTKGridWriter
 	typedef typename Grid::PhysicalTagType           PhysicalTagType;
 	typedef typename Grid::InterpolatoryOrderType    InterpolatoryOrderType;
 
-	typedef typename GridType::LoggingMessage           LoggingMessage;
-
 	typedef Dune::VTKFunction<LeafGridView>   VTKFunction;
 
 
@@ -153,7 +151,7 @@ public:
 				{
 					// It is unexpected that the process would know the field on its own Ghost element. It is most likely that for memory reasons this field
 					// will be stored only once, and on a process for which this element is an interior element
-					for (int i = 0; i < vtkFunctionSet.size(); i++)
+					for (unsigned int i = 0; i < vtkFunctionSet.size(); i++)
 					{
 
 						LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Computing element field" );
@@ -205,7 +203,7 @@ public:
 		writer.writeParallelVTU(path, filenamePrefix);
 
 		// Delete vtk functions
-		for (int i = 0; i < vtkFunctionSet.size(); i++)  { delete vtkFunctionSet[i]; }
+		for (unsigned int i = 0; i < vtkFunctionSet.size(); i++)  { delete vtkFunctionSet[i]; }
 		vtkFunctionSet.clear();
 
 	}

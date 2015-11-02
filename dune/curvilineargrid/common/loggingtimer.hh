@@ -41,6 +41,8 @@ class LoggingTimer
     static const unsigned int  DEFAULT_N_CHAR_ITER = 6;   // Default number of characters used for number of iterations of a timed operation
     static const unsigned int  DEFAULT_N_CHAR_TIME = 13;  // Default number of characters used for time output as a string
 
+    const bool DEFAULT_REALVERBOSE = false;  // Do not write text every time something is timed, unless user really wants to see a lot of text output
+
     /***********************************************************/
     /* Auxiliary structures                                    */
     /***********************************************************/
@@ -84,7 +86,10 @@ public:
         return instance;
     }
 
-    void init(bool realverbose)  { realverbose_ = realverbose; }
+    /** \brief Static singleton initialization */
+    static void init(Dune::MPIHelper & mpihelper) { getInstance().initImpl(mpihelper); }
+
+    static void setRealVerbose(bool realverbose)  { getInstance().setRealVerboseImpl(realverbose); }
 
 
     /** \brief Times an operation. This operation has to be called an even number of times for each keyword
@@ -102,10 +107,23 @@ public:
     /* NOTE: this procedure requires that EXACTLY THE SAME action names are timed on all processes
     /* NOTE: The order of output is sorted by the starting time of action on master process
     /* NOTE: Strings are not communicated. Only the total number of timers is compared. Communication is based on sorting strings on each process */
-    static void reportParallel(MPIHelper & mpihelper) { getInstance().reportParallelImpl(mpihelper); }
+    static void reportParallel() { getInstance().reportParallelImpl(); }
 
 
 protected:
+
+    /***********************************************************/
+    /* Static initialization                                   */
+    /***********************************************************/
+
+    void initImpl(Dune::MPIHelper & mpihelper) {
+    	mpihelper_ = &mpihelper;
+    	realverbose_ = DEFAULT_REALVERBOSE;
+    }
+
+    void setRealVerboseImpl(bool realverbose)  { realverbose_ = realverbose; }
+
+
 
     /***********************************************************/
     /* Auxiliary Methods                                       */
@@ -231,11 +249,11 @@ protected:
 
 
     // Communicates all finished timers to master process.
-    void reportParallelImpl(MPIHelper & mpihelper)
+    void reportParallelImpl()
     {
-    	Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper.getCollectiveCommunication();
-    	int rank = mpihelper.rank();
-    	int size = mpihelper.size();
+    	Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_->getCollectiveCommunication();
+    	int rank = mpihelper_->rank();
+    	int size = mpihelper_->size();
 
     	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     	// [FIXME] REMOVE DEBUG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -334,6 +352,8 @@ private:
     bool realverbose_;
     ActionNameMap namemap_;
     std::vector<NameIntervalPair> timestorage_;
+
+    Dune::MPIHelper * mpihelper_;
 
 };
 

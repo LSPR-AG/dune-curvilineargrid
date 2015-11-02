@@ -33,13 +33,10 @@ GridType * createGrid(Dune::MPIHelper & mpihelper, int exampleFile)
     bool withGhostElements    = true;      // to create Ghost elements
     bool withGmshElementIndex = true;      // to re-use Global Element Index provided by GMSH (recommended)
 
-    const bool LOGGING_MESSAGE_VERBOSE   = true;   // If the master process should report diagnostics
-    const bool LOGGING_MESSAGE_PVERBOSE  = false;  // If all processes should report diagnostics (not recommended)
-    const bool LOGGING_TIMER_REALVERBOSE = false;  // If LoggingTimer should report during run (only for heavy debug). If false, LoggingTimer will still report timing statistics at the end
-
     // Initialize LoggingMessage and LoggingTimer
-    Dune::LoggingMessage::getInstance().init(mpihelper, LOGGING_MESSAGE_VERBOSE, LOGGING_MESSAGE_PVERBOSE);
-    Dune::LoggingTimer<Dune::LoggingMessage>::getInstance().init(LOGGING_TIMER_REALVERBOSE);
+    typedef Dune::LoggingTimer<Dune::LoggingMessage> LoggingTimer;
+    Dune::LoggingMessage::init(mpihelper);
+    LoggingTimer::init(mpihelper);
 
     // Construct the grid factory
     Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, withGmshElementIndex, mpihelper);

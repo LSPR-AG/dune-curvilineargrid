@@ -45,7 +45,7 @@ int main (int argc , char **argv) {
 	const int ELEMENT_CODIM = 0;  // Codimension of element in 3D
 
 	// Create Grid
-	typedef Dune::CurvilinearGrid<ctype, dim, isCached, Dune::LoggingMessage> GridType;
+	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
 	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
 
 	// Reporting vector
@@ -74,7 +74,7 @@ int main (int argc , char **argv) {
 	PDWVector::writeParallelData2File("volumevector_" + std::to_string(mpihelper.size()) + ".txt", indexVec, sizeVec, dataVec, *grid);
 
 	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
-	LoggingTimerDev::getInstance().reportParallel(mpihelper);
+	LoggingTimerDev::reportParallel();
 
     // Delete the grid
     delete grid;

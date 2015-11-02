@@ -16,7 +16,6 @@ struct DiagnosticsHelper
 	typedef typename  GridType::ctype            ctype;
 	typedef typename  GridType::GridStorageType  GridStorageType;
 	typedef typename  GridType::GridBaseType     GridBaseType;
-	typedef typename  GridType::LoggingMessage   LoggingMessage;
 
 	static const int  cdim     = GridType::dimension;
 	static const bool isCached = GridType::is_cached;

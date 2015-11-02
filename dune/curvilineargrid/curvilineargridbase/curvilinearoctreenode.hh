@@ -57,13 +57,13 @@
 namespace Dune {
 
 // Forward-declaration of GridBase because the modules include each other
-template <class ct, int cdim, bool isCached, class LogMsg>
+template <class ct, int cdim, bool isCached>
 class CurvilinearGridBase;
 
 
 /** \brief Wraps CurvilinearGridBase element with functions necessary for CurvilinearOctree    */
 
-template <class ct, int cdim, bool isCached, class LogMsg>
+template <class ct, int cdim, bool isCached>
 class CurvilinearOctreeNode {
 public:
 
@@ -71,7 +71,7 @@ public:
     typedef Dune::FieldVector<ct, cdim>      Vertex;
     typedef std::vector<Vertex>              VertexVector;
 
-    typedef Dune::CurvilinearGridBase<ct, cdim, isCached, LogMsg>  GridBaseType;
+    typedef Dune::CurvilinearGridBase<ct, cdim, isCached>  GridBaseType;
 
     typedef typename GridBaseType::EntityStorage                        EntityStorage;
     typedef typename GridBaseType::template Codim<0>::EntityGeometry    ElementGeometry;

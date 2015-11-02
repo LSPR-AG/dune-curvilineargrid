@@ -69,7 +69,6 @@ public:
 
     /* public types */
     typedef typename GridBase::GridStorageType                  GridStorageType;
-    typedef typename GridBase::LoggingMessage                   LoggingMessage;
 
     typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
     typedef typename GridStorageType::LocalIndexType            LocalIndexType;
@@ -380,7 +379,7 @@ protected:
 
             // Assemble the array to send
             // *****************************************************************
-            for (int iElem = 0; iElem < thisProcessNeighborGhostLocalIndex_[iProc].size(); iElem++)
+            for (unsigned int iElem = 0; iElem < thisProcessNeighborGhostLocalIndex_[iProc].size(); iElem++)
             {
                 LocalIndexType ghostElementLocalIndex = thisProcessNeighborGhostLocalIndex_[iProc][iElem];
 
@@ -442,7 +441,7 @@ protected:
 
             // Assemble the array to receive
             // *****************************************************************
-            for (int iElem = 0; iElem < neighborProcessGhostInterpOrder_[iProc].size(); iElem++)
+            for (unsigned int iElem = 0; iElem < neighborProcessGhostInterpOrder_[iProc].size(); iElem++)
             {
             	Dune::GeometryType ghostGeometry;
             	ghostGeometry.makeTetrahedron();
@@ -495,7 +494,7 @@ protected:
         {
         	std::set<GlobalIndexType> missingVerticesFromThisProcess;
 
-            for (int iGhost = 0; iGhost < neighborProcessGhostInterpOrder_[iProc].size(); iGhost++)
+            for (unsigned int iGhost = 0; iGhost < neighborProcessGhostInterpOrder_[iProc].size(); iGhost++)
             {
             	// Unpack element data
             	// ***********************************************************************
@@ -630,7 +629,7 @@ protected:
 
                 // Associate all relevant process boundary faces with this ghost element
                 // ***********************************************************************
-                for (int iFace = 0; iFace < associatedFaceSubentityIndex.size(); iFace++)
+                for (unsigned int iFace = 0; iFace < associatedFaceSubentityIndex.size(); iFace++)
                 {
                 	InternalIndexType thisFaceGhostSubentityIndex    = associatedFaceSubentityIndex[iFace];
                 	LocalIndexType    thisGhostFaceLocalIndex        = gridstorage_.elementSubentityCodim1_[thisElementLocalIndex][thisFaceGhostSubentityIndex];
@@ -742,6 +741,7 @@ protected:
 
                 Vertex p = gridstorage_.point_[thisVertexLocalIndex].coord;
 
+                // [FIXME] Replace 3 by some reasonable constant
                 for (int iDim = 0; iDim < 3; iDim++)  { sendbuf.push_back(p[iDim]); }
 
                 //std::cout << "process_" << rank_ << " sending to process " << i << " a requested vertex " << thisVertexGlobalIndex << " with coord " << p << std::endl;
@@ -770,7 +770,7 @@ protected:
 
         for (int iProc = 0; iProc < size_; iProc++)
         {
-        	for (int iVert = 0; iVert < missingVertices[iProc].size(); iVert++)
+        	for (unsigned int iVert = 0; iVert < missingVertices[iProc].size(); iVert++)
             {
                 Vertex thisCoord;
                 thisCoord[0] = recvbuf[iData++];

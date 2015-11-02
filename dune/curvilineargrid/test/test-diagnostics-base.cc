@@ -52,20 +52,14 @@ int main(int argc, char** argv)
 {
     // initialize MPI, finalize is done automatically on exit
     static MPIHelper &mpihelper=Dune::MPIHelper::instance(argc,argv);
-    int rank=mpihelper.rank();
-    int size=mpihelper.size();
-
-    const bool LOGGING_MESSAGE_VERBOSE   = true;   // If the master process should report diagnostics
-    const bool LOGGING_MESSAGE_PVERBOSE  = false;  // If all processes should report diagnostics (not recommended)
-    const bool LOGGING_TIMER_REALVERBOSE = false;  // If LoggingTimer should report during timing (only for debug)
 
     // Instantiation of the logging message and loggingtimer
-    typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
-    Dune::LoggingMessage::getInstance().init(mpihelper, LOGGING_MESSAGE_VERBOSE, LOGGING_MESSAGE_PVERBOSE);
-    LoggingTimerDev::getInstance().init(LOGGING_TIMER_REALVERBOSE);
+    typedef Dune::LoggingTimer<Dune::LoggingMessage>  LoggingTimer;
+    LoggingMessage::init(mpihelper);
+    LoggingTimer::init(mpihelper);
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
-    typedef Dune::CurvilinearGridBase<double, 3, isGeometryCached, Dune::LoggingMessage>  SimplexGridType;
+    typedef Dune::CurvilinearGridBase<double, 3, isGeometryCached>  SimplexGridType;
 
     bool withGhostElements = true;
     bool withGmshElementIndex = true;
@@ -109,6 +103,7 @@ int main(int argc, char** argv)
 
     diagnostic.runAnalyticTest("curvilinearMeshAnalyticTest.txt");
 
+    LoggingTimer::reportParallel();
 
 
     // Delete the GridBase

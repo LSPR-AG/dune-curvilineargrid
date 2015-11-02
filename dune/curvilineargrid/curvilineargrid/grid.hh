@@ -32,7 +32,7 @@ namespace Dune
 
 	// Forwards-Declaration
 	// ****************************************************************************************
-	template< class ct,  int cdim, bool isCached, class LogMsg>         class CurvilinearGrid;
+	template< class ct,  int cdim, bool isCached >                      class CurvilinearGrid;
 	template< int mydim, int cdim, class GridImp >                      class CurvGeometry;
 	template< int codim, int dim,  class GridImp>                       class CurvEntity;
 	template< int codim, class GridImp >                                class CurvEntityPointer;
@@ -48,7 +48,7 @@ namespace Dune
 
 	// GridFamily
 	// ****************************************************************************************
-    template <class ct, int cdim, bool isCached, class LogMsg>
+    template <class ct, int cdim, bool isCached>
 	struct CurvGridFamily
 	{
 #if HAVE_MPI
@@ -59,8 +59,8 @@ namespace Dune
 
 	    typedef ct  ctype;
 
-	    typedef Dune::CurvilinearGrid<ct, cdim, isCached, LogMsg>               GridType;
-	    typedef typename Dune::CurvilinearGridBase<ct, cdim, isCached, LogMsg>  GridBaseType;
+	    typedef Dune::CurvilinearGrid<ct, cdim, isCached>               GridType;
+	    typedef typename Dune::CurvilinearGridBase<ct, cdim, isCached>  GridBaseType;
 	    typedef typename GridBaseType::GridStorageType                          GridStorageType;
 
 	    typedef typename GridStorageType::LocalIndexType                 LocalIndexType;
@@ -96,12 +96,12 @@ namespace Dune
 
 
 
-  template <class ct, int cdim, bool isCached, class LogMsg>
-  class CurvilinearGrid : public GridDefaultImplementation < cdim, cdim, ct, Dune::CurvGridFamily< ct, cdim, isCached, LogMsg > >
+  template <class ct, int cdim, bool isCached>
+  class CurvilinearGrid : public GridDefaultImplementation < cdim, cdim, ct, Dune::CurvGridFamily< ct, cdim, isCached > >
       /** \endcond */
   {
-    typedef CurvilinearGrid<ct, cdim, isCached, LogMsg> Grid;
-    typedef GridDefaultImplementation < cdim, cdim, ct, Dune::CurvGridFamily< ct, cdim, isCached, LogMsg > > Base;
+    typedef CurvilinearGrid<ct, cdim, isCached> Grid;
+    typedef GridDefaultImplementation < cdim, cdim, ct, Dune::CurvGridFamily< ct, cdim, isCached > > Base;
 
     template< int, int, class >                    friend class Dune::CurvGrid::CurvEntityBase;
     template< int, class >                         friend class Dune::CurvGrid::CurvEntity;
@@ -117,22 +117,22 @@ namespace Dune
 
   public:
 
-    typedef Dune::CurvGridFamily< ct, cdim, isCached, LogMsg > GridFamily;
+    typedef Dune::CurvGridFamily< ct, cdim, isCached > GridFamily;
     typedef typename GridFamily::Traits Traits;                               //! type of the grid traits
 
     static const int dimension      = cdim;
     static const int dimensionworld = cdim;
     static const bool is_cached     = isCached;
     typedef ct                        ctype;
-    typedef LogMsg                              LoggingMessage;
-    typedef Dune::LoggingTimer<LoggingMessage>  LoggingTimer;
 
 
     // Curvilinear Grid Implementation
     // ************************************************************************************
 
-    typedef Dune::CurvilinearGridBase<ct, cdim, isCached, LoggingMessage>  GridBaseType;
-    typedef typename GridBaseType::GridStorageType                         GridStorageType;
+    typedef Dune::CurvilinearGridBase<ct, cdim, isCached>  GridBaseType;
+    typedef typename GridBaseType::GridStorageType         GridStorageType;
+    typedef typename GridBaseType::LoggingMessage          LoggingMessage;
+    typedef typename GridBaseType::LoggingTimer            LoggingTimer;
 
     typedef typename GridStorageType::LocalIndexType          LocalIndexType;
     typedef typename GridStorageType::GlobalIndexType         GlobalIndexType;
@@ -731,9 +731,9 @@ namespace Dune
   // CurvilinearGrid::Codim
   // -------------------
 
-  template<class ct, int cdim, bool isCached, class LogMsg>
+  template<class ct, int cdim, bool isCached>
   template< int codim >
-  struct CurvilinearGrid< ct, cdim, isCached, LogMsg>::Codim
+  struct CurvilinearGrid< ct, cdim, isCached>::Codim
     : public Base::template Codim< codim >
   {
 

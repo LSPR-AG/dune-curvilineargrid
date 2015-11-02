@@ -65,16 +65,12 @@ class CurvilinearGridDiagnostic
 private:
 
 	typedef typename  GridType::ctype            ctype;
-	typedef typename  GridType::LoggingMessage   LoggingMessage;
 
 	typedef typename  GridType::LeafGridView LeafGridView;
 	typedef typename  LeafGridView::IntersectionIterator IntersectionIterator;
 
 	static const int  cdim     = GridType::dimension;
 	static const bool isCached = GridType::is_cached;
-
-    static const unsigned int LOG_CATEGORY_DEBUG  = LoggingMessage::Category::DEBUG;
-    static const unsigned int LOG_CATEGORY_ERROR  = LoggingMessage::Category::ERROR;
 
     // Codimensions of entity types for better code readability
     static const int   VERTEX_CODIM   = GridType::GridStorageType::VERTEX_CODIM;

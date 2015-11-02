@@ -52,7 +52,6 @@ namespace Dune
 
   	    typedef typename remove_const< Grid >::type::GridStorageType  GridStorageType;
   	    typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
-  	    typedef typename GridBaseType::LoggingMessage                 LoggingMessage;
 
     	typedef typename GridBaseType::LocalIndexType        LocalIndexType;
     	typedef typename GridBaseType::GlobalIndexType       GlobalIndexType;

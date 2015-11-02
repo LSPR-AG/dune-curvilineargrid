@@ -141,7 +141,7 @@ int subentityExtraDofNumber(int gmshIndex, int dim)
 // correct differences between gmsh and Dune in the local vertex numbering
 // [FIXME] THIS METHOD DOES NOT WORK WITH INCOMPLETE ORDER GMSH ELEMENTS AT THE MOMENT
 void gmsh2DuneElementDofNumbering(GeometryType gt, int thisElmOrder, std::vector<int> &elementDofSet) {
-    int thisElmDofNo = elementDofSet.size();
+	unsigned int thisElmDofNo = elementDofSet.size();
     std::vector<int> tmp;
 
     if (!gt.isSimplex() || gt.dim() < 2 || gt.dim() > 3)  {
@@ -150,13 +150,13 @@ void gmsh2DuneElementDofNumbering(GeometryType gt, int thisElmOrder, std::vector
 
     if (gt.isTriangle())
     {
-        for (int i = 0; i < thisElmDofNo; i++) { tmp.push_back(elementDofSet[triangularInterpolatoryVertexGmsh2DuneMap[thisElmOrder - 1][i]]); }
-        for (int i = 0; i < thisElmDofNo; i++) { elementDofSet[i] = tmp[i]; }
+        for (unsigned int i = 0; i < thisElmDofNo; i++) { tmp.push_back(elementDofSet[triangularInterpolatoryVertexGmsh2DuneMap[thisElmOrder - 1][i]]); }
+        for (unsigned int i = 0; i < thisElmDofNo; i++) { elementDofSet[i] = tmp[i]; }
     }
     else if (gt.isTetrahedron())
     {
-        for (int i = 0; i < thisElmDofNo; i++) { tmp.push_back(elementDofSet[tetrahedralInterpolatoryVertexGmsh2DuneMap[thisElmOrder - 1][i]]); }
-        for (int i = 0; i < thisElmDofNo; i++) { elementDofSet[i] = tmp[i]; }
+        for (unsigned int i = 0; i < thisElmDofNo; i++) { tmp.push_back(elementDofSet[tetrahedralInterpolatoryVertexGmsh2DuneMap[thisElmOrder - 1][i]]); }
+        for (unsigned int i = 0; i < thisElmDofNo; i++) { elementDofSet[i] = tmp[i]; }
     }
 }
 

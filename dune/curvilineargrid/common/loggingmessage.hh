@@ -95,6 +95,9 @@ namespace LoggingMessageCompile
 
 class LoggingMessage
 {
+	const bool DEFAULT_VERBOSE  = true;
+	const bool DEFAULT_PVERBOSE = false;
+
 private:
 	typedef LoggingMessage   This;
 
@@ -113,20 +116,13 @@ public:
 
 
     /** \brief Initialises the logging message. This is compulsory before calling write routines
-     *
      * \param[in]  mpihelper       Parallel MPIHelper class (or its fake) provided by Dune
-     * \param[in]  verbose         To log or not to log
-     * \param[in]  parallelVerbose If parallel=false, only master process logs, otherwise every process logs
-     *
      *  */
-    void init(MPIHelper & mpihelper, bool verbose, bool processVerbose)
-    {
-    	verbose_ = verbose;
-    	processVerbose_ = processVerbose;
+    static void init(MPIHelper & mpihelper)  { getInstance().initImpl(mpihelper); }
 
-    	rank_ = mpihelper.rank();
-    	size_ = mpihelper.size();
-    }
+    /** \brief Allows user to dynamically change verbosity and parallel verbosity of the code */
+    static void setVerbose(bool verbose)    { getInstance().setVerboseImpl(verbose); }
+    static void setPVerbose(bool pverbose)  { getInstance().setPVerboseImpl(pverbose); }
 
 
     /** \brief Logging message writer. This is a singleton routine intended to be run like LoggingMessage::write(...);
@@ -155,6 +151,22 @@ public:
 
 
 protected:
+
+    //*******************************************************/
+    // Initialization routines                             **/
+    //*******************************************************/
+
+    void initImpl(MPIHelper & mpihelper)
+    {
+    	verbose_        = DEFAULT_VERBOSE;   // To log or not to log
+    	processVerbose_ = DEFAULT_PVERBOSE;  // If parallel=false, only master process logs, otherwise every process logs
+
+    	rank_ = mpihelper.rank();
+    	size_ = mpihelper.size();
+    }
+
+    void setVerboseImpl(bool verbose)    { verbose_ = verbose; }
+    void setPVerboseImpl(bool pverbose)  { processVerbose_ = pverbose; }
 
     //*******************************************************/
     // Auxiliary routines                                  **/
@@ -203,7 +215,6 @@ protected:
     		}
     	}
     }
-
 
 
     template <unsigned int messageCat>

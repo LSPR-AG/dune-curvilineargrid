@@ -598,7 +598,7 @@ namespace Dune
         } else
         {
         	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "No MPI found! Running sequential case without partitioning");
-        	for (int i = 0; i < baseElementVector.size(); i++) { thisProcessElementIndexSet.insert(baseElementVector[i].elementIndex_); }
+        	for (unsigned int i = 0; i < baseElementVector.size(); i++) { thisProcessElementIndexSet.insert(baseElementVector[i].elementIndex_); }
         }
 
 
@@ -890,7 +890,7 @@ namespace Dune
             )
     {
         // Write elements to factory
-        for (int i = 0; i < internalElementVector.size(); i++)
+        for (unsigned int i = 0; i < internalElementVector.size(); i++)
         {
         	Dune::LoggingMessage::writePatience(" Inserting internal elements into factory...", i, internalElementVector.size());
 
@@ -983,7 +983,7 @@ namespace Dune
             )
     {
         // Write elements to factory
-        for (int i = 0; i < boundaryElementVector.size(); i++)
+        for (unsigned int i = 0; i < boundaryElementVector.size(); i++)
         {
         	Dune::LoggingMessage::writePatience(" Inserting boundary segments into factory...", i, boundaryElementVector.size());
 
@@ -1225,7 +1225,7 @@ namespace Dune
 
     	 // Combine element globalId's with processes to which these elements go
     	 std::vector<ETP> elementToProcess;
-    	 for (int i = 0; i < baseElementVector.size(); i++) {
+    	 for (unsigned int i = 0; i < baseElementVector.size(); i++) {
     		 elementToProcess.push_back(std::make_pair(baseElementVector[i].elementIndex_, part[i]));
     	 }
     	 // Sort according to increasing process order
@@ -1241,7 +1241,7 @@ namespace Dune
 
     	 std::vector<int> sendcounts (size_, 0);
     	 std::vector<int> recvcounts (size_, 0);
-    	 for (int i = 0; i < part.size(); i++) {
+    	 for (unsigned int i = 0; i < part.size(); i++) {
     		 //std::cout << " step " << i << " requests process " << part[i] << " of total " << size_ << std::endl;
     		 sendcounts[part[i]] += 1;
     	 }
@@ -1270,8 +1270,8 @@ namespace Dune
 
     	 int recvbuf_size = 0;
     	 std::vector<int> sendbuf;
-    	 for (int i = 0; i < elementToProcess.size(); i++) { sendbuf.push_back(elementToProcess[i].first); }
-    	 for (int i = 0; i < recvcounts.size(); i++)       { recvbuf_size += recvcounts[i]; }
+    	 for (unsigned int i = 0; i < elementToProcess.size(); i++) { sendbuf.push_back(elementToProcess[i].first); }
+    	 for (unsigned int i = 0; i < recvcounts.size(); i++)       { recvbuf_size += recvcounts[i]; }
 
     	 std::vector<int> recvbuf(recvbuf_size, 0);
 

@@ -131,12 +131,12 @@ namespace Dune {
 // *******************************************
 // Forwards-declaration
 // *******************************************
-template<class ct, int cdim, bool isCached, class LogMsg>
+template<class ct, int cdim, bool isCached>
 class CurvilinearGridStorage;
 
 
 
-template <class ct, int cdim, bool isCached, class LogMsg>
+template <class ct, int cdim, bool isCached>
 class CurvilinearGridBase {
 public:
 
@@ -157,14 +157,13 @@ public:
      * *******************************************************************/
 
 	typedef ct        ctype;
-	typedef LogMsg    LoggingMessage;
 	static const int dimension = cdim;
 	static const int dimensionworld = cdim;
 	static const int is_cached = isCached;
 
-    typedef Dune::CurvilinearGridBase<ct, cdim, isCached, LoggingMessage>               GridBaseType;
-    typedef typename Dune::CurvilinearGridStorage<ct, cdim, isCached, LoggingMessage>   GridStorageType;
-    typedef typename Dune::CurvilinearGridConstructor<GridBaseType>                     GridConstructorType;
+    typedef Dune::CurvilinearGridBase<ct, cdim, isCached>               GridBaseType;
+    typedef typename Dune::CurvilinearGridStorage<ct, cdim, isCached>   GridStorageType;
+    typedef typename Dune::CurvilinearGridConstructor<GridBaseType>     GridConstructorType;
 
     typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
     typedef typename GridStorageType::LocalIndexType            LocalIndexType;
@@ -194,6 +193,9 @@ public:
     typedef typename GridStorageType::CurvilinearLooseOctree    CurvilinearLooseOctree;
 
     typedef typename GridStorageType::EntityNeighborRankVector  EntityNeighborRankVector;
+
+    typedef typename Dune::LoggingMessage                       LoggingMessage;
+    typedef typename Dune::LoggingTimer<LoggingMessage>         LoggingTimer;
 
     // Defines the Elementary geometry
     template <int codim>
@@ -858,7 +860,7 @@ public:
 
 
             // Loop over candidate elements and search for local coordinate using internal Geometry mechanism
-            for (int i = 0; i < elementIndices.size(); i++) {
+            for (unsigned int i = 0; i < elementIndices.size(); i++) {
             	typename Codim<ELEMENT_CODIM>::EntityGeometry thisGeometry = entityGeometry<ELEMENT_CODIM>(elementIndices[i]);
 
                 Vertex thisLocalC;
@@ -1105,7 +1107,7 @@ protected:
             Dune::CurvilinearGeometryHelper::subentityInternalCoordinateSet<ct, cdim>(assocElement.geometryType, thisEdge.interpOrder, 2, thisEdgeData.subentityIndex);
 
         // Calculate the localIndices's of vertices of this face by extracting them from the element vertex Ids
-        for(int i = 0; i < subentityVertexIndices.size(); i++) { thisEdge.vertexIndexSet.push_back(assocElement.vertexIndexSet[subentityVertexIndices[i]]); }
+        for(unsigned int i = 0; i < subentityVertexIndices.size(); i++) { thisEdge.vertexIndexSet.push_back(assocElement.vertexIndexSet[subentityVertexIndices[i]]); }
 
         return thisEdge;
     }
@@ -1131,7 +1133,7 @@ protected:
             Dune::CurvilinearGeometryHelper::subentityInternalCoordinateSet<ct, cdim>(assocElement.geometryType, thisFace.interpOrder, 1, thisFaceData.element1SubentityIndex);
 
         // Calculate the localIndices's of vertices of this face by extracting them from the element vertex Ids
-        for(int i = 0; i < subentityVertexIndices.size(); i++) { thisFace.vertexIndexSet.push_back(assocElement.vertexIndexSet[subentityVertexIndices[i]]); }
+        for(unsigned int i = 0; i < subentityVertexIndices.size(); i++) { thisFace.vertexIndexSet.push_back(assocElement.vertexIndexSet[subentityVertexIndices[i]]); }
 
         return thisFace;
     }

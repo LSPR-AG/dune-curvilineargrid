@@ -109,7 +109,7 @@ SubEntityIndexVector refineEntitySubset<EDGE_CODIM, EDGE_CODIM>(
 	SubEntityIndexVector rez;
 
     // Construct all edges and add them to the edge array
-    for (int i = 0; i < edgeEnumeratorReduced.size(); i++)
+    for (unsigned int i = 0; i < edgeEnumeratorReduced.size(); i++)
     {
         int x = edgeEnumeratorReduced[i][0];
 
@@ -135,7 +135,7 @@ SubEntityIndexVector refineEntitySubset<FACE_CODIM, EDGE_CODIM> (
 	SubEntityIndexVector rez;
 
     // Construct all edges and add them to the edge array
-    for (int i = 0; i < triangleEnumeratorReduced.size(); i++)
+    for (unsigned int i = 0; i < triangleEnumeratorReduced.size(); i++)
     {
         int x = triangleEnumeratorReduced[i][0];
         int y = triangleEnumeratorReduced[i][1];
@@ -168,7 +168,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, EDGE_CODIM> (
 	SubEntityIndexVector rez;
 
     // Construct all edges and add them to the edge array
-    for (int i = 0; i < tetrahedronEnumeratorReduced.size(); i++)
+    for (unsigned int i = 0; i < tetrahedronEnumeratorReduced.size(); i++)
     {
         int x = tetrahedronEnumeratorReduced[i][0];
         int y = tetrahedronEnumeratorReduced[i][1];
@@ -209,7 +209,7 @@ SubEntityIndexVector refineEntitySubset<FACE_CODIM, FACE_CODIM> (
 {
 	SubEntityIndexVector rez;
 
-    for (int i = 0; i < triangleEnumeratorReduced.size(); i++) {
+    for (unsigned int i = 0; i < triangleEnumeratorReduced.size(); i++) {
         // Construct two triangles (123) and (234) from 4 points, where 1 is the index point
         //   3--4
         //   |\ |
@@ -261,7 +261,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
 
     // Takes tetrahedral discretization point key to globalID 3D map, and splits it into 4 triangle 2D maps, corresponding to the faces of the tetrahedron
     Coord2GlobalMapVector consistingTriangles(4);
-    for (int i = 0; i < triangleEnumerator.size(); i++)
+    for (unsigned int i = 0; i < triangleEnumerator.size(); i++)
     {
         int x = triangleEnumerator[i][0];
         int y = triangleEnumerator[i][1];
@@ -279,7 +279,8 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
     }
 
     // Discretizes resulting triangles using triangle discretization routine
-    for (int iFace = 0; iFace < 4; iFace++)
+    // [FIXME] Replace Nr 4 by subentity number
+    for (unsigned int iFace = 0; iFace < 4; iFace++)
     {
     	SubEntityIndexVector faceSub = refineEntitySubset<FACE_CODIM, FACE_CODIM> (triangleEnumeratorReduced, nInterval, consistingTriangles[iFace]);
     	rez.insert (rez.end(), faceSub.begin(), faceSub.end());
@@ -409,9 +410,6 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
       typedef typename FieldCoordMap::iterator            FieldCoordMapIter;
 
       typedef std::vector< IndexVector >                  ElemGridEnumerate;
-
-      // Logging Message Typedefs
-      typedef typename GridType::LoggingMessage           LoggingMessage;
 
       // VTK constants
       const std::string VTK_XML_VERSION = "1.0";
@@ -925,7 +923,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Computing and writing refinement-edges" );
     	SubEntityIndexVector thisEntitySubset = VTKEntitySubset::refineEntitySubset<codim, subcodim>(simplexEnumerateReduced, nInterval, parametricToIndex);
 
-    	for (int i = 0; i < thisEntitySubset.size(); i++) {
+    	for (unsigned int i = 0; i < thisEntitySubset.size(); i++) {
             vtkCodimVertexIndex_[subcodim].push_back(thisEntitySubset[i]);
             vtkCodimPhysicalTag_[subcodim].push_back(    (tagSet.size() > 0) ? tagSet[0] : 0);
             vtkCodimStructuralType_[subcodim].push_back( (tagSet.size() > 1) ? tagSet[1] : 0);
@@ -937,7 +935,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     GlobalVector vectorCentreOfMass( const std::vector<GlobalVector> & cornerVector)
     {
         GlobalVector rez;
-        for (int i = 0; i < cornerVector.size(); i++) { rez += cornerVector[i]; }
+        for (unsigned int i = 0; i < cornerVector.size(); i++) { rez += cornerVector[i]; }
         rez /= cornerVector.size();
         return rez;
     }
@@ -1021,7 +1019,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         std::vector< LocalVector > simplexLocalGrid = Dune::CurvilinearGeometryHelper::simplexGridCoordinateSet<double, mydim>(simplexEnumerate, nInterval);
 
         LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Computing and inserting refinement vertices" );
-        for (int i = 0; i < simplexEnumerate.size(); i++)
+        for (unsigned int i = 0; i < simplexEnumerate.size(); i++)
         {
             // Find if this vertex is internal or boundary
             bool isBoundaryPoint = (mydim == 3) ? onTetrahedronBoundary(simplexEnumerate[i], nInterval) : true;

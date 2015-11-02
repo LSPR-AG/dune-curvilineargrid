@@ -83,7 +83,7 @@ int main (int argc , char **argv) {
 	const int grid_file_type = 1;  // createGrid procedure provides 6 different example grids numbered 0 to 5
 
     // Create Grid
-	typedef Dune::CurvilinearGrid<ctype, dimension, isCached, Dune::LoggingMessage> GridType;
+	typedef Dune::CurvilinearGrid<ctype, dimension, isCached> GridType;
 	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
 
 	// Traverse all entities of the grid and write information about each entity
@@ -93,7 +93,7 @@ int main (int argc , char **argv) {
 	traversal<3, GridType>(*grid);  // Corners
 
 	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
-	LoggingTimerDev::reportParallel(mpihelper);
+	LoggingTimerDev::reportParallel();
 
     // Delete the grid
     delete grid;

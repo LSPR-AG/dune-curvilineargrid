@@ -25,7 +25,7 @@ int main (int argc , char **argv) {
 	const int grid_file_type = 1;  // createGrid procedure provides 6 different example grids numbered 0 to 5
 
 	// Create Grid
-	typedef Dune::CurvilinearGrid<ctype, dim, isCached, Dune::LoggingMessage> GridType;
+	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
 	GridType * grid = createGrid<GridType>(mpihelper, 2);
 
 
@@ -37,7 +37,7 @@ int main (int argc , char **argv) {
 
 
 	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
-	LoggingTimerDev::getInstance().reportParallel(mpihelper);
+	LoggingTimerDev::reportParallel();
 
     // Delete the grid
     delete grid;

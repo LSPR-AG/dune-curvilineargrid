@@ -50,8 +50,7 @@ class CurvilinearGlobalIndexConstructor
 
 	typedef          GridBase                                   GridBaseType;
 	typedef typename GridBase::GridStorageType                  GridStorageType;
-    typedef typename GridBase::LoggingMessage                   LoggingMessage;
-    typedef typename Dune::LoggingTimer<LoggingMessage>         LoggingTimer;
+    typedef typename GridBase::LoggingTimer                     LoggingTimer;
 
     typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
     typedef typename GridStorageType::LocalIndexType            LocalIndexType;
@@ -269,7 +268,7 @@ public:
         // 5) Enumerate all edges, faces and elements that you own
         // Enumerating elements is simply shifting the local index, since all elements on this process are owned by it
         // *************************************************************************
-        for (int i = 0; i < gridstorage_.element_.size(); i++)  { gridstorage_.element_[i].globalIndex = elementsBeforeMe + i; }
+        for (unsigned int i = 0; i < gridstorage_.element_.size(); i++)  { gridstorage_.element_[i].globalIndex = elementsBeforeMe + i; }
 
 
         // 6) Communicate missing edge and face global indices to their corresponding neighbors. Receive them and assign.
@@ -364,7 +363,7 @@ protected:
 
         // 3) Sort all neighbor rank sets, to accelerate set intersection algorithm in future
         // ********************************************************
-        for (int i = 0; i < gridstorage_.PB2PBNeighborRank_[VERTEX_CODIM].size(); i++)
+        for (unsigned int i = 0; i < gridstorage_.PB2PBNeighborRank_[VERTEX_CODIM].size(); i++)
         {
             std::sort(gridstorage_.PB2PBNeighborRank_[VERTEX_CODIM][i].begin(), gridstorage_.PB2PBNeighborRank_[VERTEX_CODIM][i].end());
         }
@@ -454,7 +453,7 @@ protected:
             	// Add a complicated edge for further verification
             	// Store only after verification
                 TmpEdgeData thisPBEdgeData(thisPBEdgeLocalIndex, thisEdgeKey);
-                for (int iEdge = 0; iEdge < edgeneighborset.size(); iEdge++)  {
+                for (unsigned int iEdge = 0; iEdge < edgeneighborset.size(); iEdge++)  {
                 	neighborProcessComplicatedEdgePBLocalIndex[edgeneighborset[iEdge]].push_back(thisPBEdgeData);
                 }
             } else
@@ -565,7 +564,7 @@ protected:
 
         // 6) Sort all edge neighbor rank sets
         // *************************************************************************************************************
-        for (int iEdge = 0; iEdge < gridstorage_.PB2PBNeighborRank_[EDGE_CODIM].size(); iEdge++)
+        for (unsigned int iEdge = 0; iEdge < gridstorage_.PB2PBNeighborRank_[EDGE_CODIM].size(); iEdge++)
         {
         	Dune::LoggingMessage::writePatience("Sorting edge neighbour rank sets...", iEdge, gridstorage_.PB2PBNeighborRank_[EDGE_CODIM].size());
         	std::sort(gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][iEdge].begin(), gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][iEdge].end());
@@ -847,7 +846,7 @@ protected:
             sdispls.push_back((iProc == 0) ? 0 : sdispls[iProc-1] + sendcounts[iProc-1] );
             rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + recvcounts[iProc-1] );
 
-            for (int j = 0; j < facesToSend[iProc].size(); j++)
+            for (unsigned int j = 0; j < facesToSend[iProc].size(); j++)
             {
                 sendbuf.push_back(facesToSend[iProc][j].second);
                 sendbuf.push_back(facesToSend[iProc][j].first.node0);
@@ -967,7 +966,7 @@ protected:
 
                 EdgeInfo thisEdgeInfo(thisEdgeKey, thisGlobalIndex);
 
-                for (int iNeighbor = 0; iNeighbor < gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][localEdgePBIndex].size(); iNeighbor++)
+                for (unsigned int iNeighbor = 0; iNeighbor < gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][localEdgePBIndex].size(); iNeighbor++)
                 {
                     int thisNeighborRank = gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][localEdgePBIndex][iNeighbor];
                     edgesToSend[thisNeighborRank].push_back(thisEdgeInfo);
@@ -989,7 +988,7 @@ protected:
             sdispls.push_back((i == 0) ? 0 : sdispls[i-1] + sendcounts[i-1] );
             rdispls.push_back((i == 0) ? 0 : rdispls[i-1] + recvcounts[i-1] );
 
-            for (int j = 0; j < edgesToSend[i].size(); j++)
+            for (unsigned int j = 0; j < edgesToSend[i].size(); j++)
             {
                 sendbuf.push_back(edgesToSend[i][j].second);
                 sendbuf.push_back(edgesToSend[i][j].first.node0);

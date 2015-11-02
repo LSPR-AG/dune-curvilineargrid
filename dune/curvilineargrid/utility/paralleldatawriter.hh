@@ -20,8 +20,6 @@ class ParallelDataWriter
 	typedef std::vector<DataType>      DataVector;
 	typedef std::vector<int>  SizeVector;
 
-	typedef typename Grid::LoggingMessage      LoggingMessage;
-
 	static const int MPI_MASTER_RANK = 0;
 	static const int ELEMENT_CODIM = 0;
 

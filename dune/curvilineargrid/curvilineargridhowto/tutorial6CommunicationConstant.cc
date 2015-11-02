@@ -329,7 +329,7 @@ int main (int argc , char **argv) {
 	typedef  double    ctype;
 	const int grid_file_type = 1;  // createGrid procedure provides 6 different example grids numbered 0 to 5
 
-	typedef Dune::CurvilinearGrid<ctype, dim, isCached, Dune::LoggingMessage> GridType;
+	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
 
 
 	// Create Grid
@@ -370,6 +370,10 @@ int main (int argc , char **argv) {
 		communicateConst<GridType, 2>(interfType[i], interfDir[i], mpihelper, *grid);  // Edges
 		communicateConst<GridType, 3>(interfType[i], interfDir[i], mpihelper, *grid);  // Vertices
 	}
+
+
+	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+	LoggingTimerDev::reportParallel();
 
 
     // Delete the grid

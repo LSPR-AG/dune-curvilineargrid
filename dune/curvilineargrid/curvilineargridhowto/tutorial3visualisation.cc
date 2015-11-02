@@ -116,7 +116,7 @@ int main (int argc , char **argv) {
 	typedef  double    ctype;
 	const int grid_file_type = 4;  // createGrid procedure provides 6 different example grids numbered 0 to 5
 
-	typedef Dune::CurvilinearGrid<ctype, dim, isCached, Dune::LoggingMessage> GridType;
+	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
 	typedef typename GridType::GridStorageType         GridStorageType;
 	typedef typename GridType::StructuralType          StructuralType;
 	typedef typename Dune::VTKFunction<typename GridType::LeafGridView>   DuneVTKFunction;
@@ -141,6 +141,9 @@ int main (int argc , char **argv) {
     vtkFuncSet_.push_back(new VTKFunctionGlobalSinusoid<GridType>(*grid));  // Sinusoid in global coordinates
 
     writer.write("./", "tutorial-3-output", vtkFuncSet_);
+
+    typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+    LoggingTimerDev::reportParallel();
 
 
     // Delete the grid

@@ -76,7 +76,6 @@ public:
 
 	typedef GridBase                            GridBaseType;
 	typedef typename GridBase::GridStorageType  GridStorageType;
-	typedef typename GridBase::LoggingMessage   LoggingMessage;
 
     typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
     typedef typename GridStorageType::LocalIndexType            LocalIndexType;
@@ -136,7 +135,7 @@ public: /* public methods */
     void generateCornerIndex()
     {
     	// Loop over all elements
-    	for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)
+    	for (unsigned int iElem = 0; iElem < gridstorage_.element_.size(); iElem++)
     	{
     		Dune::LoggingMessage::writePatience("Generating unique corner indices...", iElem, gridstorage_.element_.size());
 
@@ -144,7 +143,7 @@ public: /* public methods */
     		std::vector<LocalIndexType> thisCornerIndex = gridbase_.entityCornerLocalIndex(ELEMENT_CODIM, iElem);
 
         	// Loop over LocalCornerIndices
-    		for (int iCorner = 0; iCorner < thisCornerIndex.size(); iCorner++)
+    		for (unsigned int iCorner = 0; iCorner < thisCornerIndex.size(); iCorner++)
     		{
     			// If this corner has not been added yet, add it
     			LocalIndexType thisIndex = thisCornerIndex[iCorner];
@@ -229,6 +228,8 @@ public: /* public methods */
     {
     	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating communication maps");
 
+    	// [FIXME] GET DATA FROM REF SUBENTITY SIZE
+    	// [FIXME] GET DATA INDIVIDUALLY FOR EACH ELEMENT
 		int nEdgeTriangle = 3;
 		int nVertexTriangle = 3;
 		int nTriangleTet = 4;
@@ -275,6 +276,7 @@ public: /* public methods */
 			for (int i = 0; i < nVertexTriangle; i++)  { faceSubentityIndex[VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, VERTEX_CODIM, i)); }
 
 			// Fill in the sets associated with internal element
+			// [FIXME] Explain what iTmp iterates over
 			std::vector<LocalIndexType> faceNeighborSubentityIndex[2][4];
 			for (int iTmp = 0; iTmp <= 1; iTmp++)
 			{
@@ -301,7 +303,7 @@ public: /* public methods */
 					// **********************************************************************
 					Local2LocalMap & thisLocalMap = gridbase_.selectCommMap(iCodim, tmpTypes[iTmp]);
 
-					for (int iEntity = 0; iEntity < faceNeighborSubentityIndex[iTmp][iCodim].size(); iEntity++ )
+					for (unsigned int iEntity = 0; iEntity < faceNeighborSubentityIndex[iTmp][iCodim].size(); iEntity++ )
 					{
 						LocalIndexType thisEntityLocalIndex = faceNeighborSubentityIndex[iTmp][iCodim][iEntity];
 						Dune::PartitionType thisEntityType = gridbase_.entityPartitionType(iCodim, thisEntityLocalIndex);
@@ -387,7 +389,7 @@ public: /* public methods */
 		// The reason for them being added more than one time, is because a boundary entity can be assigned a neighbour rank by more than one PB face
 		for (int iCodim = 0; iCodim <= dimension; iCodim++)
 		{
-			for (int iEntity = 0; iEntity < gridstorage_.BI2GNeighborRank_[iCodim].size(); iEntity++)
+			for (unsigned int iEntity = 0; iEntity < gridstorage_.BI2GNeighborRank_[iCodim].size(); iEntity++)
 			{
 				Dune::VectorHelper::compactify(gridstorage_.BI2GNeighborRank_[iCodim][iEntity]);
 			}

@@ -91,8 +91,6 @@ int main(int argc, char** argv)
     std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD5;
 
     // Properties of the grid
-    bool verbose        = true;   // Write debug output at all
-    bool processVerbose = false;  // Write debug output from all processes (NOT RECOMENDED)
     bool withGhostElements    = true;
     bool withGmshElementIndex = true;
     bool withProcessPratition = true;
@@ -101,11 +99,11 @@ int main(int argc, char** argv)
     // Instantiation of the logging message
     typedef Dune::LoggingMessage                LoggingMessage;
     typedef Dune::LoggingTimer<LoggingMessage>  LoggingTimer;
-    LoggingMessage::getInstance().init(mpihelper, verbose, processVerbose);
-    LoggingTimer::getInstance().init(false);
+    LoggingMessage::init(mpihelper);
+    LoggingTimer::init(mpihelper);
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
-    typedef Dune::CurvilinearGridBase<double, 3, isCached, Dune::LoggingMessage>  SimplexGridType;
+    typedef Dune::CurvilinearGridBase<double, 3, isCached>  SimplexGridType;
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
@@ -116,7 +114,7 @@ int main(int argc, char** argv)
     //factory.createGrid(nVertexTotal, nElementTotal);
 
     //LoggingTimer::report();
-    LoggingTimer::reportParallel(mpihelper);
+    LoggingTimer::reportParallel();
 
     /** \brief leave program peacefully */
     return(0);

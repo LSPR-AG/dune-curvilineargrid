@@ -14,13 +14,13 @@
 
 #include <dune/curvilineargrid/io/file/curvilineargmshreader.hh>
 
-#include <dune/grid/test/gridcheck.cc>
-#include <dune/grid/test/checkcommunicate.cc>
-#include <dune/grid/test/checkgeometryinfather.cc>
-#include <dune/grid/test/checkintersectionit.cc>
-#include <dune/grid/test/checkiterators.cc>
-#include <dune/grid/test/checkadaptation.cc>
-#include <dune/grid/test/checkpartition.cc>
+#include <dune/grid/test/gridcheck.hh>
+#include <dune/grid/test/checkcommunicate.hh>
+#include <dune/grid/test/checkgeometryinfather.hh>
+#include <dune/grid/test/checkintersectionit.hh>
+#include <dune/grid/test/checkiterators.hh>
+#include <dune/grid/test/checkadaptation.hh>
+#include <dune/grid/test/checkpartition.hh>
 
 const bool isGeometryCached = true;
 
@@ -96,16 +96,12 @@ int main (int argc , char **argv) {
 	// Initialize MPI, if present
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
 
-	const bool LOGGING_MESSAGE_VERBOSE   = true;   // If the master process should report diagnostics
-	const bool LOGGING_MESSAGE_PVERBOSE  = false;  // If all processes should report diagnostics (not recommended)
-	const bool LOGGING_TIMER_REALVERBOSE = false;  // If LoggingTimer should report during timing (only for debug)
-
     // Instantiation of the logging message and loggingtimer
-    typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
-    Dune::LoggingMessage::getInstance().init(mpihelper, LOGGING_MESSAGE_VERBOSE, LOGGING_MESSAGE_PVERBOSE);
-    LoggingTimerDev::getInstance().init(LOGGING_TIMER_REALVERBOSE);
+    typedef Dune::LoggingTimer<Dune::LoggingMessage>     LoggingTimer;
+    LoggingMessage::init(mpihelper);
+    LoggingTimer::init(mpihelper);
 
-	typedef Dune::CurvilinearGrid<double, 3, isGeometryCached, Dune::LoggingMessage> GridType;
+	typedef Dune::CurvilinearGrid<double, 3, isGeometryCached> GridType;
 
 
     /*

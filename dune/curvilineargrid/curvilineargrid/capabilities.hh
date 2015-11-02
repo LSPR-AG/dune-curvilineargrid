@@ -24,24 +24,24 @@ namespace Dune
     // ---------------------------
 
   	// Note: At the moment curvilinear grid only capable of dealing with tetrahedral meshes
-    template< class ctype, int cdim, bool isCached, class LogMsg>
-    struct hasSingleGeometryType< Dune::CurvilinearGrid< ctype, cdim, isCached, LogMsg> >
+    template< class ctype, int cdim, bool isCached>
+    struct hasSingleGeometryType< Dune::CurvilinearGrid< ctype, cdim, isCached> >
     {
         static const bool v = true;
         static const unsigned int topologyId = GenericGeometry::SimplexTopology<3>::type::id;
     };
 
 
-    template< class ctype, int cdim, bool isCached, class LogMsg, int codim >
-    struct hasEntity< Dune::CurvilinearGrid< ctype, cdim, isCached, LogMsg>, codim >
+    template< class ctype, int cdim, bool isCached, int codim >
+    struct hasEntity< Dune::CurvilinearGrid< ctype, cdim, isCached>, codim >
     {
     	static const bool v = true;
     };
 
 
     /*
-    template< class ctype, int cdim, bool isCached, class LogMsg>
-    struct isParallel< Dune::CurvilinearGrid< ctype, cdim, isCached, LogMsg> >
+    template< class ctype, int cdim, bool isCached>
+    struct isParallel< Dune::CurvilinearGrid< ctype, cdim, isCached> >
     {
     	static const bool v = true;
     };
@@ -49,39 +49,39 @@ namespace Dune
 
 
     // FIXME: Do I need to specialize this for all codimensions to avoid, say, 4D grid requests?
-    template< class ctype, int cdim, bool isCached, class LogMsg, int codim >
-    struct canCommunicate< Dune::CurvilinearGrid< ctype, cdim, isCached, LogMsg>, codim >
+    template< class ctype, int cdim, bool isCached, int codim >
+    struct canCommunicate< Dune::CurvilinearGrid< ctype, cdim, isCached>, codim >
     {
     	static const bool v = true;
     };
 
 
-    template< class ctype, int cdim, bool isCached, class LogMsg>
-    struct hasBackupRestoreFacilities< Dune::CurvilinearGrid< ctype, cdim, isCached, LogMsg> >
+    template< class ctype, int cdim, bool isCached>
+    struct hasBackupRestoreFacilities< Dune::CurvilinearGrid< ctype, cdim, isCached> >
     {
       static const bool v = false;
     };
 
-    template< class ctype, int cdim, bool isCached, class LogMsg>
-    struct isLevelwiseConforming< Dune::CurvilinearGrid< ctype, cdim, isCached, LogMsg> >
+    template< class ctype, int cdim, bool isCached>
+    struct isLevelwiseConforming< Dune::CurvilinearGrid< ctype, cdim, isCached> >
     {
       static const bool v = true;
     };
 
-    template< class ctype, int cdim, bool isCached, class LogMsg>
-    struct isLeafwiseConforming< Dune::CurvilinearGrid< ctype, cdim, isCached, LogMsg> >
+    template< class ctype, int cdim, bool isCached>
+    struct isLeafwiseConforming< Dune::CurvilinearGrid< ctype, cdim, isCached> >
     {
       static const bool v = true;
     };
 
-    template< class ctype, int cdim, bool isCached, class LogMsg>
-    struct threadSafe< Dune::CurvilinearGrid< ctype, cdim, isCached, LogMsg> >
+    template< class ctype, int cdim, bool isCached>
+    struct threadSafe< Dune::CurvilinearGrid< ctype, cdim, isCached> >
     {
       static const bool v = false;
     };
 
-    template< class ctype, int cdim, bool isCached, class LogMsg>
-    struct viewThreadSafe< Dune::CurvilinearGrid< ctype, cdim, isCached, LogMsg> >
+    template< class ctype, int cdim, bool isCached>
+    struct viewThreadSafe< Dune::CurvilinearGrid< ctype, cdim, isCached> >
     {
       static const bool v = false;
     };

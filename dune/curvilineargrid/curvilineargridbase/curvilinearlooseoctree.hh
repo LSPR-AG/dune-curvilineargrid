@@ -42,14 +42,13 @@ namespace Dune {
  *                 box sides halved) in center and extent respectively.
  * @author Roman Geus
  */
-template <class ct, int cdim, class NodeType, class LogMsg>
+template <class ct, int cdim, class NodeType>
 class CurvilinearLooseOctree {
 public:
 
 	// typedefs
 	// **************************************************************************
 	typedef  ct      ctype;
-	typedef  LogMsg  LoggingMessage;
 
 	typedef Dune::FieldVector<ctype, cdim>                    Vertex;
 	typedef Dune::CurvilinearOctant<ctype, cdim, NodeType>    CurvilinearOctant;
@@ -105,7 +104,7 @@ public:
     	std::stringstream log_stream;
     	log_stream << "CurvilinearLooseOctree: Adding a node ElementIndex=" << thisNode->elementIndex() <<  " Octant=" << octant << " Depth=" << depth;
 
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(mpihelper_, __FILE__, __LINE__, log_stream.str());
+    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, log_stream.str());
 
         // root is the default octant
         if (octant == 0)  { octant = root_; }
@@ -175,7 +174,7 @@ public:
         }
 
         // descend to children
-        for (int i = 0; i < 8; i ++)
+        for (int i = 0; i < 8; i ++)  // [FIXME] Use constant instead of "8"
         {
             if (octant->children_[i])  { findNode(coord, elementIndices, nNodeVisited, filter, octant->children_[i]); }
         }
@@ -219,7 +218,7 @@ public:
             if ((thisNode->*filter)(coord))  { return thisNode->elementIndex(); }
         }
         // descend to children
-        for (int i = 0; i < 8; i ++) {
+        for (int i = 0; i < 8; i ++) {     // [FIXME] Use constant instead of "8"
             if (octant->children_[i]) {
                 thisNode = findSingleNode(coord, nNodeVisited, filter, octant->children_[i]);
 

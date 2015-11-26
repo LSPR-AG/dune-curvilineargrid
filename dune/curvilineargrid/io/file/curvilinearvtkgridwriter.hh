@@ -85,7 +85,8 @@ public:
 	CurvilinearVTKGridWriter(const Grid & grid) :
 		grid_(grid),
 		virtualRefinementOrder_(0),
-		writeInteriorOnly_(false)
+		writeInteriorOnly_(false),
+		writePatience_(true)
 	{
 
 	}
@@ -96,6 +97,9 @@ public:
 
 	// Allow user to only write interior elements to accelerate writer
 	void writeInteriorOnly(bool interiorOnly)  { writeInteriorOnly_ = interiorOnly; }
+
+	// Allow user to only write interior elements to accelerate writer
+	void writePatience(bool patience)  { writePatience_ = patience; }
 
 	// Write Grid only to VTK
 	void write(std::string path, std::string filenamePrefix)
@@ -123,7 +127,9 @@ public:
 		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Writing Elements" );
 		for (auto&& elementThis : elements(leafView, Dune::Partitions::all))
 		{
-			LoggingMessage::writePatience("CurvilinearVTKGridWriter: Writing Elements to VTK...", elemIterCount++, grid_.size(ELEMENT_CODIM));
+			if (writePatience_) {
+				LoggingMessage::writePatience("CurvilinearVTKGridWriter: Writing Elements to VTK...", elemIterCount++, grid_.size(ELEMENT_CODIM));
+			}
 
 			Dune::GeometryType geomtype   = elementThis.type();
 			StructuralType     thisPType  = elementThis.partitionType();
@@ -214,6 +220,7 @@ private:
 	const Grid & grid_;
 	int virtualRefinementOrder_;   // User-defined discretization order for element sub-refinement
 	bool writeInteriorOnly_;       // User can choose to only write interior elements, thus accelerating writing procedure
+	bool writePatience_;           // User can choose to not write patience output for aestetical purposes
 
 };
 

@@ -1,45 +1,34 @@
-\section{AllCommunicate}
+\subsection{AllCommunicate}
 \label{interface-allcommunicate}
 
 This section will discuss the templated MPI communication and the nearest neighbor communication. \\
 
-
-
-
-
-
 \noindent
-A wrapper for $MPI\_Alltoallv$ communication, allowing arrays of arbitrary type $T$, as long as its size is fixed and can be determined at compile-time (Plain Old Datatype, POD). Non scalable - do not use on very large architectures. Works optimal if each process has non-zero communication to each other. User needs to provide input and output arrays, to which the data to be communicated to all other processes is concatenated, as well as integer arrays denoting how many entries will be sent to and received from each process. Note that out and lengthOut need not be known a priori, but need to have sufficient memory reserved for the output to be written. \\
-
+A wrapper for $MPI\_Alltoallv$ communication, allowing arrays of arbitrary type $T$, as long as its size is fixed and can be determined at compile-time (Plain Old Datatype, POD). Non scalable - do not use on very large architectures. Works optimal if each process has non-zero communication to each other. User needs to provide input and output arrays, to which the data to be communicated to all other processes is concatenated, as well as integer arrays denoting how many entries will be sent to and received from each process. Note that out and lengthOut need not be known a priori, but need to have sufficient memory reserved for the output to be written.
 \begin{mybox}
 \begin{lstlisting}
   template <typename T>
   void communicate(const T * in, const int * lengthIn, T * out, int * lengthOut)
 \end{lstlisting}
 \end{mybox}
-
 \noindent
-A more comfortable interface for the above communication uses vectors. The meaning of the arguments is the same, however, memory is automatically reserved for the output vectors, so there is no need to know the required memory a priori. \\
-
+A more comfortable interface for the above communication uses vectors. The meaning of the arguments is the same, however, memory is automatically reserved for the output vectors, so there is no need to know the required memory a priori.
 \begin{mybox}
 \begin{lstlisting}
   template <typename T>
   void communicate(const std::vector<T> & in, const std::vector<int> & lengthIn, std::vector<T> & out, std::vector<int> & lengthOut)
 \end{lstlisting}
 \end{mybox}
-
 \noindent
-The problem with all-to-all communication is that the price per process grows with process number, which is unaffordable for high processor architectures. In order to avoid this bottleneck a scalable all-to-all communication pattern is used, where each process only communicates with its neighbours, the number of which does not grow with architecture size. In the below protocol, $in$ and $out$ concatenate all the data sent to and received from neighbour processes only. $nNeighborIn$ and $nNeighborOut$ specify the number of send-to-neighbors and receive-from-neighbors. $ranksIn$ and $ranksOut$ specify the ranks of all neighbour processes. Same as in the first protocol, all output variables need not be known a priori, but must have sufficient memory reserved. \\
-
+The problem with all-to-all communication is that the price per process grows with process number, which is unaffordable for high processor architectures. In order to avoid this bottleneck a scalable all-to-all communication pattern is used, where each process only communicates with its neighbours, the number of which does not grow with architecture size. In the below protocol, $in$ and $out$ concatenate all the data sent to and received from neighbour processes only. $nNeighborIn$ and $nNeighborOut$ specify the number of send-to-neighbors and receive-from-neighbors. $ranksIn$ and $ranksOut$ specify the ranks of all neighbour processes. Same as in the first protocol, all output variables need not be known a priori, but must have sufficient memory reserved.
 \begin{mybox}
 \begin{lstlisting}
   template <typename T>
   void communicate_neighbors(const T * in, int nNeighborIn, const int * ranksIn, const int * lengthIn, T * out, int & nNeighborOut, int * ranksOut, int * lengthOut)
 \end{lstlisting}
 \end{mybox}
-
-And a vector version of the above, which automatically reserves memory for output vectors \\
-
+\noindent
+And a vector version of the above, which automatically reserves memory for output vectors
 \begin{mybox}
 \begin{lstlisting}
   template <typename T>

@@ -1,17 +1,17 @@
-\section{Coordinate transformation}
+\subsection{Coordinate transformation}
 
-In order to calculate the coordinate transformation properties, one requires the knowledge of the local-to-global map $\vec{p}(\vec{r})$ and its first partial derivatives. Currently, only the Lagrange Polynomials themselves are provided as hard-coded expressions, but their derivatives are not yet available as hard-coded quantities, and thus are extracted from the analytical map.
+In order to calculate the coordinate transformation properties, one requires the knowledge of the local-to-global map $\vec{p}(\vec{r})$ and its first partial derivatives. Currently, only the Lagrange Polynomials themselves are provided as hard-coded expressions, but their derivatives are not yet available as hard-coded quantities, and thus are extracted from the analytical map. \\
 
-\subsection{Jacobian and JacobianInverse}
-
+\noindent
+\textbf{Jacobian and JacobianInverse}.
 We construct the local-to-global map using the polynomial class, and then compute the Jacobian $J_{ij}(\vec{r}_0) = \partial_{r_i} p_j (\vec{R}) |_{\vec{r}_0}$ using partial differentiation of the polynomial class. This results in a matrix of polynomials, which can be evaluated for the desired local coordinate(s). The inverse and integration element of the element are computed numerically, using Dune-MatrixHelper to invert matrix and calculate the pseudodeterminant $dI = \sqrt{\det(JJ^T)}$. \\
 
-\subsection{Local-to-Global mapping}
+\noindent
+\textbf{Local-to-Global mapping}
+This is the map that defines the curvature of the element via Lagrange Interpolation. To accelerate the calculation, the local-to-global map is computed numerically using hard-coded Lagrange polynomials \\
 
-This is the map that defines the curvature of the element via Lagrange Interpolation. To accelerate the calculation, the local-to-global map is computed numerically using hard-coded Lagrange polynomials
-
-\subsection{Global-to-Local mapping}
-
+\noindent
+\textbf{Global-to-Local mapping}
 The global-to-local method inverts the above map, and finds the local coordinate (of the entity geometry) $\vec{r}$ that corresponds to the requested global coordinate $\vec{x}$. Further, this method is extended to elements with $(dim_{elem} \leq dim_{world})$ by converting it to an optimization problem
 \begin{equation}
   \label{eq-theory-mapping-optimization}
@@ -28,7 +28,7 @@ While this problem is always uniquely solvable in linear case, in curvilinear ca
 \end{itemize}
 
 \noindent
-For obvious reasons we will not solve the problem directly, as searching for roots of a system of polynomial equations with several parameters is a very challenging task \textbf{[POLYNOMIAL ROOTS PAPERS]}. Instead, the problem is solved by a Newton method \textbf{[CITE]}, originally implemented in dune-multilinear geometry.
+For obvious reasons we will not solve the problem directly, as searching for roots of a system of polynomial equations with several parameters is a very challenging task \cite{canny+1989}. Instead, the problem is solved by a first order Gauss-Newton method \cite{bjoerck+1996}, originally implemented in dune-multilinear geometry.
 
 \noindent
 After having discussions with potential users, we have realised that in order to satisfy all use cases there is a need to implement two distinct methods

@@ -1,18 +1,10 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%
-%% objective - CSCS small project proposal
-%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-
 %\documentclass[a4paper,twocolumn]{article}
-%\documentclass[a4paper,10pt]{article}
-\documentclass[12pt]{report}
+\documentclass[a4paper,11pt]{article}
 
 \usepackage[sort&compress,super]{natbib}
 \usepackage[english]{babel}
 \usepackage{amsmath, esint}
+\usepackage{amssymb}
 \usepackage{graphicx}
 \usepackage{tabularx}                                 %% for tabulars with controllable width
 \usepackage{caption}
@@ -37,7 +29,7 @@
 \usepackage{mathtools}
 \usepackage{lscape}
 \usepackage{hyperref}
-
+\usepackage[nameinlink]{cleveref}         %% Allows referencing subfigures. Must be loaded after hyperref
 
 \DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
 \DeclarePairedDelimiter{\floor}{\lfloor}{\rfloor}
@@ -57,11 +49,11 @@ innerrightmargin=4pt,innertopmargin=2pt,innerbottommargin=2pt]{mybox}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \citestyle{plain}
 
-\newcommand{\citeParMetis}{\cite{schloegel+2002, lasalle+2013}}
-\newcommand{\citeGMSH}{\cite{geuzaine+2009}}
-\newcommand{\citeGMSHCurv}{\cite{johnen+2012, toulorge+2013}}
-\newcommand{\citeDune}{\cite{bastian+2008}}
-\newcommand{\citeSuperLUDist}{\cite{li+2003}}
+\newcommand{\citeParMetis}{\cite{schloegel+2002, lasalle+2013} }
+\newcommand{\citeGMSH}{\cite{geuzaine+2009} }
+\newcommand{\citeGMSHCurv}{\cite{johnen+2012, toulorge+2013} }
+\newcommand{\citeDune}{\cite{bastian+2008} }
+\newcommand{\citeSuperLUDist}{\cite{li+2003} }
 
 
 
@@ -78,7 +70,7 @@ innerrightmargin=4pt,innertopmargin=2pt,innerbottommargin=2pt]{mybox}
 
 
 % The following parameters seem to provide a reasonable page setup.
-\topmargin 0.0cm
+\topmargin -1.0cm
 \oddsidemargin 0.2cm
 \textwidth 16.1cm 
 \textheight 21cm
@@ -120,10 +112,12 @@ innerrightmargin=4pt,innertopmargin=2pt,innerbottommargin=2pt]{mybox}
   
 \vspace{1mm}
 
-\noindent $^{\mathrm{b}}$ LSPR AG, Technopark Z\"urich, Technoparkstrasse 1, CH-8005 Z\"urich
+\noindent $^{\mathrm{b}}$ LSPR AG, Grubenstrasse 9, CH-8045 Z\"urich.
 \noindent phone +41 43 366 90 74 - email: \texttt{aleksejs.fomins@lspr.ch} and \texttt{benedikt.oswald@lspr.ch}
 
 \vspace{2mm}
+
+%%\textbf{WEBSITE}
 
 \end{center}
 
@@ -145,48 +139,21 @@ innerrightmargin=4pt,innertopmargin=2pt,innerbottommargin=2pt]{mybox}
 
 \vfill
 
-\noindent \textbf{\textsc{ABSTRACT}} - We introduce the \texttt{dune-curvilineargrid} module. The module provides the self-contained, parallel
-grid manager \texttt{dune-curvilineargrid} for curvilinear tetrahedral elements up to $5^{\mathrm{th}}$ order and conforms to the \text{DUNE}
-\citeDune grid API. We expect the reader to be at least briefly familiar with the Dune interface to fully benefit from this paper.
+\noindent \textbf{\textsc{ABSTRACT}} - We introduce the \texttt{dune-curvilineargrid} module. The module provides the self-contained, parallel grid manager \texttt{dune-curvilineargrid}, as well as the underlying elementary curvilinear geometry class \texttt{dune-curvilineargeometry}. Both modules are developed as extension of \text{DUNE} \citeDune project, and conform the corresponding standard interface. We expect the reader to be at least briefly familiar with the Dune interface to fully benefit from this paper.
 %%
-In particular, \texttt{dune-curvilineargrid} is a grid manager in its own right which offers this functionality:
+This work is carried out by a technology company. It is motivated by reliable and scalable design of nanooptical devices, carried out by our family of electromagnetic codes which run on a full 3D realistic geometries. Curvilinear geometries improve both the accuracy of modeling smooth material boundaries, and the convergence rate of PDE solutions with increasing basis function order \cite{fahs2011}, reducing the computational effort required for robust modeling.
 %%
+\texttt{dune-curvilineargeometry} is capable to model simplex entities (edges, triangles and tetrahedrons) up to polynomial order 5 hard-coded, and up to arbitrary order via analytical procedures. Its most notable features are local-to-global and global-to-local maps, analytical and adaptive integration, explicit polynomial operators (e.g. Jacobians and Integration Elements), caching, series of self-tests.
 %%
-\textbf{(1)} fully parallel mesh input in the \texttt{Gmsh} mesh format, thus we achieve the scalable input of very large meshes;
-i.e. when a large mesh is read from disk, every process in the parallel context reads a small piece of the mesh; thus, we avoid the
-scalability bottleneck that would arise if the whole mesh were read on the master process and then communicated to other processes;
-the latter approach would inevitably lead to memory congestion on the master node and crash the program;
+\texttt{dune-curvilineargrid} uses \texttt{dune-curvilineargeometry} to provide the following functionality: fully parallel input of curvilinear meshes in the \texttt{gmsh}\citeGMSH mesh format, processing only the corresponding part of the mesh on each available core; mesh partitioning by the reader (using \texttt{Parmetis} \citeParMetis); unique global indices for all mesh entities over all processes; ghost elements associated with the interprocessor boundaries; interprocessor communication of data for all entities of the mesh via the standard \text{DUNE} data handle interface.
 %%
+The \texttt{dune-curvilineargrid} grid manager is continuously developed and improved. Among other things, we are working on higher order basis functions, non-uniform h and p-refinement, periodicity and internal boundaries, as well as dense communication protocols, which may become interesting for the implementation of hybrid finite-element-boundary-integral (FEBI) discretisation schemes.
 %%
-\textbf{(2)} once the mesh has been read from disk, it is partitioned using the \texttt{Parmetis} \citeParMetis
-graph partitioning tool;
-%%
-%%
-\textbf{(3)} \texttt{dune-curvilineargrid} manages meshes that consist of tetrahedra with curvilinear faces and edges, up to
-$5^{\mathrm{th}}$ order; the curvilinear mesh geometry is modelled through \textit{Lagrange} polynomials of the respective order;
-%%
-%%
-\textbf{(4)} since \texttt{dune-curvilineargrid} is a fully parallel grid manager for distributed memory architectures, it provides
-globally unique indices over all processes in the parallel context.
-%%
-%%
-\textbf{(5)} the \texttt{dune-curvilineargrid} fully parallel grid manager provides ghost elements associated with the interprocessor
-boundaries;
-%%
-%%
-\textbf{(5)} the \texttt{dune-curvilineargrid} grid manager provides communication protocols via the standard
-\text{DUNE} data handle interface for all codimensions; i.e. data associated with vertices, edges, faces and volumes can
-be communicated.
-%%
-%%
-%%
-%%
-The \texttt{dune-curvilineargrid} grid manager is continuously developed and improved. Among other things, we are working
-on local refinement, modelling hanging nodes, non-uniform curvilinear order, periodicity and internal boundaries which
-may become interesting for the implementation of hybrid finite-element-boundary-integral (FEBI) discretisation schemes.
-%%
-%%
-As more work is being done on \texttt{dune-curvilineargrid}, this document will be updated. For the most recent version, please contact the \textbf{[REPOSITORY]}
+As more work is being done on \texttt{dune-curvilineargrid}, this document will be updated. For the most recent version of the documentation, as well as for the source codes please refer to the following repositories: \\
+
+\noindent
+\textit{http://www.github.com/lspr-ag/dune-curvilineargeometry} \\
+\textit{http://www.github.com/lspr-ag/dune-curvilineargrid}
 
 
 
@@ -194,7 +161,7 @@ As more work is being done on \texttt{dune-curvilineargrid}, this document will 
 % END OF ABSTRACT
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
+\end{titlepage}
 
 
 
@@ -208,10 +175,7 @@ As more work is being done on \texttt{dune-curvilineargrid}, this document will 
 \vspace{15mm}
 \noindent \textbf{Acknowledgements} - While the architecture, implementation and down-to-earth programming
 work for \texttt{dune-curvilineargrid} grid manager is credited with Aleksejs Fomins and Benedikt Oswald,
-both of them are pleased to acknowledge the inspiration and support from the wider
-\text{DUNE} community. We mention names in alphabetical order and sometimes associated with a specific
-subject. In case we have forgotten to acknowledge an important contributor we kindly ask you to inform us and we will be
-happy to insert the name immediately. So, then, here we are:
+both of them are pleased to acknowledge the inspiration and support from the wider \text{DUNE} community. We mention names in alphabetical order and sometimes associated with a specific subject. In case we have forgotten to acknowledge an important contributor we kindly ask you to inform us and we will be happy to insert the name immediately. So, then, here we are:
 %%
 %%
 \textit{Peter Bastian}, Professor at University of Heidelberg, Germany
@@ -258,95 +222,77 @@ numerical integration and quadrature;
 
 \vspace{20mm}
 {\small
-\noindent \textbf{LEGAL NOTICE} - The development of the \texttt{dune-curvilineargrid} grid manager is sponsored by \textbf{LSPR AG},
-Technopark Z\"urich, Technoparkstrasse 1, CH-8005 Z\"urich. \textbf{LSPR AG} exclusively holds all rights associated with \texttt{dune-curvilineargrid}.
-%%
+\noindent \textbf{LEGAL NOTICE} - The development of the \texttt{dune-curvilineargrid} grid manager is sponsored by \textbf{LSPR AG}, Grubenstrasse 9, CH-8045 Z\"urich. \textbf{LSPR AG} exclusively holds all rights associated with \texttt{dune-curvilineargrid}.
 %%
 The \texttt{dune-curvilineargrid} fully parallel grid manager will be made publicly available via \texttt{Github}
-and free software based on the GPLv2 license. Other licenses can be negotiated through
-\texttt{benedikt.oswald@lspr.ch}.
+and free software based on the GPLv2 license. Other licenses can be negotiated through \texttt{curvilinear-grid@lspr.ch}.
 %%
-%%
-We herewith exclude any liability on the part of \textbf{LSPR AG} since the software is made available as is. Any user uses the software
-at his own risk and by no means \textbf{LSPR AG} assumes any responsibility for harmful consequences or any other damage caused
-by the use of the software. In particular, we emphasise that the whole project is governed by Swiss Law and nothing else.  Especially,
-we reject any attempt of any other sovereign law to cover what we do.
+We herewith exclude any liability on the part of \textbf{LSPR AG} since the software is made available as is. Any user uses the software at his own risk and by no means \textbf{LSPR AG} assumes any responsibility for harmful consequences or any other damage caused by the use of the software. In particular, we emphasise that the whole project is governed by Swiss Law and nothing else. Especially, we reject any attempt of any other sovereign law to cover what we do.
 }
 
 
-
-
-
-
-
-
-
-\end{titlepage}
-
-
+\newpage
 \tableofcontents
 
 
-
-
-
-\chapter{Introduction}
+\newpage
+\section{Introduction}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Curvilinear Grid Outline - Section on capabilities of the Grid
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\include{manual-outline}
+\input{manual-outline}
 
 
 
 
 
-
-\chapter{Theory}
+\newpage
+\section{Theory}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Theory for Lagrange Polynomials
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-geometry-theory-lagrange}
+\input{manual-geometry-theory-lagrange}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Theory for global and local mappings
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-geometry-theory-mapping}
+\input{manual-geometry-theory-mapping}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Theory for integration over curvilinear entities
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-geometry-theory-integration}
+\input{manual-geometry-theory-integration}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Theory for point location (OCTree)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-octree}
+%%\input{manual-octree}
 
 
 
 
 
-
-\chapter{Usage}
+\newpage
+\section{Usage}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Curvilinear Grid Howto - Section on tutorials
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\include{manual-tutorials}
+\input{manual-tutorials}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Curvilinear Grid Diagnostics - Section on mesh statistics and visualisation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\include{manual-diagnostics}
+%%\input{manual-diagnostics}
 
 
 
@@ -355,79 +301,79 @@ we reject any attempt of any other sovereign law to cover what we do.
 
 
 
-
-\chapter{Interface - Curvilinear Geometry}
+\newpage
+\section{Interface - Curvilinear Geometry}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of Polynomial Class
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-geometry-polynomial}
+\input{manual-geometry-polynomial}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of Curvilinear Geometry Helper
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-geometry-helper}
+%\input{manual-geometry-helper}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of Interpolator Class
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-geometry-interpolation}
+%%\input{manual-geometry-interpolation}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of Recursive Integration
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-geometry-recursiveintegration}
+%\input{manual-geometry-recursiveintegration}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of Recursive Integration
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-geometry-quadratureintegrator}
+\input{manual-geometry-quadratureintegrator}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of Curvilinear Geometry
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-geometry-curvilineargeometry}
+\input{manual-geometry-curvilineargeometry}
 
 
 
 
-
-\chapter{Interface - Curvilinear Grid}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Interface of Curvilinear Grid Factory
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-interface-curvilineargrid}
-
-\section{Curvilinear Grid Base Implementation}
+\newpage
+\section{Interface - Curvilinear Grid}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Interface of Curvilinear Grid Factory
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-interface-factory}
+%%\input{manual-interface-curvilineargrid}
+
+%%\section{Curvilinear Grid Base Implementation}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Interface of Curvilinear Grid Factory
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{manual-interface-factory}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Interface of Curvilinear GMSH Reader
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-interface-curvilineargmshreader}
+\input{manual-interface-curvilineargmshreader}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Interface of Curvilinear VTK Writer
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-interface-vtkwriter}
+\input{manual-interface-vtkwriter}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Interface of AllCommunication 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-interface-allcommunicate}
+\input{manual-interface-allcommunicate}
 
 
 
@@ -442,34 +388,34 @@ we reject any attempt of any other sovereign law to cover what we do.
 
 
 
-\chapter{Implementation Details}
+%%\section{Implementation Details}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation Details - Curvilinear Element Interpolator
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\include{manual-impl-geometry-curvilineargeometry}
+%%\input{manual-impl-geometry-curvilineargeometry}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation Details - Curvilinear GMSH Reader
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\include{manual-gmshwriter-impl}
+%%\input{manual-gmshwriter-impl}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation Details - Curvilinear Grid Constructor
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\include{manual-constructor}
+%%\input{manual-constructor}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation Details - Curvilinear VTK Writer
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\include{manual-vtkwriter}
+%%\input{manual-vtkwriter}
 
 
 
@@ -478,13 +424,17 @@ we reject any attempt of any other sovereign law to cover what we do.
 
 
 \appendix
-
-\chapter{Proofs}
+\newpage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Proof of polynomial integral over simplex
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\include{manual-geometry-appendix-polynomialintegralproof}
+\input{manual-geometry-appendix-integral-duffytransform}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Proof of polynomial integral over simplex
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{manual-geometry-appendix-polynomialintegralproof}
 
 
 
@@ -498,9 +448,9 @@ we reject any attempt of any other sovereign law to cover what we do.
 % Bibliography
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
+\newpage
 \bibliographystyle{plainnat}
-\bibliography{bib/oswald,bib/numerical_libraries,bib/finite_element_method,bib/electromagnetic}
+\bibliography{bib/oswald,bib/numerical_libraries,bib/finite_element_method,bib/electromagnetic_antenna,bib/electromagnetic_methods,bib/misc,bib/material_properties,bib/interpolation,bib/integration,bib/molecular_plasmonics,bib/numerical_algebra}
 
 
 \printindex

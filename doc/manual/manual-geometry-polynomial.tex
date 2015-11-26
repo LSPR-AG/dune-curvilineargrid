@@ -1,6 +1,5 @@
-\section{Polynomial Class}
+\subsection{Polynomial Class}
 \label{interface-geometry-polynomial}
-
 
 \noindent
 Arbitrary polynomial of order up to $n$ with $d$ parameters can be represented in its expanded form as
@@ -9,31 +8,22 @@ for example in 3D this can be written as
 \[ p(\vec{u}) = \sum_i A_i u^{pow_{u,i}} v^{pow_{v,i}} w^{pow_{w, i}},  \]
 
 \noindent
-Therefore, we define a Monomial class, which stores a constant multiplier $A$ and powers vector $pow$. \\
+We define a Monomial class, which stores a constant multiplier $A$ and a vector of powers $pow$. \\
 
 \begin{mybox}
 \begin{lstlisting}
   PolynomialTraits::Monomial(double prefNew, std::vector<int> powerNew)
-  PolynomialTraits::Monomial(double prefNew, int x)
-  PolynomialTraits::Monomial(double prefNew, int x, int y)
-  PolynomialTraits::Monomial(double prefNew, int x, int y, int z)
 \end{lstlisting}
 \end{mybox}
 
-
-
-
-\subsection{Methods}
-\label{interface-geometry-polynomial-methods}
-
-
-A polynomial can be constructed either empty, from a single monomial or from a vector of monomials. \\
+\noindent
+A polynomial can be constructed either empty, from a single monomial or from another polynomial. \\
 
 \begin{mybox}
 \begin{lstlisting}
   Polynomial()
   Polynomial(Monomial M)
-  Polynomial(std::vector<Monomial> Mvec)
+  Polynomial(const Polynomial & other)
 \end{lstlisting}
 \end{mybox}
 
@@ -86,10 +76,10 @@ The following auxiliary methods can be used to extract additional information ab
 
 
 
-\subsection{Tests}
-
-
-\noindent
-Currently the tests are only for 1, 2 and 3 dimensions. Most of the tests use intrinsic functionality like polynomial operators and derivatives to construct polynomials and print them to the screen, and request the user to to verify manually if they match the expected polynomials which are also printed. For each dimension there is one test which integrates a non-linear polynomial over simplex and prints out the result which is also compared manually. \\
-
-\textbf{TODO:} These tests can and should be automatized in the future using integer string comparison. The test program should throw an error if a test fails
+%%\subsection{Tests}
+%%
+%%
+%%\noindent
+%%Currently the tests are only for 1, 2 and 3 dimensions. Most of the tests use intrinsic functionality like polynomial operators and derivatives to construct polynomials and print them to the screen, and request the user to to verify manually if they match the expected polynomials which are also printed. For each dimension there is one test which integrates a non-linear polynomial over simplex and prints out the result which is also compared manually. \\
+%%
+%%\textbf{TODO:} These tests can and should be automatized in the future using integer string comparison. The test program should throw an error if a test fails

@@ -1,7 +1,7 @@
-\section{Lagrange Polynomial Interpolation}
+\subsection{Lagrange Polynomial Interpolation}
 \label{theory-lagrange}
 
-Below we present the theory of interpolation using Lagrange Polynomials, applied to simplex geometries, This section is inspired by \textbf{[wiki-lagrange], [Papers]}, and is a summary of well-known results. The goal is to construct a mapping $\vec{x} = \vec{p}(\vec{r})$ from local coordinates of an entity to global coordinates of the domain. In its own local coordinates, the entity is called \citeDune{} a reference element. A simplex reference element is given by the following coordinates: \\
+Below we present the theory of interpolation using Lagrange Polynomials, applied to simplex geometries, This section is inspired (among others), by \cite{koshiba+2000, ilic+2003, berrut+2004}, and is a summary of well-known results. The goal is to construct a mapping $\vec{x} = \vec{p}(\vec{r})$ from local coordinates of an entity to global coordinates of the domain. In its own local coordinates, the entity is called \citeDune{} a reference element. A simplex reference element is given by the following coordinates: \\
 
 \noindent
 \begin{tabular}{l l l}
@@ -12,6 +12,8 @@ Below we present the theory of interpolation using Lagrange Polynomials, applied
   $\Delta_2$ & 2 & $\{ 0, 0 \}, \{ 1, 0 \}, \{ 0, 1 \}$ \\
   $\Delta_3$ & 3 & $\{ 0, 0, 0 \}, \{ 1, 0, 0 \}, \{ 0, 1, 0 \}, \{ 0, 0, 1 \}$ \\
 \end{tabular} \\
+
+\vspace{2mm}
 
 \noindent
 Local simplex geometries can be parametrized using the local coordinate vector $\vec{r}$: \\
@@ -25,13 +27,13 @@ Local simplex geometries can be parametrized using the local coordinate vector $
   Tetrahedron & $\vec{r}=(u,v,w)$  & $u \in [0,1]$, $v \in [0, 1-u]$ and $w \in [0, 1-u-v]$ \\
 \end{tabular} \\
 
-\subsection{Interpolatory Vertices}
+\subsubsection{Interpolatory Vertices}
 \label{theory-lagrange-vertices}
 
 \noindent
 In order to define the curvilinear geometry, a set of real geometry points $\vec{x}_i = \vec{p}_i(\vec{r}_i)$ is given to be interpolated over. By convention, the real geometry is sampled over a structured grid on a reference simplex, namely
 \[\vec{r}_{i,j,k} = \frac{(i,j,k)}{Ord}, \;\;\; i=[0..Ord], \;\;\; j=[0..Ord-i], \;\;\; k=[0..Ord-i-j]\]
-where $Ord$ is the interpolation order of the surface. Thus, points from this uniform grid in local coordinates must be mapped to the provided points in global coordinates. It is the job of the meshing software (e.g. GMSH\citeGMSH{}) to ensure that the global geometry of an entity is non-singular / non-self-intersecting. In principle, a non-uniform grid could be used in order to minimize the effect of Runge phenomenon \textbf{CITE\_RUNGE}, However, it is not an issue for lower dimensions. \\
+where $Ord$ is the interpolation order of the surface. Thus, points from this uniform grid in local coordinates must be mapped to the provided points in global coordinates. It is the job of the meshing software (e.g. GMSH\citeGMSH{}) to ensure that the global geometry of an entity is non-singular / non-self-intersecting. In principle, a non-uniform grid could be used in order to minimize the effect of Runge phenomenon \cite{runge1901}, However, it is not an issue for lower dimensions. \\
 
 \noindent
 One can verify that the above discretization generates the following number of interpolatory points: \\
@@ -46,7 +48,7 @@ One can verify that the above discretization generates the following number of i
 \end{tabular} \\
 
 
-\subsection{Interpolatory Polynomials}
+\subsubsection{Interpolatory Polynomials}
 \label{theory-lagrange-polynomials}
 
 \noindent
@@ -70,7 +72,7 @@ The number of interpolatory points above exactly matches the total number of mon
 \end{itemize}
 
 \noindent
-Ultimately, we wish to approximate the mapping $\vec{p}(\vec{r})$ by a polynomial of the order $Ord$, such that it exactly fits the provided interpolatory vertices $\vec{x}_i$. Since there are as many interpolatory vertices as there are monomials, such a polynomial will be unique. This allows the simplex geometries to be interpolated by \textit{complete} basis of a given order. This is not the same for all entities. For example, for hexahedra, these numbers do not match, therefore one either has to use interpolation of incomplete polynomial order, or choose a more sophisticated local discretization. \textbf{[Volakis2010]} choose the first approach, interpolating a 9 node 2nd order rectangle with 4th order incomplete polynomial which has a convenient separable tensor product form. \\
+Ultimately, we wish to approximate the mapping $\vec{p}(\vec{r})$ by a polynomial of the order $Ord$, such that it exactly fits the provided interpolatory vertices $\vec{x}_i$. Since there are as many interpolatory vertices as there are monomials, such a polynomial will be unique. This allows the simplex geometries to be interpolated by \textit{complete} basis of a given order. This is not the same for all entities. For example, for hexahedra, these numbers do not match, therefore one either has to use interpolation of incomplete polynomial order, or choose a more sophisticated local discretization. \citeauthor{volakis+2006}\cite{volakis+2006} choose the first approach, interpolating a 9 node 2nd order rectangle with 4th order incomplete polynomial which has a convenient separable tensor product form. \\
 
 \noindent
 But back to simplices. One way to write such a polynomial approximation is
@@ -113,7 +115,7 @@ where $V_{ij} = z_i (\vec{r}_j)$, and find the Lagrange polynomials by inverting
 It is important to understand that the resulting interpolated geometry in global coordinates is NOT exhaustively defined by the shape of its boundary, as the geometry inside the entity also undergoes this polynomial transformation.
 
 
-\subsection{Implementation for Simplices}
+\subsubsection{Implementation for Simplices}
 \label{subsection-simplexgrid}
 
 \noindent
@@ -142,7 +144,7 @@ Also, it is convenient to note that $(\Delta^{d}_n)_i / n$ is exactly the parame
 
 \begin{figure}[hp]
     \centering
-    \includegraphics[scale=0.5]{doc-pics/pic-simplex-grid.png}
+    \includegraphics[scale=0.5]{images/pic-simplex-grid.png}
     %\caption{Awesome Image}
     %\label{fig:awesome_image}
 \end{figure}

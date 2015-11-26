@@ -1,68 +1,82 @@
-\section{Usage (Curvilinear Grid How-to)}
-\label{usage-howto}
-
+\noindent
 In order to learn the workings of curvilinear grid it is easiest to study the source code of relevant tutorials \index{tutorial} provided inside the curvilinear grid module.
 
 \subsection{Tutorial 1 - Getting started}
 \label{usage-howto-tutorial-gettingstarted}
 
-In this tutorial we will create a Curvilinear Grid by reading it from a GMSH file. This and all other tutorials can be run both in serial and in parallel.
-First we define the grid \\
+\noindent
+In this tutorial we will create a Curvilinear Grid by reading it from a GMSH file. This and all other tutorials can be run both in serial and in parallel. First we define the grid \\
 
 \begin{mybox}
 \begin{lstlisting}
-  typedef Dune::CurvilinearGrid<dim, dimworld, ctype> GridType;
+  typedef Dune::CurvilinearGrid<ctyoe, dim, isCached> GridType;
 \end{lstlisting}
 \end{mybox}
 
 \noindent
-where $dim=3$ and $dimworld=3$ are dimensions of the grid and the world containing the grid. Currently this is the only allowed setup. \\
+where $dim=3$ is the dimension of the grid, $ctype=double$ is the underlying real type, and the $isCached$ is a bool variable determining if the curvilinear geometry caching is used (recommended). Currently, only 3D grids are available. Then the curvilinear grid is created by a short $createGrid$ procedure.  \\
+
+\noindent
+Firstly, the the logging functionality is initialized. These singleton classes allow the grid to write parallel text output, as well as report parallel timing statistics on the different stages of grid constructon. They can also be used by the user to write user logging output and time user functions, comparing them to the grid construction time. \\
+
+\begin{mybox}
+\begin{lstlisting}
+  Dune::LoggingMessage::getInstance().init(mpihelper);
+  Dune::LoggingTimer<Dune::LoggingMessage>::getInstance().init(mpihelper);
+\end{lstlisting}
+\end{mybox}
 
 \noindent
 Afterwards, we construct the Curvilinear Grid Factory \\
 
 \begin{mybox}
 \begin{lstlisting}
-  Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, verbose, processVerbose, mpihelper);
+  Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, withGmshElementIndex, mpihelper);
 \end{lstlisting}
 \end{mybox}
 
 \noindent
-where $bool\ withGhostElements$ defines whether the Ghost Elements will be constructed. $bool\ verbose,\ processVerbose$ determine the master process and all other processes would write the debug output. \\
+where $bool\ withGhostElements$ defines whether the Ghost Elements will be constructed and $bool\ withGmshElementIndex$ determines if the global element index from GMSH is going to be reused by the grid (recommended). \\
 
 \noindent
 Then the Parallel Curvilinear GMSH Reader is used to read the mesh into the factory. \\
 
 \begin{mybox}
 \begin{lstlisting}
-    Dune::CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper, verbose, processVerbose, writeReaderVTKFile, insertBoundarySegment); 
+  Dune::CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper); 
 \end{lstlisting}
 \end{mybox}
 
 \noindent
-where $filename$ is the name of the $.msh$ file. $bool\ writeReaderVTKFile$ option allows to write the mesh to parallel VTU files immediately after reading. $bool\ insertBoundarySegment$ enables inserting boundary segments from the GMSH file. Currently the switch must be true, and $.msh$ file must contain all boundary segments for the grid to work. \\
+where $filename$ is the name of the $.msh$ file \\
 
 \noindent
-Finally, the factory is used to create the grid and return a pointer to it \\
+The factory is used to create the grid and return a pointer to it \\
 \begin{mybox}
 \begin{lstlisting}
   factory.createGrid();
 \end{lstlisting}
 \end{mybox}
 
+If we are interested in the time it took for different processes to construct different parts of the grid, this statistics can be obtained using \\
+
+\begin{mybox}
+\begin{lstlisting}
+  LoggingTimer::getInstance().reportParallel(mpihelper);
+\end{lstlisting}
+\end{mybox}
+
+
 
 \subsection{Tutorial 2 - Traverse}
 \label{usage-howto-tutorial-traverse}
 
-This tutorial repeats the procedure from tutorial 1 to create the grid, after which it iterates over the grid and extracts relevant information from the curvilinear entities. Currently, there is no refinement, so only leaf iterators are available, which are defined the usual Dune way given a codimension $codim$ of the entities\\
+This tutorial repeats the procedure from tutorial 1 to create the grid. Afterwards, it iterates over the grid and extracts relevant information from the curvilinear entities. Currently, there is no refinement, so only leaf iterators are available, which are defined using the Dune 2.4 $auto \&\&$ standard. The below iterator will iterate over all entities of the grid of a given codimension \\
 
 \begin{mybox}
 \begin{lstlisting}
-  typedef typename LeafGridView::template Codim<codim>::Iterator EntityLeafIterator;
-  EntityLeafIterator ibegin = leafView.template begin<codim>();
-  EntityLeafIterator iend   = leafView.template end<codim>();
-  
-  for (EntityLeafIterator it = ibegin; it != iend; ++it) {...}
+  LeafGridView leafView = grid.leafGridView();
+  for (auto&& elementThis : entities(leafView, Dune::Dim<dim - codim>())) {...}
 \end{lstlisting}
 \end{mybox}
 
@@ -70,15 +84,19 @@ This tutorial repeats the procedure from tutorial 1 to create the grid, after wh
 Now we would like to extract some relevant information from the iterator \\
 \begin{mybox}
 \begin{lstlisting}
-  Dune::GeometryType gt              = it->type();
-  LocalIndexType  localIndex         = grid.leafIndexSet().index(*it);
-  GlobalIndexType globalIndex        = grid.template entityGlobalIndex<codim>(*it);
-  PhysicalTagType physicalTag        = grid.template entityPhysicalTag<codim>(*it);
-  InterpolatoryOrderType interpOrder = grid.template entityInterpolationOrder<codim>(*it);
+  Dune::GeometryType gt = elementThis.type();
+  LocalIndexType  localIndex = grid.leafIndexSet().index(elementThis);
+  GlobalIndexType globalIndex = grid.template entityGlobalIndex<codim>(elementThis);
+  PhysicalTagType physicalTag = grid.template entityPhysicalTag<codim>(elementThis);
+  InterpolatoryOrderType interpOrder = grid.template entityInterpolationOrder<codim>(elementThis)
+	
+  BaseGeometry geom = grid.template entityBaseGeometry<codim>(elementThis);
+  std::vector<GlobalCoordinate> interpVertices = geom.vertexSet();
 \end{lstlisting}
 \end{mybox}
 
-The $GeometryType$ and $LocalIndex$ are standard in Dune. $GlobalIndex$ provides a unique integer for each entity of a given codimension, over all processes. $PhysicalTag$ is the tag associated with the entity as defined in GMSH. It can be used to relate to the material property of the entity, or to emphasize its belonging to a particular subdomain. Originally this information was only available for extraction through the reader directly. $InterpolatoryOrder$ is an integer denoting the polynomial interpolation order of the geometry of the entity. It is allowed to take values 1 to 5. \\
+\noindent
+The $GeometryType$ and $LocalIndex$ are standard in Dune. $GlobalIndex$ provides a unique integer for each entity of a given codimension, over all processes. $PhysicalTag$ is the tag associated with the entity as defined in GMSH. It can be used to relate to the material property of the entity, or to emphasize its belonging to a particular subdomain. Originally this information was only available for extraction through the reader directly. $InterpolatoryOrder$ is an integer denoting the polynomial interpolation order of the geometry of the entity. It is allowed to take values 1 to 5. The $entityBaseGeometry$ gives user direct access to the curvilinear geometry class of the entity, thus extending the interface provided by Dune::Grid::Geometry. For example, it can be used to obtain the set of interpolatory vertices of the geometry. \\
 
 
 
@@ -88,58 +106,50 @@ The $GeometryType$ and $LocalIndex$ are standard in Dune. $GlobalIndex$ provides
 \subsection{Tutorial 3 - Visualisation}
 \label{usage-howto-tutorial-visualisation}
 
-Curvilinear VTK writer is a tool capable of writing curvilinear geometries to VTK, VTU and PVTU files. It has the following features
+This tutorial demonstrates a simple way to output the curvilinear grid and associated vector fields (e.g. solutions of your PDE) to PVTU file set using our CurvilinearVTKGridWriter. We write 2 example fields over the same mesh - sinusoid, defined in local coordinates of the element, and sinusoid, defined in global coordinates of the world. This tutorial also teaches us several important things:
 \begin{itemize}
-	\item Works in serial and parallel
-	\item Writes curvilinear edges, triangles and tetrahedra
-	\item Curvilinear entities are discretized into sets of linear edges / triangles, which are then written
-	\item Writes following parameters for each entity
-	  \subitem - process rank    - the rank of containing process
-	  \subitem - physical tag    - an integer associated with with each entity, for example its material property
-	  \subitem - structural type - an integer which distinguishes between different partition types of the entity, such as Internal, Ghost, Domain and Process Boundaries
+	\item Local fields are unique for each element, whereas global fields are independent of the element considered.
+	\item Local fields are associated with the orientation of the element in space, which can be arbitrary. Thus, to correctly display local fields, one must consider the orientation of the element. This can be achieved by considering the global coordinates and/or global indices of the corner vertices of the element.
 \end{itemize}
 
 \noindent
-Creation of the grid and extraction of its parameters is done in the same way as in tutorial 2. To write the VTK output, first the writer class needs to be initialized \\
+We start by constructing a curvilinear geometry same as in the first tutorial. We then proceed to initialize the writer, as well as fix its virtual refinement order to 15. We do this, because we want to resolve the details of the sinusoid function as good as possible, and because the mesh size is small. This operation is very expensive. Should we choose to avoid specifying a fixed refinement order, the writer will calculate this order itself by considering the curvilinear order of the element. This should be fine for most FEM applications, unless the basis order of the element is larger than its curvilinear order. \\
 
 \begin{mybox}
-\begin{lstlisting}
-  Dune::CurvilinearVTKWriter<GridType> vtkCurvWriter(verbose, processVerbose, mpihelper);
+\begin{lstlisting}    
+  Dune::CurvilinearVTKGridWriter<GridType> writer(*grid);
+    
+  const int userDefinedVirtualRefinement = 15;
+  writer.useFixedVirtualRefinement(userDefinedVirtualRefinement);
 \end{lstlisting}
 \end{mybox}
 
 \noindent
-Afterwards, the tags vector needs to be created by combining the parameters discussed above
+We proceed to define a vector of function pointers - the sinusoid functions we would like to plot over each element. \\
 
 \begin{mybox}
-\begin{lstlisting}
-  std::vector<int> tags  { physicalTag, structType, mpihelper.rank() };
+\begin{lstlisting}    
+  std::vector<DuneVTKFunction *> vtkFuncSet_;
+  vtkFuncSet_.push_back(new VTKFunctionLocalSinusoid<GridType>());
+  vtkFuncSet_.push_back(new VTKFunctionGlobalSinusoid<GridType>(*grid));
 \end{lstlisting}
 \end{mybox}
-
+	
 \noindent
-Now each entity of dimension $mydim$ is added to the writer using the command below. The corresponding parameters are described in the \textbf{[WRITER]} section. \\
+The functions must obey the Dune::VTKFunction standard, defining the following methods: \\
 
 \begin{mybox}
-\begin{lstlisting}
-  vtkCurvWriter.template addCurvilinearElement<mydim>(gt, interpVertices, tags, interpOrder, N_DISCRETIZATION_POINTS, interpolate, explode, WRITE_VTK_EDGES, WRITE_VTK_TRIANGLES);
+\begin{lstlisting}    
+  // Number of components of the field (3 in 3d)
+  virtual int ncomps() const  { .... }
+  
+  // Component of the field f[comp] of the element, evaluated at a local coordinate xi
+  virtual double evaluate(int comp, const EntityElement & element, const LocalCoordinate &xi) const {... }
+  
+  // Name of the function
+  virtual std::string name() const { }
 \end{lstlisting}
 \end{mybox}
-
-\noindent
-Finally, the data needs to be written to a file. For this one of the following 3 routines can be used \\
-
-\begin{mybox}
-\begin{lstlisting}
-  vtkCurvWriter.writeVTK(filename);
-  vtkCurvWriter.writeVTU(filename);
-  vtkCurvWriter.writeParallelVTU(filename_without_extension);
-\end{lstlisting}
-\end{mybox}
-
-\noindent
-The first two would write the output into the specified VTK and VTU files correspondingly. The third one would write a VTU file and a PVTU file if on master process, and only VTU file if on any other process.
-
 
 
 
@@ -229,6 +239,7 @@ Now, in order to calculate the Gauss law integral, the above functor needs to be
 \end{lstlisting}
 \end{mybox}
 
+\noindent
 The StatInfo is a return data-type of the QuadratureIntegrator, which is a pair of the integral result, and the quadrature order at which it converged \\
 
 
@@ -277,28 +288,28 @@ Integration of a vector quantity is done the same way as the integration of a sc
 %\subsection{Tutorial 4 - Recursive Numerical Integration}
 %\label{usage-howto-tutorial-integration-recursive}
 
-\subsection{Tutorial 5 - Polynomial Manipulation and Integration}
-\label{usage-howto-tutorial-polynomial}
-
-\subsection{Tutorial 6 - Communication}
-\label{usage-howto-tutorial-communication}
-
-\paragraph{Determining communicating entities}
-
-In this tutorial we explicitly select all entities of the grid that are supposed to communicate for each communication procedure, and communicate a dummy constant. The goal is to confirm that all the expected entities were communicated over, and all other were not. \\
-
-\noindent
-Briefly, the procedure communicateConstant iterates over all process process boundary intersections, and marks its neighbour entities, if they will be sending or receiving within the provided interface. Then the custom DataHandleConst is used to perform the communication. This data handle communicates one and the same constant to all entities it is requested. The important thing is that whenever gather or scatter methods are called, it checks if the requested entity was marked for sending or receiving, and throws an error if it is not. Finally, the main procedure checks that the total number of entities that have received the constant is equal to the number of entities marked for receiving.
-
-
-\paragraph{Communicating global Id}
-
-In this simple example, a global Id of each entity is communicated, and compared to the global Id on the receiving side. An error is thrown if they mismatch.
-
-
-
-\subsection{Tutorial 7 - Point Location - OCTree}
-\label{usage-howto-tutorial-octree}
+%%\subsection{Tutorial 5 - Polynomial Manipulation and Integration}
+%%\label{usage-howto-tutorial-polynomial}
+%%
+%%\subsection{Tutorial 6 - Communication}
+%%\label{usage-howto-tutorial-communication}
+%%
+%%\paragraph{Determining communicating entities}
+%%
+%%In this tutorial we explicitly select all entities of the grid that are supposed to communicate for each communication procedure, and communicate a dummy constant. The goal is to confirm that all the expected entities were communicated over, and all other were not. \\
+%%
+%%\noindent
+%%Briefly, the procedure communicateConstant iterates over all process process boundary intersections, and marks its neighbour entities, if they will be sending or receiving within the provided interface. Then the custom DataHandleConst is used to perform the communication. This data handle communicates one and the same constant to all entities it is requested. The important thing is that whenever gather or scatter methods are called, it checks if the requested entity was marked for sending or receiving, and throws an error if it is not. Finally, the main procedure checks that the total number of entities that have received the constant is equal to the number of entities marked for receiving.
+%%
+%%
+%%\paragraph{Communicating global Id}
+%%
+%%In this simple example, a global Id of each entity is communicated, and compared to the global Id on the receiving side. An error is thrown if they mismatch.
+%%
+%%
+%%
+%%\subsection{Tutorial 7 - Point Location - OCTree}
+%%\label{usage-howto-tutorial-octree}
 
 
 

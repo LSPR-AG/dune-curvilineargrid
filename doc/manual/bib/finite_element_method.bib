@@ -1,18 +1,77 @@
 
-@article{benamou+1997,
-	Abstract = {We present an iterative domain decomposition method to solve the Helmholtz equation and related optimal control problems. The proof of convergence of this method relies on energy techniques. This method leads to efficient algorithms for the numerical resolution of harmonic wave propagation problems in homogeneous and heterogeneous media. },
-	Author = {Jean-David Benamou and Bruno Despr{\`e}s},
-	Doi = {http://dx.doi.org/10.1006/jcph.1997.5742},
-	Issn = {0021-9991},
-	Journal = {Journal of Computational Physics},
-	Number = {1},
-	Pages = {68 - 82},
-	Title = {A Domain Decomposition Method for the Helmholtz Equation and Related Optimal Control Problems},
-	Url = {http://www.sciencedirect.com/science/article/pii/S0021999197957429},
-	Volume = {136},
-	Year = {1997},
-	Bdsk-Url-1 = {http://www.sciencedirect.com/science/article/pii/S0021999197957429},
-	Bdsk-Url-2 = {http://dx.doi.org/10.1006/jcph.1997.5742}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%   FDTD                        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@book{taflove2000,
+  title={Computational Electrodynamics:  The Finite-Difference Time-Domain Method},
+  author={Taflove, A. and Hagness, S.C.},
+  year={2000},
+  publisher={Artech House}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%   FEM                         %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@book{volakis1998,
+  title={Finite element method for electromagnetics},
+  author={John Leonidas Volakis and Arindam Chatterjee and Leo C. Kempel},
+  year={1998},
+  publisher={IEEE Press}
+}
+
+@book{jin2014,
+  title={The finite element method in electromagnetics},
+  author={Jin, Jian-Ming},
+  year={2014},
+  publisher={John Wiley \& Sons}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%   HTVFE                       %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@book{whitney1957,
+  title={Geometric Integration Theory},
+  author={Hassler Whitney},
+  year={1957},
+  publisher={Princeton University Press}
+}
+
+@ARTICLE{ise+1991, 
+author={Ise, K. and Inoue, K. and Koshiba, M.}, 
+journal={Microwave Theory and Techniques, IEEE Transactions on}, 
+title={Three-dimensional finite-element method with edge elements for electromagnetic waveguide discontinuities}, 
+year={1991}, 
+volume={39}, 
+number={8}, 
+pages={1289-1295}, 
+keywords={finite element analysis;edge elements;electromagnetic waveguide discontinuities;finite-element method;metal wedges;spurious solutions;three-dimensional electromagnetic problems;Electromagnetic analysis;Electromagnetic fields;Electromagnetic scattering;Electromagnetic waveguides;Finite element methods;Magnetic fields;Rectangular waveguides;Waveguide components;Waveguide discontinuities;Waveguide junctions}, 
+doi={10.1109/22.85402}, 
+ISSN={0018-9480}, 
+month={Aug}
+}
+
+@article{nedelec1986,
+year={1986},
+issn={0029-599X},
+journal={Numerische Mathematik},
+volume={50},
+number={1},
+doi={10.1007/BF01389668},
+title={A new family of mixed finite elements in R3},
+url={http://dx.doi.org/10.1007/BF01389668},
+publisher={Springer-Verlag},
+keywords={AMS(MOS): 65N30; CR: G1.8},
+author={Nédélec, J.C.},
+pages={57-81},
+language={English}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%   Curvilinear Elements        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @article{ciarlet+1972,
 	__Markedentry = {[fomins:6]},
@@ -31,6 +90,139 @@
 	Volume = {1},
 	Year = {1972},
 	Bdsk-Url-1 = {http://dx.doi.org/10.1016/0045-7825(72)90006-0}}
+
+@article{lenoir1986,
+	Abstract = {We describe a practical procedure for the triangulation of arbitrary n-dimensional regular bounded domains by isoparametric simplicial elements preserving the optimal order of accuracy. Along similar lines we prove general error estimates for the finite element solution of second order elliptic problems. Various kinds of nonhomogeneous boundary conditions can be dealt with, such as Dirichlet, Neumann and Robin boundary conditions.},
+	Author = {Lenoir, M.},
+	Copyright = {Copyright {\copyright} 1986 Society for Industrial and Applied Mathematics},
+	Issn = {00361429},
+	Journal = {SIAM Journal on Numerical Analysis},
+	Jstor_Articletype = {research-article},
+	Jstor_Formatteddate = {Jun., 1986},
+	Language = {English},
+	Number = {3},
+	Pages = {pp. 562-580},
+	Publisher = {Society for Industrial and Applied Mathematics},
+	Title = {Optimal Isoparametric Finite Elements and Error Estimates for Domains Involving Curved Boundaries},
+	Url = {http://www.jstor.org/stable/2157524},
+	Volume = {23},
+	Year = {1986},
+	Bdsk-Url-1 = {http://www.jstor.org/stable/2157524}}
+
+@ARTICLE{koshiba+2000, 
+author={Koshiba, M. and Tsuji, Y.}, 
+journal={Lightwave Technology, Journal of}, 
+title={Curvilinear hybrid edge/nodal elements with triangular shape for guided-wave problems}, 
+year={2000}, 
+volume={18}, 
+number={5}, 
+pages={737-743}, 
+keywords={circular waveguides;optical waveguide theory;optical waveguides;rib waveguides;vectors;circular waveguides;curved boundaries;curvilinear hybrid edge/nodal elements;guided-wave problems;higher order elements;large refractive-index differences;optical waveguide theory;rib waveguides;straight boundaries;triangular shape;vector basis functions;Computational efficiency;Convergence;Electromagnetic waveguides;Finite element methods;Lagrangian functions;Magnetic analysis;Magnetic fields;Maxwell equations;Scattering;Shape}, 
+doi={10.1109/50.842091}, 
+ISSN={0733-8724}, 
+month={May},}
+
+@ARTICLE{ilic+2003, 
+author={Ilic, M.M. and Notaros, B.M.}, 
+journal={Microwave Theory and Techniques, IEEE Transactions on}, 
+title={Higher order hierarchical curved hexahedral vector finite elements for electromagnetic modeling}, 
+year={2003}, 
+volume={51}, 
+number={3}, 
+pages={1026-1033}, 
+keywords={Galerkin method;cavity resonators;eigenvalues and eigenfunctions;finite element analysis;Galerkin-type finite-element method;arbitrary electromagnetic cavities;curl-conforming polynomial vector basis functions;curved surfaces;efficiency;eigenvalue analysis;electromagnetic modeling;field-approximation orders;finite-element technique;flat surfaces;generalized curvilinear hexahedra;geometrical curvature;hierarchical curved hexahedral vector finite elements;microwave modeling;p-refinement;Context modeling;Eigenvalues and eigenfunctions;Electromagnetic analysis;Electromagnetic fields;Electromagnetic modeling;Finite element methods;Microwave theory and techniques;Moment methods;Polynomials;Solid modeling}, 
+doi={10.1109/TMTT.2003.808680}, 
+ISSN={0018-9480}, 
+month={Mar},}
+
+@article{berrut+2004,
+author = {Jean-Paul Berrut and Lloyd N. Trefethen},
+title = {Barycentric Lagrange Interpolation},
+journal = {SIAM Review},
+volume = {46},
+number = {3},
+pages = {501-517},
+year = {2004},
+doi = {10.1137/S0036144502417715},
+URL = { http://dx.doi.org/10.1137/S0036144502417715},
+eprint = { http://dx.doi.org/10.1137/S0036144502417715 }}
+
+@article{volakis+2006,
+author = {John L. Volakis and Kubilay Sertel and Brian C. Usner},
+title = {Frequency Domain Hybrid Finite Element Methods for Electromagnetics},
+journal = {Synthesis Lectures on Computational Electromagnetics},
+volume = {1},
+number = {1},
+pages = {1-156},
+year = {2006},
+doi = {10.2200/S00038ED1V01Y200606CEM010},
+URL = { http://dx.doi.org/10.2200/S00038ED1V01Y200606CEM010},
+eprint = { http://dx.doi.org/10.2200/S00038ED1V01Y200606CEM010}}
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%   Boundary Condition          %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@ARTICLE{tirkas+1992, 
+author={Tirkas, P.A. and Balanis, C.A. and Renaut, R.A.}, 
+journal={Antennas and Propagation, IEEE Transactions on}, 
+title={Higher order absorbing boundary conditions for the finite-difference time-domain method}, 
+year={1992}, 
+volume={40}, 
+number={10}, 
+pages={1215-1222}, 
+keywords={boundary-value problems;electromagnetic wave absorption;finite difference time-domain analysis;EM propagation;FDTD;error;finite computational domain;finite-difference time-domain method;higher-order absorbing boundary conditions;normalized reflections;order of approximation;point source;Boundary conditions;Chebyshev approximation;Computer errors;Electromagnetic reflection;Finite difference methods;Least squares approximation;Magnetic fields;Maxwell equations;Partial differential equations;Time domain analysis}, 
+doi={10.1109/8.182454}, 
+ISSN={0018-926X}, 
+month={Oct}}
+
+@INPROCEEDINGS{mittra1997, 
+author={Mittra, R. and Kuzuoglu, M.}, 
+booktitle={Antennas and Propagation Society International Symposium, 1997. IEEE., 1997 Digest}, 
+title={A review of some recent advances in perfectly-matched absorbers for mesh truncation in FEM}, 
+year={1997}, 
+volume={2}, 
+pages={1302-1305 vol.2}, 
+keywords={Helmholtz equations;acoustic wave scattering;electromagnetic wave scattering;finite element analysis;FDTD;FEM;FETD;Kramers-Kronig relationships;absorbing boundary conditions;acoustic radiation;acoustic scattering;causal/conformal PML design;conformal PML design;convex scatterer;electrically-large scatterer;electromagnetic propagation problems;frequency spectrum;high frequencies;mesh truncation;optimal solution;perfectly matched layers;perfectly-matched absorbers;perfectly-matched anisotropic medium;research;scalar Helmholtz equation;tensor constitutive parameters;vector wave equation;Acoustic scattering;Anisotropic magnetoresistance;Electromagnetic propagation;Electromagnetic scattering;Frequency;Partial differential equations;Perfectly matched layers;Tensile stress;Time domain analysis;White spaces}, 
+doi={10.1109/APS.1997.631810}, 
+month={July}
+}
+
+@INPROCEEDINGS{liu+2001, 
+author={Jian Liu and Jian-Ming Jin}, 
+booktitle={Antennas and Propagation Society International Symposium, 2001. IEEE}, 
+title={A novel hybridization of higher order finite element and boundary integral methods for electromagnetic scattering and radiation problems}, 
+year={2001}, 
+volume={4}, 
+pages={330-333 vol.4}, 
+keywords={boundary integral equations;convergence of numerical methods;electromagnetic wave absorption;electromagnetic wave scattering;finite element analysis;sparse matrices;absorbing boundary condition;adaptive numerical ABC;arbitrarily-shaped truncation boundary;boundary integral equations;convergence;electromagnetic radiation;electromagnetic scattering;higher order finite element method;hybridization;numerical analysis;sparse system matrix;Boundary conditions;Electromagnetic radiation;Electromagnetic scattering;Electromagnets;Finite element methods;Integral equations;MLFMA;Magnetic fields;Numerical analysis;Resonance}, 
+doi={10.1109/APS.2001.959465}, 
+month={July}}
+
+@article{pan+2015, 
+author = {Xiao-Min Pan and Kai-Jiang Xu and Ming-Lin Yang and Xin-Qing Sheng}, 
+journal = {Opt. Express}, 
+keywords = {Surface plasmons; Electromagnetic optics ; Metal optics ; Optical tweezers or optical manipulation},
+number = {5}, 
+pages = {6130--6144}, 
+publisher = {OSA},
+title = {Prediction of metallic nano-optical trapping forces by finite element-boundary integral method}, 
+volume = {23}, 
+month = {Mar},
+year = {2015},
+url = {http://www.opticsexpress.org/abstract.cfm?URI=oe-23-5-6130},
+doi = {10.1364/OE.23.006130},
+abstract = {The hybrid of finite element and boundary integral (FE-BI) method is employed to predict nano-optical trapping forces of arbitrarily shaped metallic nanostructures. A preconditioning strategy is proposed to improve the convergence of the iterative solution. Skeletonization is employed to speed up the design and optimization where iteration has to be repeated for each beam configuration. The radiation pressure force (RPF) is computed by vector flux of the Maxwell's stress tensor. Numerical simulations are performed to validate the developed method in analyzing the plasmonic effects as well as the optical trapping forces. It is shown that the proposed method is capable of predicting the trapping forces of complex metallic nanostructures accurately and efficiently.},
+}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%   Discontinuous Galerkin      %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @misc{gandham+2014,
 	Author = {R Gandham and D S Medina and T Warburton},
@@ -57,31 +249,6 @@
 	Year = {2007},
 	Bdsk-Url-1 = {http://dx.doi.org/10.1093/imanum/drl012}}
 
-@article{lenoir1986,
-	Abstract = {We describe a practical procedure for the triangulation of arbitrary n-dimensional regular bounded domains by isoparametric simplicial elements preserving the optimal order of accuracy. Along similar lines we prove general error estimates for the finite element solution of second order elliptic problems. Various kinds of nonhomogeneous boundary conditions can be dealt with, such as Dirichlet, Neumann and Robin boundary conditions.},
-	Author = {Lenoir, M.},
-	Copyright = {Copyright {\copyright} 1986 Society for Industrial and Applied Mathematics},
-	Issn = {00361429},
-	Journal = {SIAM Journal on Numerical Analysis},
-	Jstor_Articletype = {research-article},
-	Jstor_Formatteddate = {Jun., 1986},
-	Language = {English},
-	Number = {3},
-	Pages = {pp. 562-580},
-	Publisher = {Society for Industrial and Applied Mathematics},
-	Title = {Optimal Isoparametric Finite Elements and Error Estimates for Domains Involving Curved Boundaries},
-	Url = {http://www.jstor.org/stable/2157524},
-	Volume = {23},
-	Year = {1986},
-	Bdsk-Url-1 = {http://www.jstor.org/stable/2157524}}
-
-@phdthesis{pechstein2008,
-	Author = {Pechstein, Clemens},
-	Month = {December},
-	School = {Institute of Computational Mathematics, Johannes Kepler Universit{\"a}t},
-	Title = {Finite and Boundary Element Tearing and Interconnecting Methods for Multiscale Elliptic Partial Differential Equations},
-	Year = {2008}}
-
 @inproceedings{schnepp+2009,
 	Author = {S. Schnepp and E. Gjonaj and T. Weiland},
 	Booktitle = {Proceedings of ICAP09, San Francisco, CA},
@@ -104,3 +271,62 @@
 	Publisher = {Workshop on Theory and Applications of Discontinuous Galerkin Methods, Mathematisches Forschungsinstitut Oberwolfach},
 	Title = {GPU Accelerated Discontinuous Galerkin Methods},
 	Year = {2012}}
+
+@book{hesthaven2008,
+  title={Nodal discontinuous Galerkin methods: algorithms, analysis, and applications},
+  author={Hesthaven, Jan S and Warburton, Tim},
+  volume={54},
+  year={2008},
+  publisher={Springer}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%   Domain Decomposition        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@article{benamou+1997,
+	Abstract = {We present an iterative domain decomposition method to solve the Helmholtz equation and related optimal control problems. The proof of convergence of this method relies on energy techniques. This method leads to efficient algorithms for the numerical resolution of harmonic wave propagation problems in homogeneous and heterogeneous media. },
+	Author = {Jean-David Benamou and Bruno Despr{\`e}s},
+	Doi = {http://dx.doi.org/10.1006/jcph.1997.5742},
+	Issn = {0021-9991},
+	Journal = {Journal of Computational Physics},
+	Number = {1},
+	Pages = {68 - 82},
+	Title = {A Domain Decomposition Method for the Helmholtz Equation and Related Optimal Control Problems},
+	Url = {http://www.sciencedirect.com/science/article/pii/S0021999197957429},
+	Volume = {136},
+	Year = {1997},
+	Bdsk-Url-1 = {http://www.sciencedirect.com/science/article/pii/S0021999197957429},
+	Bdsk-Url-2 = {http://dx.doi.org/10.1006/jcph.1997.5742}}
+
+@phdthesis{pechstein2008,
+	Author = {Pechstein, Clemens},
+	Month = {December},
+	School = {Institute of Computational Mathematics, Johannes Kepler Universit{\"a}t},
+	Title = {Finite and Boundary Element Tearing and Interconnecting Methods for Multiscale Elliptic Partial Differential Equations},
+	Year = {2008}}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%   NTFFT                       %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@ARTICLE{capoglu+2012, 
+author={Capoglu, I.R. and Taflove, Allen and Backman, Vadim}, 
+journal={Antennas and Propagation, IEEE Transactions on}, 
+title={A Frequency-Domain Near-Field-to-Far-Field Transform for Planar Layered Media}, 
+year={2012}, 
+volume={60}, 
+number={4}, 
+pages={1878-1885}, 
+keywords={differential equations;electromagnetic wave scattering;finite difference time-domain analysis;finite element analysis;frequency-domain analysis;transforms;vectors;FDTD method;FEM;differential-equation-based finite numerical method;finite-difference time-domain method;finite-element method;free-space implementation;frequency-domain NFFFT;frequency-domain near-field-to-far-field transform;numerical modeling;planar layered media;planar multilayered space radiation;planar multilayered space scattering;vector-potential formalism;Equations;Finite difference methods;Geometry;Green's function methods;Time domain analysis;Transmission lines;Vectors;FDTD methods;finite difference methods;finite element methods;near-field far-field transformation}, 
+doi={10.1109/TAP.2012.2186253}, 
+ISSN={0018-926X}, 
+month={April}}
+
+
+
+
+
+
+}

@@ -1,0 +1,19 @@
+Notable curviliear geometry features:
+
+[ ] Implements polynomial class, that can manage polynomials of arbitrary order and dimension
+  [ ] Notable features include: arithmetic operations (same monomial terms are merged), evaluation at a given point, partial derivatives, integrals over reference simplex of dimensions(1,2,3)
+  [ ] Optimized to auto-delete terms of insignificant relative magnitude for performance
+[ ] Supports Curvilinear Simplex geometries of dimensions dim = {0,1,2,3}
+  [ ] Order 1-5 interpolatory polynomials given explicitly (hard-coded for speed)
+  [ ] Arbitrary order interpolatory polynomiala given implicitly (computed dynamically via polynomial class)
+  [ ] Features include
+    [ ] Local->Global mapping via lagrange polynomials
+    [ ] Global->Local mapping via amortized Newton method
+    [ ] 
+    
+    
+    
+[ ] TODO-Cleanup
+  [+] Split GMSH2DuneMapper class
+  [ ] Check if Grid-testing works with command line param
+  [ ] Change all CurvilinearGrid boolean parameters to automatic in all places

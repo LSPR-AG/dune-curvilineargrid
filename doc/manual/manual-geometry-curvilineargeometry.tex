@@ -1,6 +1,7 @@
-\section{Curvilinear Geometry Base Class}
+\subsection{Curvilinear Geometry Base Class}
 \label{interface-curvilineargeometry}
 
+\noindent
 Curvilinear Geometry can be initialized either using the interpolator class, or the parameters necessary to initialize the interpolator class \\
 
 \begin{mybox}
@@ -11,7 +12,7 @@ Curvilinear Geometry can be initialized either using the interpolator class, or 
 \end{lstlisting}
 \end{mybox}
 
-
+\noindent
 Standard dune functionality \\
 \begin{mybox}
 \begin{lstlisting}
@@ -20,7 +21,7 @@ Standard dune functionality \\
 \end{lstlisting}
 \end{mybox}
 
-
+\noindent
 Wrapper for basic interpolator functionality \\
 \begin{mybox}
 \begin{lstlisting}
@@ -35,7 +36,7 @@ Wrapper for basic interpolator functionality \\
 \end{lstlisting}
 \end{mybox}
 
-
+\noindent
 Wrapper for extended interpolator functionality \\
 \begin{mybox}
 \begin{lstlisting}
@@ -47,7 +48,7 @@ Wrapper for extended interpolator functionality \\
 \end{lstlisting}
 \end{mybox}
 
-
+\noindent
 Mappings \\
 \begin{mybox}
 \begin{lstlisting}
@@ -56,7 +57,7 @@ Mappings \\
 \end{lstlisting}
 \end{mybox}
 
-
+\noindent
 Construction of normals \\
 \begin{mybox}
 \begin{lstlisting}
@@ -67,53 +68,43 @@ Construction of normals \\
 \end{lstlisting}
 \end{mybox}
 
+%\noindent
+%Construction numerical and analytic integration elements. \\
 
-Construction numerical and analytic integration elements. \\
+%\noindent
+%\uline{JacobianDeterminantAnalytical}: $|\det J_{ij}|$ is available explicitly in polynomial form, when $(dim_{elem} = dim_{world})$. Although modulus is not a polynomial operation, $\det J_{ij} \neq 0$ inside the element, because the geometry must not be self-intersecting. Hence $\det J_{ij}$ is not allowed to change sign within the element, and modulus-correction is to evaluate $\det J_{ij}$ anywhere inside the element and multiply the analytic expression by $-1$ if the result is negative. \\
+
+%\noindent
+%\uline{NormalIntegrationElementAnalytical}: Surface normal integration element $d\vec{S} = \vec{n} dS $ is available. For edges in 2D defined by $d\vec{l} = (\partial_u p_y, -\partial_u p_x) du$. For triangles in 3D defined by $d \vec{S} = -(\partial_u \vec{p} \times \partial_v \vec{p}) du dv $ \\
+
+%\noindent
+%\uline{IntegrationElementSquaredAnalytical}: The square of the pseudodeterminant $\det(JJ^T)$, when $(dim_{elem} \neq dim_{world})$. For edges this expression is equal to $|\partial_u \vec{p}|^2$. For triangles in 3D this expression is equal to $|\vec{dS} / (du \; dv)|^2$. \\
+
+
 
 \noindent
-\uline{JacobianDeterminantAnalytical}: $|\det J_{ij}|$ is available explicitly in polynomial form, when $(dim_{elem} = dim_{world})$. Although modulus is not a polynomial operation, $\det J_{ij} \neq 0$ inside the element, because the geometry must not be self-intersecting. Hence $\det J_{ij}$ is not allowed to change sign within the element, and modulus-correction is to evaluate $\det J_{ij}$ anywhere inside the element and multiply the analytic expression by $-1$ if the result is negative. \\
-
-\noindent
-\uline{NormalIntegrationElementAnalytical}: Surface normal integration element $d\vec{S} = \vec{n} dS $ is available. For edges in 2D defined by $d\vec{l} = (\partial_u p_y, -\partial_u p_x) du$. For triangles in 3D defined by $d \vec{S} = -(\partial_u \vec{p} \times \partial_v \vec{p}) du dv $ \\
-
-\noindent
-\uline{IntegrationElementSquaredAnalytical}: The square of the pseudodeterminant $\det(JJ^T)$, when $(dim_{elem} \neq dim_{world})$. For edges this expression is equal to $|\partial_u \vec{p}|^2$. For triangles in 3D this expression is equal to $|\vec{dS} / (du \; dv)|^2$. \\
+Numeric integration provided via standard integration elements, that can be further used in a quadrature routine. An exception to the interface is the volume method, which has do be done recursively, since the integration element need not be polynomial. Here, CurvilinearGeometry directly uses the recursive quadrature, and thus requires a tolerance parameter to terminate.
 
 \begin{mybox}
 \begin{lstlisting}
   ctype integrationElement ( const LocalCoordinate &local )
   JacobianTransposed jacobianTransposed ( const LocalCoordinate &local )
   JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local )
-  LocalPolynomial JacobianDeterminantAnalytical()
-  PolynomialVector NormalIntegrationElementAnalytical()
-  LocalPolynomial IntegrationElementSquaredAnalytical()
-\end{lstlisting}
-\end{mybox}
-
-
-Numerical and analytic integration. $volume()$ is defined by integrating $f(\vec{r}) = 1$ over a scalar integration element. When dimension of element is equal to the world dimension, the integration is done analytically using $integrateAnalyticalScalar$ with $f(\vec{r}) = 1$. For mismatching dimensions, the integration is done numerically using $integrateNumerical$ with $f(\vec{r}) = 1$.  \\
-\begin{mybox}
-\begin{lstlisting}
-    ctype volume (double tolerance)
-    ctype integrateScalar(const LocalPolynomial & P, double tolerance)
-    ctype integrateAnalyticalScalar(const LocalPolynomial & P)
-    ctype integrateAnalyticalDot(const PolynomialVector & PVec)
-    GlobalCoordinate integrateAnalyticalTimes(const PolynomialVector & PVec)
-
-    template <typename Functor>
-    ctype integrateNumerical(const Functor & f, double tolerance)
+  ctype volume (double tolerance)
 \end{lstlisting}
 \end{mybox}
 
 
 
-\subsection{Methods - Cached Lagrange Geometry}
-\label{interface-curvilineargeometry-cached-methods}
+
+%\subsubsection{Methods - Cached Lagrange Geometry}
+%\label{interface-curvilineargeometry-cached-methods}
 
 
 
-\subsection{Tests}
+\subsubsection{Tests}
 
+\noindent
 We start by explicitly defining the local-global mapping functors to mimic LagrangeGeometry for simplices of all 3 dimensions (Table 2). Then the following test procedure is run for each of the simplex mapping:
 \begin{itemize}
 	\item Loop over 5 interpolatory orders.
@@ -124,12 +115,20 @@ We start by explicitly defining the local-global mapping functors to mimic Lagra
 		\subitem -Fails to consider the point that is close to the boundary as in.
 		\subitem -Fails to converge to a boundary point if the geometry has a zero derivative on the corner or on the whole boundary.
 	\item \textbf{Test 4}. To test global-to-local using more probable sample points, the local coordinates are randomly sampled. It is then verified if $\vec{p} \approx local(global(\vec{p}))$. This test also checks if all the sample points are reported inside as they should be.
-	\item \textbf{Test 5}. To check if the outside points are correctly sampled outside, as well as check the correctness of surface normal, we loop over all boundaries of the element, construct boundary normals for a uniform grid on the each boundary, and obtain the points which are just outside the element by calculating $\vec{p} = \vec{g} + \alpha \vec{n}$, where $\vec{g}$ is the global coordinate of of some point on the boundary, $\vec{n}$ is the normal at that point, and $\alpha = 0.01$ is a small number. \textbf{[IMAGE]}.
+	\item \textbf{Test 5}. To check if the outside points are correctly sampled outside, as well as check the correctness of surface normal, we loop over all boundaries of the element, construct boundary normals for a uniform grid on the each boundary, and obtain the points which are just outside the element by calculating $\vec{p} = \vec{g} + \alpha \vec{n}$, where $\vec{g}$ is the global coordinate of of some point on the boundary, $\vec{n}$ is the normal at that point, and $\alpha = 0.01$ is a small number. \cref{fig:geometry:test:normal}.
 	\item \textbf{Test 6}. The scalar basis functions given in Table 1 are integrated over the Geometry, and results are compared to those calculated by hand, given in Table 2.
 	\item \textbf{Test 7}. The dot product surface integrals of vector basis functions (given in Table 3) over the Geometry are compared to those calculated by hand, given in Table 4.
 \end{itemize}
 
-\subsection{Integral-tests}
+\begin{figure}
+    \centering
+    \includegraphics[scale=1.0]{images/normaltest}
+	\captionsetup{width=0.8\textwidth} 
+	\caption{ A combined test for normal accuracy and ability to accurately determine that a vertex is outside the element. Face normals sampled over a grid are used to produce global coordinates just outside the the element, which are then checked for having a local coordinate inside that element. }
+	\label{fig:geometry:test:normal}
+\end{figure}
+
+\subsubsection{Integral-tests}
 
 \begin{center}
 \begin{tabular}{ | l | l | l |}

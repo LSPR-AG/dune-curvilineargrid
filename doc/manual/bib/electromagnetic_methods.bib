@@ -1,0 +1,190 @@
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  DG                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@article{sarmany+2010,
+	Abstract = {We provide optimal parameter estimates and a priori error
+ bounds for symmetric discontinuous Galerkin (DG)
+ discretisations of the second-order indefinite time-harmonic
+ Maxwell equations. More specifically, we consider two
+ variations of symmetric DG methods: the interior penalty DG
+ (IP-DG) method and one that makes use of the local lifting
+ operator in the flux formulation. As a novelty, our parameter
+ estimates and error bounds are (i) valid in the pre-asymptotic
+ regime; (ii) solely depend on the geometry and the polynomial
+ order; and (iii) are free of unspecified constants. Such
+ estimates are particularly important in three-dimensional (3D)
+ simulations because in practice many 3D computations occur in
+ the pre-asymptotic regime. Therefore, it is vital that our
+ numerical experiments that accompany the theoretical results
+ are also in 3D. They are carried out on tetrahedral meshes
+ with high-order (p=1, 2, 3, 4) hierarchic H(curl)-conforming
+ polynomial basis functions.},
+	Affiliation = {University of Twente Department of Applied Mathematics P.O. Box 217 7500 AE Enschede Netherlands},
+	Author = {S{\'a}rm{\'a}ny, D. and Izs{\'a}k, F. and van der Vegt, J. J. W.},
+	Date-Added = {2014-11-19 13:50:08 +0000},
+	Date-Modified = {2014-11-19 13:50:08 +0000},
+	Doi = {10.1007/s10915-010-9366-1},
+	Issue = {3},
+	Journal = {J. Sci. Comput.},
+	Keyword = {Mathematics and Statistics},
+	Opturl = {http://dx.doi.org/10.1007/s10915-010-9366-1},
+	Owner = {oswald},
+	Pages = {219-254},
+	Publisher = {Springer Netherlands},
+	Timestamp = {2014.03.24},
+	Title = {Optimal Penalty Parameters for Symmetric Discontinuous {G}alerkin Discretisations of the Time-Harmonic {M}axwell Equations},
+	Volume = {44},
+	Year = {2010},
+	Bdsk-Url-1 = {http://dx.doi.org/10.1007/s10915-010-9366-1}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Eigenmode              %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+@phdthesis{guo2012,
+	Author = {H. Guo},
+	Note = {(\url{doi:10.3929/ethz-a-007599690})},
+	School = {ETH {Z\"urich}},
+	Title = {3-dimensional eigenmodal analysis of electromagnetic structures},
+	Type = {{PhD Thesis No.~20947}},
+	Year = 2012}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Domain Decomposition   %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@article{stupfel1996,
+	Abstract = {A nonoverlapping domain decomposition method is proposed for the finite element solution of the scattering problem by electrically large, inhomogeneous, 
+infinite cylinders of arbitrary cross section. To minimize the size of the total computational domain, a second-order-absorbing boundary condition (ABC) is applied upon an outer boundary
+ of arbitrary shape which may be conformal to the surface of the scatterer. This domain is then partitioned into concentric subdomains circumscribing the object. A second-order transmission condition,
+ derived from the ABC, is prescribed upon the interfaces between two adjacent subdomains. This particular configuration is responsible for the fast convergence of the domain decomposition iterative
+ algorithm, which is parallelizable. Numerical results obtained with a nonparallelized computer code are presented, which emphasize the superiority of this technique in terms of memory storage 
+requirements and computing times over the standard finite element approach, as well as over the rigorous hybrid finite element-integral equation formulation},
+	Author = {Stupfel, B.},
+	Doi = {10.1109/8.537332},
+	Issn = {0018-926X},
+	Journal = {Antennas and Propagation, IEEE Transactions on},
+	Month = {Oct},
+	Number = {10},
+	Pages = {1375-1385},
+	Title = {A fast-domain decomposition method for the solution of electromagnetic scattering by large objects},
+	Volume = {44},
+	Year = {1996},
+	Bdsk-Url-1 = {http://dx.doi.org/10.1109/8.537332}}
+
+@article{wolfe+2000,
+	Author = {Wolfe, C. T. and Navsariwala, U. and Gedney, Stephen D.},
+	Journal = {Antennas and propagation, IEEE Transactions on},
+	Number = {2},
+	Title = {A Parallel Finite-Element Tearing and Interconnecting Algorithm for Solution of the Vector Wave Equation with PML Absorbing Medium},
+	Volume = {48},
+	Year = {2000}}
+
+@article{peng+2010,
+	Abstract = {Non-overlapping domain decomposition (DD) methods with complex first order Robin-type transmission conditions (TCs) provide an efficient iterative solution for Maxwell's equation. Unfortunately, the first order \{TCs\} do not effectively account for some eigenmodes of the system matrix, which limits the scalability of the methods. In this work, we examine two \{TCs\} with a second order transverse derivative to improve the method's performance. A detailed convergence analysis of the two \{TCs\} is presented. We then investigate the use of the two second order \{TCs\} in non-conformal and non-overlapping one way \{DD\} methods. Numerical results illustrate the effectiveness of the proposed methods on some model problems and on several problems of practical interest. },
+	Author = {Zhen Peng and Vineet Rawat and Jin-Fa Lee},
+	Doi = {http://dx.doi.org/10.1016/j.jcp.2009.10.024},
+	Issn = {0021-9991},
+	Journal = {Journal of Computational Physics},
+	Keywords = {Maxwell's equations},
+	Number = {4},
+	Pages = {1181 - 1197},
+	Title = {One way domain decomposition method with second order transmission conditions for solving electromagnetic wave problems},
+	Url = {http://www.sciencedirect.com/science/article/pii/S0021999109005762},
+	Volume = {229},
+	Year = {2010},
+	Bdsk-Url-1 = {http://www.sciencedirect.com/science/article/pii/S0021999109005762},
+	Bdsk-Url-2 = {http://dx.doi.org/10.1016/j.jcp.2009.10.024}}
+
+@article{xue+2014,
+	Abstract = {A fast and accurate full-wave technique based on the dual-primal finite element tearing and interconnecting method and the second-order transmission condition is presented for large-scale three-dimensional photonic device simulations. The technique decomposes a general three-dimensional electromagnetic problem into smaller subdomain problems so that parallel computing can be performed on distributed-memory computer clusters to reduce the simulation time significantly. With the electric fields computed everywhere, photonic device parameters such as transmission and reflection coefficients are extracted. Several photonic devices, with simulation volumes up to 1.9{\texttimes}104 ($\lambda$/navg)3 and modeled with over one hundred million unknowns, are simulated to demonstrate the application, efficiency, and capability of this technique. The simulations show good agreement with experimental results and in a special case with a simplified two-dimensional simulation.},
+	Author = {Ming-Feng Xue and Young Mo Kang and Amir Arbabi and Steven J. McKeown and Lynford L. Goddard and Jian-Ming Jin},
+	Date-Added = {2014-10-09 15:37:26 +0000},
+	Date-Modified = {2014-10-09 15:37:33 +0000},
+	Doi = {10.1364/OE.22.004437},
+	Journal = {Opt. Express},
+	Keywords = {Numerical approximation and analysis; Fiber optics sensors; Integrated optics devices; Electromagnetic optics ; Computational electromagnetic methods ; Subwavelength structures},
+	Month = {Feb},
+	Number = {4},
+	Pages = {4437--4452},
+	Publisher = {OSA},
+	Title = {Fast and accurate finite element analysis of large-scale three-dimensional photonic devices with a robust domain decomposition method},
+	Url = {http://www.opticsexpress.org/abstract.cfm?URI=oe-22-4-4437},
+	Volume = {22},
+	Year = {2014},
+	Bdsk-Url-1 = {http://www.opticsexpress.org/abstract.cfm?URI=oe-22-4-4437},
+	Bdsk-Url-2 = {http://dx.doi.org/10.1364/OE.22.004437}}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Curvilinear Elements   %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@article{wang+1993,
+	Abstract = {A method for the systematic construction of first- and second-order edge and facet finite elements based on the nodal-based conventional elements is presented, and their use is discussed. Higher order elements are also considered. Both tetrahedral and hexahedral elements are presented. These elements are intimately related to the corresponding nodal-based elements, allowing an easy implementation in existing nodal-based finite-element computer programs. The elements constructed are then used for mode analyses in electromagnetic cavities. The solutions obtained are better than those obtained using linear elements},
+	Author = {Wang, J.-S. and Ida, N.},
+	Doi = {10.1109/20.250685},
+	Issn = {0018-9464},
+	Journal = {Magnetics, IEEE Transactions on},
+	Keywords = {electrical engineering computing;electromagnetic field theory;finite element analysis;physics computing;waveguide theory;curvilinear finite elements;electromagnetic cavities;electromagnetic field computation;facet finite elements;finite-element computer programs;first-order;hexahedral elements;higher order edge finite elements;mode analyses;nodal-based conventional elements;second-order;Eigenvalues and eigenfunctions;Electromagnetic analysis;Electromagnetic fields;Finite element methods;Interpolation;Shape;Supercomputers},
+	Month = {Mar},
+	Number = {2},
+	Pages = {1491-1494},
+	Title = {Curvilinear and higher order `edge' finite elements in electromagnetic field computation},
+	Volume = {29},
+	Year = {1993},
+	Bdsk-Url-1 = {http://dx.doi.org/10.1109/20.250685}}
+
+@article{fahs2011,
+	__Markedentry = {[fomins:]},
+	Author = {Fahs, H.},
+	Doi = {10.1080/00207160.2010.527960},
+	Issn = {1029-0265},
+	Journal = {International Journal of Computer Mathematics},
+	Month = {Jul},
+	Number = {10},
+	Owner = {fomins},
+	Pages = {2124--2153},
+	Publisher = {Informa UK Limited},
+	Timestamp = {2014.11.10},
+	Title = {Improving accuracy of high-order discontinuous Galerkin method for time-domain electromagnetics on curvilinear domains},
+	Url = {http://dx.doi.org/10.1080/00207160.2010.527960},
+	Volume = {88},
+	Year = {2011},
+	Bdsk-Url-1 = {http://dx.doi.org/10.1080/00207160.2010.527960}}
+
+@inproceedings{wang+2011,
+	Abstract = {Discontinuous Galerkin (DG) finite element method is well-suited on unstructured meshes for high order approximation with the freedom of choosing the order of basis functions in each element locally. Moreover, DG can handle complicated geometries with curved boundary easily. Further, since information exchange in DG only involves neighboring elements, high efficiency in parallelization can be achieved. The conformal perfect matched layer (PML) with continuously changing material property tensors in space is adopted to truncate the computational domain. And the model presented in this paper treats the material property tensor in PML region with polynomial representation using a universal array approach.},
+	Author = {Jue Wang and Dosopoulos, S. and Beig, D.A.O. and Zhen Peng and Lee, J.-F.},
+	Booktitle = {Antennas and Propagation (APSURSI), 2011 IEEE International Symposium on},
+	Doi = {10.1109/APS.2011.5997230},
+	Issn = {1522-3965},
+	Keywords = {Galerkin method;Maxwell equations;finite element analysis;polynomials;Maxwell's equations;basis functions;computational domain;conformal perfect matched layer;continuously varying material properties;curved boundary;curvilinear element;discontinuous Galerkin time domain method;finite element method;high order approximation;polynomial representation;unstructured meshes;Iron},
+	Month = {July},
+	Pages = {3261-3264},
+	Title = {High order parallel discontinuous Galerkin time domain method with curvilinear element and continuously varying material properties for Maxwell's equations},
+	Year = {2011},
+	Bdsk-Url-1 = {http://dx.doi.org/10.1109/APS.2011.5997230}}
+
+@article{wang+2011a,
+	Abstract = {In this paper a high-order finite element method with curvilinear elements is proposed for the simulation of plasmonic structures. Most finite element packages use low order basis functions and non-curved elements, which is very costly for demanding problems such as the simulation of
+  nanoantennas. To enhance the performance of finite elements, we use curvilinear quadrilateral elements to calculate the near-field from an impinging plane wave with second order absorbing boundary conditions. The magnetic field amplitude on the surface of one object is compared with a computation
+  based on a multiple multipole expansion. Moreover, the convergence behavior of <i>p</i>-FEM with absorbing boundary conditions motivate an adaptive strategy of polynomial degree enhancement and enlargement of the domain.},
+	Author = {Wang, Mengyu and Engstr{\"o}m, Christian and Schmidt, Kersten and Hafner, Christian},
+	Doi = {doi:10.1166/jctn.2011.1851},
+	Journal = {Journal of Computational and Theoretical Nanoscience},
+	Keyword = {ABSORBING BOUNDARY CONDITIONS, CURVILINEAR ELEMENTS, FINITE ELEMENT METHOD, HIGH ORDER BASIS FUNCTIONS, MULTIPLE MULTIPOLE PROGRAM, P-FEM, SURFACE PLASMON RESONANCE},
+	Number = {8},
+	Pages = {1564-1572},
+	Title = {On High-Order FEM Applied to Canonical Scattering Problems in Plasmonics},
+	Url = {http://www.ingentaconnect.com/content/asp/jctn/2011/00000008/00000008/art00030},
+	Volume = {8},
+	Year = {2011-08-01T00:00:00},
+	Bdsk-Url-1 = {http://www.ingentaconnect.com/content/asp/jctn/2011/00000008/00000008/art00030},
+	Bdsk-Url-2 = {http://dx.doi.org/10.1166/jctn.2011.1851}}

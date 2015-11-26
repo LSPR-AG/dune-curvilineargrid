@@ -139,13 +139,18 @@ public:
     }
 
 
-    /** \brief Logging message patience writer. This is a singleton routine intended to be run like LoggingMessage::write(...); */
-    static void writePatience(std::string message, int iter, int total ) {
+    /** \brief Logging message patience writer. This is a singleton routine intended to be run like LoggingMessage::write(...);
+     *
+     * Only one process should writePatience at the same time. Normally it is the Master process.
+     * If there is need for another process (e.g. rank 3) to write patience data, then use allowParallel=true
+     * NOTE: if allowParallel=true, user must ensure that only one process is writing at the same time
+     * */
+    static void writePatience(std::string message, int iter, int total, bool allowParallel = false ) {
 #if HAVE_LOG_MSG_DVERB || HAVE_LOG_MSG_DDVERB || HAVE_LOG_MSG_DDDVERB || HAVE_LOG_MSG_DDDDVERB || HAVE_LOG_MSG_DDDDVERB || HAVE_LOG_MSG_DDDDDDVERB
     // Do nothing. For debugging purposes patience writer is harmful, as inside log file it overwrites debug output.
     // It is only useful for production/optimization time, where clean report of performance of a fully working code is required
 #else
-    getInstance().writePatienceImpl(message, iter, total);
+    getInstance().writePatienceImpl(message, iter, total, allowParallel);
 #endif
     }
 
@@ -200,8 +205,8 @@ protected:
     // Write process implementation                        **/
     //*******************************************************/
 
-    void writePatienceImpl(std::string message, int iter, int total ) {
-    	if (rank_ == CurvGrid::MPI_MASTER_RANK)
+    void writePatienceImpl(std::string message, int iter, int total, bool allowParallel) {
+    	if ((rank_ == CurvGrid::MPI_MASTER_RANK) || allowParallel)
     	{
     		int totalInclusive = (total > 1) ? total - 1 : 1;
     		int percent    = std::round((100.0 * iter     )  / totalInclusive);

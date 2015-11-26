@@ -13,6 +13,9 @@
 namespace Dune
 {
 
+
+// This class writes parallel vectors to file by gathering them on MPI_MASTER_RANK
+// [TODO] This code could be optimized by using MPI_File_Write_Ordered
 template<class Grid, class IndexType, class DataType>
 class ParallelDataWriter
 {

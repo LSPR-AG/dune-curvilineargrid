@@ -1,0 +1,28 @@
+Factory
+
+     *  [FIXME] Currently, physical tag is inserted explicitly, which may be unsatisfactory for Dune community.
+     *          A possible workaround is to create compiler directive -DHAVE_PHYSICAL_TAG, which would determine
+     *          whether to use extra argument in the factory.insertElement() routine
+
+     *  [FIXME] Currently factory.insertBoundarySegment() inserts index of element associated with this element, which Dune might not like:
+     *  Possible solutions:
+     *    * Extend Dune-interface with this function. Otherwise inserting boundary segment is pointless - having to find which element this boundary segment is associated with
+     *    * Recompute in CurvGrid - not too expensive to redo, but annoying
+     *    * Introduce compiler directive -DHAVE_CURVREADER_BOUNDARY_SEGMENT_ASSOCIATION
+
+
+Grid-Interface
+[ ] sizeGlobal(codim)      - returns number of entities over all processes
+[ ] size(codim, partition) - returns number of entities on a given partition (e.g. Interior / Border / Ghost)
+[ ] Iterator over BoundarySegments, can return an entity of type face or an IntersectionIterator
+
+Capability
+[ ] bool support_curv_entity
+
+Entity
+[ ] polynomial_order()     - returns the polynomial order of the element
+
+Geometry
+[ ] local() is not defined for curv if the point is not inside the element
+  [ ] Suggest users to go away from paradigm of using local as replacement of isInside method, as it does not extend to curv
+  [ ] propose local() method that has 2 return variables (isInside, localC), where localC is only defined if isInside==true

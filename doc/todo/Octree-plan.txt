@@ -1,0 +1,49 @@
+Octree Model:
+
+-------------------------------------
+TODO-GEOMETRY
+-------------------------------------
+Create Folder location/
+  -> newtonmethod.hh
+
+bool success = NewtonMethod.find(entityGeometry, localCoordinateInsideEntity, ValueFunctor, localCoordinateResult, Tolerance)
+  - Finds local coordinate that optimizes ValueFunctor
+  
+* For local()  method use functor()(globalCoordinate) { return 2Norm(globalCoordinate - globalCoordinate0); }
+* For search() method use functor()(globalCoordinate) { return globalCoordinate[0]; }
+
+
+
+-------------------------------------
+Bounding Boxes
+-------------------------------------
+1) For each edge, x_edge = max_x(edge_x, corners_x)
+2) For each face, x_face = max_x(face_x, edges_x)
+3) For each elem, x_elem = max_x(faces_x)
+4) For each proc, x_proc = max_x(elems_x)
+
+Where
+
+entity_x = Newton(pos_max_x(grid(entity)))
+* Only calculate entity_x if at the interior point is better than the corner
+
+This gives ElementBoundingBox and ProcessBoundingBox
+
+Track number 1D and 2D Newton's used relative to number of edges and faces
+
+-------------------------------------
+Octree
+-------------------------------------
+
+1) Pick node from stack, get assoc elements
+2) Make 8 sub-nodes
+3) For each sub-node, sink all elements
+4) Calculate Q_i for each sub-node
+5) If Avg(Q_i) > alpha, trash all sub-nodes
+   Else               , stack all sub-nodes with Q_i < alpha
+
+
+Quality: Q_i = N(L+1, i) / N(L);
+Avg_Depth_Effort     = Avg(L    * (1/8)*L), for all leafs
+Avg_Newton_Effort    = Avg(N(L) * (1/8)*L), for all leafs
+Avg_Newton_Effort_In = Avg(N(L) * (1/8)*L), for all non-zero leafs

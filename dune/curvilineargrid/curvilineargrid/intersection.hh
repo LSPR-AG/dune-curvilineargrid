@@ -72,6 +72,8 @@ namespace Dune
       typedef typename remove_const< Grid >::type::template Codim<ELEMENT_CODIM>::EntityGeometryMappingImpl  ElementBaseGeometry;
       typedef typename remove_const< Grid >::type::template Codim<FACE_CODIM>::EntityGeometryMappingImpl     FaceBaseGeometry;
 
+      typedef typename ElementBaseGeometry::JacobianInverseTransposed   JacobianInverseTransposed;
+
       const InterpolatoryOrderType LINEAR_ELEMENT_ORDER = 1;
 
     public:
@@ -269,27 +271,32 @@ namespace Dune
     	  return subIndexOutside_;
       }
 
+
       // All normals as viewed from the calling element
 
-      GlobalCoordinate integrationOuterNormal ( const LocalCoordinateFace &localFaceCoord ) const
+      GlobalCoordinate outerNormal            (const LocalCoordinateFace &localFaceCoord) const { return outerNormal(localFaceCoord, nullptr); }
+      GlobalCoordinate unitOuterNormal        (const LocalCoordinateFace &localFaceCoord) const { return unitOuterNormal(localFaceCoord, nullptr); }
+      GlobalCoordinate integrationOuterNormal (const LocalCoordinateFace &localFaceCoord) const { return integrationOuterNormal(localFaceCoord, nullptr); }
+
+      GlobalCoordinate outerNormal ( const LocalCoordinateFace &localFaceCoord, JacobianInverseTransposed * thisjit ) const
       {
     	  computeInsideGeo();
     	  LocalCoordinateElement localElemCoord( geometryInInside().global( localFaceCoord ) );
-    	  return insideGeo_->basegeometry().subentityIntegrationNormal( indexInInside(), localElemCoord );
+    	  return insideGeo_->basegeometry().subentityNormal( indexInInside(), localElemCoord, thisjit );
       }
 
-      GlobalCoordinate outerNormal ( const LocalCoordinateFace &localFaceCoord ) const
+      GlobalCoordinate unitOuterNormal ( const LocalCoordinateFace &localFaceCoord, JacobianInverseTransposed * thisjit ) const
       {
     	  computeInsideGeo();
     	  LocalCoordinateElement localElemCoord( geometryInInside().global( localFaceCoord ) );
-    	  return insideGeo_->basegeometry().subentityNormal( indexInInside(), localElemCoord );
+    	  return insideGeo_->basegeometry().subentityUnitNormal( indexInInside(), localElemCoord, thisjit );
       }
 
-      GlobalCoordinate unitOuterNormal ( const LocalCoordinateFace &localFaceCoord ) const
+      GlobalCoordinate integrationOuterNormal ( const LocalCoordinateFace &localFaceCoord, JacobianInverseTransposed * thisjit) const
       {
     	  computeInsideGeo();
     	  LocalCoordinateElement localElemCoord( geometryInInside().global( localFaceCoord ) );
-    	  return insideGeo_->basegeometry().subentityUnitNormal( indexInInside(), localElemCoord );
+    	  return insideGeo_->basegeometry().subentityIntegrationNormal( indexInInside(), localElemCoord, thisjit);
       }
 
       // TODO: This does not work in 2D

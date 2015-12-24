@@ -1,0 +1,56 @@
+\section{Singularity Elimination}
+
+When implementing surface integral methods, one has to deal with singular integrals over the face of the element, which take the form
+\[ \iint \frac{g(x,y)}{|\vec{x} - \vec{x}_0|} dx dy \]
+where $g(x,y)$ is analytic. Principal value integration has to be used to analytically determine the value of the integral within the infinitesimal area patch including the singularity.
+This is beyond the scope of the current section. Instead, we assume that the contribution of the singularity has already been considered. What remains is to develop a procedure to
+numerically compute the remainder of the integral, eliminating the singularity and avoiding numerical instabilities. \\
+
+\noindent
+\textbf{[CITEDUFFY]} propose a method to eliminate the singularity for integrals over a reference triangle. Consider the integral over a reference triangle
+\[ \int_0^1 \int_0^{1-x} \frac{g(x,y)}{|\vec{x} - \vec{x}_0|} dx dy \]
+It is proposed to first deal with the special case $\vec{x}_0 = (1,0)$, that is, having the singularity in the bottom-right corner of the reference triangle.
+Thus, the integral can be simplified to
+\[ \int_0^1 \int_0^{1-x} \frac{g(x,y)}{\sqrt{(x-1)^2 + y^2}} dx dy \]
+By changing the variable of the $y$-integral to $y=(1-x)t$, we get
+\[ \int_0^1 \int_0^1 \frac{g(x,(1-x)t)}{\sqrt{(x-1)^2 + t^2(1-x)^2}} (1-x)dx dt \]
+Since the contribution of the singularity itself is assumed to have already been accounted for, we may divide the numerator and denominator by $(1-x)$, ignoring the case $0/0$.
+Thus, we have transformed an integral over a reference triangle to equivalent integral over a reference square
+\[ \int_0^1 \int_0^1 \frac{g(x,(1-x)t)}{\sqrt{1 + t^2}} dx dt \]
+which does not have a singularity, and can thus easily be integrated using your favourite quadrature.
+
+\noindent
+Now we need to generalize the above method to deal with all the singularities except $\vec{x}_0 = (1,0)$. This can be accomplished by subdividing the existing triangle
+into (at most) 3 smaller triangles, for each of which the singularity is at the desired corner \textbf{[PICHERE]}. Thus, for each triangle we will construct a linear
+mapping $(u,v) = \psi(u', v')$, where $(u', v')$ are the local coordinates of the sub-triangle. \\
+
+\noindent
+The problem is that the coordinate transformation slightly changes the form of the denominator, requiring us to adapt our procedure. In addition, the singularity is frequently given
+in terms of the global coordinates, obtained, in general, using the curvilinear mapping $\vec{x} = \vec{p}(u, v)$. Considering both of these generalizations, we can write the more general
+form of the singular integral as 
+\[ \int_0^1 \int_0^{1-u'} \frac{g(u',v')}{|\vec{p}(\vec{\psi}(\vec{r}')) - \vec{p}(\vec{\psi}(\vec{r}_0'))|} du' dv' \]
+where $\vec{r}' = (u', v')$ are the local coordinates of the sub-triangle. To simplify this equation, we can design a general polynomial mapping $p' = p \circ \psi$.
+Since both maps are polynomial, the resulting map is obtained by substituting one polynomial into another.
+
+\noindent
+We use the same Duffy transform $v' = (1-u')t$ to obtain an integral over the reference square
+\[ \int_0^1 \int_0^1 \frac{g(u',(1-u')t)}{|\vec{p}'(u',(1-u')t) - \vec{p}'(\vec{r}_0')|} (1-u')du' dt \]
+Now let us consider, what happens to the denominator, if we choose the singularity to still be at the corner $\vec{r}_0' = (1,0)$.
+The denominator $|\vec{p}'(u',(1-u')t) - \vec{p}'(1,0)|$, which is a polynomial, is clearly divisible by $(1-u')$, because $u' = 1$ is its solution. Again, we will divide the denominator
+and numerator by $(1-u')$, eliminating the singularity, and obtaining the integral
+\[ \int_0^1 \int_0^1 \frac{g(u',(1-u')t)}{|\vec{\zeta}(u', t)|} du' dt \]
+All that remains is to find the explicit form of $\vec{\zeta}(u', t)$. By looping over all monomial summands of $\vec{p}'(u',v')$, we can rewrite it by splitting it into terms that
+are proportional to $v'$ and terms that are not. For all the terms that are proportional to $v'$, we will bring one instance of $v'$ in front of the sum
+\[ \vec{p}' = \vec{p}'(u', 0) + v' R(u', v') = \vec{p}'(u', 0) + (1-u')t R(u', v') \]
+Thus, after division by $(1-u')$, we get
+\[ \vec{\zeta} = \frac{\vec{p}'(u', 0) - \vec{p}'(1, 0)}{1-u'} + t R(u', v') \]
+Finally, the division in the first fraction can be performed by considering that the numerator is a 1D polynomial of the form $\sum_{i \geq 1} a_i (x^i - 1)$.
+Each monomial separately can be divided by $(1-u')$ by considering the identity
+\[ \frac{x^n - 1}{x - 1} = \sum_{i=0}^{n-1} x^i \]
+
+
+\textbf{[TODO]}
+\begin{itemize}
+  \item Show that resulting polynomial integral is not singular
+  \item What to do with integrals over neighbouring elements
+\end{itemize}

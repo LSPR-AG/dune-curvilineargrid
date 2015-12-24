@@ -1,0 +1,57 @@
+\section{Integration Elements}
+
+When transforming an integral over an entity from global to local coordinates, the resulting integral acquires an additional prefactor called Integration Element
+
+\[ \int_{V} dx dy dz = \int_{V'} I(u,v,w) du dv dw \]
+
+\noindent
+\textbf{Edge(1D Local Coordinates)}:
+\[\vec{dl} = \vec{p}(u + du) - \vec{p}(u) = \frac{\partial \vec{p}}{\partial u} du \]
+\[dl = |\vec{dl}| = |\frac{\partial \vec{p}}{\partial u}| du = I(u)du \]
+For example, if global coordinates are 3D, then
+\[I(u) = \sqrt{\bigl (\frac{\partial x}{\partial u})^2 + \bigl (\frac{\partial y}{\partial u})^2 + \bigl (\frac{\partial z}{\partial u})^2} \]
+
+\noindent
+\textbf{Face(2D Local Coordinates)}:
+\[\vec{dA} = (\vec{p}(u + du, v) - \vec{p}(u, v)) \times (\vec{p}(u, v + dv) - \vec{p}(u, v)) = \frac{\partial \vec{p}}{\partial u} \times \frac{\partial \vec{p}}{\partial v} du dv \]
+\[dA = |\vec{dA}| = \bigl | \frac{\partial \vec{p}}{\partial u} \times \frac{\partial \vec{p}}{\partial v} \bigr | du dv \]
+For example, if global coordinates are 3D, then
+\[I(u,v) = \biggl | \begin{pmatrix}
+  \partial_u y \partial_v z - \partial_u z \partial_v y \\
+  \partial_u z \partial_v x - \partial_u x \partial_v z \\
+  \partial_u x \partial_v y - \partial_u y \partial_v x
+\end{pmatrix} \biggr | du dv \]
+
+\noindent
+\textbf{Element(3D Local Coordinates)}:
+\begin{eqnarray*}
+  dV & = & ((\vec{p}(u + du, v, w) - \vec{p}(u, v, w)) \times (\vec{p}(u, v + dv, w) - \vec{p}(u, v, w))) \\
+     && \cdot  (\vec{p}(u, v + dv, w) - \vec{p}(u, v, w)) du dv dw  \\
+     & = & (\partial_u \vec{p} \times \partial_v \vec{p}) \cdot \partial_w \vec{p} \; du dv dw
+\end{eqnarray*}
+\[ I(u,v,w) = (\partial_u \vec{p} \times \partial_v \vec{p}) \cdot \partial_w \vec{p} \]
+
+\noindent
+It can be shown that the three above cases can all be rewritten as
+\[ I(\vec{r}) = \sqrt{\det(J(\vec{r})^T J(\vec{r}))} \]
+where $\vec{r}$ are the local coordinates, and $J(\vec{r})$ is the Jacobian transformation defined as
+\[J(\vec{r}) = \frac{\partial \vec{p}}{\partial \vec{r}}\]
+which, for 3D global coordinates can be written as
+\[J_{Edge}(u) = \bigl(\frac{\partial x}{\partial u}, \frac{\partial y}{\partial u}, \frac{\partial z}{\partial u} \bigr)  \]
+\[J_{Face}(u,v) = 
+\begin{pmatrix}
+   \partial_u x &&    \partial_u y  &&    \partial_u z \\
+   \partial_v x &&    \partial_v y  &&    \partial_v z
+\end{pmatrix}
+\]
+\[J_{Elem}(u,v,w) = 
+\begin{pmatrix}
+   \partial_u x &&    \partial_u y  &&    \partial_u z \\
+   \partial_v x &&    \partial_v y  &&    \partial_v z \\
+   \partial_w x &&    \partial_w y  &&    \partial_w z
+\end{pmatrix}
+\]
+
+\noindent
+Finally, in case where local and global dimension matches (e.g. edge in 1D, face in 2D, element in 3D), the Jacobian is a square matrix. If the geometry is strictly non-singular ($\det{J} > 0$ everywhere within the entity), the general expression for the integration element can be simplified to
+\[ I(\vec{r}) = \det{J(\vec{r})} \]

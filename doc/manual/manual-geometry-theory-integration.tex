@@ -81,12 +81,13 @@ To address the first question, \textit{dune-curvilineargeometry} implements a po
 \hline
 Cuboid Integrals &
 \begin{tabular}{@{}c@{}}
-$ \int_0^1 x^i dx = \frac{x^{i+1}}{i+1} $ \\
-$ \int_0^1 \int_0^1 x^i y^j dx dy = \frac{x^{i+1} y^{j+1}}{(i+1)(j+1)} $ \\
-$ \int_0^1 \int_0^1 \int_0^1 x^i y^j z^k dx dy dz = \frac{x^{i+1} y^{j+1} y^{j+1}}{(i+1)(j+1)(k+1)} $ \\
+$ \int_0^1 x^i dx = \frac{1}{i+1} $ \\
+$ \int_0^1 \int_0^1 x^i y^j dx dy = \frac{1}{(i+1)(j+1)} $ \\
+$ \int_0^1 \int_0^1 \int_0^1 x^i y^j z^k dx dy dz = \frac{1}{(i+1)(j+1)(k+1)} $ \\
 \end{tabular} \\ \hline
 Simplex Integrals &
 \begin{tabular}{@{}c@{}}
+$ \int_0^1 x^i dx = \frac{1}{i+1} $ \\
 $ \int_0^1 \int_0^{1-x} x^i y^j dx dy = \frac{i! j!}{(i + j + 2)!} $ \\
 $ \int_0^1 \int_0^{1-x} \int_0^{1-x-y} x^i y^j z^k dx dy dz = \frac{i! j! k!}{(i + j + k + 3)!} $ \\
 \end{tabular} \\

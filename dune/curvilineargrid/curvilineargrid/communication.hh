@@ -221,8 +221,6 @@ namespace Dune
     	// 2) On receiving end
     	// 2.1) GlobalIndex -> LocalIndex -> Entity -> scatter via DataHandle
 
-    	// [FIXME] Choose if we want entity or entityImpl
-
     	template<class DataHandle, class Data, int codim>
     	void communicateMain(CommDataHandleIF< DataHandle, Data> & datahandle,
     		Local2LocalMap & mapSend,
@@ -239,10 +237,7 @@ namespace Dune
     		CurvilinearMessageBuffer<DataType> gathermessagebuffer;
     		CurvilinearMessageBuffer<DataType> scattermessagebuffer;
 
-
-
-    		/*
-    		// [FIXME] Remove debug
+    		/* Debug
     		std::cout << "Process " << rank_ << " mapsend : " << Dune::VectorHelper::map2string(mapSend) << std::endl;
     		std::cout << "Process " << rank_ << " ranksend : ";
 

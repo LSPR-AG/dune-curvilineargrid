@@ -84,8 +84,8 @@
  *  - [TODO] To make some member functions const, need to introduce const iterators
  *  - [TODO] Consider making GridConstructor a pointer and deleting it at the end of construction phase.
  *  - [TODO] Convert all code to unsigned ints wherever the number is definitely non-negative
- *  - [FIXME] Currently nEntity counts ghost elements. Is this expected
- *  - [FIXME] Currently nEntity counts only corners. Is this expected
+ *  - Currently nEntity counts ghost elements. Is this expected [Yes]
+ *  - Currently nEntity counts only corners. Is this expected [Yes]
  *
  * Usage:
  *  - [TODO] Disable all the vertex2string output for multiprocessor case - too much output

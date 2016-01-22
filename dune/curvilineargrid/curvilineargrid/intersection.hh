@@ -12,10 +12,6 @@ namespace Dune
   namespace CurvGrid
   {
 
-    // [FIXME]  Create constructor that allows passing inside-geometry, since it need not be computed several times when iterating over intersections
-    // [FIXME]  Since geo_ is not a pointer, must fix (if !geo) statements
-
-
     // Intersection
     // ------------
 

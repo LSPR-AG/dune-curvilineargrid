@@ -1,0 +1,15 @@
+
+
+
+
+
+
+[+] Bug with curvVTK - only writes field for surface discretization points, not volume discretization points. For those it is saved as 0 aka not-in-map
+  [+] Problem was with only sampling the necessary vertices in vtk writer using if-statement in the loop
+  [+] Bug with curvVTK - slice does not reveal any internal field
+    [ ] Does VTK associate field with existing entities? - Ask on mailing list
+    [+] If this is the case, extend virtual refinement to elementary refinement
+      [+] Extended - problem solved
+  [ ] Bug with curvVTK - there are strange narrow gaps inbetween fitted tetrahedra
+  [ ] Bug with curvVTK - field seems to be zero on one edge for each basis function, unexpected
+    [ ] This is likely to do with VTK sampling

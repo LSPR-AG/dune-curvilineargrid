@@ -255,15 +255,11 @@ protected:
     	int rank = mpihelper_->rank();
     	int size = mpihelper_->size();
 
-    	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    	// [FIXME] REMOVE DEBUG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     	//for (int i = 0; i < timestorage_.size(); i++)  { std::cout << "process [" << rank << " operation " << timestorage_[i].first << std::endl;  }
-
 
     	// -------------------Self-Test-------------------------------------------
     	// Communicate total number of finished processes to master. Assert that this number is the same on all processes
-    	// [FIXME] Calculate number of started and finished processes separately
+    	// [TODO] Calculate number of started and finished processes separately
     	{
     		int thisNTimer = timestorage_.size();
     		std::vector<int> nTimer(size);

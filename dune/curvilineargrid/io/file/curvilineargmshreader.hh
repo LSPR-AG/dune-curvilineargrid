@@ -875,7 +875,7 @@ namespace Dune
      *  \param[in]  internalElementVector         A vector in which the globalID's of internal elements are stored
      *  \param[in]  nBoundarySegmentTotal         Number of boundary segments over all processes
      *
-     *  [FIXME] Currently, physical tag is inserted explicitly, which may be unsatisfactory for Dune community.
+     *  [TODO] Currently, physical tag is inserted explicitly, which may be unsatisfactory for Dune community.
      *          A possible workaround is to create compiler directive -DHAVE_PHYSICAL_TAG, which would determine
      *          whether to use extra argument in the factory.insertElement() routine
      *
@@ -966,7 +966,7 @@ namespace Dune
      *  \param[in]  boundaryElementVector        A vector in which the globalID's of boundary elements are stored
      *  \param[in]  linkedElementLocalIndexSet   A vector that stores a vector of localID's of all elements linked this boundary, for each boundary localID
      *
-     *  [FIXME] Currently factory.insertBoundarySegment() inserts index of element associated with this element, which Dune might not like:
+     *  [TODO] Currently factory.insertBoundarySegment() inserts index of element associated with this element, which Dune might not like:
      *  Possible solutions:
      *    * Extend Dune-interface with this function. Otherwise inserting boundary segment is pointless - having to find which element this boundary segment is associated with
      *    * Recompute in CurvGrid - not too expensive to redo, but annoying

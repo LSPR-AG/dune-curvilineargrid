@@ -1,19 +1,37 @@
+
+----------------------------------------------------------------------
+Faraway goals of CurvilinearGrid and geometry
+----------------------------------------------------------------------
+[ ] Curvilinear Hexahedral Geometries and Grids
+[ ] Lower mydim geometries
+  [ ] 2D in 3D, to allow floating surfaces. Sometimes only a surface is required, e.g. BoundaryIntegral, or dual mesh
+[ ] 2D Geometries
+[ ] Thread-safety
+
+----------------------------------------------------------------------
+CurvilinearGeometry
+----------------------------------------------------------------------
+[ ] CurvilinearGeometryHelper - optimize extraction of subentity vertices
+
+
+
 ----------------------------------------------------------------------
 TODO-List for Curvilinear Geometry and Curvilinear Grid
-----------------------------------------------------------------------  
-
-
-[ ] gmsh2dune mapping is imperfect. I assume that GMSH always picks axis of element in such a way that detJ would be always positive. Then the mapper swaps y and z axis, and it becomes always negative, which causes unnecessary work
+----------------------------------------------------------------------
 
 [ ] Simplify curvilinear geometry
   [ ] Split CurvGeometry and CachedGeometry to separate files
-  [ ] Introduce new file for helper directory - curvilinearproperties.hh. Via namespace
-    [ ] Have templated:
-      [ ] AnalyticalJacobian, Squared, etc
-  [+] In CachedGeometry, only store AnalyticalMap, the rest is useless
   [ ] Non-cached geometry is pointless. There is no computational advantage in not precomputing maps, and memory gain is irrelevant since nobody would store an array of geometries
     [ ] Have one geometry with pointer-based storage for all possible derived quantities. Initialize each quantity whenever it is computed as in Intersection
-  [ ] Like in element - create CurvilinearGeometryBase, specialize into templated classes, separate for volume and surface
+  [ ] Specialize CurvilinearGeometry class for different CODIM
+
+[ ] CurvilinearGMSHReader
+  [ ] gmsh2dune mapping is imperfect. I assume that GMSH always picks axis of element in such a way that detJ would be always positive. Then the mapper swaps y and z axis, and it becomes always negative, which causes unnecessary work
+
+[ ] Scalability of CurvilinearGrid
+  [ ] CurvGMSHReader to work with generic factories and thus AluGrid
+  [ ] Constructor to optionally not require boundary segment insertion
+  [ ] CurvGrid to function without ghost elements. To make relevant tests
 
 
 
@@ -53,24 +71,21 @@ Optimization
 
 [ ] Optimization-CurvilinearVTKWriter:
   [+] Allow adding tetrahedral elements to VTK and VTU
-  [+] Allow adding field functor sets to VTK
-    [+] VTU
+  [+] Allow adding field functor sets to VTK and VTU
   [ ] If explosion is off, and neighbour discretization order the same, reuse discretization vertices shared by neighbor elements 
     [ ] Map discretization vertices with a key including bounding vertices and displacements
+  [ ] Use std::function or dune::function to define functions accepted by the VTKWriter
+    [ ] Allow more optimal VTK writer syntax, where the whole coordinate is passed, not its component
     
-  [+] Bug with curvVTK - only writes field for surface discretization points, not volume discretization points. For those it is saved as 0 aka not-in-map
-    [+] Problem was with only sampling the necessary vertices in vtk writer using if-statement in the loop
-  [+] Bug with curvVTK - slice does not reveal any internal field
-    [ ] Does VTK associate field with existing entities? - Ask on mailing list
-    [+] If this is the case, extend virtual refinement to elementary refinement
-      [+] Extended - problem solved
-  [ ] Bug with curvVTK - there are strange narrow gaps inbetween fitted tetrahedra
-  [ ] Bug with curvVTK - field seems to be zero on one edge for each basis function, unexpected
-    [ ] This is likely to do with VTK sampling
+
      
 
 Features
 ----------------------------------------------------------------------
+
+[ ] Interface
+  [ ] grid.size(codim, partitionType)    - extend grid.size interface, replacing numInterior and numProcessBoundaries. Propose extend to DUNE PPL as generic
+  [ ] grid.sizeCurvilinear(codim == dim) - method to output number of curved vertices
 
 [ ] LoggingMessage
   [+] Convert LoggingMessage to a singleton, never store it, only initialize once and request write operations
@@ -93,15 +108,6 @@ Features
 [ ] GridDiagnostics
   [ ] Write Matlab routine to analyse diagnostics output of grid-diagnostics
   [ ] Possibly enable writing diagnostics to CSV to analyse with Excel
-
-
-Scalability
-----------------------------------------------------------------------
-
-[ ] Scalability
-  [ ] CurvGMSHReader to work with generic factories and thus AluGrid
-  [ ] Constructor to optionally not require boundary segment insertion
-  [ ] CurvGrid to function without ghost elements. To make relevant tests
   
   
 Testing

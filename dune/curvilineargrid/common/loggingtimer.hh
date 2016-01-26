@@ -16,11 +16,10 @@
 
 #include <dune/common/parallel/mpihelper.hh>
 
+using namespace std::chrono;
 
 namespace Dune
 {
-
-  using namespace std::chrono;
 
 template<typename LoggingMessage>
 class LoggingTimer

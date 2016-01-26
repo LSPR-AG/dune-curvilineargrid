@@ -54,7 +54,13 @@
 #include <dune/curvilineargrid/io/file/curvilinearvtkwriter.hh>
 #include <dune/curvilineargrid/io/file/gmsh2dunemapper.hh>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <parmetis.h>
+#ifdef __cplusplus
+}
+#endif
 
 
 
@@ -1104,9 +1110,15 @@ namespace Dune
         // Preliminaries
         // ****************************************************
 #if PARMETIS_MAJOR_VERSION < 4
-      typedef idxtype idx_t;
-      typedef float real_t;
+      typedef ::idxtype ParmetisIndexType;
+      typedef float     ParmetisRealType;
+#else
+      typedef ::idx_t    ParmetisIndexType;
+      typedef ::real_t   ParmetisRealType;
 #endif
+
+      typedef std::vector<ParmetisIndexType>  ParmetisIndexVector;
+      typedef std::vector<ParmetisRealType>   ParmetisRealVector;
 
       GeometryType elementType = gmsh2dunemapper_.geometryType(baseElementVector[0].gmshIndex_);
       int elementNumber = baseElementVector.size();
@@ -1116,30 +1128,30 @@ namespace Dune
       // ****************************************************
       // Setup parameters for ParMETIS
       // ****************************************************
-      idx_t wgtflag = 2;                                  // We use different weights for each element
-      idx_t numflag = 0;                                  // we are using C-style arrays
-      idx_t ncon = 1;                                     // number of balance constraints
-      idx_t ncommonnodes = elementFaceCorners;            // number of nodes elements must have in common in order to be adjacent to each other
-      idx_t nparts = size_;                               // number of parts equals number of processes
-      std::vector<real_t> tpwgts(ncon*nparts, 1./nparts); // load per subdomain and weight (same load on every process)
-      std::vector<real_t> ubvec(ncon, 1.05);              // weight tolerance (same weight tolerance for every weight there is)
-      idx_t options[4] = {0, 0, 0, 0};                    // use default values for random seed, output and coupling
-      idx_t edgecut;                                      // will store number of edges cut by partition
+      ParmetisIndexType wgtflag = 2;                                  // We use different weights for each element
+      ParmetisIndexType numflag = 0;                                  // we are using C-style arrays
+      ParmetisIndexType ncon = 1;                                     // number of balance constraints
+      ParmetisIndexType ncommonnodes = elementFaceCorners;            // number of nodes elements must have in common in order to be adjacent to each other
+      ParmetisIndexType nparts = size_;                               // number of parts equals number of processes
+      ParmetisRealVector tpwgts(ncon*nparts, 1./nparts); // load per subdomain and weight (same load on every process)
+      ParmetisRealVector ubvec(ncon, 1.05);              // weight tolerance (same weight tolerance for every weight there is)
+      ParmetisIndexType options[4] = {0, 0, 0, 0};                    // use default values for random seed, output and coupling
+      ParmetisIndexType edgecut;                                      // will store number of edges cut by partition
 
       // ****************************************************
       // Communicate the number of elements on each process
       // ****************************************************
       LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Communicating element numbers on all processes to each process");
 
-      std::vector<idx_t> elmdist;
-      std::vector<idx_t> elmdist_tmp (size_, 0);
+      ParmetisIndexVector elmdist;
+      ParmetisIndexVector elmdist_tmp (size_, 0);
 
       // The index of elmdist_tmp should be the process number, the value the number of elements on each process
 #if HAVE_MPI
       MPI_Comm comm = Dune::MPIHelper::getCommunicator();
       Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
 
-      collective_comm.allgather(&elementNumber, 1, reinterpret_cast<idx_t*>(elmdist_tmp.data()));
+      collective_comm.allgather(&elementNumber, 1, reinterpret_cast<ParmetisIndexType*>(elmdist_tmp.data()));
 #endif
 
       // elmdist should be an incremental array whose entries are the sum of all element numbers on previous processes
@@ -1153,7 +1165,7 @@ namespace Dune
       //  2) The number of basis functions to interpolate the field inside should be approximately that number too (why???)
       //  3) The number of new non-zero matrix elements is approx. number of basis functions squared
       // ****************************************************
-      std::vector<idx_t> elmwgt;
+      ParmetisIndexVector elmwgt;
       for (size_t i = 0; i < elementNumber; i++) {
     	  int elementOrder = gmsh2dunemapper_.elementOrder(baseElementVector[i].gmshIndex_);
     	  elmwgt.push_back(pow(elementOrder, 2));
@@ -1163,7 +1175,7 @@ namespace Dune
       // Create and fill arrays "eptr", where eptr[i] is the number of vertices that belong to the i-th element, and
       // "eind" contains the vertex-numbers of the i-the element in eind[eptr[i]] to eind[eptr[i+1]-1]
       // ****************************************************
-      std::vector<idx_t> eptr, eind;
+      ParmetisIndexVector eptr, eind;
       int numVertices = 0;
       eptr.push_back(numVertices);
 
@@ -1185,7 +1197,7 @@ namespace Dune
 #endif
         ParMETIS_V3_PartMeshKway(elmdist.data(), eptr.data(), eind.data(), elmwgt.data(), &wgtflag, &numflag,
                                  &ncon, &ncommonnodes, &nparts, tpwgts.data(), ubvec.data(),
-                                 options, &edgecut, reinterpret_cast<idx_t*>(part.data()), &comm);
+                                 options, &edgecut, reinterpret_cast<ParmetisIndexType*>(part.data()), &comm);
 
 #if PARMETIS_MAJOR_VERSION >= 4
         if (OK != METIS_OK)

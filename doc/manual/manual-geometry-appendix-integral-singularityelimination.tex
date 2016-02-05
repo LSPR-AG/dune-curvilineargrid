@@ -1,5 +1,8 @@
 \section{Singularity Elimination}
 
+\subsection{First order scalar integral}
+\label{appendix-singularity-1st-scalar}
+
 When implementing surface integral methods, one has to deal with singular integrals over the face of the element, which take the form
 \[ \iint \frac{g(x,y)}{|\vec{x} - \vec{x}_0|} dx dy \]
 where $g(x,y)$ is analytic. Principal value integration has to be used to analytically determine the value of the integral within the infinitesimal area patch including the singularity.
@@ -54,3 +57,42 @@ Each monomial separately can be divided by $(1-u')$ by considering the identity
   \item Show that resulting polynomial integral is not singular
   \item What to do with integrals over neighbouring elements
 \end{itemize}
+
+
+
+
+
+
+\subsection{First order vector integral}
+\label{appendix-singularity-1st-vector}
+
+A slightly more sophisticated integral has 2nd order singularity in the denominator, but is proportional to the vector distance, and this can be made use of
+
+\[ \int_0^1 \int_0^{1-u'} \frac{g(u',v') (\vec{p}(\vec{r}) - \vec{p}(\vec{r}_0))}{|\vec{p}(\vec{r}) - \vec{p}(\vec{r}_0)|^2} du' dv' \]
+
+\noindent
+Following exactly the steps in \cref{appendix-singularity-1st-scalar}, one denominator order will be absorbed by the coordinate transform, and the other by the vector distance, resulting in the equation
+
+\[ \int_0^1 \int_0^1 \frac{g(u',(1-u')t) \vec{\zeta}(u', t)}{|\vec{\zeta}(u', t)|^2} du' dt \]
+
+
+
+
+
+\subsection{Second and higher order vector integrals}
+
+The most sophisticated integral we will treat is 
+
+\[ \int_0^1 \int_0^{1-u'} \frac{g(u',v') (\vec{p}(\vec{r}) - \vec{p}(\vec{r}_0))}{|\vec{p}(\vec{r}) - \vec{p}(\vec{r}_0)|^n} du' dv' \]
+\noindent
+where $n \geq 3$. Performing the steps from \cref{appendix-singularity-1st-vector}, we obtain 
+\[ \int_0^1 \int_0^1 \frac{g(u',(1-u')t) \vec{\zeta}(u', t)}{|\vec{\zeta}(u', t)|^n (u' - 1)^{n-2}} du' dt \]
+\noindent
+thus having "softened" the singularity by by one order of magnitude, and removed the vectorial dependence. The problem has now been converted to a 1D problem of the type
+
+\[ \int_0^1 \frac{F(u)}{(1-u)^{n-2}}du  \]
+
+
+
+
+

@@ -48,7 +48,7 @@ Dune-CurvilinearGrid has been tested on Linux (Ubuntu 14.04, Debian 7) and OSX(1
 gcc 4.8, 4.9, 5.0, 5.1 and 5.2.
 
 Current dune-curvilineargrid pre-requisites include:
-1) C++ compiler supporting std2011 code standard
+1) C++ compiler supporting std=c++11 code standard
 2) OpenMPI compiler
 3) CMake ver >= 3.0.0 (automake/autoconf not supported)
 4) Metis 5.1.0 as external library  (http://glaros.dtc.umn.edu/gkhome/metis/metis/download)
@@ -56,8 +56,8 @@ Current dune-curvilineargrid pre-requisites include:
 Additional requirement currently is to place metis.h into include/ directory of parmetis, next to parmetis.h.
 This is a quick-fix of a cmake routine that should be fixed in one of the upcoming releases.
 
-dune-curvilienargrid also depends on Dune core modules of version 2.4 (earlier versions not supported).
-Necessary modules include
+dune-curvilienargrid also depends on Dune core modules (https://dune-project.org/downloadgit.html)
+of version 2.4 (earlier versions not supported). Necessary modules include
 
      dune-common
      dune-geometry

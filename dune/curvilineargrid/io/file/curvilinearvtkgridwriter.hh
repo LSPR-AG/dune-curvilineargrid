@@ -4,42 +4,66 @@
 #include <dune/curvilineargrid/io/file/curvilinearvtkwriter.hh>
 
 /** \brief This is only needed to define the VTK Function at the moment **/
-#include <dune/grid/io/file/vtk/vtkwriter.hh>
-#include <dune/grid/io/file/vtk/subsamplingvtkwriter.hh>
+//#include <dune/grid/io/file/vtk/vtkwriter.hh>
+//#include <dune/grid/io/file/vtk/subsamplingvtkwriter.hh>
 
 namespace Dune
 {
 
 
-template <class Element, class VTKFunction>
-class VTKElementaryFunction
-{
-	static const int dimension = Element::dimension;
 
-	typedef Dune::FieldVector<double, dimension>  LocalCoordinate;
-	typedef Dune::FieldVector<double, dimension>  GlobalCoordinate;
+template <class Grid, int mydim>
+class VTKScalarFunction
+{
 
 public:
 
-	VTKElementaryFunction(const Element & element, const VTKFunction * vtkfunction) :
-		element_(element),
-		vtkfunction_(vtkfunction)
-	{
+	static const int dimension    = Grid::dimension;
+	static const int mydimension  = mydim;
+	typedef typename Grid::ctype CoordinateType;
 
-	}
+	typedef typename Grid::template Codim<dimension - mydimension>::Entity Entity;
+
+	typedef Dune::FieldVector<CoordinateType, mydimension>  Domain;
+	typedef CoordinateType                                  Range;
+
+public:
+
+	VTKScalarFunction() { }
+
+	virtual void init (const Entity & entity) = 0;
+
+	virtual Range evaluate(const Domain & x) const = 0;
+
+	virtual std::string name () const = 0;
+
+};
 
 
-	GlobalCoordinate evaluate(const LocalCoordinate &xi)
-	{
-		GlobalCoordinate rez;
-		for (int i = 0; i < dimension; i++)  { rez[i] = vtkfunction_->evaluate(i, element_, xi); }
-		return rez;
-	}
+template <class Grid, int mydim>
+class VTKVectorFunction
+{
+public:
 
+	static const int dimension    = Grid::dimension;
+	static const int mydimension  = mydim;
+	typedef typename Grid::ctype CoordinateType;
 
-private:
-	const Element & element_;
-	const VTKFunction * vtkfunction_;
+	typedef typename Grid::template Codim<dimension - mydimension>::Entity Entity;
+
+	typedef Dune::FieldVector<CoordinateType, mydimension>  Domain;
+	typedef Dune::FieldVector<CoordinateType, dimension>    Range;
+
+public:
+
+	VTKVectorFunction() { }
+
+	virtual void init (const Entity & entity) = 0;
+
+	virtual Range evaluate(const Domain & x) const = 0;
+
+	virtual std::string name () const = 0;
+
 };
 
 
@@ -59,6 +83,7 @@ class CurvilinearVTKGridWriter
 
 	typedef Dune::CurvilinearVTKWriter<GridType>  BaseWriter;
 
+public:
 	typedef GridType                      Grid;
 	static const int dimension = Grid::dimension;
 
@@ -76,16 +101,26 @@ class CurvilinearVTKGridWriter
 	typedef typename Grid::PhysicalTagType           PhysicalTagType;
 	typedef typename Grid::InterpolatoryOrderType    InterpolatoryOrderType;
 
-	typedef Dune::VTKFunction<LeafGridView>   VTKFunction;
+	typedef VTKScalarFunction<Grid, 2>  VTKScalarFunction2D;
+	typedef VTKScalarFunction<Grid, 3>  VTKScalarFunction3D;
+	typedef VTKVectorFunction<Grid, 2>  VTKVectorFunction2D;
+	typedef VTKVectorFunction<Grid, 3>  VTKVectorFunction3D;
+
+	typedef typename std::vector<VTKScalarFunction2D *> VTKScPtrVector2D;
+	typedef typename std::vector<VTKScalarFunction3D *> VTKScPtrVector3D;
+	typedef typename std::vector<VTKVectorFunction2D *> VTKVecPtrVector2D;
+	typedef typename std::vector<VTKVectorFunction3D *> VTKVecPtrVector3D;
 
 
-
-
-public:
 	CurvilinearVTKGridWriter(const Grid & grid) :
+		vtkScalarFaceFunctionSet_(nullptr),
+		vtkScalarElementFunctionSet_(nullptr),
+		vtkVectorFaceFunctionSet_(nullptr),
+		vtkVectorElementFunctionSet_(nullptr),
 		grid_(grid),
 		virtualRefinementOrder_(0),
 		writeInteriorOnly_(false),
+		writeExplode_(false),
 		writePatience_(true)
 	{
 
@@ -101,23 +136,27 @@ public:
 	// Allow user to only write interior elements to accelerate writer
 	void writePatience(bool patience)  { writePatience_ = patience; }
 
-	// Write Grid only to VTK
-	void write(std::string path, std::string filenamePrefix)
-	{
-		std::vector<VTKFunction *> emptyFieldSet;
-		write(path, filenamePrefix, emptyFieldSet);
-	}
+	// User can choose to use explosion plotting for meshes
+	void writeExplode(bool explode)  { writeExplode_ = explode; }
+
+
+
+	// Add a scalar or a vector field set to the grid
+	// NOTE: IT IS VERY IMPORTANT THAT ALL FIELDS HAVE UNIQUE NAME
+	void addFieldSet(VTKScPtrVector2D & field)   { vtkScalarFaceFunctionSet_    = &field; }
+	void addFieldSet(VTKScPtrVector3D & field)   { vtkScalarElementFunctionSet_ = &field; }
+	void addFieldSet(VTKVecPtrVector2D & field)  { vtkVectorFaceFunctionSet_    = &field; }
+	void addFieldSet(VTKVecPtrVector3D & field)  { vtkVectorElementFunctionSet_ = &field; }
 
 
 	// Write Grid to VTK, including vector field set defined over each element
-	void write(std::string path, std::string filenamePrefix, std::vector<VTKFunction *> & vtkFunctionSet)
+	void write(std::string path, std::string filenamePrefix)
 	{
 		// Declare the curvilinear vtk writer
 		BaseWriter writer(grid_.comm().rank(), grid_.comm().size());
 
 		// Properties
         bool interpolate = true;
-        bool explode = false;
         std::vector<bool>  writeCodim { true, true, false, false };  // Use elements for discretization, and do not use entities of other codimensions
 
 		// Iterate over elements
@@ -150,24 +189,15 @@ public:
 
 				// Write element to VTK
 				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting element geometry" );
-				writer.template addCurvilinearElement<dimension - ELEMENT_CODIM>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, interpolate, explode, writeCodim);
+				writer.template addCurvilinearElement<dimension - ELEMENT_CODIM>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, interpolate, writeExplode_, writeCodim);
 
 
 				if (thisPType != Dune::PartitionType::GhostEntity)
 				{
 					// It is unexpected that the process would know the field on its own Ghost element. It is most likely that for memory reasons this field
 					// will be stored only once, and on a process for which this element is an interior element
-					for (unsigned int i = 0; i < vtkFunctionSet.size(); i++)
-					{
-
-						LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Computing element field" );
-						// Construct VTKElementaryFunction
-						VTKElementaryFunction<EntityElement, VTKFunction> vtkefunc(elementThis, vtkFunctionSet[i]);
-
-						LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Inserting element field" );
-						// Write field
-						writer.addField(vtkFunctionSet[i]->name(), vtkefunc);
-					}
+					writeScalarField(vtkScalarElementFunctionSet_, elementThis, writer);
+					writeVectorField(vtkVectorElementFunctionSet_, elementThis, writer);
 
 					// Write faces - Domain and Process Boundaries
 					if (!writeInteriorOnly_) // Do it only if user wants to see them
@@ -193,7 +223,13 @@ public:
 
 								// Write element to VTK
 								LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting face geometry" );
-								writer.template addCurvilinearElement<dimension - FACE_CODIM>(faceGeomType, faceNodeSet, faceTagSet, elementOrder, nDiscretizationPoint, interpolate, explode, writeCodim);
+								writer.template addCurvilinearElement<dimension - FACE_CODIM>(faceGeomType, faceNodeSet, faceTagSet, elementOrder, nDiscretizationPoint, interpolate, writeExplode_, writeCodim);
+
+								// For now, only write face-based fields for domain boundaries
+								if (intersection.boundary())  {
+									writeScalarField(vtkScalarFaceFunctionSet_, faceThis, writer);
+									writeVectorField(vtkVectorFaceFunctionSet_, faceThis, writer);
+								}
 							}
 						}
 					}
@@ -208,19 +244,70 @@ public:
 		//writer_.writeVTK(filenamePrefix + ".vtk");
 		writer.writeParallelVTU(path, filenamePrefix);
 
-		// Delete vtk functions
-		for (unsigned int i = 0; i < vtkFunctionSet.size(); i++)  { delete vtkFunctionSet[i]; }
-		vtkFunctionSet.clear();
-
+		// With current design it is expected that the VTK Writer deletes all the VTK functions
+		deleteField(vtkScalarFaceFunctionSet_);
+		deleteField(vtkVectorFaceFunctionSet_);
+		deleteField(vtkScalarElementFunctionSet_);
+		deleteField(vtkVectorElementFunctionSet_);
 	}
 
 
+
+
 private:
+
+
+	//template <class VTKVecPtrVector, class EntityType>
+	template <class VTKFunction, class EntityType>
+	void writeScalarField(std::vector<VTKFunction *> * vec, const EntityType & entity, BaseWriter & writer) {
+		if (vec != nullptr) {
+			for (unsigned int i = 0; i < vec->size(); i++)
+			{
+				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Computing element field" );
+				(*vec)[i]->init(entity);
+
+				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Inserting element field" );
+				writer.template addScalarField<VTKFunction>(*((*vec)[i]));
+			}
+		}
+	}
+
+
+	template <class VTKFunction, class EntityType>
+	void writeVectorField(std::vector<VTKFunction *> * vec, const EntityType & entity, BaseWriter & writer) {
+		if (vec != nullptr) {
+			for (unsigned int i = 0; i < vec->size(); i++)
+			{
+				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Computing element field" );
+				(*vec)[i]->init(entity);
+
+				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Inserting element field" );
+				writer.template addVectorField<VTKFunction>(*((*vec)[i]));
+			}
+		}
+	}
+
+
+	template <class VTKVecPtrVector>
+	void deleteField(VTKVecPtrVector * vec) const {
+		if (vec != nullptr) {
+			for (unsigned int i = 0; i < vec->size(); i++)  { delete (*vec)[i]; }
+			vec->clear();
+		}
+	}
+
+
+	VTKScPtrVector2D  * vtkScalarFaceFunctionSet_;      // Store scalar functions defined over faces
+	VTKVecPtrVector2D * vtkVectorFaceFunctionSet_;      // Store vector functions defined over faces
+	VTKScPtrVector3D  * vtkScalarElementFunctionSet_;   // Store scalar functions defined over elements
+	VTKVecPtrVector3D * vtkVectorElementFunctionSet_;   // Store vector functions defined over elements
+
 
 	const Grid & grid_;
 	int virtualRefinementOrder_;   // User-defined discretization order for element sub-refinement
 	bool writeInteriorOnly_;       // User can choose to only write interior elements, thus accelerating writing procedure
 	bool writePatience_;           // User can choose to not write patience output for aestetical purposes
+	bool writeExplode_;            // User can choose to use explosion plotting for meshes
 
 };
 

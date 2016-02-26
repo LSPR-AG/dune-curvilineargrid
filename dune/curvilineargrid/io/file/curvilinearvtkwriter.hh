@@ -47,7 +47,9 @@ namespace Dune
 namespace VTKEntitySubset
 {
 
-typedef std::vector<int>                            IndexVector;
+
+typedef int                                         IndexType;
+typedef std::vector<IndexType>                      IndexVector;
 typedef std::vector< IndexVector >                  ElemGridEnumerate;
 
 typedef std::map<std::vector<int>, int>             LocalCoordinate2GlobalIdMap;
@@ -64,17 +66,17 @@ const int   ELEMENT_CODIM  = 0;
 
 
 /** \brief Splits provided triangular prism into 2 or 3 tetrahedrons, depending on whether the prism is reduced or not  */
-SubEntityIndexVector prism2tetrahedron(std::vector<int> prismIndex) {
+SubEntityIndexVector prism2tetrahedron(const IndexVector & prismIndex) {
 	assert((prismIndex.size() == 5) ||(prismIndex.size() == 6));  // Allow only triangular and reduced-triangular prisms
 
 	SubEntityIndexVector rez;
 
-	rez.push_back(std::vector<int>  {prismIndex[0], prismIndex[1], prismIndex[2], prismIndex[4]}  );
-	rez.push_back(std::vector<int>  {prismIndex[0], prismIndex[2], prismIndex[3], prismIndex[4]}  );
+	rez.push_back(IndexVector {prismIndex[0], prismIndex[1], prismIndex[2], prismIndex[4]}  );
+	rez.push_back(IndexVector {prismIndex[0], prismIndex[2], prismIndex[3], prismIndex[4]}  );
 
 	if (prismIndex.size() == 6)  // Add the 3rd tetrahedron only if the prism is not reduced
 	{
-		rez.push_back(std::vector<int>  {prismIndex[2], prismIndex[3], prismIndex[4], prismIndex[5]}  );
+		rez.push_back(IndexVector {prismIndex[2], prismIndex[3], prismIndex[4], prismIndex[5]}  );
 	}
 
 	return rez;
@@ -91,7 +93,7 @@ SubEntityIndexVector prism2tetrahedron(std::vector<int> prismIndex) {
  *
  */
 template <int mycodim, int subcodim>
-SubEntityIndexVector refineEntitySubset(ElemGridEnumerate & entityEnumeratorReduced, int nInterval, LocalCoordinate2GlobalIdMap & parametricToIndex)
+SubEntityIndexVector refineEntitySubset(const ElemGridEnumerate & entityEnumeratorReduced, int nInterval, const LocalCoordinate2GlobalIdMap & parametricToIndex)
 {
 	std::cout << "ERROR: called refineErrorSubset generic (non-specialized) form that does nothing!" << std::endl;
 	assert(0);
@@ -102,22 +104,22 @@ SubEntityIndexVector refineEntitySubset(ElemGridEnumerate & entityEnumeratorRedu
 /** \brief Connects discretization points of a curvilinear edge using linear edges, adds these edges for writing to VTK */
 template <>
 SubEntityIndexVector refineEntitySubset<EDGE_CODIM, EDGE_CODIM>(
-        ElemGridEnumerate & edgeEnumeratorReduced,
+		const ElemGridEnumerate & edgeEnumeratorReduced,
         int nInterval,
-        LocalCoordinate2GlobalIdMap & parametricToIndex)
+        const LocalCoordinate2GlobalIdMap & parametricToIndex)
 {
 	SubEntityIndexVector rez;
 
     // Construct all edges and add them to the edge array
     for (unsigned int i = 0; i < edgeEnumeratorReduced.size(); i++)
     {
-        int x = edgeEnumeratorReduced[i][0];
+    	IndexType x = edgeEnumeratorReduced[i][0];
 
         // Construct triangle (123)
-        std::vector<int> parUV_0 {x};
-        std::vector<int> parUV_1 {x + 1};
+        IndexVector parUV_0 {x};
+        IndexVector parUV_1 {x + 1};
 
-        std::vector<int> edge01 {parametricToIndex[parUV_0], parametricToIndex[parUV_1]};
+        IndexVector edge01 {parametricToIndex.at(parUV_0), parametricToIndex.at(parUV_1)};
 
         rez.push_back(edge01);
     }
@@ -128,26 +130,26 @@ SubEntityIndexVector refineEntitySubset<EDGE_CODIM, EDGE_CODIM>(
 /** \brief Connects discretization points of a curvilinear triangle using linear edges, adds these edges for writing to VTK */
 template <>
 SubEntityIndexVector refineEntitySubset<FACE_CODIM, EDGE_CODIM> (
-        ElemGridEnumerate & triangleEnumeratorReduced,
+		const ElemGridEnumerate & triangleEnumeratorReduced,
         int nInterval,
-        LocalCoordinate2GlobalIdMap & parametricToIndex)
+        const LocalCoordinate2GlobalIdMap & parametricToIndex)
 {
 	SubEntityIndexVector rez;
 
     // Construct all edges and add them to the edge array
     for (unsigned int i = 0; i < triangleEnumeratorReduced.size(); i++)
     {
-        int x = triangleEnumeratorReduced[i][0];
-        int y = triangleEnumeratorReduced[i][1];
+    	IndexType x = triangleEnumeratorReduced[i][0];
+    	IndexType y = triangleEnumeratorReduced[i][1];
 
         // Construct triangle (123)
-        std::vector<int> parUV_0 {x,      y,   };
-        std::vector<int> parUV_1 {x + 1,  y,   };
-        std::vector<int> parUV_2 {x,      y + 1};
+        IndexVector parUV_0 {x,      y,   };
+        IndexVector parUV_1 {x + 1,  y,   };
+        IndexVector parUV_2 {x,      y + 1};
 
-        std::vector<int> edge01 { parametricToIndex[parUV_0], parametricToIndex[parUV_1] };
-        std::vector<int> edge12 { parametricToIndex[parUV_1], parametricToIndex[parUV_2] };
-        std::vector<int> edge20 { parametricToIndex[parUV_2], parametricToIndex[parUV_0] };
+        IndexVector edge01 { parametricToIndex.at(parUV_0), parametricToIndex.at(parUV_1) };
+        IndexVector edge12 { parametricToIndex.at(parUV_1), parametricToIndex.at(parUV_2) };
+        IndexVector edge20 { parametricToIndex.at(parUV_2), parametricToIndex.at(parUV_0) };
 
         // Add all edges
         rez.push_back(edge01);
@@ -161,31 +163,31 @@ SubEntityIndexVector refineEntitySubset<FACE_CODIM, EDGE_CODIM> (
 /** \brief Connects discretization points of a curvilinear tetrahedron using linear edges, adds these edges for writing to VTK */
 template<>
 SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, EDGE_CODIM> (
-        ElemGridEnumerate & tetrahedronEnumeratorReduced,
+		const ElemGridEnumerate & tetrahedronEnumeratorReduced,
         int nInterval,
-        LocalCoordinate2GlobalIdMap & parametricToIndex)
+        const LocalCoordinate2GlobalIdMap & parametricToIndex)
 {
 	SubEntityIndexVector rez;
 
     // Construct all edges and add them to the edge array
     for (unsigned int i = 0; i < tetrahedronEnumeratorReduced.size(); i++)
     {
-        int x = tetrahedronEnumeratorReduced[i][0];
-        int y = tetrahedronEnumeratorReduced[i][1];
-        int z = tetrahedronEnumeratorReduced[i][2];
+    	IndexType x = tetrahedronEnumeratorReduced[i][0];
+    	IndexType y = tetrahedronEnumeratorReduced[i][1];
+    	IndexType z = tetrahedronEnumeratorReduced[i][2];
 
         // Construct triangle (123)
-        std::vector<int> parUVW_0 {x,      y,      z    };
-        std::vector<int> parUVW_1 {x + 1,  y,      z    };
-        std::vector<int> parUVW_2 {x,      y + 1,  z    };
-        std::vector<int> parUVW_3 {x,      y,      z + 1};
+        IndexVector parUVW_0 {x,      y,      z    };
+        IndexVector parUVW_1 {x + 1,  y,      z    };
+        IndexVector parUVW_2 {x,      y + 1,  z    };
+        IndexVector parUVW_3 {x,      y,      z + 1};
 
-        std::vector<int> edge01 { parametricToIndex[parUVW_0], parametricToIndex[parUVW_1] };
-        std::vector<int> edge12 { parametricToIndex[parUVW_1], parametricToIndex[parUVW_2] };
-        std::vector<int> edge20 { parametricToIndex[parUVW_2], parametricToIndex[parUVW_0] };
-        std::vector<int> edge30 { parametricToIndex[parUVW_3], parametricToIndex[parUVW_0] };
-        std::vector<int> edge31 { parametricToIndex[parUVW_3], parametricToIndex[parUVW_1] };
-        std::vector<int> edge32 { parametricToIndex[parUVW_3], parametricToIndex[parUVW_2] };
+        IndexVector edge01 { parametricToIndex.at(parUVW_0), parametricToIndex.at(parUVW_1) };
+        IndexVector edge12 { parametricToIndex.at(parUVW_1), parametricToIndex.at(parUVW_2) };
+        IndexVector edge20 { parametricToIndex.at(parUVW_2), parametricToIndex.at(parUVW_0) };
+        IndexVector edge30 { parametricToIndex.at(parUVW_3), parametricToIndex.at(parUVW_0) };
+        IndexVector edge31 { parametricToIndex.at(parUVW_3), parametricToIndex.at(parUVW_1) };
+        IndexVector edge32 { parametricToIndex.at(parUVW_3), parametricToIndex.at(parUVW_2) };
 
         // Add all edges
         rez.push_back(edge01);
@@ -202,9 +204,9 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, EDGE_CODIM> (
 /** \brief Connects discretization points of a curvilinear triangle using linear triangles, adds these edges for writing to VTK */
 template<>
 SubEntityIndexVector refineEntitySubset<FACE_CODIM, FACE_CODIM> (
-        ElemGridEnumerate & triangleEnumeratorReduced,
+		const ElemGridEnumerate & triangleEnumeratorReduced,
         int nInterval,
-        LocalCoordinate2GlobalIdMap & parametricToIndex
+        const LocalCoordinate2GlobalIdMap & parametricToIndex
         )
 {
 	SubEntityIndexVector rez;
@@ -218,15 +220,15 @@ SubEntityIndexVector refineEntitySubset<FACE_CODIM, FACE_CODIM> (
         // First triangle always exists, because we iterate over (i,j) in such a way that there is 1 free point at the edge
         // Second triangle we construct only if point 4 is still in the triangle
 
-        int x = triangleEnumeratorReduced[i][0];
-        int y = triangleEnumeratorReduced[i][1];
+    	IndexType x = triangleEnumeratorReduced[i][0];
+    	IndexType y = triangleEnumeratorReduced[i][1];
 
         // Construct triangle (123)
-        std::vector<int> parUV_1 {x    , y    };
-        std::vector<int> parUV_2 {x + 1, y    };
-        std::vector<int> parUV_3 {x    , y + 1};
+        IndexVector parUV_1 {x    , y    };
+        IndexVector parUV_2 {x + 1, y    };
+        IndexVector parUV_3 {x    , y + 1};
 
-        std::vector<int> triangle123 { parametricToIndex[parUV_1], parametricToIndex[parUV_2], parametricToIndex[parUV_3] };
+        IndexVector triangle123 { parametricToIndex.at(parUV_1), parametricToIndex.at(parUV_2), parametricToIndex.at(parUV_3) };
 
         // Add triangle (123)
         rez.push_back(triangle123);
@@ -235,8 +237,8 @@ SubEntityIndexVector refineEntitySubset<FACE_CODIM, FACE_CODIM> (
         // If yes then add its symmetric triangle too
         if (x + y + 1 < nInterval)
         {
-            std::vector<int> parUV_4 {x + 1, y + 1};
-            std::vector<int> triangle234 { parametricToIndex[parUV_2], parametricToIndex[parUV_3], parametricToIndex[parUV_4] };
+            IndexVector parUV_4 {x + 1, y + 1};
+            IndexVector triangle234 { parametricToIndex.at(parUV_2), parametricToIndex.at(parUV_3), parametricToIndex.at(parUV_4) };
 
             // Add triangle (234)
             rez.push_back(triangle234);
@@ -249,9 +251,9 @@ SubEntityIndexVector refineEntitySubset<FACE_CODIM, FACE_CODIM> (
 /** \brief Connects discretization points of a curvilinear tetrahedron using linear triangles, adds these edges for writing to VTK */
 template<>
 SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
-        ElemGridEnumerate & tetrahedralEnumeratorReduced,
+		const ElemGridEnumerate & tetrahedralEnumeratorReduced,
         int nInterval,
-        LocalCoordinate2GlobalIdMap & parametricToIndex
+        const LocalCoordinate2GlobalIdMap & parametricToIndex
         )
 {
 	SubEntityIndexVector rez;
@@ -263,19 +265,19 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
     Coord2GlobalMapVector consistingTriangles(4);
     for (unsigned int i = 0; i < triangleEnumerator.size(); i++)
     {
-        int x = triangleEnumerator[i][0];
-        int y = triangleEnumerator[i][1];
-        int z = nInterval - x - y;
+    	IndexType x = triangleEnumerator[i][0];
+    	IndexType y = triangleEnumerator[i][1];
+    	IndexType z = nInterval - x - y;
 
-        std::vector<int> faceInd_0 {x, y, 0};
-        std::vector<int> faceInd_1 {x, 0, y};
-        std::vector<int> faceInd_2 {0, x, y};
-        std::vector<int> faceInd_3 {z, x, y};
+        IndexVector faceInd_0 {x, y, 0};
+        IndexVector faceInd_1 {x, 0, y};
+        IndexVector faceInd_2 {0, x, y};
+        IndexVector faceInd_3 {z, x, y};
 
-        consistingTriangles[0][triangleEnumerator[i]] = parametricToIndex[faceInd_0];
-        consistingTriangles[1][triangleEnumerator[i]] = parametricToIndex[faceInd_1];
-        consistingTriangles[2][triangleEnumerator[i]] = parametricToIndex[faceInd_2];
-        consistingTriangles[3][triangleEnumerator[i]] = parametricToIndex[faceInd_3];
+        consistingTriangles[0][triangleEnumerator[i]] = parametricToIndex.at(faceInd_0);
+        consistingTriangles[1][triangleEnumerator[i]] = parametricToIndex.at(faceInd_1);
+        consistingTriangles[2][triangleEnumerator[i]] = parametricToIndex.at(faceInd_2);
+        consistingTriangles[3][triangleEnumerator[i]] = parametricToIndex.at(faceInd_3);
     }
 
     // Discretizes resulting triangles using triangle discretization routine
@@ -293,35 +295,35 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
 /** \brief Connects discretization points of a curvilinear tetrahedron using linear tetrahedrons  */
 template<>
 SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
-        ElemGridEnumerate & tetrahedralEnumeratorReduced,
+		const ElemGridEnumerate & tetrahedralEnumeratorReduced,
         int nInterval,
-        LocalCoordinate2GlobalIdMap & parametricToIndex
+        const LocalCoordinate2GlobalIdMap & parametricToIndex
         )
 {
 	SubEntityIndexVector rez;
 
     // For each discretization point, takes associated cube, splits it into 2 prisms, then each prism into 3 tets
-    for (int i = 0; i < tetrahedralEnumeratorReduced.size(); i++)
+    for (unsigned int i = 0; i < tetrahedralEnumeratorReduced.size(); i++)
     {
-        int x = tetrahedralEnumeratorReduced[i][0];
-        int y = tetrahedralEnumeratorReduced[i][1];
-        int z = tetrahedralEnumeratorReduced[i][2];
+    	IndexType x = tetrahedralEnumeratorReduced[i][0];
+    	IndexType y = tetrahedralEnumeratorReduced[i][1];
+    	IndexType z = tetrahedralEnumeratorReduced[i][2];
 
         // If this is the boundary tetrahedron, it will not have any opposite tetrahedrons
         if (x + y + z + 1 == nInterval)
         {
         	rez.push_back(
-                std::vector<int>
+                IndexVector
                 {
-        			parametricToIndex[ std::vector<int>{x,     y,     z}     ],
-        			parametricToIndex[ std::vector<int>{x + 1, y,     z}     ],
-        			parametricToIndex[ std::vector<int>{x,     y + 1, z}     ],
-        			parametricToIndex[ std::vector<int>{x,     y,     z + 1} ]
+        			parametricToIndex.at( IndexVector{x,     y,     z}     ),
+        			parametricToIndex.at( IndexVector{x + 1, y,     z}     ),
+        			parametricToIndex.at( IndexVector{x,     y + 1, z}     ),
+        			parametricToIndex.at( IndexVector{x,     y,     z + 1} )
                 }
         	);
         } else {  // Otherwise, all opposite tetrahedrons need to be enumerated as well
 
-            std::vector<std::vector<int> > cubeIndex   // Enumerate all vertices of a cube associated with this discretization point
+            std::vector<IndexVector > cubeIndex   // Enumerate all vertices of a cube associated with this discretization point
             {
             	{x,     y,     z},
             	{x + 1, y,     z},
@@ -333,26 +335,26 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
             	{x + 1, y + 1, z + 1}
             };
 
-            std::vector<int> prismIndex1  {            // Split the cube into 2 prisms
-            	parametricToIndex[cubeIndex[0]],
-                parametricToIndex[cubeIndex[1]],
-                parametricToIndex[cubeIndex[2]],
-                parametricToIndex[cubeIndex[4]],
-                parametricToIndex[cubeIndex[5]],
-                parametricToIndex[cubeIndex[6]]
+            IndexVector prismIndex1  {            // Split the cube into 2 prisms
+            	parametricToIndex.at(cubeIndex[0]),
+                parametricToIndex.at(cubeIndex[1]),
+                parametricToIndex.at(cubeIndex[2]),
+                parametricToIndex.at(cubeIndex[4]),
+                parametricToIndex.at(cubeIndex[5]),
+                parametricToIndex.at(cubeIndex[6])
             };
 
-            std::vector<int> prismIndex2  {            // This prism might only have 5 points if the last corner of the cube is not inside original tetrahedron
-            	parametricToIndex[cubeIndex[1]],
-                parametricToIndex[cubeIndex[2]],
-                parametricToIndex[cubeIndex[3]],
-                parametricToIndex[cubeIndex[5]],
-                parametricToIndex[cubeIndex[6]]
+            IndexVector prismIndex2  {            // This prism might only have 5 points if the last corner of the cube is not inside original tetrahedron
+            	parametricToIndex.at(cubeIndex[1]),
+                parametricToIndex.at(cubeIndex[2]),
+                parametricToIndex.at(cubeIndex[3]),
+                parametricToIndex.at(cubeIndex[5]),
+                parametricToIndex.at(cubeIndex[6])
             };
 
             // If the top-most corner of the cube exists, then add it as well to the 2nd prism
             // Otherwise the 2nd prism is a reduced prism with only 5 corners
-            if (x + y + z + 2 < nInterval) { prismIndex2.push_back(parametricToIndex[cubeIndex[7]]); }
+            if (x + y + z + 2 < nInterval) { prismIndex2.push_back(parametricToIndex.at(cubeIndex[7])); }
 
             SubEntityIndexVector prism2tetIndex1 = prism2tetrahedron(prismIndex1);
             SubEntityIndexVector prism2tetIndex2 = prism2tetrahedron(prismIndex2);
@@ -386,6 +388,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
  */
   public:
 
+	  typedef typename GridType::ctype  ctype;
       static const int dimension = GridType::dimension;
       static const bool isCached = GridType::is_cached;
 
@@ -395,19 +398,28 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
       static const int   FACE_CODIM     = 1;
       static const int   ELEMENT_CODIM  = 0;
 
-      typedef FieldVector< double, dimension >            GlobalVector;
+      typedef FieldVector< ctype, dimension >             GlobalCoordinate;
+      typedef std::vector<GlobalCoordinate>               GlobalCoordinateVec;
       typedef std::vector<int>                            IndexVector;
       typedef std::vector<int>                            TagVector;
-      typedef std::vector<std::vector<int> >              SubEntityIndexVector;
+      typedef std::vector<IndexVector >                   SubEntityIndexVector;
       typedef std::map<std::vector<int>, int>             LocalCoordinate2GlobalIdMap;
       typedef std::vector< LocalCoordinate2GlobalIdMap >  Coord2GlobalMapVector;
       typedef typename LocalCoordinate2GlobalIdMap::iterator  LC2GIMapIter;
 
       typedef std::map<std::string, unsigned int>         FieldNameMap;
-      typedef std::map<int, GlobalVector>                 FieldCoordMap;
+      typedef std::pair<std::string, unsigned int>        FieldNamePair;
+      typedef std::map<int, ctype>                        FieldScalarMap;
+      typedef std::pair<int, ctype>                       FieldScalarPair;
+      typedef std::map<int, GlobalCoordinate>             FieldCoordMap;
+      typedef std::pair<int, GlobalCoordinate>            FieldCoordPair;
 
       typedef typename FieldNameMap::iterator             FieldNameMapIter;
+      typedef typename FieldNameMap::const_iterator       FieldNameMapConstIter;
+      typedef typename FieldScalarMap::iterator           FieldScalarMapIter;
+      typedef typename FieldScalarMap::const_iterator     FieldScalarMapConstIter;
       typedef typename FieldCoordMap::iterator            FieldCoordMapIter;
+      typedef typename FieldCoordMap::const_iterator      FieldCoordMapConstIter;
 
       typedef std::vector< IndexVector >                  ElemGridEnumerate;
 
@@ -422,7 +434,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
     CurvilinearVTKWriter (MPIHelper &mpihelper)
     {
-    	tmpNInterval_ = 0;         // Defined later
+    	nInterval_ = 0;         // Defined later
         rank_ = mpihelper.rank();
         size_ = mpihelper.size();
     }
@@ -430,7 +442,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
     CurvilinearVTKWriter (int rank, int size)
     {
-    	tmpNInterval_ = 0;         // Defined later
+    	nInterval_ = 0;         // Defined later
         rank_ = rank;
         size_ = size;
     }
@@ -460,8 +472,8 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     template<int mydim>
     void addCurvilinearElement(
             const Dune::GeometryType & geomtype,
-            const std::vector<GlobalVector> & nodeSet,
-            std::vector<int> & tagSet,
+            const GlobalCoordinateVec & nodeSet,
+            const TagVector & tagSet,
             int elementOrder,
             int nDiscretizationPoint,
             bool interpolate,
@@ -509,47 +521,72 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     }
 
 
-    /** \brief After an element has been added, one has the option attach one or more vector fields to the discretization vertices */
-    template <class VTKElementaryFunction>
-    void addField(std::string fieldname, VTKElementaryFunction & vtkfunction)
-    {
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Adding element field " + fieldname);
+    template <class VTKVectorFunction>
+    void addScalarField(const VTKVectorFunction & vtkfunction) {
+    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Adding element field " + vtkfunction.name());
 
-    	int fieldIndex;                                                 // The index of the field associated with this field name
-    	FieldNameMapIter iter = fieldName2Index_.find(fieldname);
+    	typedef typename VTKVectorFunction::Domain  Domain;
+    	typedef typename VTKVectorFunction::Range   Range;
+    	const int mydimension = VTKVectorFunction::mydimension;
 
-    	if (iter != fieldName2Index_.end() )  {       // If field exists, find its index
-    		fieldIndex = (*iter).second;
-    	} else {                                      // Otherwise, make new index and add field name to them map
-    		fieldIndex = vtkFieldVector_.size();
-    		fieldName2Index_.insert(std::pair<std::string, int>(fieldname, fieldIndex));
-    		vtkFieldVector_.resize(fieldIndex + 1);
-    	}
+        // The index of the field associated with this field name
+    	int fieldIndex = updateFieldIndex(scalarFieldName2Index_, vtkFieldScalar_, vtkfunction.name());
 
     	// Loop over all points
-    	for (LC2GIMapIter iter = tmpParameter2Index_.begin(); iter != tmpParameter2Index_.end(); iter++)
+    	for (LC2GIMapIter iter = parameter2Index_.begin(); iter != parameter2Index_.end(); iter++)
     	{
     		std::vector<int> integerCoordinate = (*iter).first;
-    		unsigned int     vertexIndex  = (*iter).second;
+    		unsigned int     vertexIndex       = (*iter).second;
 
     		// Compute local coordinate
-    		GlobalVector local;
-    		for (int i = 0; i < dimension; i++)  { local[i] = (double((*iter).first[i])) / tmpNInterval_; }
+    		Domain local;
+    		for (int i = 0; i < mydimension; i++)  { local[i] = (ctype((*iter).first[i])) / nInterval_; }
 
     		// Evaluate field
-    		GlobalVector field = vtkfunction.evaluate(local);
+    		Range field = vtkfunction.evaluate(local);
 
     		//std::cout << "VTKWriter sampling local coordinate " << local << " coordinate index " << vertexIndex << " field=" << field << std::endl;
 
     		// Append coordinate index and field
-    		vtkFieldVector_[fieldIndex].insert(std::pair<int, GlobalVector>(vertexIndex, field));
+    		vtkFieldScalar_[fieldIndex].insert(FieldScalarPair(vertexIndex, field));
+    	}
+    }
+
+    template <class VTKVectorFunction>
+    void addVectorField(const VTKVectorFunction & vtkfunction) {
+    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Adding element field " + vtkfunction.name());
+
+    	typedef typename VTKVectorFunction::Domain  Domain;
+    	typedef typename VTKVectorFunction::Range   Range;
+    	const int mydimension = VTKVectorFunction::mydimension;
+
+        // The index of the field associated with this field name
+    	int fieldIndex = updateFieldIndex(vectorFieldName2Index_, vtkFieldVector_, vtkfunction.name());
+
+    	// Loop over all points
+    	for (LC2GIMapIter iter = parameter2Index_.begin(); iter != parameter2Index_.end(); iter++)
+    	{
+    		std::vector<int> integerCoordinate = (*iter).first;
+    		unsigned int     vertexIndex       = (*iter).second;
+
+    		// Compute local coordinate
+    		Domain local;
+    		for (int i = 0; i < mydimension; i++)  { local[i] = (ctype((*iter).first[i])) / nInterval_; }
+
+    		// Evaluate field
+    		Range field = vtkfunction.evaluate(local);
+
+    		//std::cout << "VTKWriter sampling local coordinate " << local << " coordinate index " << vertexIndex << " field=" << field << std::endl;
+
+    		// Append coordinate index and field
+    		vtkFieldVector_[fieldIndex].insert(FieldCoordPair(vertexIndex, field));
     	}
     }
 
 
     // Writes serial VTK file
     // Takes a vector of vertices, a vector of edges and a vector of triangles, writes them all to a .VTK file
-    void writeVTK( std::string filename)
+    void writeVTK(std::string filename) const
     {
         FILE* vtkFile = fopen(filename.c_str(), "w");
 
@@ -606,12 +643,30 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
 
         // If are defined fields associated with vertices, then write them too
-        if (fieldName2Index_.size() > 0)
+        if ((vectorFieldName2Index_.size() > 0) || (scalarFieldName2Index_.size() > 0))
         {
         	fprintf(vtkFile, "\n");
         	fprintf(vtkFile, "POINT_DATA %d\n", vtkPoint_.size() );
 
-        	for (FieldNameMapIter iterName = fieldName2Index_.begin(); iterName != fieldName2Index_.end(); ++iterName)
+        	// Write all scalar fields
+        	for (FieldNameMapConstIter iterName = scalarFieldName2Index_.begin(); iterName != scalarFieldName2Index_.end(); ++iterName)
+        	{
+        		std::string fieldName = (*iterName).first;
+        		int fieldIndex  = (*iterName).second;
+
+        		fprintf(vtkFile, "SCALARS %s FLOAT\n", fieldName.c_str());
+
+                for (unsigned int i = 0; i < vtkPoint_.size(); i++ ) {
+                	// If there is no field defined for this vertex, just print a zero vector for consistency
+                	FieldScalarMapIter iterField = vtkFieldScalar_[fieldIndex].find(i);
+                	if (iterField == vtkFieldScalar_[fieldIndex].end())  { fprintf(vtkFile, "0.0\n"); }
+                	else {                                                 fprintf(vtkFile, "%lg\n", (*iterField).second); }
+                }
+                fprintf(vtkFile, "\n");
+        	}
+
+        	// Write all vector fields
+        	for (FieldNameMapConstIter iterName = vectorFieldName2Index_.begin(); iterName != vectorFieldName2Index_.end(); ++iterName)
         	{
         		std::string fieldName = (*iterName).first;
         		int fieldIndex  = (*iterName).second;
@@ -623,7 +678,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
                 	FieldCoordMapIter iterField = vtkFieldVector_[fieldIndex].find(i);
                 	if (iterField == vtkFieldVector_[fieldIndex].end())  { fprintf(vtkFile, "0.0 0.0 0.0\n"); }
                 	else {
-                		GlobalVector v = (*iterField).second;
+                		GlobalCoordinate v = (*iterField).second;
                 		fprintf(vtkFile, "%lg %lg %lg\n", v[0], v[1], v[2]);
                 	}
                 }
@@ -667,7 +722,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
     // Writes a PVTU parallel file (no data in this file)
     // Requite path and filename as separate strings, because
-    void writePVTU(std::string path, std::string filenameBody, int size)
+    void writePVTU(std::string path, std::string filenameBody, int size) const
     {
     	std::string filename = path + filenameBody + ".pvtu";
         FILE* pvtuFile = fopen(filename.c_str(), "w");
@@ -680,13 +735,25 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         fprintf(pvtuFile, "<P%s GhostLevel=\"0\">\n", VTK_GRID_TYPE.c_str());
 
 
-        // Write PointData - vector field sampled over all vertices
+        // Write PointData - scalar and vector fields sampled over all vertices
         // *****************************************************
-        if (fieldName2Index_.size() > 0)
+        bool haveScalar = scalarFieldName2Index_.size() > 0;
+        bool haveVector = vectorFieldName2Index_.size() > 0;
+        if (haveScalar || haveVector)
         {
-            fprintf(pvtuFile, "<PPointData Vectors=\"calculatedField\">\n");
+        	// Generate and write PointData preamble
+            std::stringstream pointDataNames;
+            if (haveScalar)  { pointDataNames << "Scalars=\"" << namesPile(scalarFieldName2Index_) << "\"";  if (haveVector) { pointDataNames << " "; } }
+            if (haveVector)  { pointDataNames << "Vectors=\"" << namesPile(vectorFieldName2Index_) << "\"";                                             }
+        	fprintf(pvtuFile, "<PPointData %s>\n", pointDataNames.str().c_str());
 
-        	for (FieldNameMapIter iterName = fieldName2Index_.begin(); iterName != fieldName2Index_.end(); ++iterName)
+        	// Write point data arrays
+        	for (FieldNameMapConstIter iterName = scalarFieldName2Index_.begin(); iterName != scalarFieldName2Index_.end(); ++iterName)
+        	{
+        		fprintf(pvtuFile, "<DataArray type=\"Float32\" Name=\"%s\" NumberOfComponents=\"1\" format=\"ascii\"/>\n", (*iterName).first.c_str());
+        	}
+
+        	for (FieldNameMapConstIter iterName = vectorFieldName2Index_.begin(); iterName != vectorFieldName2Index_.end(); ++iterName)
         	{
         		fprintf(pvtuFile, "<DataArray type=\"Float32\" Name=\"%s\" NumberOfComponents=\"3\" format=\"ascii\"/>\n", (*iterName).first.c_str());
         	}
@@ -738,7 +805,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
 
     // Writes serial VTU file
-    void writeVTU(std::string filename)
+    void writeVTU(std::string filename) const
     {
         FILE* vtuFile = fopen(filename.c_str(), "w");
 
@@ -768,13 +835,37 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         fprintf(vtuFile, "<Piece NumberOfPoints=\"%d\" NumberOfCells=\"%d\">\n", nEntity[VERTEX_CODIM], nEntity[EDGE_CODIM] + nEntity[FACE_CODIM] + nEntity[ELEMENT_CODIM]);
 
 
-        // Write PointData - vector field sampled over all vertices
+        // Write PointData - scalar and vector fields sampled over all vertices
         // *****************************************************
-        if (fieldName2Index_.size() > 0)
+        bool haveScalar = scalarFieldName2Index_.size() > 0;
+        bool haveVector = vectorFieldName2Index_.size() > 0;
+        if (haveScalar || haveVector)
         {
-            fprintf(vtuFile, "<PointData Vectors=\"calculatedField\">\n");
+        	// Generate and write PointData preamble
+            std::stringstream pointDataNames;
+            if (haveScalar)  { pointDataNames << "Scalars=\"" << namesPile(scalarFieldName2Index_) << "\"";  if (haveVector) { pointDataNames << " "; } }
+            if (haveVector)  { pointDataNames << "Vectors=\"" << namesPile(vectorFieldName2Index_) << "\"";                                             }
+        	fprintf(vtuFile, "<PointData %s>\n", pointDataNames.str().c_str());
 
-        	for (FieldNameMapIter iterName = fieldName2Index_.begin(); iterName != fieldName2Index_.end(); ++iterName)
+        	// Write point data arrays
+        	for (FieldNameMapConstIter iterName = scalarFieldName2Index_.begin(); iterName != scalarFieldName2Index_.end(); ++iterName)
+        	{
+        		std::string fieldName = (*iterName).first;
+        		int fieldIndex  = (*iterName).second;
+
+        		fprintf(vtuFile, "<DataArray type=\"Float32\" Name=\"%s\" NumberOfComponents=\"1\" format=\"ascii\">\n", fieldName.c_str());
+
+                for (unsigned int i = 0; i < vtkPoint_.size(); i++ ) {
+                	// If there is no field defined for this vertex, just print a zero vector for consistency
+                	FieldScalarMapConstIter iterField = vtkFieldScalar_[fieldIndex].find(i);
+                	if (iterField == vtkFieldScalar_[fieldIndex].end())  { fprintf(vtuFile, "0.0\n"); }
+                	else {                                                 fprintf(vtuFile, "%lg\n", (*iterField).second); }
+                }
+
+        		fprintf(vtuFile, "</DataArray>\n");
+        	}
+
+        	for (FieldNameMapConstIter iterName = vectorFieldName2Index_.begin(); iterName != vectorFieldName2Index_.end(); ++iterName)
         	{
         		std::string fieldName = (*iterName).first;
         		int fieldIndex  = (*iterName).second;
@@ -783,10 +874,10 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
                 for (unsigned int i = 0; i < vtkPoint_.size(); i++ ) {
                 	// If there is no field defined for this vertex, just print a zero vector for consistency
-                	FieldCoordMapIter iterField = vtkFieldVector_[fieldIndex].find(i);
+                	FieldCoordMapConstIter iterField = vtkFieldVector_[fieldIndex].find(i);
                 	if (iterField == vtkFieldVector_[fieldIndex].end())  { fprintf(vtuFile, "0.0 0.0 0.0\n"); }
                 	else {
-                		GlobalVector v = (*iterField).second;
+                		GlobalCoordinate v = (*iterField).second;
                 		fprintf(vtuFile, "%lg %lg %lg\n", v[0], v[1], v[2]);
                 	}
                 }
@@ -887,7 +978,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
 
     // Writes a VTU file on all processes and a PVTU on Master Process
-    void writeParallelVTU(std::string path, std::string filenameBody)
+    void writeParallelVTU(std::string path, std::string filenameBody) const
     {
         // Write a PVTU file on master process
         if (rank_ == 0) { writePVTU(path, filenameBody, size_); }
@@ -898,7 +989,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
 
     // Checks if the storage arrays are consistent before writing to file
-    void writerSelfCheck(std::vector<std::size_t> nEntity)
+    void writerSelfCheck(std::vector<std::size_t> nEntity) const
     {
         for (int iCodim = ELEMENT_CODIM; iCodim <= EDGE_CODIM; iCodim++)
         {
@@ -918,7 +1009,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
      *  Note: Only add tags if they are provided by the user
      * */
     template<int codim, int subcodim>
-    void refineEntity(ElemGridEnumerate & simplexEnumerateReduced, int nInterval, LocalCoordinate2GlobalIdMap & parametricToIndex, std::vector<int> & tagSet)
+    void refineEntity(const ElemGridEnumerate & simplexEnumerateReduced, int nInterval, const LocalCoordinate2GlobalIdMap & parametricToIndex, const std::vector<int> & tagSet)
     {
     	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Computing and writing refinement-edges" );
     	SubEntityIndexVector thisEntitySubset = VTKEntitySubset::refineEntitySubset<codim, subcodim>(simplexEnumerateReduced, nInterval, parametricToIndex);
@@ -932,9 +1023,9 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     }
 
     /** \brief Calculates the centre of mass of a vector of points (equal-weighted) */
-    GlobalVector vectorCentreOfMass( const std::vector<GlobalVector> & cornerVector)
+    GlobalCoordinate vectorCentreOfMass( const GlobalCoordinateVec & cornerVector) const
     {
-        GlobalVector rez;
+        GlobalCoordinate rez;
         for (unsigned int i = 0; i < cornerVector.size(); i++) { rez += cornerVector[i]; }
         rez /= cornerVector.size();
         return rez;
@@ -954,10 +1045,10 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
 
     // Pass CoM, because it is more optimal to only calculate it once for all samples over the element
-    void shrinkMagnify(GlobalVector & point, const GlobalVector & CoM, bool explode, bool magnify) const
+    void shrinkMagnify(GlobalCoordinate & point, const GlobalCoordinate & CoM, bool explode, bool magnify) const
     {
-        double shrinkMagnitude       = explode ? 0.2 : 0.0;  // 0.0 - no shrinking, 0.99 - very small element (must be < 1)
-        double boundaryMagnification = magnify ? 1.2 : 0.0;  // Expand all domain boundary surfaces a little bit so that they do not interlay with element surfaces
+        ctype shrinkMagnitude       = explode ? 0.2 : 0.0;  // 0.0 - no shrinking, 0.99 - very small element (must be < 1)
+        ctype boundaryMagnification = magnify ? 1.2 : 1.0;  // Expand all domain boundary surfaces a little bit so that they do not interlay with element surfaces
 
         for (int d = 0; d < dimension; d++)  {
         	point[d] = (point[d] + (CoM[d] - point[d]) * shrinkMagnitude) * boundaryMagnification;
@@ -968,8 +1059,8 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     template <int mydim>
     void addCurvilinearSimplex(
             const Dune::GeometryType & geomtype,
-            const std::vector<GlobalVector> & nodeSet,
-            std::vector<int> & tagSet,
+            const GlobalCoordinateVec & nodeSet,
+            const std::vector<int> & tagSet,
             int elementOrder,
             int nDiscretizationPoint,
             bool shrink,
@@ -977,9 +1068,10 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
             bool interpolate,
             std::vector<bool> writeCodim)
     {
-        typedef FieldVector< double, mydim >      LocalVector;
 
-        LagrangeInterpolator<double, mydim, dimension> elementInterpolator(geomtype, nodeSet, elementOrder);
+        typedef FieldVector< ctype, mydim >      LocalVector;
+
+        LagrangeInterpolator<ctype, mydim, dimension> elementInterpolator(geomtype, nodeSet, elementOrder);
 
         const int codim = dimension - mydim;
 
@@ -992,9 +1084,9 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
 
         LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Calculating CoM" );
-        std::vector<GlobalVector> cornerVector;
+        GlobalCoordinateVec cornerVector;
         for (int i = 0; i < nCornerThis; i++) { cornerVector.push_back(elementInterpolator.corner(i)); }
-        GlobalVector CoM = vectorCentreOfMass(cornerVector);
+        GlobalCoordinate CoM = vectorCentreOfMass(cornerVector);
 
 
         // *******************************************************************************
@@ -1008,25 +1100,26 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         //                 ****
         //  (i,j)=(0,0) -> ****** <- (i,j) = (0,n)
         //
+        // Step 3: Store the index of vertices used for future use
         // *******************************************************************************
-        LocalCoordinate2GlobalIdMap parametricToIndex;
-        int nInterval = interpolate ? nDiscretizationPoint - 1 : elementOrder;
+        nInterval_ = interpolate ? nDiscretizationPoint - 1 : elementOrder;
+        parameter2Index_.clear();
 
 
         LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Calculating Enumerators" );
-        ElemGridEnumerate  simplexEnumerate        = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval);
-        ElemGridEnumerate  simplexEnumerateReduced = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval-1);
-        std::vector< LocalVector > simplexLocalGrid = Dune::CurvilinearGeometryHelper::simplexGridCoordinateSet<double, mydim>(simplexEnumerate, nInterval);
+        ElemGridEnumerate  simplexEnumerate        = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval_);
+        ElemGridEnumerate  simplexEnumerateReduced = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval_ - 1);
+        std::vector< LocalVector > simplexLocalGrid = Dune::CurvilinearGeometryHelper::simplexGridCoordinateSet<ctype, mydim>(simplexEnumerate, nInterval_);
 
         LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Computing and inserting refinement vertices" );
         for (unsigned int i = 0; i < simplexEnumerate.size(); i++)
         {
             // Find if this vertex is internal or boundary
-            bool isBoundaryPoint = (mydim == 3) ? onTetrahedronBoundary(simplexEnumerate[i], nInterval) : true;
+            bool isBoundaryPoint = (mydim == 3) ? onTetrahedronBoundary(simplexEnumerate[i], nInterval_) : true;
 
             // If we interpolate, then all points will be taken from new sample grid
             // Otherwise we take the intrinsic interpolation point grid which has the same shape
-            GlobalVector tmpPoint = interpolate ? elementInterpolator.global(simplexLocalGrid[i]) : nodeSet[i];
+            GlobalCoordinate tmpPoint = interpolate ? elementInterpolator.global(simplexLocalGrid[i]) : nodeSet[i];
 
             //Optionally, transform the element. Do not try to multipy element by 1.0 if it is not going to be transformed
             if (shrink || magnify) { shrinkMagnify(tmpPoint, CoM, shrink, magnify); }
@@ -1035,25 +1128,51 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
             vtkPoint_.push_back(tmpPoint);
 
             // Add point to the point map
-            parametricToIndex[simplexEnumerate[i]] = vtkPoint_.size() - 1;
+            parameter2Index_[simplexEnumerate[i]] = vtkPoint_.size() - 1;
         }
-
-        // *******************************************************************************
-        // Step 3: Store the index of vertices used for future use
-        // *******************************************************************************
-        tmpNInterval_ = nInterval;
-        tmpParameter2Index_ = parametricToIndex;
 
         // *******************************************************************************
         // Step 4: Write entities that discretize this element to VTK
         // Current paradigm is to either discretize all inserted entities with edges, making sort of a net
         // Or to discretize each inserted entity with smaller entities of the same codim
         // *******************************************************************************
-        if      (writeCodim[EDGE_CODIM])  { refineEntity<codim, EDGE_CODIM>(simplexEnumerateReduced, nInterval, parametricToIndex, tagSet);  }
-        else if (writeCodim[codim])       { refineEntity<codim, codim>(simplexEnumerateReduced, nInterval, parametricToIndex, tagSet);  }
+        if      (writeCodim[EDGE_CODIM])  { refineEntity<codim, EDGE_CODIM>(simplexEnumerateReduced, nInterval_, parameter2Index_, tagSet);  }
+        else if (writeCodim[codim])       { refineEntity<codim, codim>(simplexEnumerateReduced, nInterval_, parameter2Index_, tagSet);  }
         //if (writeCodim[FACE_CODIM])     { refineEntity<codim, FACE_CODIM>(simplexEnumerateReduced, nInterval, parametricToIndex, tagSet);  }
         //if (writeCodim[ELEMENT_CODIM])  { refineEntity<codim, ELEMENT_CODIM>(simplexEnumerateReduced, nInterval, parametricToIndex, tagSet);  }
     }
+
+
+    template <class Map, class Storage>
+    unsigned int updateFieldIndex(Map & namemap, Storage & storage, std::string name) {
+    	FieldNameMapIter iter = namemap.find(name);
+
+    	if (iter != namemap.end() )  {       // If field exists, find its index
+    		return (*iter).second;
+    	} else {                                      // Otherwise, make new index and add field name to them map
+    		unsigned int rez = storage.size();
+    		namemap.insert(FieldNamePair(name, rez));
+    		storage.push_back(typename Storage::value_type());
+    		return rez;
+    	}
+    }
+
+
+    // Stacks up all names from the map in a single string, separated by commas, with no extra spaces
+    std::string namesPile(const FieldNameMap & map) const {
+    	std::stringstream rez;
+
+    	int i = 0;
+    	for (FieldNameMapConstIter iterName = map.begin(); iterName != map.end(); ++iterName) {
+    		if (i > 0) { rez << ","; }
+    		rez << (*iterName).first;
+    		i++;
+     	}
+
+    	return rez.str();
+    }
+
+
 
 
   private:
@@ -1061,10 +1180,10 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     int rank_;
     int size_;
 
-    int tmpNInterval_;
-    LocalCoordinate2GlobalIdMap tmpParameter2Index_;   // Stores the set of vertex indices used when inserting the last entity
+    int nInterval_;
+    LocalCoordinate2GlobalIdMap parameter2Index_;   // Stores the set of vertex indices used when inserting the last entity
 
-    std::vector<GlobalVector> vtkPoint_;
+    GlobalCoordinateVec vtkPoint_;
 
     // Discretization entity storage
     std::vector<IndexVector> vtkCodimVertexIndex_[4];   // Vertices that discretize the entity of a given codimension
@@ -1073,8 +1192,12 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     TagVector vtkCodimProcessRank_[4];                  // Process rank of the entity
 
     // Field storage
-    FieldNameMap                 fieldName2Index_;
+    FieldNameMap                 scalarFieldName2Index_;
+    FieldNameMap                 vectorFieldName2Index_;
+    std::vector<FieldScalarMap>  vtkFieldScalar_;   // For each field maps vertex index to field
     std::vector<FieldCoordMap>   vtkFieldVector_;   // For each field maps vertex index to field
+
+
 
   };
 

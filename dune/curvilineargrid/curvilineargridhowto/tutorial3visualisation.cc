@@ -84,9 +84,11 @@ public:
 
 	VTKFunctionBoundarySegmentIndex(const Grid & grid) : grid_(grid) {  }
 
+	// Note: In this case entity is an Intersection
     virtual void init (const Entity & entity) {
-		LocalIndexType faceIndex = grid_.leafIndexSet().index(entity);
-		thisIndex_ = grid_.gridbase().boundarySegmentIndex(faceIndex);   // Convert from face local index to boundary segment local index
+		//LocalIndexType faceIndex = grid_.leafIndexSet().index(entity);
+		//thisIndex_ = grid_.gridbase().boundarySegmentIndex(faceIndex);   // Convert from face local index to boundary segment local index
+    	thisIndex_ = entity.boundarySegmentIndex();
     }
 
 	// Component of the field

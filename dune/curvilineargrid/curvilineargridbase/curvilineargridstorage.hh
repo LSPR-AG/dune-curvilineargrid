@@ -149,6 +149,7 @@ public:
 		bool operator== ( const IdType & other) const { return globalindex_ == other.globalindex_; }
 		bool operator!= ( const IdType & other) const { return !(*this == other);  }
 		bool operator<  ( const IdType & other) const { return (globalindex_ < other.globalindex_); }
+		bool operator>  ( const IdType & other) const { return (globalindex_ > other.globalindex_); }
 
 		//template< class C, class T >
 		//std::basic_ostream< C, T > &operator<< ( std::basic_ostream< C, T > &, const Id & );

@@ -692,6 +692,7 @@ namespace Dune
 
 
     // Obtains physical tag of an entity
+    // [TODO] Implement this functionality for also for intersections
     template<int codim>
     PhysicalTagType entityPhysicalTag(const typename Traits::template Codim< codim >::Entity &entity) const
     {

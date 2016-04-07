@@ -22,7 +22,12 @@ public:
 	static const int mydimension  = mydim;
 	typedef typename Grid::ctype CoordinateType;
 
-	typedef typename Grid::template Codim<dimension - mydimension>::Entity Entity;
+	static const bool USE_INTERSECTION = (mydimension == 2);
+
+	// Allow the basis functions to be initialized not only by entities, but also by intersections
+	typedef typename Grid::template Codim<dimension - mydimension>::Entity GridEntity;
+	typedef typename Grid::LeafGridView::Traits::Intersection  GridIntersection;
+	typedef typename std::conditional<USE_INTERSECTION, GridIntersection, GridEntity>::type Entity;
 
 	typedef Dune::FieldVector<CoordinateType, mydimension>  Domain;
 	typedef CoordinateType                                  Range;
@@ -49,7 +54,12 @@ public:
 	static const int mydimension  = mydim;
 	typedef typename Grid::ctype CoordinateType;
 
-	typedef typename Grid::template Codim<dimension - mydimension>::Entity Entity;
+	static const bool USE_INTERSECTION = (mydimension == 2);
+
+	// Allow the basis functions to be initialized not only by entities, but also by intersections
+	typedef typename Grid::template Codim<dimension - mydimension>::Entity GridEntity;
+	typedef typename Grid::LeafGridView::Traits::Intersection  GridIntersection;
+	typedef typename std::conditional<USE_INTERSECTION, GridIntersection, GridEntity>::type Entity;
 
 	typedef Dune::FieldVector<CoordinateType, mydimension>  Domain;
 	typedef Dune::FieldVector<CoordinateType, dimension>    Range;
@@ -227,8 +237,8 @@ public:
 
 								// For now, only write face-based fields for domain boundaries
 								if (intersection.boundary())  {
-									writeScalarField(vtkScalarFaceFunctionSet_, faceThis, writer);
-									writeVectorField(vtkVectorFaceFunctionSet_, faceThis, writer);
+									writeScalarField(vtkScalarFaceFunctionSet_, intersection, writer);
+									writeVectorField(vtkVectorFaceFunctionSet_, intersection, writer);
 								}
 							}
 						}
@@ -263,10 +273,10 @@ private:
 		if (vec != nullptr) {
 			for (unsigned int i = 0; i < vec->size(); i++)
 			{
-				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Computing element field" );
+				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Computing element scalar field" );
 				(*vec)[i]->init(entity);
 
-				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Inserting element field" );
+				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Inserting element scalar field" );
 				writer.template addScalarField<VTKFunction>(*((*vec)[i]));
 			}
 		}
@@ -278,10 +288,10 @@ private:
 		if (vec != nullptr) {
 			for (unsigned int i = 0; i < vec->size(); i++)
 			{
-				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Computing element field" );
+				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Computing element vector field" );
 				(*vec)[i]->init(entity);
 
-				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Inserting element field" );
+				LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: ---Inserting element vector field" );
 				writer.template addVectorField<VTKFunction>(*((*vec)[i]));
 			}
 		}

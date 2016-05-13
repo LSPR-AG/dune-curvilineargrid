@@ -36,7 +36,7 @@ namespace Dune
     public:
       typedef Dune::Intersection< Grid, IntersectionImpl > Intersection;
 
-      typedef typename Traits::template Codim< 0 >::EntityPointer EntityPointer;
+      //typedef typename Traits::template Codim< 0 >::EntityPointer EntityPointer;
 
       // Default constructor. DO NOT USE
       CurvIntersectionIterator() {}

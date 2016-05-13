@@ -71,7 +71,6 @@ namespace Dune
 	        GridType,
 	        CurvGrid::CurvGeometry,
 	        CurvGrid::CurvEntity,
-	        CurvGrid::CurvEntityPointer,
 	        CurvGrid::CurvLevelIterator,             // type used for the level iterator
 	        CurvGrid::CurvIntersection,              // leaf  intersection
 	        CurvGrid::CurvIntersection,              // level intersection
@@ -91,9 +90,6 @@ namespace Dune
 	        CurvGrid::CurvEntitySeed>
 	    Traits;
 	  };
-
-
-
 
 
   template <class ct, int cdim, bool isCached>
@@ -753,7 +749,7 @@ namespace Dune
      *
      *  The entity pointer is a model of Dune::EntityPointer.
      */
-    typedef typename Traits::template Codim< codim >::EntityPointer EntityPointer;
+    // typedef typename Traits::template Codim< codim >::EntityPointer EntityPointer;
 
     /** \} */
 

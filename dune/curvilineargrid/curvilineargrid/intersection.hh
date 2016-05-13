@@ -46,7 +46,7 @@ namespace Dune
 
 
       typedef typename Traits::template Codim< ELEMENT_CODIM >::Entity Entity;
-      typedef typename Traits::template Codim< ELEMENT_CODIM >::EntityPointer EntityPointer;
+      //typedef typename Traits::template Codim< ELEMENT_CODIM >::EntityPointer EntityPointer;
       typedef typename Traits::template Codim< FACE_CODIM >::Geometry Geometry;
       typedef typename Traits::template Codim< FACE_CODIM >::LocalGeometry LocalGeometry;
 
@@ -55,7 +55,7 @@ namespace Dune
     private:
 
       typedef typename Dune::CurvGrid::CurvEntity<ELEMENT_CODIM, dimension, Grid>   EntityImpl;
-      typedef typename Dune::CurvGrid::CurvEntityPointer<ELEMENT_CODIM, Grid>       EntityPointerImpl;
+      //typedef typename Dune::CurvGrid::CurvEntityPointer<ELEMENT_CODIM, Grid>       EntityPointerImpl;
 
       typedef typename Traits::template Codim< FACE_CODIM >::GeometryImpl GeometryImpl;
       typedef typename Traits::template Codim< ELEMENT_CODIM >::GeometryImpl ElementGeometryImpl;

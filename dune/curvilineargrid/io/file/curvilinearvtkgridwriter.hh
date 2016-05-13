@@ -167,7 +167,7 @@ public:
 
 		// Properties
         bool interpolate = true;
-        std::vector<bool>  writeCodim { true, true, false, false };  // Use elements for discretization, and do not use entities of other codimensions
+        std::vector<bool>  writeCodim { true, true, false, false };  // Use elements and faces for discretization, and do not use entities of other codimensions
 
 		// Iterate over elements
   		/** \brief Iterate ove all elements of Interior Border partition */

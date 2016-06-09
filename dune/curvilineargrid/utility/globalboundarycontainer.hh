@@ -31,6 +31,10 @@ struct BoundarySegmentContainer {
 	static const int ELEMENT_CODIM = 0;
 	static const int FACE_CODIM = 1;
 
+	static const int NUMBER_VERTEX = NVERTEX;
+	static const int NUMBER_CORNER = NCORNER;
+	static const int NUMBER_EDGE= NEDGE;
+
 	typedef typename Grid::LeafGridView   LeafGridView;
 	typedef typename LeafGridView::template Codim<FACE_CODIM>::Geometry	GeometryFace;
 	typedef typename GeometryFace::LocalCoordinate					LocalCoordinate;
@@ -77,9 +81,7 @@ class GlobalBoundaryContainer
 	static const int EDGE_CODIM = 2;
 	static const int VERTEX_CODIM = 3;
 
-	// Geometry Typedefs
-
-
+public:
 
 	// Grid Typedefs
 	typedef typename Grid::ctype CoordinateType;
@@ -125,7 +127,7 @@ public:
 		LeafGridView leafView = grid_.leafGridView();
 		for (auto&& elemThis : elements(leafView, Dune::Partitions::interiorBorder))
 		{
-			LoggingMessage::writePatience("[[ Preparing domain boundary for global communication...", elemCount++, nElementInterior);
+			LoggingMessage::writePatience("Preparing domain boundary for global communication...", elemCount++, nElementInterior);
 
 			for (auto&& interThis : intersections(leafView, elemThis))
 			{
@@ -153,12 +155,12 @@ public:
 					thisCont.order_ = grid_.template entityInterpolationOrder<ELEMENT_CODIM>(elemThis);
 
 					for (UInt iEdge = 0; iEdge < nEdge; iEdge++)  {
-						UInt indexEdgeInElem = ReferenceElements3d::general(elemThis.type()).subEntity(intrIndexInInside, FACE_CODIM, 0, EDGE_CODIM);
+						UInt indexEdgeInElem = ReferenceElements3d::general(elemThis.type()).subEntity(intrIndexInInside, FACE_CODIM, iEdge, EDGE_CODIM);
 						EntityEdge edgeThis = elemThis.template subEntity<EDGE_CODIM>(indexEdgeInElem);
 						thisCont.gindedge_[iEdge] = grid_.template entityGlobalIndex<EDGE_CODIM>(edgeThis);
 					}
 					for (UInt iCorner = 0; iCorner < nCorner; iCorner++)  {
-						UInt indexCornerInElem = ReferenceElements3d::general(elemThis.type()).subEntity(intrIndexInInside, FACE_CODIM, 0, VERTEX_CODIM);
+						UInt indexCornerInElem = ReferenceElements3d::general(elemThis.type()).subEntity(intrIndexInInside, FACE_CODIM, iCorner, VERTEX_CODIM);
 						EntityVertex cornerThis = elemThis.template subEntity<VERTEX_CODIM>(indexCornerInElem);
 						thisCont.gindcorner_[iCorner] = grid_.template entityGlobalIndex<VERTEX_CODIM>(cornerThis);
 					}
@@ -186,21 +188,35 @@ public:
 		/*********************************************************************************
 		 *  2) Send number of structures this proc will communicate to all other processes
 		 *********************************************************************************/
-		std::vector<int> nCommRecv(size_, 0);
-		mpi_err = MPI_Allgather(&nCommThis, 1, MPI_INT, reinterpret_cast<int *>(nCommRecv.data()), size_, MPI_INT, comm);
+
+		LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "GlobalBoundaryContainer: Communicating Domain Size. ThisSize=" + std::to_string(nCommThis));
+
+		std::vector<int> nCommRecv(size_, 0);			// Number of elements that are sent by each of the processes
+		std::vector<int> sizeCommRecv(size_, 0);		// Total size in bytes sent by each process
+		std::vector<int> displCommRecv(size_, 0);		// Displacement in bytes
+		mpi_err = MPI_Allgather(&nCommThis, 1, MPI_INT, reinterpret_cast<int *>(nCommRecv.data()), 1, MPI_INT, comm);
 		int nCommRecvTot = std::accumulate(nCommRecv.begin(), nCommRecv.end(), 0);		// The total number of structrures that will be received by any one process
-		int sizeCommRecvTot = nCommRecvTot * structSize;														// The total number of bytes that will be received by any one process
+		for (int i = 0; i < size_; i++) { sizeCommRecv[i] = nCommRecv[i] * structSize; }
+		for (int i = 1; i < size_; i++) { displCommRecv[i] = displCommRecv[i-1] + sizeCommRecv[i-1]; }
+
+		//std::cout << "nCommThis=" << nCommThis << std::endl;
+		//std::cout << "nCommRecv=" << VectorHelper::vector2string(nCommRecv) << std::endl;
 
 		/*********************************************************************************
 		 *  3) MPI_COMM local struct array to all faces except this one
 		 *********************************************************************************/
+
+		LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "GlobalBoundaryContainer: Communicating Domain. nComm=" + std::to_string(nCommRecvTot) + ", single structure size=" + std::to_string(structSize));
+
 		boundaryContainerGlobal_.resize(nCommRecvTot);   // Reserve memory in boundary container for structures that will be received
-		mpi_err = MPI_Allgather(
+
+		mpi_err = MPI_Allgatherv(
 				reinterpret_cast<ContainerTriangleLinear *>(boundaryContainerThis.data()),
 				sizeCommThis,
 				MPI_BYTE,
 				reinterpret_cast<ContainerTriangleLinear *>(boundaryContainerGlobal_.data()),
-				sizeCommRecvTot,
+				reinterpret_cast<int *>(sizeCommRecv.data()),
+				reinterpret_cast<int *>(displCommRecv.data()),
 				MPI_BYTE,
 				comm
 		);
@@ -208,9 +224,10 @@ public:
 		/*********************************************************************************
 		 *  4) Explicitly remove all boundary segments already stored on this process
 		 *********************************************************************************/
+
 		// Find the index of data associated with this same rank within the boundaryContainerGlobal
 		int startThisData = 0;
-		for (int i = 0; i < rank_ - 1; i++) { startThisData += nCommRecv[i]; }
+		for (int i = 0; i < rank_; i++) { startThisData += nCommRecv[i]; }
 
 		// Swap all data associated with this process with the data at the end of the array
 		if (rank_ != size_ - 1) {  // No point in doing this operation if this process data is already at the end
@@ -221,11 +238,17 @@ public:
 
 		// Truncate the array to get rid of the unnecessary entities
 		boundaryContainerGlobal_.resize(nCommRecvTot - nCommThis);
+
+		// Debug
+		//std::cout << "==On rank " << rank_ << " startThis=" << startThisData << " and the global indices are: ";
+		//for (int i = 0; i < boundaryContainerGlobal_.size(); i++)  { std::cout << boundaryContainerGlobal_[i].gindface_ << " "; }
+		//std::cout << std::endl;
+
 	}
 
 
-	ContainerVectorConstIter begin()  { return boundaryContainerGlobal_.begin(); }
-	ContainerVectorConstIter end()  { return boundaryContainerGlobal_.end(); }
+	ContainerVectorConstIter begin()  const { return boundaryContainerGlobal_.begin(); }
+	ContainerVectorConstIter end()  const { return boundaryContainerGlobal_.end(); }
 
 
 private:
@@ -255,7 +278,7 @@ class GlobalBoundaryIterator {
 	typedef typename Grid::ctype  CoordinateType;
 	typedef unsigned int UInt;
 
-	typedef Dune::ReferenceElements<CoordinateType, dimension> ReferenceElements2D;
+	typedef Dune::ReferenceElements<CoordinateType, dimension-1> ReferenceElements2D;
 
 	typedef GlobalBoundaryIterator<Grid> This;
 	typedef GlobalBoundaryContainer<Grid> BaseContainer;
@@ -265,6 +288,8 @@ class GlobalBoundaryIterator {
 	typedef typename Grid::template Codim<EDGE_CODIM>::EntityGeometryMappingImpl  BaseGeometryEdge;
 
 	typedef typename BaseGeometryFace::GlobalCoordinate  GlobalCoordinate;
+
+	static const int NUMBER_VERTEX = BaseContainer::ContainerTriangleLinear::NUMBER_VERTEX;
 
 public:
 
@@ -279,9 +304,9 @@ public:
 	/** \brief Extract GlobalIndex of a subentity of the boundary segment
 	 *  Allowed codimensions:  (1 : Face itself), (2 : SubEdge), (3 : SubCorner) */
 	template <int codim>
-	UInt globalIndex(UInt subIndex) {
+	UInt globalIndex(UInt subIndex) const {
 		Dune::GeometryType gt;   gt.makeTriangle();
-		assert(subIndex < ReferenceElements2D::general(gt).size(codim));  // Do not allow subentity index out of bounds
+		assert(subIndex < ReferenceElements2D::general(gt).size(codim - FACE_CODIM));  // Do not allow subentity index out of bounds
 
 		switch(codim) {
 		case FACE_CODIM : return baseiter_ -> gindface_;
@@ -292,24 +317,32 @@ public:
 	}
 
 	/** \brief Extract curvilinear order of the boundary segment */
-	UInt order()  { return baseiter_ -> order_; }
+	UInt order() const { return baseiter_ -> order_; }
 
 	/** \brief Extract unit outer normal of the boundary segment, pointing to the outside of the domain */
-	GlobalCoordinate unitOuterNormal() { return baseiter_ -> n_; }
+	GlobalCoordinate unitOuterNormal() const { return baseiter_ -> n_; }
 
 	/** \brief Extract geometry of the associated face */
-	BaseGeometryFace geometry() {
+	BaseGeometryFace geometry() const {
 		Dune::GeometryType gt;   gt.makeTriangle();
 
-		GlobalCoordinate (&pFaceArr)[] = baseiter_ -> p_;
-		std::vector<GlobalCoordinate> pFace(pFaceArr, pFaceArr + sizeof(pFaceArr) / sizeof(pFaceArr[0]));
+		std::vector<GlobalCoordinate> pFace;
+		for (int i = 0; i < NUMBER_VERTEX; i++) { pFace.push_back(baseiter_ -> p_[i]); }
+
 		return BaseGeometryFace(gt, pFace, order());
 	}
 
 	/** \brief Extract geometry of a subentity edge of the associated face, given by the subentity index */
-	BaseGeometryEdge geometryEdge(UInt subIndex) {
+	BaseGeometryEdge geometryEdge(UInt subIndex) const {
+		Dune::GeometryType gtFace;   gtFace.makeTriangle();
 		Dune::GeometryType gtEdge;   gtEdge.makeLine();
-		std::vector<int> edgeVertexInteriorInd = CurvilinearGeometryHelper::subentityInternalCoordinateSet(gtEdge, order(), EDGE_CODIM, subIndex);
+
+		//std::cout << ":P" << std::endl;
+
+		std::vector<int> edgeVertexInteriorInd = CurvilinearGeometryHelper::template subentityInternalCoordinateSet<CoordinateType, dimension-1>(gtFace, order(), EDGE_CODIM - FACE_CODIM, subIndex);
+
+		//std::cout << ":[]" << std::endl;
+
 		std::vector<GlobalCoordinate> pEdge;
 		for (UInt i = 0; i < edgeVertexInteriorInd.size(); i++)  { pEdge.push_back((baseiter_->p_)[edgeVertexInteriorInd[i]]); }
 		return BaseGeometryEdge(gtEdge, pEdge, order());
@@ -322,7 +355,7 @@ public:
 	}
 
 	/** \brief Check if this iterator has reached its end */
-	bool end() { return (baseiter_ == baseContainer_.end()); }
+	bool end() const { return (baseiter_ == baseContainer_.end()); }
 
 
 private:

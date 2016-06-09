@@ -155,15 +155,32 @@ public:
 					thisCont.order_ = grid_.template entityInterpolationOrder<ELEMENT_CODIM>(elemThis);
 
 					for (UInt iEdge = 0; iEdge < nEdge; iEdge++)  {
-						UInt indexEdgeInElem = ReferenceElements3d::general(elemThis.type()).subEntity(intrIndexInInside, FACE_CODIM, iEdge, EDGE_CODIM);
-						EntityEdge edgeThis = elemThis.template subEntity<EDGE_CODIM>(indexEdgeInElem);
-						thisCont.gindedge_[iEdge] = grid_.template entityGlobalIndex<EDGE_CODIM>(edgeThis);
+						//UInt indexEdgeInElem = ReferenceElements3d::general(elemThis.type()).subEntity(intrIndexInInside, FACE_CODIM, iEdge, EDGE_CODIM);
+						//EntityEdge edgeThis = elemThis.template subEntity<EDGE_CODIM>(indexEdgeInElem);
+						//thisCont.gindedge_[iEdge] = grid_.template entityGlobalIndex<EDGE_CODIM>(edgeThis);
+
+						thisCont.gindedge_[iEdge] = grid_.template subentityGlobalIndex<FACE_CODIM, EDGE_CODIM>(faceThis, iEdge);
 					}
+
+					bool BBS = false;
 					for (UInt iCorner = 0; iCorner < nCorner; iCorner++)  {
 						UInt indexCornerInElem = ReferenceElements3d::general(elemThis.type()).subEntity(intrIndexInInside, FACE_CODIM, iCorner, VERTEX_CODIM);
 						EntityVertex cornerThis = elemThis.template subEntity<VERTEX_CODIM>(indexCornerInElem);
-						thisCont.gindcorner_[iCorner] = grid_.template entityGlobalIndex<VERTEX_CODIM>(cornerThis);
+
+						int gindcornerv1 = grid_.template entityGlobalIndex<VERTEX_CODIM>(cornerThis);
+						int gindcornerv2 = grid_.template subentityGlobalIndex<FACE_CODIM, VERTEX_CODIM>(faceThis, iCorner);
+						int gindcornerv3 = grid_.template subentityGlobalIndex<ELEMENT_CODIM, VERTEX_CODIM>(elemThis, indexCornerInElem);
+
+						std::cout << "Test: " << boundaryIndex << " " << iCorner << " " << indexCornerInElem << " " << gindcornerv1 << " " << gindcornerv2 << " " << gindcornerv3 << std::endl;
+						if(gindcornerv1 == gindcornerv2) { BBS = true; }
+						if(gindcornerv2 == gindcornerv3) { BBS = true; }
+
+						//thisCont.gindcorner_[iCorner] = grid_.template entityGlobalIndex<VERTEX_CODIM>(cornerThis);
+						//thisCont.gindcorner_[iCorner] = grid_.template subentityGlobalIndex<FACE_CODIM, VERTEX_CODIM>(faceThis, iCorner);
+						//thisCont.gindcorner_[iCorner] = grid_.template subentityGlobalIndex<ELEMENT_CODIM, VERTEX_CODIM>(elemThis, iCorner);
 					}
+					assert(!BBS);
+
 					for (UInt iVertex = 0; iVertex < nVertex; iVertex++)  { thisCont.p_[iVertex] = faceGeomBase.vertex(iVertex);}
 				}
 			}

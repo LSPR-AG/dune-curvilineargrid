@@ -686,6 +686,13 @@ namespace Dune
     	return globalIndex;
     }
 
+    template <int codim, int subcodim>
+    GlobalIndexType subentityGlobalIndex(const typename Traits::template Codim< codim >::Entity &entity, LocalIndexType subInternalIndex) const {
+    	LocalIndexType entityLocalIndex = leafIndexSet().index(entity);
+    	LocalIndexType subLocalIndex = gridbase_->subentityLocalIndex (entityLocalIndex, codim, subcodim, subInternalIndex);
+    	return entityGlobalIndex<subcodim>(subLocalIndex);
+    }
+
 
     // Obtains physical tag of an entity
     // [TODO] Implement this functionality for also for intersections

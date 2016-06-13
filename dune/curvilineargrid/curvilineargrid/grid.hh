@@ -673,22 +673,24 @@ namespace Dune
     template<int codim>
     GlobalIndexType entityGlobalIndex(const typename Traits::template Codim< codim >::Entity &entity) const
     {
-    	return entityGlobalIndex<codim>(leafIndexSet().index(entity));
+    	LocalIndexType baseIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
+    	return entityGlobalIndex<codim>(baseIndex);
     }
 
     // Obtains global index of an entity given its local index
+    // NOTE: This method takes the GridBase local index, which is not the same as the Grid local index
     template<int codim>
-    GlobalIndexType entityGlobalIndex(LocalIndexType localIndex) const
+    GlobalIndexType entityGlobalIndex(LocalIndexType baseLocalIndex) const
     {
     	GlobalIndexType globalIndex;
-    	bool exist = gridbase_->findEntityGlobalIndex(codim, localIndex, globalIndex);
+    	bool exist = gridbase_->findEntityGlobalIndex(codim, baseLocalIndex, globalIndex);
     	assert(exist);  // Check if the index exists for self-consistency
     	return globalIndex;
     }
 
     template <int codim, int subcodim>
     GlobalIndexType subentityGlobalIndex(const typename Traits::template Codim< codim >::Entity &entity, LocalIndexType subInternalIndex) const {
-    	LocalIndexType entityLocalIndex = leafIndexSet().index(entity);
+    	LocalIndexType entityLocalIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
     	LocalIndexType subLocalIndex = gridbase_->subentityLocalIndex (entityLocalIndex, codim, subcodim, subInternalIndex);
     	return entityGlobalIndex<subcodim>(subLocalIndex);
     }
@@ -699,22 +701,35 @@ namespace Dune
     template<int codim>
     PhysicalTagType entityPhysicalTag(const typename Traits::template Codim< codim >::Entity &entity) const
     {
-    	return gridbase_->physicalTag(codim, leafIndexSet().index(entity));
+    	LocalIndexType baseIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
+    	return gridbase_->physicalTag(codim, baseIndex);
     }
 
     // Obtain interpolation order of an entity
     template<int codim>
     InterpolatoryOrderType entityInterpolationOrder (const typename Traits::template Codim< codim >::Entity &entity) const
     {
-    	return gridbase_->entityInterpolationOrder(codim, leafIndexSet().index(entity));
+    	LocalIndexType baseIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
+    	return gridbase_->entityInterpolationOrder(codim, baseIndex);
     }
 
     template<int codim>
     typename Codim<codim>::EntityGeometryMappingImpl entityBaseGeometry (const typename Traits::template Codim< codim >::Entity &entity) const
     {
-    	return gridbase_->template entityGeometry<codim>(leafIndexSet().index(entity));
+    	LocalIndexType baseIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
+    	return gridbase_->template entityGeometry<codim>(baseIndex);
     }
 
+    // The problem is that the local index in the gridBase is different than that in the grid, as in the grid only corners are indexed
+    // So, in case of a vertex codimension, need to convert backwards
+    template<int codim>
+    LocalIndexType baseLocalIndex(LocalIndexType localIndex) const {
+    	if (codim == dimension) {
+    		return gridbase_->cornerUnique2LocalIndex(localIndex);
+    	} else {
+    		return localIndex;
+    	}
+    }
 
 
 

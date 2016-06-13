@@ -171,12 +171,12 @@ public:
 						int gindcornerv2 = grid_.template subentityGlobalIndex<FACE_CODIM, VERTEX_CODIM>(faceThis, iCorner);
 						int gindcornerv3 = grid_.template subentityGlobalIndex<ELEMENT_CODIM, VERTEX_CODIM>(elemThis, indexCornerInElem);
 
-						std::cout << "Test: " << boundaryIndex << " " << iCorner << " " << indexCornerInElem << " " << gindcornerv1 << " " << gindcornerv2 << " " << gindcornerv3 << std::endl;
-						if(gindcornerv1 == gindcornerv2) { BBS = true; }
-						if(gindcornerv2 == gindcornerv3) { BBS = true; }
+						//std::cout << "Test: " << boundaryIndex << " " << iCorner << " " << indexCornerInElem << " " << gindcornerv1 << " " << gindcornerv2 << " " << gindcornerv3 << std::endl;
+						if(gindcornerv1 != gindcornerv2) { BBS = true; }
+						if(gindcornerv2 != gindcornerv3) { BBS = true; }
 
 						//thisCont.gindcorner_[iCorner] = grid_.template entityGlobalIndex<VERTEX_CODIM>(cornerThis);
-						//thisCont.gindcorner_[iCorner] = grid_.template subentityGlobalIndex<FACE_CODIM, VERTEX_CODIM>(faceThis, iCorner);
+						thisCont.gindcorner_[iCorner] = grid_.template subentityGlobalIndex<FACE_CODIM, VERTEX_CODIM>(faceThis, iCorner);
 						//thisCont.gindcorner_[iCorner] = grid_.template subentityGlobalIndex<ELEMENT_CODIM, VERTEX_CODIM>(elemThis, iCorner);
 					}
 					assert(!BBS);

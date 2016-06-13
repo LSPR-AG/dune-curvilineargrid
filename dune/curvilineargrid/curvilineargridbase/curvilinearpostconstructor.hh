@@ -151,6 +151,7 @@ public: /* public methods */
     			{
     				int thisCornerUniqueIndex = gridstorage_.cornerIndexMap_.size();
     				gridstorage_.cornerIndexMap_[thisIndex] = thisCornerUniqueIndex;
+    				gridstorage_.cornerIndexMapRev_[thisCornerUniqueIndex] = thisIndex;
     			}
     		}
     	}

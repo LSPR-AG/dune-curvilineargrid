@@ -565,6 +565,22 @@ public:
     }
 
 
+    // The reverse of cornerUniqueLocalIndex. Given the unique corner in
+    LocalIndexType cornerUnique2LocalIndex(LocalIndexType localCornerIndex) const {
+
+    	typedef typename Local2LocalMap::const_iterator  Local2LocalConstIter;
+    	Local2LocalConstIter tmp = gridstorage_.cornerIndexMapRev_.find(localCornerIndex);
+
+    	if (tmp == gridstorage_.cornerIndexMapRev_.end())
+    	{
+    		std::cout << "Error: CurvilinearGridBase: CornerUnique2LocalIndex: Vertex with cornerIndex=" << localCornerIndex << " is not marked as a corner" << std::endl;
+    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected vertex local index for a corner");
+    	}
+
+    	return (*tmp).second;
+    }
+
+
 
     /** Generates a vector of local coordinates of corners of requested entity
      * The order of corners corresponds to the one provided by the ref.subEntity()

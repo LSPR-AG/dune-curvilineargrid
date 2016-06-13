@@ -279,6 +279,7 @@ public:
 
     // Define unique local index for corners, to satisfy dune
     Local2LocalMap  cornerIndexMap_;  // vertex index -> corner unique index
+    Local2LocalMap  cornerIndexMapRev_;  // corner unique index -> vertex index
 
     // Entity local index -> local structural entity index
     Local2LocalMap  boundarySegmentIndexMap_;  // This one only for Domain Boundary Faces

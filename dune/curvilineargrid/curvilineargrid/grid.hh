@@ -744,7 +744,7 @@ namespace Dune
 
 
     /** Get DomainBoundaryFace index given its boundary segment index */
-    LocalIndexType boundarySegment2BaseLocalIndex(LocalIndexType boundarySegmentIndex) {
+    LocalIndexType boundarySegment2BaseLocalIndex(LocalIndexType boundarySegmentIndex) const {
     	return gridbase_->boundarySegment2LocalIndex(boundarySegmentIndex);
     }
 

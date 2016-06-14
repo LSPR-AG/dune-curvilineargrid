@@ -7,6 +7,7 @@ set(TESTS
   test-diagnostics
   test-diagnostics-base
   test-allcommunicate
+  test-globalcommmap
   test-vectorhelper
   test-curvgrid
 )
@@ -14,12 +15,14 @@ set(TESTS
 add_executable(test-diagnostics test-diagnostics.cc)
 add_executable(test-diagnostics-base test-diagnostics-base.cc)
 add_executable(test-allcommunicate test-allcommunicate.cc)
+add_executable(test-globalcommmap test-globalcommmap.cc)
 add_executable(test-vectorhelper test-vectorhelper.cc)
 add_executable(test-curvgrid test-curvgrid.cc)
 
 target_link_libraries(test-diagnostics dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-diagnostics-base dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-allcommunicate dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-globalcommmap dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-vectorhelper dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-curvgrid dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 
@@ -39,6 +42,7 @@ if(HAVE_MPI)
     add_dune_mpi_flags(test-diagnostics)
     add_dune_mpi_flags(test-diagnostics-base)
     add_dune_mpi_flags(test-allcommunicate)
+    add_dune_mpi_flags(test-globalcommmap)
     add_dune_parmetis_flags(test-diagnostics)
     add_dune_parmetis_flags(test-diagnostics-base)
     add_dune_parmetis_flags(test-curvgrid)

@@ -674,13 +674,12 @@ namespace Dune
     GlobalIndexType entityGlobalIndex(const typename Traits::template Codim< codim >::Entity &entity) const
     {
     	LocalIndexType baseIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
-    	return entityGlobalIndex<codim>(baseIndex);
+    	return entityGlobalIndex(codim, baseIndex);
     }
 
     // Obtains global index of an entity given its local index
     // NOTE: This method takes the GridBase local index, which is not the same as the Grid local index
-    template<int codim>
-    GlobalIndexType entityGlobalIndex(LocalIndexType baseLocalIndex) const
+    GlobalIndexType entityGlobalIndex(int codim, LocalIndexType baseLocalIndex) const
     {
     	GlobalIndexType globalIndex;
     	bool exist = gridbase_->findEntityGlobalIndex(codim, baseLocalIndex, globalIndex);
@@ -692,7 +691,19 @@ namespace Dune
     GlobalIndexType subentityGlobalIndex(const typename Traits::template Codim< codim >::Entity &entity, LocalIndexType subInternalIndex) const {
     	LocalIndexType entityLocalIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
     	LocalIndexType subLocalIndex = gridbase_->subentityLocalIndex (entityLocalIndex, codim, subcodim, subInternalIndex);
-    	return entityGlobalIndex<subcodim>(subLocalIndex);
+    	return entityGlobalIndex(subcodim, subLocalIndex);
+    }
+
+
+    LocalIndexType entityLocalIndex(int codim, GlobalIndexType globalIndex) const
+    {
+    	GlobalIndexType baseLocalIndex;
+    	bool exist = gridbase_->findEntityLocalIndex(codim, globalIndex, baseLocalIndex);
+    	assert(exist);  // Check if the index exists for self-consistency
+
+    	// Convert from base local index back to Grid local index
+    	if (codim == dimension)	{ return gridbase_->cornerUniqueLocalIndex(baseLocalIndex); }
+    	else										{ return baseLocalIndex; }
     }
 
 
@@ -730,6 +741,13 @@ namespace Dune
     		return localIndex;
     	}
     }
+
+
+    /** Get DomainBoundaryFace index given its boundary segment index */
+    LocalIndexType boundarySegment2BaseLocalIndex(LocalIndexType boundarySegmentIndex) {
+    	return gridbase_->boundarySegment2LocalIndex(boundarySegmentIndex);
+    }
+
 
 
 

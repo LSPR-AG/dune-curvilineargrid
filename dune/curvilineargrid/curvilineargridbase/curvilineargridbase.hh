@@ -504,6 +504,15 @@ public:
     }
 
 
+    /** Get DomainBoundaryFace index given its boundary segment index */
+    // [TODO] The map in this case can be replaced by a simple array/vector, since index is continuous
+    LocalIndexType boundarySegment2LocalIndex(LocalIndexType boundarySegmentIndex) const
+    {
+    	assert(boundarySegmentIndex < gridstorage_.boundarySegment2LocalIndexMap_.size());  // Boundary segment index is continuous
+    	return gridstorage_.boundarySegment2LocalIndexMap_.at(boundarySegmentIndex);
+    }
+
+
     /** Get Structural Type of an entity */
     PartitionType entityPartitionType(int codim, LocalIndexType localIndex) const
     {

@@ -282,7 +282,8 @@ public:
     Local2LocalMap  cornerIndexMapRev_;  // corner unique index -> vertex index
 
     // Entity local index -> local structural entity index
-    Local2LocalMap  boundarySegmentIndexMap_;  // This one only for Domain Boundary Faces
+    Local2LocalMap  boundarySegmentIndexMap_;  // Domain Boundary Face Index -> Boundary Segment Index
+    Local2LocalMap  boundarySegment2LocalIndexMap_;  // Boundary Segment Index -> Domain Boundary Face Index
 
     Local2LocalMap  processBoundaryIndexMap_[4];
     Local2LocalMap  boundaryInternalEntityIndexMap_[4];

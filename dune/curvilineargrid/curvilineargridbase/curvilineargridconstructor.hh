@@ -313,6 +313,7 @@ public:
                 LocalIndexType localFaceDBIndex = gridstorage_.boundarySegmentIndexMap_.size();
                 domainBoundaryFaceKey2LocalIndexMap_[thisKey] = localFaceIndex;
                 gridstorage_.boundarySegmentIndexMap_[localFaceIndex] = localFaceDBIndex;
+                gridstorage_.boundarySegment2LocalIndexMap_[localFaceDBIndex] = localFaceIndex;
 
                 // Store Vector (faceId -> associated element)
                 FaceStorage thisFaceAsSubentity;

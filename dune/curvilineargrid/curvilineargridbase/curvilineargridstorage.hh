@@ -220,6 +220,8 @@ public:
     typedef std::map<GlobalIndexType, LocalIndexType>   Global2LocalMap;
     typedef typename Local2LocalMap::iterator           Local2LocalIterator;
     typedef typename Global2LocalMap::iterator          Global2LocalIterator;
+    typedef typename Local2LocalMap::const_iterator           Local2LocalConstIterator;
+    typedef typename Global2LocalMap::const_iterator          Global2LocalConstIterator;
 
     typedef std::set<LocalIndexType>                    LocalIndexSet;
     typedef typename LocalIndexSet::iterator            IndexSetIterator;

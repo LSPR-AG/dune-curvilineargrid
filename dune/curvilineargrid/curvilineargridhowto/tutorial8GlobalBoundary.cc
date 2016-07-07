@@ -327,7 +327,7 @@ int main (int argc , char **argv) {
 	// Define curvilinear grid
 	const int dim = 3;
 	typedef  double    ctype;
-	const int grid_file_type = 6;  // createGrid procedure provides 7 different example grids numbered 0 to 6
+	const int grid_file_type = 0;  // createGrid procedure provides 7 different example grids numbered 0 to 6
 	// NOTE: ONLY SELECT LINEAR FILES, FOR NOW BOUNDARY COMMUNICATOR CAN NOT DEAL WITH CURVILINEAR
 
 	const bool isCached = true;
@@ -353,6 +353,9 @@ int main (int argc , char **argv) {
 	MPI_Barrier(comm);  // Wait, to have all processes write next to each other
 	std::cout << "EdgeLen: On rank " << grid->comm().rank() << " self=" << rezEdgeSelf << ", other=" << rezEdgeOther << ", sum=" << rezEdgeSelf+rezEdgeOther << std::endl;
 
+	/////////////////////////////
+	// Test 1
+	/////////////////////////////
 
 	std::map<int, int> globalIndexFace;
 	std::map<int, int> globalIndexEdge;
@@ -389,6 +392,59 @@ int main (int argc , char **argv) {
 		<< "nBoundary=" << globalIndexFace.size() << " min=" << faceMin << " max=" << faceMax
 		<< "; nEdge=" << globalIndexEdge.size() << " min=" << edgeMin << " max=" << edgeMax
 		<< "; nCorner=" << globalIndexVertex.size() << " min=" << cornerMin << " max=" << cornerMax << std::endl;
+
+
+	/////////////////////////////
+	// Test 2
+	/////////////////////////////
+
+
+	/*
+	std::map<int, int> globalIndexFace2self;
+	std::map<int, int> globalIndexEdge2self;
+	std::map<int, int> globalIndexVertex2self;
+	Integr::globalIndexSelf(*grid, globalIndexFace2self, globalIndexEdge2self, globalIndexVertex2self);
+	for (int i = 0; i < grid->comm().size(); i++) {
+		if (i != grid->comm().rank())  { MPI_Barrier(MPI_COMM_WORLD); }  // If its not your turn, you wait
+		else {                                                          // If it is your turn, you write to file
+			std::cout << "GInt self on process " << grid->comm().rank() << ": ";
+			for (GIndMapIter iter = globalIndexFace2self.begin(); iter != globalIndexFace2self.end(); iter++) { std::cout << iter->first << " "; }
+			std::cout << std::endl;
+			MPI_Barrier(MPI_COMM_WORLD);  // Note: MPI_Barrier unlocks, when all processes have called it
+		}
+	} */
+
+	std::map<int, int> globalIndexFace2;
+	std::map<int, int> globalIndexEdge2;
+	std::map<int, int> globalIndexVertex2;
+	Integr::globalIndexOtherDomain(testContainer, globalIndexFace2, globalIndexEdge2, globalIndexVertex2);
+
+	/*
+	for (int i = 0; i < grid->comm().size(); i++) {
+		if (i != grid->comm().rank())  { MPI_Barrier(MPI_COMM_WORLD); }  // If its not your turn, you wait
+		else {                                                          // If it is your turn, you write to file
+			std::cout << "GInt on process " << grid->comm().rank() << ": ";
+			for (GIndMapIter iter = globalIndexFace2.begin(); iter != globalIndexFace2.end(); iter++) { std::cout << iter->first << " "; }
+			std::cout << std::endl;
+			MPI_Barrier(MPI_COMM_WORLD);  // Note: MPI_Barrier unlocks, when all processes have called it
+		}
+	}*/
+
+
+
+
+	int tmpLocalIndex;
+	for (GIndMapIter iter = globalIndexFace2.begin(); iter != globalIndexFace2.end(); iter++) {
+		std::cout << "Process "<< grid->comm().rank() << " testing global index " << iter->first << std::endl;
+		bool local = grid->entityLocalIndex(1, iter->first, tmpLocalIndex) == false;  // Mapped global boundary segments must not exist on this process
+
+		if (local) {
+			std::cout << "...Warning: Unexpexted parallel face of local index " << tmpLocalIndex << " and type " << grid->gridbase().entityPartitionType(1, tmpLocalIndex) << std::endl;
+		}
+	}
+
+
+
 
 
 	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;

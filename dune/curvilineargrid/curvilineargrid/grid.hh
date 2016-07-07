@@ -695,17 +695,16 @@ namespace Dune
     }
 
 
-    LocalIndexType entityLocalIndex(int codim, GlobalIndexType globalIndex) const
+    bool entityLocalIndex(int codim, GlobalIndexType globalIndex, LocalIndexType & localIndex) const
     {
-    	GlobalIndexType baseLocalIndex;
+    	LocalIndexType baseLocalIndex;
     	bool exist = gridbase_->findEntityLocalIndex(codim, globalIndex, baseLocalIndex);
-    	assert(exist);  // Check if the index exists for self-consistency
 
     	// Convert from base local index back to Grid local index
-    	if (codim == dimension)	{ return gridbase_->cornerUniqueLocalIndex(baseLocalIndex); }
-    	else										{ return baseLocalIndex; }
+    	if (codim == dimension)	{ localIndex = gridbase_->cornerUniqueLocalIndex(baseLocalIndex); }
+    	else										{ localIndex = baseLocalIndex; }
+    	return exist;
     }
-
 
     // Obtains physical tag of an entity
     // [TODO] Implement this functionality for also for intersections

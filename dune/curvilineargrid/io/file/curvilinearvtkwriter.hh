@@ -521,6 +521,34 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     }
 
 
+    // Initialize field name. Useful, if master process does not have any entities of a given type, but still needs to write a correct .pvtu file
+    template <class VTKVectorFunction>
+    void initScalarField(const VTKVectorFunction & vtkfunction) {
+    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Initializing scalar field " + vtkfunction.name());
+
+    	typedef typename VTKVectorFunction::Domain  Domain;
+    	typedef typename VTKVectorFunction::Range   Range;
+    	const int mydimension = VTKVectorFunction::mydimension;
+
+        // The index of the field associated with this field name
+    	int fieldIndex = updateFieldIndex(scalarFieldName2Index_, vtkFieldScalar_, vtkfunction.name());
+    }
+
+    // Initialize field name. Useful, if master process does not have any entities of a given type, but still needs to write a correct .pvtu file
+    template <class VTKVectorFunction>
+    void initVectorField(const VTKVectorFunction & vtkfunction) {
+    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Initializing vector field " + vtkfunction.name());
+
+    	typedef typename VTKVectorFunction::Domain  Domain;
+    	typedef typename VTKVectorFunction::Range   Range;
+    	const int mydimension = VTKVectorFunction::mydimension;
+
+        // The index of the field associated with this field name
+    	int fieldIndex = updateFieldIndex(vectorFieldName2Index_, vtkFieldVector_, vtkfunction.name());
+    }
+
+
+
     template <class VTKVectorFunction>
     void addScalarField(const VTKVectorFunction & vtkfunction) {
     	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Adding element field " + vtkfunction.name());

@@ -71,7 +71,7 @@ public:
 		}
 	}
 
-	const DataMap & map() { return globalmap_; }
+	const DataMap & map() const { return globalmap_; }
 
 
 private:

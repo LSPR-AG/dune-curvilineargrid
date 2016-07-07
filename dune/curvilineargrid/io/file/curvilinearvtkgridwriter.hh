@@ -129,7 +129,9 @@ public:
 		vtkVectorElementFunctionSet_(nullptr),
 		grid_(grid),
 		virtualRefinementOrder_(0),
-		writeInteriorOnly_(false),
+		writePB_(false),
+		writeDB_(false),
+		writeGhost_(false),
 		writeExplode_(false),
 		writePatience_(true)
 	{
@@ -141,7 +143,9 @@ public:
 	void useFixedVirtualRefinement(int newOrder)  { virtualRefinementOrder_ = newOrder; }
 
 	// Allow user to only write interior elements to accelerate writer
-	void writeInteriorOnly(bool interiorOnly)  { writeInteriorOnly_ = interiorOnly; }
+	void writeProcessBoundary(bool write)  { writePB_ = write; }
+	void writeDomainBoundary(bool write)  { writeDB_ = write; }
+	void writeGhost(bool write)						{ writeGhost_ = write; }
 
 	// Allow user to only write interior elements to accelerate writer
 	void writePatience(bool patience)  { writePatience_ = patience; }
@@ -169,6 +173,12 @@ public:
         bool interpolate = true;
         std::vector<bool>  writeCodim { true, true, false, false };  // Use elements and faces for discretization, and do not use entities of other codimensions
 
+        // Initialize all vector fields, in case there are none on this process
+		if (vtkScalarFaceFunctionSet_ != nullptr)  { for (unsigned int i = 0; i < vtkScalarFaceFunctionSet_->size(); i++) { writer.initScalarField( *((*vtkScalarFaceFunctionSet_)[i])); } }
+		if (vtkVectorFaceFunctionSet_ != nullptr)  { for (unsigned int i = 0; i < vtkVectorFaceFunctionSet_->size(); i++) { writer.initVectorField( *((*vtkVectorFaceFunctionSet_)[i])); } }
+		if (vtkScalarElementFunctionSet_ != nullptr)  { for (unsigned int i = 0; i < vtkScalarElementFunctionSet_->size(); i++) { writer.initScalarField( *((*vtkScalarElementFunctionSet_)[i])); } }
+		if (vtkVectorElementFunctionSet_ != nullptr)  { for (unsigned int i = 0; i < vtkVectorElementFunctionSet_->size(); i++) { writer.initVectorField( *((*vtkVectorElementFunctionSet_)[i])); } }
+
 		// Iterate over elements
   		/** \brief Iterate ove all elements of Interior Border partition */
         int elemIterCount = 0;         // Count elements
@@ -183,7 +193,7 @@ public:
 			Dune::GeometryType geomtype   = elementThis.type();
 			StructuralType     thisPType  = elementThis.partitionType();
 
-			if ((!writeInteriorOnly_) || (thisPType != Dune::PartitionType::GhostEntity))
+			if (writeGhost_ || (thisPType != Dune::PartitionType::GhostEntity))
 			{
 				// Constructing a geometry is quite expensive, do it only once
 				//EntityGeometry geom = it->geometry();
@@ -210,7 +220,7 @@ public:
 					writeVectorField(vtkVectorElementFunctionSet_, elementThis, writer);
 
 					// Write faces - Domain and Process Boundaries
-					if (!writeInteriorOnly_) // Do it only if user wants to see them
+					if (writeDB_ || writePB_) // Do it only if user wants to see them
 					{
 						for (auto&& intersection : intersections(leafView, elementThis))
 						{
@@ -219,8 +229,9 @@ public:
 							Dune::GeometryType  faceGeomType   = faceThis.type();
 							StructuralType      thisFacePType  = faceThis.partitionType();
 
-							if ((thisFacePType == Dune::PartitionType::BorderEntity) || intersection.boundary())
-							{
+							if  (( (intersection.neighbor() == true) && writePB_ ) ||
+								( (intersection.boundary() == true) && (intersection.neighbor() == false) && writeDB_ )) {
+
 								if (intersection.boundary())  { thisFacePType = CurvGrid::BOUNDARY_SEGMENT_PARTITION_TYPE; }
 
 								// Constructing a geometry is quite expensive, do it only once
@@ -315,7 +326,9 @@ private:
 
 	const Grid & grid_;
 	int virtualRefinementOrder_;   // User-defined discretization order for element sub-refinement
-	bool writeInteriorOnly_;       // User can choose to only write interior elements, thus accelerating writing procedure
+	bool writePB_;       		// User can choose to only write interior elements, thus accelerating writing procedure
+	bool writeDB_;       		// User can choose to only write interior elements, thus accelerating writing procedure
+	bool writeGhost_;       		// User can choose to only write interior elements, thus accelerating writing procedure
 	bool writePatience_;           // User can choose to not write patience output for aestetical purposes
 	bool writeExplode_;            // User can choose to use explosion plotting for meshes
 

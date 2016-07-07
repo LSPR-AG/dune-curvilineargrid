@@ -186,6 +186,7 @@ public:
     typedef typename GridStorageType::Global2LocalMap           Global2LocalMap;
     typedef typename GridStorageType::Local2LocalIterator       Local2LocalIterator;
     typedef typename GridStorageType::Global2LocalIterator      Global2LocalIterator;
+    typedef typename GridStorageType::Global2LocalConstIterator      Global2LocalConstIterator;
     typedef typename GridStorageType::LocalIndexSet             LocalIndexSet;
     typedef typename GridStorageType::IndexSetIterator          IndexSetIterator;
 
@@ -465,11 +466,11 @@ public:
 
 
     /** Finds local index using global index and codimension of entity. Returns false if requested global index does not correspond to an entity on this process  */
-    bool findEntityLocalIndex(int codim, GlobalIndexType globalIndex, LocalIndexType & localIndex)
+    bool findEntityLocalIndex(int codim, GlobalIndexType globalIndex, LocalIndexType & localIndex) const
     {
     	if (globalIndex < 0)  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Received negative index");  }
 
-    	Global2LocalIterator tmpIter = gridstorage_.entityIndexMap_[codim].find(globalIndex);
+    	Global2LocalConstIterator tmpIter = gridstorage_.entityIndexMap_[codim].find(globalIndex);
     	if (tmpIter != gridstorage_.entityIndexMap_[codim].end())  { localIndex = (*tmpIter).second;  return true; }
     	else  { return false; }
     }

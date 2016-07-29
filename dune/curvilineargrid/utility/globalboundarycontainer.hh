@@ -24,7 +24,7 @@ namespace CurvGrid {
 
 
 
-/** \brief Storage class for boundary segments. Minimal info needed for communication */
+/** \brief Storage class for arbitrary global closed boundary within the domain. Minimal info needed for communication */
 template<class Grid, int NVERTEX, int NEDGE, int NCORNER>
 struct BoundarySegmentContainer {
 	static const int dimension = Grid::dimension;
@@ -49,8 +49,8 @@ struct BoundarySegmentContainer {
 	 * Storage
 	 ************************/
 
-	GlobalCoordinate p_[NVERTEX];	// Vertices of the boundary segment in the original order
-	GlobalCoordinate n_;						// Unit outer normal of this boundary segment, pointing to the outside of the domain
+	GlobalCoordinate p_[NVERTEX];	// Vertices of the boundary face in the original order
+	GlobalCoordinate n_;						// Unit outer normal of this boundary face, pointing to the outside of the boundary
 	UInt order_;										// Curvilinear order of the entity
 	UInt gindface_;								// Global index of the face associated with the boundary segment
 	UInt gindedge_[NEDGE];				// Global index of all edges of this face in the correct subentity order
@@ -86,6 +86,7 @@ public:
 	// Grid Typedefs
 	typedef typename Grid::ctype CoordinateType;
 	typedef typename Grid::LeafGridView   LeafGridView;
+	typedef typename Grid::PhysicalTagType  PhysicalTagType;
 	typedef typename Grid::template Codim<FACE_CODIM>::EntityGeometryMappingImpl  BaseGeometryFace;
 	typedef typename BaseGeometryFace::LocalCoordinate					LocalCoordinate;
 	typedef typename BaseGeometryFace::GlobalCoordinate				GlobalCoordinate;
@@ -105,11 +106,18 @@ public:
 
 public:
 
-	GlobalBoundaryContainer(const Grid & grid) :
+	GlobalBoundaryContainer(const Grid & grid, bool findDomainBoundary, PhysicalTagType volumeTag = 0, PhysicalTagType surfaceTag = 0, double normalSign = 1.0) :
 		grid_(grid),
 		rank_(grid.mpihelper().rank()),
-		size_(grid.mpihelper().size())
+		size_(grid.mpihelper().size()),
+		findDB_(findDomainBoundary),
+		volumeTag_(volumeTag),
+		surfaceTag_(surfaceTag),
+		normalSign_(normalSign)
 	{
+
+		// Unless the user wishes to obtain a domain boundary container, user must specify the tags associated with the boundary
+		assert(findDB_ || ((volumeTag_ != 0) && (surfaceTag_ != 0)));
 
 
 		/****************************************************
@@ -119,24 +127,31 @@ public:
   		/** \brief Iterate ove all elements of Interior Border partition */
 		UInt elemCount = 0;
   		UInt nElementInterior = grid_.numInternal(ELEMENT_CODIM);
-  		UInt nBoundarySegment = grid_.numBoundarySegments();
   		LocalCoordinate centerFaceLocal = ReferenceElements2d::simplex().position( 0, 0 );
 
-  		std::vector<ContainerTriangleLinear> boundaryContainerThis(nBoundarySegment);
+  		std::vector<ContainerTriangleLinear> boundaryContainerThis;
 
 		LeafGridView leafView = grid_.leafGridView();
 		for (auto&& elemThis : elements(leafView, Dune::Partitions::interiorBorder))
 		{
 			LoggingMessage::writePatience("Preparing domain boundary for global communication...", elemCount++, nElementInterior);
+			PhysicalTagType elementThisTag = grid_.template entityPhysicalTag<ELEMENT_CODIM>(elemThis);
 
 			for (auto&& interThis : intersections(leafView, elemThis))
 			{
-				/*************************************************************************/
-				/** Domain Boundary                                                                                       */
-				/*************************************************************************/
-				if ( (interThis.boundary() == true) && (interThis.neighbor() == false) )
+				// Obtain the entity associated with this intersection
+				unsigned int intrBraIndexInInside = interThis.indexInInside();
+				EntityFace faceBra = elemThis.template subEntity<FACE_CODIM>(intrBraIndexInInside);
+				PhysicalTagType boundaryTagBra = grid_.template entityPhysicalTag<FACE_CODIM>(faceBra);
+
+				// Determine if the intersection corresponds to the boundary in question
+				bool isBoundary = findDB_
+						? (interThis.boundary() == true) && (interThis.neighbor() == false)
+						:  (elementThisTag == volumeTag_) && (boundaryTagBra == surfaceTag_);
+
+				if (isBoundary)
 				{
-					UInt boundaryIndex = interThis.boundarySegmentIndex();
+					//UInt boundaryIndex = interThis.boundarySegmentIndex();
 					UInt intrIndexInInside = interThis.indexInInside();
 					EntityFace faceThis = elemThis.template subEntity<FACE_CODIM>(intrIndexInInside);
 					BaseGeometryFace faceGeomBase =  grid_.template entityBaseGeometry<FACE_CODIM>(faceThis);
@@ -145,12 +160,13 @@ public:
 					UInt nVertex = faceGeomBase.nVertex();
 					UInt nCorner = faceGeomBase.nCorner();
 
-					ContainerTriangleLinear & thisCont = boundaryContainerThis[boundaryIndex];
+					ContainerTriangleLinear thisCont;
 
 					// [TODO] This paradigm does not scale up in Curvilinear, as normal changes value over the face.
 					// Need to design a method that computes the normal just from the face coordinates, without the
 					// need for containing element. Then, only need communicate the sign of the outer normal
 					thisCont.n_ = interThis.unitOuterNormal(centerFaceLocal);
+					thisCont.n_ *= normalSign_;  // In case this is an interior boundary as viewed from the outside
 					thisCont.gindface_ = grid_.template entityGlobalIndex<FACE_CODIM>(faceThis);
 					thisCont.order_ = grid_.template entityInterpolationOrder<ELEMENT_CODIM>(elemThis);
 
@@ -162,7 +178,7 @@ public:
 						thisCont.gindedge_[iEdge] = grid_.template subentityGlobalIndex<FACE_CODIM, EDGE_CODIM>(faceThis, iEdge);
 					}
 
-					bool BBS = false;
+					bool BBS = false;  // Bloody BullShit :D
 					for (UInt iCorner = 0; iCorner < nCorner; iCorner++)  {
 						UInt indexCornerInElem = ReferenceElements3d::general(elemThis.type()).subEntity(intrIndexInInside, FACE_CODIM, iCorner, VERTEX_CODIM);
 						EntityVertex cornerThis = elemThis.template subEntity<VERTEX_CODIM>(indexCornerInElem);
@@ -171,6 +187,7 @@ public:
 						int gindcornerv2 = grid_.template subentityGlobalIndex<FACE_CODIM, VERTEX_CODIM>(faceThis, iCorner);
 						int gindcornerv3 = grid_.template subentityGlobalIndex<ELEMENT_CODIM, VERTEX_CODIM>(elemThis, indexCornerInElem);
 
+						// All different ways of obtaining the global index of a corner should give an equivalent result
 						//std::cout << "Test: " << boundaryIndex << " " << iCorner << " " << indexCornerInElem << " " << gindcornerv1 << " " << gindcornerv2 << " " << gindcornerv3 << std::endl;
 						if(gindcornerv1 != gindcornerv2) { BBS = true; }
 						if(gindcornerv2 != gindcornerv3) { BBS = true; }
@@ -182,6 +199,8 @@ public:
 					assert(!BBS);
 
 					for (UInt iVertex = 0; iVertex < nVertex; iVertex++)  { thisCont.p_[iVertex] = faceGeomBase.vertex(iVertex);}
+
+					boundaryContainerThis.push_back(thisCont);
 				}
 			}
 		}
@@ -272,6 +291,11 @@ private:
 	const Grid & grid_;
 	int rank_;
 	int size_;
+
+	bool findDB_;
+	PhysicalTagType volumeTag_;
+	PhysicalTagType surfaceTag_;
+	double normalSign_;
 
 	std::vector<ContainerTriangleLinear> boundaryContainerGlobal_;
 

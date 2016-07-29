@@ -51,10 +51,10 @@ Gmsh2DuneMapper()
 // ***********************************************************************
 
 // Constructs a DUNE geometry type based on GMSH element index
-GeometryType geometryType(int gmshIndex)
+GeometryType geometryType(int gmshType)
 {
     GeometryType rez;
-    int gi = gmshIndex;
+    int gi = gmshType;
 
          if (gi == 15)                                                                                                     { rez.makeVertex(); }
     else if ((gi == 1) || (gi == 8) || (gi == 26) || (gi == 27) || (gi == 28))                                             { rez.makeLine(); }
@@ -83,45 +83,45 @@ GeometryType geometryType(int gmshIndex)
 
 
 // Returns the type name of the element given its GMSH_index
-int elementOrder(int gmshIndex)
+int elementOrder(int gmshType)
 {
     // Hexahedra of high dimension have funny index
-    if (gmshIndex == 92) { return 3; }
-    if (gmshIndex == 93) { return 4; }
+    if (gmshType == 92) { return 3; }
+    if (gmshType == 93) { return 4; }
 
     // Array copy-pasted from GMSH Brute-Force because it does not seem to have any pattern :)
     const int elemOrder[32]          = {1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 3, 3, 4, 4, 5, 5, 3, 4, 5, 3, 4, 5};
 
-    return elemOrder[gmsh2DuneIndex(gmshIndex)];
+    return elemOrder[gmsh2DuneIndex(gmshType)];
 }
 
 
 // Tells which GMSH indices point to entities of incomplete polynomial order
-bool hasIncompleteOrder(int gmshIndex)
+bool hasIncompleteOrder(int gmshType)
 {
     // Both high-order hexahedrons are complete
-    if ((gmshIndex == 92) || (gmshIndex == 93)) { return 0; }
+    if ((gmshType == 92) || (gmshType == 93)) { return 0; }
 
     // Array copy-pasted from GMSH Brute-Force because it does not seem to have any pattern :)
     const bool elemIncomplete[32]          = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0};
 
-    return elemIncomplete[gmsh2DuneIndex(gmshIndex)];
+    return elemIncomplete[gmsh2DuneIndex(gmshType)];
 }
 
 
 // Returns the number of degrees of freedom of the element given its GMSH_index
 // note: This info can not simply be obtained from referenceElement, because some of the elements in GMSH have incomplete order, so less DoF than expected
-int dofNumber(int gmshIndex)
+int dofNumber(int gmshType)
 {
     // Array copy-pasted from GMSH Brute-Force because it does not seem to have any pattern :)
     const int nDofs[32]              = {2, 3, 4, 4, 8, 6, 5, 3, 6, 9, 10, 27, 18, 14, 1, 8, 20, 15, 13, 9, 10, 12, 15, 15, 21, 4, 5, 6, 20, 35, 56};
 
-    return nDofs[gmsh2DuneIndex(gmshIndex)];
+    return nDofs[gmsh2DuneIndex(gmshType)];
 }
 
 
 // Returns the total number of DoF associated with all subentities of a given dimension for this element, subtracting the ones that come from the corners
-int subentityExtraDofNumber(int gmshIndex, int dim)
+int subentityExtraDofNumber(int gmshType, int dim)
 {
     const int nDofsExtraEdge[32] = {0, 0, 0, 0, 0, 0, 0, 1, 3, 4, 6, 12, 9, 8, 0, 4, 12, 9, 8, 6, 6, 9, 9, 12, 12, 2, 3, 4, 12, 18, 24};
     const int nDofsExtraFace[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 6, 3, 1, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 6, 0, 0, 0, 4, 12, 24};
@@ -129,9 +129,9 @@ int subentityExtraDofNumber(int gmshIndex, int dim)
 
     switch(dim)
     {
-    case 1: return nDofsExtraEdge[gmsh2DuneIndex(gmshIndex)];  break;
-    case 2: return nDofsExtraFace[gmsh2DuneIndex(gmshIndex)];  break;
-    case 3: return nDofsExtraElem[gmsh2DuneIndex(gmshIndex)];  break;
+    case 1: return nDofsExtraEdge[gmsh2DuneIndex(gmshType)];  break;
+    case 2: return nDofsExtraFace[gmsh2DuneIndex(gmshType)];  break;
+    case 3: return nDofsExtraElem[gmsh2DuneIndex(gmshType)];  break;
     }
 
     return -1;
@@ -161,7 +161,7 @@ void gmsh2DuneElementDofNumbering(GeometryType gt, int thisElmOrder, std::vector
 }
 
 
-// In GMSH the global vertex index starts at 1, in Dune it starts at 0, therefore correction
+// In GMSH the gmshType and global vertex index start at 1, in Dune it starts at 0, therefore correction
 int  gmsh2DuneIndex (int gmshIndex) { return gmshIndex - 1; }
 
 

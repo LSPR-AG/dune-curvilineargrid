@@ -88,11 +88,15 @@ class CurvilinearGridFactoryWrapper
         GeometryType &geometry,
         const std::vector< LocalIndexType > &vertexIndexSet,
         const int elemOrder,
-        const LocalIndexType associatedElementIndex,
-        const int physicalTag)
+        //const LocalIndexType associatedElementIndex,
+        const int physicalTag,
+		bool isDomainBoundary)
     {
-    	hostfactory_.insertBoundarySegment(vertexIndexSet);
+    	// NOTE: Interior Boundaries do not exist in Dune Core as of time of writing
+    	// Note: associatedElementIndex no longer necessary
+    	if (isDomainBoundary)  { hostfactory_.insertBoundarySegment(vertexIndexSet); }
     }
+
 
     void insertNVertexTotal(int nVertexTotal)  {
     	// GMSH reader knows the total number of vertices, so one may save time by reusing this quantity, not needing extra global communication

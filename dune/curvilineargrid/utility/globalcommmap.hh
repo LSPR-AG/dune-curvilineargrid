@@ -22,6 +22,7 @@ namespace Dune {
 namespace CurvGrid {
 
 
+/** \brief This utility merges a map located on several processes, and distributes resulting map to all processes. */
 template <class Key, class Data>
 class GlobalCommMap {
 public:

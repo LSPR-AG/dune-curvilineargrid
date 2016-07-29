@@ -16,7 +16,7 @@ GridType * createGrid(Dune::MPIHelper & mpihelper, int exampleFile)
     const std::string CURVILINEARGRID_TEST_GRID_PATH = std::string(DUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH) + "curvilinear/";
 
     // A choice of example meshes. First number is the number of elements, 2nd is the polynomial order of the mesh
-    const std::string GMSH_FILE_NAME[7] {
+    const std::string GMSH_FILE_NAME[8] {
     	"sphere32.msh",
     	"sphere32ord2.msh",
     	"sphere32ord3.msh",
@@ -24,10 +24,11 @@ GridType * createGrid(Dune::MPIHelper & mpihelper, int exampleFile)
     	"sphere32ord5.msh",
     	"sphere2000ord3.msh",
 		"sphere2400ord1.msh",
+		"sphere2layer.msh",
     };
 
     // Choice of file name
-    assert((exampleFile >= 0)&&(exampleFile < 7));
+    assert((exampleFile >= 0)&&(exampleFile < 8));
     std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME[exampleFile];
 
     // Additional constants

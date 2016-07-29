@@ -64,7 +64,7 @@ public:
 		enum {
 			None               = 0,   // Faces that do not belong to any boundaries
 			DomainBoundary     = 1,   // Faces on the boundary of computational domain
-			InternalBoundary   = 2,   // Artificial user-defined boundary that may include interior faces [Not Implemented]
+			InteriorBoundary   = 2,   // Artificial user-defined boundary that may include interior faces
 			PeriodicBoundary   = 3,   // Periodic boundary [Not Implemented]
 		};
 	};

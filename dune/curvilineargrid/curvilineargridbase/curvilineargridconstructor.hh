@@ -229,6 +229,8 @@ public:
      *     Note: Only domain boundary faces have initial globalId given by GMSH. Therefore, we ignore it, and generate our own
      *     globalId for all faces at a later stage.
      *
+     *     Note: associatedElementIndex is no longer necessary. New procedure figures it out at no additional cost
+     *
      *  \param[in] gt                       geometry type of the face (should be a triangle)
      *  \param[in] associatedElementIndex   local index of the element this face is associated to
      *  \param[in] vertexIndexSet           local indices of the interpolatory vertices of this face
@@ -237,12 +239,14 @@ public:
      *
      * */
 
+
     void insertBoundarySegment(
     	Dune::GeometryType gt,
-    	LocalIndexType associatedElementIndex,
+    	//LocalIndexType associatedElementIndex,
     	const std::vector<LocalIndexType> & vertexIndexSet,
     	InterpolatoryOrderType order,
-    	PhysicalTagType physicalTag)
+    	PhysicalTagType physicalTag,
+		bool isDomainBoundary)
     {
         if (!gt.isTriangle() || (vertexIndexSet.size() != Dune::CurvilinearGeometryHelper::dofPerOrder(gt, order)))  {
         	LoggingMessage::template write<CurvGrid::LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridConstructor: insertBoundarySegment() unexpected number of interpolatory points");
@@ -261,16 +265,23 @@ public:
         // Sort in ascending order
         thisFaceKey.sort();
 
+        // Map the face key to the associated physical tag
+        if (isDomainBoundary)	{ domainBoundaryFaceKey2TagMap_[thisFaceKey] = physicalTag; }
+        else									{ interiorBoundaryFaceKey2TagMap_[thisFaceKey] = physicalTag; }
+
+
+
 
         // Take associated element, get all its corners, get all keys, compare to face key
         // **********************************************************************************
+        /*
         std::vector<LocalIndexType> elementCorners = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ctype, 3>(
         		gridstorage_.element_[associatedElementIndex].geometryType,
         		gridstorage_.element_[associatedElementIndex].vertexIndexSet,
         		gridstorage_.element_[associatedElementIndex].interpOrder
-        );
+        );*/
 
-
+        /*
 
         // Search for the face among subentities of the element
         // **********************************************************************************
@@ -341,7 +352,7 @@ public:
             }
 
             j++;
-        }
+        }*/
     }
 
 
@@ -543,6 +554,7 @@ protected:
      * 5) Mark edge local index as a subentity of containing element
      *
      * \note Orientation of elements ensured via Dune::ReferenceElement::subEntity()
+     * [TODO]  Mark domain boundary edges correctly
      * [TODO]  Use more generic functions when extending to any mesh other than tetrahedral
      *
      * */
@@ -670,42 +682,46 @@ protected:
                 // Sort in ascending order
                 thisKey.sort();
 
+                std::vector<int> connectedFaceInfo;
+                tmpMapIterator iter = tmpFaceMap.find(thisKey);
 
-                FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.find(thisKey);
+                // If the face already exists, update it by adding extra related elements
+                if (iter != tmpFaceMap.end()) { connectedFaceInfo = std::vector<int> ( (*iter).second ); }
+                connectedFaceInfo.push_back(iElem);
+                connectedFaceInfo.push_back(iFace);
+                tmpFaceMap[thisKey] = connectedFaceInfo;
+
+                std::stringstream log_stream;
+                log_stream << "CurvilinearGridConstructor: Adding FaceKey=(" << thisKey.node0 << ", " << thisKey.node1 << ", " << thisKey.node2 << ") attached to total of " << connectedFaceInfo.size() / 2 << " elements";
+                LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
+
+
+                // FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.find(thisKey);
 
                 // Mark this face for creation if it is not an already existing Domain Boundary
                 // Otherwise note its local index
-                if (faceIter == domainBoundaryFaceKey2LocalIndexMap_.end())
-                {
-                    std::vector<int> connectedFaceInfo;
-                    tmpMapIterator iter = tmpFaceMap.find(thisKey);
+                //if (faceIter == domainBoundaryFaceKey2LocalIndexMap_.end())
+                //{
 
-                    if (iter != tmpFaceMap.end()) { connectedFaceInfo = std::vector<int> ( (*iter).second ); }
-
-                    connectedFaceInfo.push_back(iElem);
-                    connectedFaceInfo.push_back(iFace);
-
-                    tmpFaceMap[thisKey] = connectedFaceInfo;
-
-
-                    std::stringstream log_stream;
-                    log_stream << "CurvilinearGridConstructor: Adding FaceKey=(" << thisKey.node0 << ", " << thisKey.node1 << ", " << thisKey.node2 << ") attached to total of " << connectedFaceInfo.size() / 2 << " elements";
-                    LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
-                } else {
-                	LocalIndexType localFaceIndex = (*faceIter).second;
-                	gridstorage_.elementSubentityCodim1_[iElem][iFace] = localFaceIndex;
-                }
+                //} else {
+                	//LocalIndexType localFaceIndex = (*faceIter).second;
+                	//gridstorage_.elementSubentityCodim1_[iElem][iFace] = localFaceIndex;
+                //}
             }
         }
 
 
         // Add internal and process boundary faces to the mesh
+        int dbCount = 0;  // Count DB and IB to later check if all have been mapped
+        int ibCount = 0;
         for (tmpMapIterator iter = tmpFaceMap.begin();  iter != tmpFaceMap.end();  iter++)
         {
             FaceStorage thisFace;
             LocalIndexType localFaceIndex = gridstorage_.face_.size();
             std::vector<int> connectedFaceInfo = (*iter).second;
 
+            // Each face should have 1 or 2 neighbor elements
+            assert((connectedFaceInfo.size() == 2) || (connectedFaceInfo.size() == 4));
             LocalIndexType    thisAssociatedElementIndex = connectedFaceInfo[0];
             InternalIndexType thisFaceSubentityIndex = connectedFaceInfo[1];
 
@@ -722,45 +738,87 @@ protected:
             Dune::GeometryType parentGeometry = gridstorage_.element_[thisFace.element1Index].geometryType;
             thisFace.geometryType = ReferenceElements::general(parentGeometry).type(thisFace.element1SubentityIndex, 1);
 
+            FaceMapIterator faceDBIter = domainBoundaryFaceKey2TagMap_.find(iter->first);
+            FaceMapIterator faceIBIter = interiorBoundaryFaceKey2TagMap_.find(iter->first);
+            bool foundDB = (faceDBIter != domainBoundaryFaceKey2TagMap_.end());
+            bool foundIB = (faceIBIter != interiorBoundaryFaceKey2TagMap_.end());
 
+            assert(!(foundDB && foundIB));  // The same boundary can not be an interior and domain boundary at the same time
+            assert((!foundDB) || (connectedFaceInfo.size() == 2));  // If this face is identified as DB, it should be connected to only one element
+
+            std::string boundaryName  = "";
             std::stringstream log_stream;
             log_stream << "CurvilinearGridConstructor: Added Face";
             log_stream << " LocalIndex=" << localFaceIndex;
             log_stream << " AssociatedElementIndex=" << thisFace.element1Index;
             log_stream << " InternalSubentityIndex=" << thisFace.element1SubentityIndex;
+            //log_stream << " Order=" << order;
+            log_stream << " PhysicalTag=" << faceDBIter->second;
 
             // Store internal, domain and process boundaries separately for faster iterators
-            if (connectedFaceInfo.size() == 2)
-            {
-                thisFace.ptype = Dune::PartitionType::BorderEntity;
-                thisFace.boundaryType = GridStorageType::FaceBoundaryType::None;
+            if (foundDB) {
+            	dbCount++;
+            	thisFace.physicalTag = faceDBIter->second;  // Here physical tag is very important as it need not match the tag of the element
+            	thisFace.boundaryType = GridStorageType::FaceBoundaryType::DomainBoundary;  // !! When periodic and internal boundaries are introduced this line will change
+            	thisFace.element2Index = -1;              // Boundary Segments do not have a 2nd neighbor
+            	thisFace.ptype = Dune::PartitionType::InteriorEntity; // Note: By Dune classification DB are interior entities (see Dune-Grid-Howto manual)
 
-                processBoundaryFaceKey2LocalIndexMap_[(*iter).first] = localFaceIndex;  // Store Map (key -> faceIndex)
-                thisFace.element2Index = 0;                                             // Eventually this will be the Ghost Element Index
+                // Store face in a Map (key -> faceIndex) for constructor purposes
+                // Also create a domain boundary index for future indexing
+                LocalIndexType localFaceDBIndex = gridstorage_.boundarySegmentIndexMap_.size();
+                domainBoundaryFaceKey2LocalIndexMap_[faceDBIter->first] = localFaceIndex;
+                gridstorage_.boundarySegmentIndexMap_[localFaceIndex] = localFaceDBIndex;
+                gridstorage_.boundarySegment2LocalIndexMap_[localFaceDBIndex] = localFaceIndex;
 
-                // Add this face to the process boundary map
-                LocalIndexType thisFaceLocalPBIndex = gridstorage_.processBoundaryIndexMap_[FACE_CODIM].size();
-                gridstorage_.processBoundaryIndexMap_[FACE_CODIM][localFaceIndex] = thisFaceLocalPBIndex;
+            	boundaryName += " StructuralType=domainBoundary";
+            } else {
+            	thisFace.boundaryType = GridStorageType::FaceBoundaryType::None;
 
-                log_stream << " StructuralType=processBoundary";
+            	 if (foundIB) {
+                 	ibCount++;
+                 	thisFace.physicalTag = faceIBIter->second;
+                 	thisFace.boundaryType = GridStorageType::FaceBoundaryType::InteriorBoundary;  // !! When periodic and internal boundaries are introduced this line will change
+
+                 	/* Note: We do not actually store IB as boundary segments at the moment, because there is no particular need for it
+                 	 * At the moment the IB are in no way different to regular faces, other than having a special physicalTag
+                 	 *
+                     LocalIndexType localFaceDBIndex = gridstorage_.boundarySegmentIndexMap_.size();
+                     domainBoundaryFaceKey2LocalIndexMap_[faceDBIter->first] = localFaceIndex;
+                     gridstorage_.boundarySegmentIndexMap_[localFaceIndex] = localFaceDBIndex;
+                     gridstorage_.boundarySegment2LocalIndexMap_[localFaceDBIndex] = localFaceIndex;
+                     */
+
+                     boundaryName += " StructuralType=interiorBoundary";
+            	 }
+
+
+                 if (connectedFaceInfo.size() == 2)		{
+                     processBoundaryFaceKey2LocalIndexMap_[(*iter).first] = localFaceIndex;  // Store Map (key -> faceIndex)
+                     thisFace.ptype = Dune::PartitionType::BorderEntity;
+                     thisFace.element2Index = 0;                                             // Eventually this will be the Ghost Element Index
+
+                     // Add this face to the process boundary map
+                     LocalIndexType thisFaceLocalPBIndex = gridstorage_.processBoundaryIndexMap_[FACE_CODIM].size();
+                     gridstorage_.processBoundaryIndexMap_[FACE_CODIM][localFaceIndex] = thisFaceLocalPBIndex;
+
+                     boundaryName += " StructuralType=processBoundary";
+                 } else {
+             		// If it exists, the 2nd neighbouring element needs to be mapped
+                 	LocalIndexType    thisAssociatedElement2Index = connectedFaceInfo[2];
+                 	InternalIndexType thisFaceSubentityIndex2 = connectedFaceInfo[3];
+                 	gridstorage_.elementSubentityCodim1_[thisAssociatedElement2Index][thisFaceSubentityIndex2] = localFaceIndex;
+                 	thisFace.element2Index = thisAssociatedElement2Index;              // This is the 2nd neighbor of this internal face
+                 	thisFace.ptype = Dune::PartitionType::InteriorEntity;
+
+                 	log_stream << " AssociatedElement2Index=" << thisAssociatedElement2Index;
+                 	log_stream << " InternalSubentityIndex2=" << thisFaceSubentityIndex2;
+
+                     // Add this face to the internal map
+                     internalFaceKey2LocalIndexMap_[(*iter).first] = localFaceIndex;    // Store Map (key -> faceIndex)
+                 	 boundaryName += "StructuralType=internal";
+                 }
             }
-            else
-            {
-            	// In this case 2nd neighbouring element needs to be mapped
-                LocalIndexType    thisAssociatedElement2Index = connectedFaceInfo[2];
-                InternalIndexType thisFaceSubentityIndex2 = connectedFaceInfo[3];
-                gridstorage_.elementSubentityCodim1_[thisAssociatedElement2Index][thisFaceSubentityIndex2] = localFaceIndex;
-                log_stream << " AssociatedElement2Index=" << thisAssociatedElement2Index;
-                log_stream << " InternalSubentityIndex2=" << thisFaceSubentityIndex2;
-
-                // Add this face to the internal map
-                thisFace.ptype = Dune::PartitionType::InteriorEntity;
-                thisFace.boundaryType = GridStorageType::FaceBoundaryType::None;
-
-                internalFaceKey2LocalIndexMap_[(*iter).first] = localFaceIndex;    // Store Map (key -> faceIndex)
-                thisFace.element2Index = thisAssociatedElement2Index;              // This is the 2nd neighbor of this internal face
-                log_stream << " StructuralType=internal";
-            }
+            log_stream << boundaryName;
 
             // Add face to the mesh
             LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
@@ -770,6 +828,15 @@ protected:
             int nPBFace = gridstorage_.processBoundaryIndexMap_[FACE_CODIM].size();
             gridstorage_.PB2PBNeighborRank_[FACE_CODIM].resize(nPBFace);
         }
+
+
+        // Check that all boundaries have been exactly mapped
+        assert(dbCount == domainBoundaryFaceKey2TagMap_.size());
+        assert(ibCount == interiorBoundaryFaceKey2TagMap_.size());
+
+        // Save space
+        domainBoundaryFaceKey2TagMap_.clear();
+        interiorBoundaryFaceKey2TagMap_.clear();
 
         LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished generating faces");
     }
@@ -973,6 +1040,9 @@ private: // Private members
     FaceKey2FaceIndexMap internalFaceKey2LocalIndexMap_;            // (global faceKey -> gridstorage_.face_ index)
     FaceKey2FaceIndexMap domainBoundaryFaceKey2LocalIndexMap_;      // (global faceKey -> gridstorage_.face_ index)
     FaceKey2FaceIndexMap processBoundaryFaceKey2LocalIndexMap_;     // (global faceKey -> gridstorage_.face_ index)
+
+    FaceKey2FaceIndexMap domainBoundaryFaceKey2TagMap_;      // (global faceKey -> face physical tag)
+    FaceKey2FaceIndexMap interiorBoundaryFaceKey2TagMap_;      // (global faceKey -> face physical tag
 
     // Curvilinear Grid Storage Class
     GridStorageType & gridstorage_;

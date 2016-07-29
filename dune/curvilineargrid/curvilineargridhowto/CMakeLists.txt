@@ -14,6 +14,7 @@ set(TESTS
 	tutorial6CommunicationGlobalIndex
 	tutorial7ParallelData
 	tutorial8GlobalBoundary
+	tutorial9InteriorBoundary
 )
 
 add_executable(tutorial1gettingstarted tutorial1gettingstarted.cc)
@@ -25,6 +26,7 @@ add_executable(tutorial6CommunicationConstant tutorial6CommunicationConstant.cc)
 add_executable(tutorial6CommunicationGlobalIndex tutorial6CommunicationGlobalIndex.cc)
 add_executable(tutorial7ParallelData tutorial7ParallelData.cc)
 add_executable(tutorial8GlobalBoundary tutorial8GlobalBoundary.cc)
+add_executable(tutorial9InteriorBoundary tutorial9InteriorBoundary.cc)
 target_link_libraries(tutorial1gettingstarted dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial2traversal dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial3visualisation dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
@@ -34,6 +36,7 @@ target_link_libraries(tutorial6CommunicationConstant dunecommon dunegeometry dun
 target_link_libraries(tutorial6CommunicationGlobalIndex dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial7ParallelData dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial8GlobalBoundary dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial9InteriorBoundary dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 
 
 # We do not want want to build the tests during make all,
@@ -57,6 +60,7 @@ if(HAVE_MPI)
     add_dune_mpi_flags(tutorial6CommunicationGlobalIndex)
     add_dune_mpi_flags(tutorial7ParallelData)
     add_dune_mpi_flags(tutorial8GlobalBoundary)
+    add_dune_mpi_flags(tutorial9InteriorBoundary)
     add_dune_parmetis_flags(tutorial1gettingstarted)
     add_dune_parmetis_flags(tutorial2traversal)
     add_dune_parmetis_flags(tutorial3visualisation)
@@ -66,6 +70,7 @@ if(HAVE_MPI)
     add_dune_parmetis_flags(tutorial6CommunicationGlobalIndex)
     add_dune_parmetis_flags(tutorial7ParallelData)
     add_dune_parmetis_flags(tutorial8GlobalBoundary)
+    add_dune_parmetis_flags(tutorial9InteriorBoundary)
 endif(HAVE_MPI)
 
 # Add boost
@@ -79,4 +84,5 @@ if(Boost_FOUND)
    target_link_libraries(tutorial6CommunicationGlobalIndex ${Boost_LIBRARIES})
    target_link_libraries(tutorial7ParallelData ${Boost_LIBRARIES})
    target_link_libraries(tutorial8GlobalBoundary ${Boost_LIBRARIES})
+   target_link_libraries(tutorial9InteriorBoundary ${Boost_LIBRARIES})
 endif()

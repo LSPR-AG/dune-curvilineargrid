@@ -93,12 +93,14 @@ class CurvilinearGridBaseFactory
         GeometryType &geometry,
         const std::vector< VertexLocalIndex > &vertexIndexSet,
         const int elemOrder,
-        const ElementLocalIndex associatedElementIndex,
-        const int physicalTag)
+        //const ElementLocalIndex associatedElementIndex,
+        const int physicalTag,
+		bool isDomainBoundary)
     {
-    	gridbase_->insertBoundarySegment(geometry, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag);
+    	// Note: associatedElementIndex no longer necessary
+    	//gridbase_->insertBoundarySegment(geometry, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag, isDomainBoundary);
+    	gridbase_->insertBoundarySegment(geometry, vertexIndexSet, elemOrder, physicalTag, isDomainBoundary);
     }
-
 
 
     void insertNVertexTotal(int nVertexTotal)  { gridbase_->insertNVertexTotal(nVertexTotal); }

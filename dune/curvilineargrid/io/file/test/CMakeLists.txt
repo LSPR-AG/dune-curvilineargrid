@@ -1,6 +1,9 @@
 # Define variable with path to the grids to be used in the code
 add_definitions("-DDUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH=\"${PROJECT_SOURCE_DIR}/doc/grids/\"")
 
+# Logging for debug purposes
+# add_definitions("-DHAVE_LOG_MSG_DVERB")
+
 # Define tests to be run
 set(TESTS
   curvilineargmshtest)

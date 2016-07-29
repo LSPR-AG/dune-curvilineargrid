@@ -327,11 +327,12 @@ int main (int argc , char **argv) {
 	// Define curvilinear grid
 	const int dim = 3;
 	typedef  double    ctype;
-	const int grid_file_type = 0;  // createGrid procedure provides 7 different example grids numbered 0 to 6
+	const int grid_file_type = 7;  // createGrid procedure provides 8 different example grids numbered 0 to 7
 	// NOTE: ONLY SELECT LINEAR FILES, FOR NOW BOUNDARY COMMUNICATOR CAN NOT DEAL WITH CURVILINEAR
 
 	const bool isCached = true;
 	const int ELEMENT_CODIM = 0;  // Codimension of element in 3D
+	const int FACE_CODIM = 1;  // Codimension of face in 3D
 
 	// Create Grid
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
@@ -339,7 +340,8 @@ int main (int argc , char **argv) {
 
 
 	typedef Dune::CurvGrid::GlobalBoundaryContainer<GridType> BoundaryContainer;
-	BoundaryContainer testContainer(*grid);
+	//BoundaryContainer testContainer(*grid, true);
+	BoundaryContainer testContainer(*grid, false, 502, 101, -1.0);
 
 	typedef TestIntegrals<GridType> Integr;
 	typename Integr::GlobalCoordinate rezNormalSelf = Integr::normalIntegralSelf(*grid);
@@ -436,10 +438,11 @@ int main (int argc , char **argv) {
 	int tmpLocalIndex;
 	for (GIndMapIter iter = globalIndexFace2.begin(); iter != globalIndexFace2.end(); iter++) {
 		std::cout << "Process "<< grid->comm().rank() << " testing global index " << iter->first << std::endl;
-		bool local = grid->entityLocalIndex(1, iter->first, tmpLocalIndex) == false;  // Mapped global boundary segments must not exist on this process
+		bool local = grid->entityLocalIndex(FACE_CODIM, iter->first, tmpLocalIndex) == false;  // Mapped global boundary segments must not exist on this process
+		Dune::PartitionType thisType = grid->gridbase().entityPartitionType(FACE_CODIM, tmpLocalIndex);
 
-		if (local) {
-			std::cout << "...Warning: Unexpexted parallel face of local index " << tmpLocalIndex << " and type " << grid->gridbase().entityPartitionType(1, tmpLocalIndex) << std::endl;
+		if (local && (thisType != Dune::PartitionType::GhostEntity)) {
+			std::cout << "...Warning: Unexpexted parallel face of local index " << tmpLocalIndex << " and type " << thisType << std::endl;
 		}
 	}
 

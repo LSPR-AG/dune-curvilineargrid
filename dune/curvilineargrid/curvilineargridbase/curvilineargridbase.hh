@@ -227,11 +227,9 @@ public: /* public methods */
     CurvilinearGridBase(bool withGhostElements, bool withElementGlobalIndex, MPIHelper &mpihelper) :
         gridstage_(0),
         mpihelper_(mpihelper),
-        gridstorage_(withGhostElements, withElementGlobalIndex),
-        gridconstructor_(gridstorage_, *this, mpihelper)
+        gridstorage_(withGhostElements, withElementGlobalIndex)
     {
-        //assert(instance_ == 0);
-        //instance_ = this;
+    	gridconstructor_ = new GridConstructorType(gridstorage_, *this, mpihelper);
 
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
@@ -261,7 +259,7 @@ public:
     void insertVertex(Vertex p, GlobalIndexType globalIndex)
     {
     	assertStage(Stage::GRID_CONSTRUCTION);
-    	gridconstructor_.insertVertex(p, globalIndex);
+    	gridconstructor_->insertVertex(p, globalIndex);
     }
 
     /** \brief Insert an element into the mesh
@@ -279,33 +277,43 @@ public:
         	PhysicalTagType physicalTag)
     {
     	assertStage(Stage::GRID_CONSTRUCTION);
-    	gridconstructor_.insertElement(gt, vertexIndexSet, globalIndex, order, physicalTag);
+    	gridconstructor_->insertElement(gt, vertexIndexSet, globalIndex, order, physicalTag);
     }
 
     /** Insert a boundary segment into the mesh
      *
-     *     Note: It is expected that all faces - domain an process boundaries - are inserted by the factory before finalising
+     *     Note: It is expected that all domain boundaries are inserted by the factory before finalising
      *     Note: Only domain boundary faces have initial globalId given by GMSH. Therefore, we ignore it, and generate our own
      *     globalId for all faces at a later stage.
+     *
+     *     Note: Support for interior boundaries is optional. There is no restriction on the number of inserted interior boundaries
+     *     The final effect of this operation is that the faces corresponding to the inserted boundary segments will be marked
+     *     with the provided physicalTag, to distinguish them from the other faces
      *
      *  \param[in] gt                       geometry type of the face (should be a triangle)
      *  \param[in] associatedElementIndex   local index of the element this face is associated to
      *  \param[in] vertexIndexSet           local indices of the interpolatory vertices of this face
      *  \param[in] order                    interpolatory order of the face
      *  \param[in] physicalTag              physical tag of the element (material property)
+     *  \param[in] isDomainBoundary              determines whether the inserted boundary segment belongs to the domain or interior boundary
      *
      * */
 
     void insertBoundarySegment(
     		Dune::GeometryType gt,
-        	LocalIndexType associatedElementIndex,
+        	//LocalIndexType associatedElementIndex,
         	const std::vector<LocalIndexType> & vertexIndexSet,
         	InterpolatoryOrderType order,
-        	PhysicalTagType physicalTag)
+        	PhysicalTagType physicalTag,
+			bool isDomainBoundary)
     {
     	assertStage(Stage::GRID_CONSTRUCTION);
-    	gridconstructor_.insertBoundarySegment(gt, associatedElementIndex, vertexIndexSet, order, physicalTag);
+    	// Note: associatedElementIndex no longer necessary
+    	// gridconstructor_.insertBoundarySegment(gt, associatedElementIndex, vertexIndexSet, order, physicalTag, isDomainBoundary);
+    	gridconstructor_->insertBoundarySegment(gt, vertexIndexSet, order, physicalTag, isDomainBoundary);
     }
+
+
 
 
     /** \brief Compulsory: insert the total number of vertices in the mesh before constructing the grid */
@@ -329,7 +337,10 @@ public:
 
         LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "[[CurvilinearGridBase: Generating curvilinear mesh...");
 
-        gridconstructor_.generateMesh();
+        gridconstructor_->generateMesh();
+
+        // Free up the memory taken by the construction procedure
+        delete(gridconstructor_);
 
         // Diagnostics output
         std::stringstream log_stream;
@@ -1214,7 +1225,7 @@ private: // Private members
     int gridstage_;
 
     // Curvilinear Grid Constructor Class
-    GridConstructorType gridconstructor_;
+    GridConstructorType * gridconstructor_;
 
     // Curvilinear Grid Storage Class
     GridStorageType gridstorage_;

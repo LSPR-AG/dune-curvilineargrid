@@ -492,6 +492,9 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         if (thisElmPartitionType == CurvGrid::BOUNDARY_SEGMENT_PARTITION_TYPE) {
         	magnify = true;
         	pname = "BoundarySegment";
+        } else if (thisElmPartitionType == CurvGrid::INTERIOR_BOUNDARY_SEGMENT_PARTITION_TYPE) {
+            	magnify = false;
+            	pname = "InteriorBoundarySegment";
         } else {
         	magnify = false;
         	pname = Dune::PartitionName(static_cast<Dune::PartitionType> (thisElmPartitionType));

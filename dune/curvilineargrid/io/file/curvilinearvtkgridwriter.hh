@@ -131,6 +131,7 @@ public:
 		virtualRefinementOrder_(0),
 		writePB_(false),
 		writeDB_(false),
+		writeIB_(false),
 		writeGhost_(false),
 		writeExplode_(false),
 		writePatience_(true)
@@ -145,6 +146,7 @@ public:
 	// Allow user to only write interior elements to accelerate writer
 	void writeProcessBoundary(bool write)  { writePB_ = write; }
 	void writeDomainBoundary(bool write)  { writeDB_ = write; }
+	void writeInteriorBoundary(bool write)  { writeIB_ = write; }
 	void writeGhost(bool write)						{ writeGhost_ = write; }
 
 	// Allow user to only write interior elements to accelerate writer
@@ -220,26 +222,30 @@ public:
 					writeVectorField(vtkVectorElementFunctionSet_, elementThis, writer);
 
 					// Write faces - Domain and Process Boundaries
-					if (writeDB_ || writePB_) // Do it only if user wants to see them
+					if (writeDB_ || writePB_ || writeIB_) // Do it only if user wants to see them
 					{
 						for (auto&& intersection : intersections(leafView, elementThis))
 						{
 							const EntityFace faceThis = elementThis.template subEntity<FACE_CODIM>(intersection.indexInInside());
-
+							PhysicalTagType faceTag = grid_.template entityPhysicalTag<FACE_CODIM>(faceThis);
 							Dune::GeometryType  faceGeomType   = faceThis.type();
-							StructuralType      thisFacePType  = faceThis.partitionType();
+							StructuralType thisFacePType  = faceThis.partitionType();
 
-							if  (( (intersection.neighbor() == true) && writePB_ ) ||
-								( (intersection.boundary() == true) && (intersection.neighbor() == false) && writeDB_ )) {
+							bool isDB = ((intersection.neighbor() == false) && (intersection.boundary() == true));
+							bool isPB = ((intersection.neighbor() == true) && (intersection.outside().partitionType() == Dune::PartitionType::GhostEntity));
+							bool isIB = ((!isDB) && (faceTag >= 0));
 
-								if (intersection.boundary())  { thisFacePType = CurvGrid::BOUNDARY_SEGMENT_PARTITION_TYPE; }
+
+							if  (( isDB && writeDB_ ) || ( isPB && writePB_ ) || (isIB && writeIB_)) {
+
+											if (isDB)  { thisFacePType = CurvGrid::BOUNDARY_SEGMENT_PARTITION_TYPE; }
+								else		if (isIB)   { thisFacePType = CurvGrid::INTERIOR_BOUNDARY_SEGMENT_PARTITION_TYPE; }
 
 								// Constructing a geometry is quite expensive, do it only once
 								//EntityGeometry geom = it->geometry();
-								FaceGeometry facegeom                    = grid_.template entityBaseGeometry<FACE_CODIM>(faceThis);
+								FaceGeometry facegeom = grid_.template entityBaseGeometry<FACE_CODIM>(faceThis);
 								std::vector<GlobalCoordinate>  faceNodeSet = facegeom.vertexSet();
 
-								PhysicalTagType         faceTag          = grid_.template entityPhysicalTag<FACE_CODIM>(faceThis);
 								std::vector<int>        faceTagSet  { faceTag, thisFacePType, grid_.comm().rank() };
 
 								// Write element to VTK
@@ -247,7 +253,7 @@ public:
 								writer.template addCurvilinearElement<dimension - FACE_CODIM>(faceGeomType, faceNodeSet, faceTagSet, elementOrder, nDiscretizationPoint, interpolate, writeExplode_, writeCodim);
 
 								// For now, only write face-based fields for domain boundaries
-								if (intersection.boundary())  {
+								if (isDB)  {
 									writeScalarField(vtkScalarFaceFunctionSet_, intersection, writer);
 									writeVectorField(vtkVectorFaceFunctionSet_, intersection, writer);
 								}
@@ -326,9 +332,10 @@ private:
 
 	const Grid & grid_;
 	int virtualRefinementOrder_;   // User-defined discretization order for element sub-refinement
-	bool writePB_;       		// User can choose to only write interior elements, thus accelerating writing procedure
-	bool writeDB_;       		// User can choose to only write interior elements, thus accelerating writing procedure
-	bool writeGhost_;       		// User can choose to only write interior elements, thus accelerating writing procedure
+	bool writePB_;       		// User can choose to write Process Boundary Segments [Default - false]
+	bool writeDB_;       		// User can choose to write Domain Boundary Segments [Default - false]
+	bool writeIB_;       		// User can choose to write Interior Boundary Segments [Default - false]
+	bool writeGhost_;       		// User can choose to write Ghost Elements [Default - false]
 	bool writePatience_;           // User can choose to not write patience output for aestetical purposes
 	bool writeExplode_;            // User can choose to use explosion plotting for meshes
 

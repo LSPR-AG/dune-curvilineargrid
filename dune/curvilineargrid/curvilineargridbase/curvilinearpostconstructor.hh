@@ -277,40 +277,40 @@ public: /* public methods */
 			for (int i = 0; i < nVertexTriangle; i++)  { faceSubentityIndex[VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, VERTEX_CODIM, i)); }
 
 			// Fill in the sets associated with internal element
-			// [FIXME] Explain what iTmp iterates over
+			// [FIXME] Explain what iFaceNeighbor iterates over
 			std::vector<LocalIndexType> faceNeighborSubentityIndex[2][4];
-			for (int iTmp = 0; iTmp <= 1; iTmp++)
+			for (int iFaceNeighbor = 0; iFaceNeighbor <= 1; iFaceNeighbor++)
 			{
-				// Gets either internal or ghost element depending on iTmp
-				LocalIndexType thisElementLocalIndex = gridbase_.faceNeighbor(thisFaceLocalIndex, iTmp);
+				// Gets either internal or ghost element depending on iFaceNeighbor
+				LocalIndexType thisElementLocalIndex = gridbase_.faceNeighbor(thisFaceLocalIndex, iFaceNeighbor);
 
 				// Find local indices of all subentities of this element
-				faceNeighborSubentityIndex[iTmp][ELEMENT_CODIM].push_back(thisElementLocalIndex);
-				for (int i = 0; i < nTriangleTet; i++)  { faceNeighborSubentityIndex[iTmp][FACE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, i)); }
-				for (int i = 0; i < nEdgeTet; i++)      { faceNeighborSubentityIndex[iTmp][EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, EDGE_CODIM, i)); }
-				for (int i = 0; i < nVertexTet; i++)    { faceNeighborSubentityIndex[iTmp][VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, VERTEX_CODIM, i)); }
+				faceNeighborSubentityIndex[iFaceNeighbor][ELEMENT_CODIM].push_back(thisElementLocalIndex);
+				for (int i = 0; i < nTriangleTet; i++)  { faceNeighborSubentityIndex[iFaceNeighbor][FACE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, i)); }
+				for (int i = 0; i < nEdgeTet; i++)      { faceNeighborSubentityIndex[iFaceNeighbor][EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, EDGE_CODIM, i)); }
+				for (int i = 0; i < nVertexTet; i++)    { faceNeighborSubentityIndex[iFaceNeighbor][VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, VERTEX_CODIM, i)); }
 
 
 				for (int iCodim = 0; iCodim <= dimension; iCodim++)
 				{
 					// Sort subentity index vectors
 					std::sort(faceSubentityIndex[iCodim].begin(), faceSubentityIndex[iCodim].end());
-					std::sort(faceNeighborSubentityIndex[iTmp][iCodim].begin(), faceNeighborSubentityIndex[iTmp][iCodim].end());
+					std::sort(faceNeighborSubentityIndex[iFaceNeighbor][iCodim].begin(), faceNeighborSubentityIndex[iFaceNeighbor][iCodim].end());
 
 					// Subtract face subentity set from element subentity set, such that only internal and ghost subentities are left
-					faceNeighborSubentityIndex[iTmp][iCodim] = Dune::VectorHelper::sortedSetComplement(faceNeighborSubentityIndex[iTmp][iCodim], faceSubentityIndex[iCodim]);
+					faceNeighborSubentityIndex[iFaceNeighbor][iCodim] = Dune::VectorHelper::sortedSetComplement(faceNeighborSubentityIndex[iFaceNeighbor][iCodim], faceSubentityIndex[iCodim]);
 
 					// 2) Add entities to the map unless they are already added.
 					// **********************************************************************
-					Local2LocalMap & thisLocalMap = gridbase_.selectCommMap(iCodim, tmpTypes[iTmp]);
+					Local2LocalMap & thisLocalMap = gridbase_.selectCommMap(iCodim, tmpTypes[iFaceNeighbor]);
 
-					for (unsigned int iEntity = 0; iEntity < faceNeighborSubentityIndex[iTmp][iCodim].size(); iEntity++ )
+					for (unsigned int iEntity = 0; iEntity < faceNeighborSubentityIndex[iFaceNeighbor][iCodim].size(); iEntity++ )
 					{
-						LocalIndexType thisEntityLocalIndex = faceNeighborSubentityIndex[iTmp][iCodim][iEntity];
+						LocalIndexType thisEntityLocalIndex = faceNeighborSubentityIndex[iFaceNeighbor][iCodim][iEntity];
 						Dune::PartitionType thisEntityType = gridbase_.entityPartitionType(iCodim, thisEntityLocalIndex);
 
 						std::stringstream log_str;
-						log_str << "CurvilinearPostConstructor: ---- Iterating over iTmp=" << Dune::PartitionName(tmpTypes[iTmp]);
+						log_str << "CurvilinearPostConstructor: ---- Iterating over iFaceNeighbor=" << Dune::PartitionName(tmpTypes[iFaceNeighbor]);
 						log_str << " codim=" << iCodim;
 						log_str << " subentityNo=" << iEntity;
 						log_str << " localindex =" << thisEntityLocalIndex;
@@ -320,7 +320,7 @@ public: /* public methods */
 
 						// If this is a PB Entity, that happens to not be on the face, it is possible
 						// that it is on a face of a different process, then it is a PB->G link
-						// Otherwise, this entity is either internal or ghost, and it contributest to one
+						// Otherwise, this entity is either internal or ghost, and it contributes to one
 						// of the new maps
 						if (thisEntityType == Dune::PartitionType::BorderEntity)
 						{
@@ -339,8 +339,8 @@ public: /* public methods */
 						{
 							// Check if the type of the entity is expected
 					    	bool entityTypeExpected =
-					    		((iTmp == 0)&&(thisEntityType == Dune::PartitionType::InteriorEntity)) ||
-					    		((iTmp == 1)&&(thisEntityType == Dune::PartitionType::GhostEntity));
+					    		((iFaceNeighbor == 0)&&(thisEntityType == Dune::PartitionType::InteriorEntity)) ||
+					    		((iFaceNeighbor == 1)&&(thisEntityType == Dune::PartitionType::GhostEntity));
 
 					    	if (!entityTypeExpected) {
 					    		GlobalIndexType thisEntityGlobalIndex;
@@ -351,8 +351,10 @@ public: /* public methods */
 
 					    		std::cout << "error in codim " << iCodim << " entity localindex=" << thisEntityLocalIndex << " globalIndex=" << thisEntityGlobalIndex << std::endl;
 
-					    		std::string expectedTypeName = Dune::PartitionName(tmpTypes[iTmp]);
+					    		std::string expectedTypeName = Dune::PartitionName(tmpTypes[iFaceNeighbor]);
 					    		std::string receivedTypeName = Dune::PartitionName(thisEntityType);
+
+					    		std::cout << rank_ << " ERROR: " << expectedTypeName << " " << receivedTypeName << std::endl;
 
 					    		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridBase: Unexpected type name expected=" + expectedTypeName + ", received="+receivedTypeName);
 					    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected type name");
@@ -368,7 +370,7 @@ public: /* public methods */
 								thisLocalMap[thisEntityLocalIndex] = thisEntitySubsetIndex;
 
 								// Enlarge the neighbour rank vector such that it has enough entries for all entities of subset
-								if (iTmp == 0)  { gridstorage_.BI2GNeighborRank_[iCodim].resize(thisEntitySubsetIndex + 1); }
+								if (iFaceNeighbor == 0)  { gridstorage_.BI2GNeighborRank_[iCodim].resize(thisEntitySubsetIndex + 1); }
 
 							} else {
 								thisEntitySubsetIndex = (*thisIter).second;
@@ -376,7 +378,7 @@ public: /* public methods */
 
 							// 3) Mark PB face neighbor rank on all subset entities
 							// **********************************************************************
-							if (iTmp == 0)  { gridstorage_.BI2GNeighborRank_[iCodim][thisEntitySubsetIndex].push_back(thisFaceNeighborRank); }
+							if (iFaceNeighbor == 0)  { gridstorage_.BI2GNeighborRank_[iCodim][thisEntitySubsetIndex].push_back(thisFaceNeighborRank); }
 							else            { gridstorage_.G2BIPBNeighborRank_[iCodim][thisEntitySubsetIndex].push_back(thisFaceNeighborRank); }
 						}
 					}

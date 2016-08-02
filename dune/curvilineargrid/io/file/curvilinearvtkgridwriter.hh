@@ -107,6 +107,8 @@ public:
 	typedef typename GridType::GridBaseType::template Codim<FACE_CODIM>::EntityGeometry      FaceGeometry;
 	typedef typename ElementGeometry::GlobalCoordinate  GlobalCoordinate;
 
+	typedef Dune::ReferenceElements<CoordinateType, dimension-1> ReferenceElements2d;
+
 	typedef typename Grid::StructuralType            StructuralType;
 	typedef typename Grid::PhysicalTagType           PhysicalTagType;
 	typedef typename Grid::InterpolatoryOrderType    InterpolatoryOrderType;
@@ -241,21 +243,33 @@ public:
 											if (isDB)  { thisFacePType = CurvGrid::BOUNDARY_SEGMENT_PARTITION_TYPE; }
 								else		if (isIB)   { thisFacePType = CurvGrid::INTERIOR_BOUNDARY_SEGMENT_PARTITION_TYPE; }
 
-								// Constructing a geometry is quite expensive, do it only once
-								//EntityGeometry geom = it->geometry();
-								FaceGeometry facegeom = grid_.template entityBaseGeometry<FACE_CODIM>(faceThis);
-								std::vector<GlobalCoordinate>  faceNodeSet = facegeom.vertexSet();
+								// Do not write PB twice, it is wasteful. Determine which process writes it using unit normal at center
+								bool writeThisPB = false;
+								if (isPB) {
+									GlobalCoordinate faceNormal = intersection.unitOuterNormal( ReferenceElements2d::simplex().position( 0, 0 ) );
+									writeThisPB =
+											(faceNormal[0] > 0) ||
+											((faceNormal[0] == 0) && (faceNormal[1] > 0)) ||
+											((faceNormal[0] == 0) && (faceNormal[1] == 0) && (faceNormal[2] > 0));
+								}
 
-								std::vector<int>        faceTagSet  { faceTag, thisFacePType, grid_.comm().rank() };
+								if ((!isPB) || writeThisPB) {
+									// Constructing a geometry is quite expensive, do it only once
+									//EntityGeometry geom = it->geometry();
+									FaceGeometry facegeom = grid_.template entityBaseGeometry<FACE_CODIM>(faceThis);
+									std::vector<GlobalCoordinate>  faceNodeSet = facegeom.vertexSet();
 
-								// Write element to VTK
-								LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting face geometry" );
-								writer.template addCurvilinearElement<dimension - FACE_CODIM>(faceGeomType, faceNodeSet, faceTagSet, elementOrder, nDiscretizationPoint, interpolate, writeExplode_, writeCodim);
+									std::vector<int>        faceTagSet  { faceTag, thisFacePType, grid_.comm().rank() };
 
-								// For now, only write face-based fields for domain boundaries
-								if (isDB)  {
-									writeScalarField(vtkScalarFaceFunctionSet_, intersection, writer);
-									writeVectorField(vtkVectorFaceFunctionSet_, intersection, writer);
+									// Write element to VTK
+									LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: --Inserting face geometry" );
+									writer.template addCurvilinearElement<dimension - FACE_CODIM>(faceGeomType, faceNodeSet, faceTagSet, elementOrder, nDiscretizationPoint, interpolate, writeExplode_, writeCodim);
+
+									// For now, only write face-based fields for domain boundaries
+									if (isDB)  {
+										writeScalarField(vtkScalarFaceFunctionSet_, intersection, writer);
+										writeVectorField(vtkVectorFaceFunctionSet_, intersection, writer);
+									}
 								}
 							}
 						}

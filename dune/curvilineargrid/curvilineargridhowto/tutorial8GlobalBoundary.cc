@@ -99,8 +99,17 @@ public:
 
   TestIntegrals() {}
 
+  static bool isBoundary(const GridType & grid, const Entity & elem, const Intersection & intr, bool isDB, int volTag = 0, int surfTag = 0) {
+		EntityFace faceBra = elem.template subEntity<FACE_CODIM>(intr.indexInInside());
+		int elemTag = grid.template entityPhysicalTag<ELEMENT_CODIM>(elem);
+		int boundaryTag = grid.template entityPhysicalTag<FACE_CODIM>(faceBra);
+	  return isDB
+			  ? (intr.boundary() == true) && (intr.neighbor() == false)
+			  : (elemTag == volTag) && (boundaryTag == surfTag);
+  }
 
-  static GlobalCoordinate normalIntegralSelf (const GridType & grid) {
+
+  static GlobalCoordinate normalIntegralSelf (const GridType & grid, bool isDB, int volTag = 0, int surfTag = 0, int normalSign = 1) {
 	  // get the instance of the LeafGridView
 	  LeafGridView leafView = grid.leafGridView();
 	  const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
@@ -112,7 +121,10 @@ public:
 		  //std::cout << "-accessing entity " << indexSet.index(elemThis) << std::endl;
 
 		  for (auto&& intersection : intersections(leafView, elemThis)) {
-			  if ( (intersection.boundary() == true) && (intersection.neighbor() == false) ) {
+
+			  // Only process the intersection if it is a valid interior or domain boundary segment
+			  bool isBS = isBoundary(grid, elemThis, intersection, isDB, volTag, surfTag);
+			  if (isBS) {
 				  Dune::GeometryType gt = intersection.type();
 				  FaceGeometry geometry = intersection.geometry();
 				  GlobalCoordinate normal = intersection.unitOuterNormal(faceCenterLocal);
@@ -131,6 +143,10 @@ public:
 				}
 		  }
 	  }
+
+	  // Note that the normal may be inner or outer wrt associated volume element, determined by user
+	  rez *= normalSign;
+
 	  return rez;
   }
 
@@ -163,7 +179,7 @@ public:
   }
 
 
-  static ct edgeLengthSelf(const GridType & grid) {
+  static ct edgeLengthSelf(const GridType & grid, bool isDB, int volTag = 0, int surfTag = 0) {
 	  // get the instance of the LeafGridView
 	  LeafGridView leafView = grid.leafGridView();
 	  const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
@@ -174,7 +190,10 @@ public:
 		  //std::cout << "-accessing entity " << indexSet.index(elemThis) << std::endl;
 
 		  for (auto&& intersection : intersections(leafView, elemThis)) {
-			  if ( (intersection.boundary() == true) && (intersection.neighbor() == false) ) {
+
+			  // Only process the intersection if it is a valid interior or domain boundary segment
+			  bool isBS = isBoundary(grid, elemThis, intersection, isDB, volTag, surfTag);
+			  if (isBS) {
 				  for (int iEdge = 0; iEdge < 3; iEdge++) {
 					  // Get subindex of edge inside element
 					  int edgeIndInElem = ReferenceElements3d::general(elemThis.type()).subEntity(intersection.indexInInside(), FACE_CODIM, iEdge, EDGE_CODIM);
@@ -210,7 +229,8 @@ public:
 		  const GridType & grid,
 		  GIndMap & gindmapface,
 		  GIndMap & gindmapedge,
-		  GIndMap & gindmapvertex
+		  GIndMap & gindmapvertex,
+		  bool isDB, int volTag = 0, int surfTag = 0
   ) {
 	  // get the instance of the LeafGridView
 	  LeafGridView leafView = grid.leafGridView();
@@ -220,13 +240,13 @@ public:
 	  unsigned int nElementInterior = grid.numInternal(ELEMENT_CODIM);
 	  for (auto&& elemThis : elements(leafView, Dune::Partitions::interiorBorder)) {
 		  //std::cout << "-accessing entity " << indexSet.index(elemThis) << std::endl;
-
 		  Dune::LoggingMessage::writePatience("test: globalIndexSelf...", elemCount++, nElementInterior);
 
-
-
 		  for (auto&& intersection : intersections(leafView, elemThis)) {
-			  if ( (intersection.boundary() == true) && (intersection.neighbor() == false) ) {
+
+			  // Only process the intersection if it is a valid interior or domain boundary segment
+			  bool isBS = isBoundary(grid, elemThis, intersection, isDB, volTag, surfTag);
+			  if (isBS) {
 				  UInt intrIndexInInside = intersection.indexInInside();
 				  EntityFace faceThis = elemThis.template subEntity<FACE_CODIM>(intrIndexInInside);
 				  int gindface = grid.template entityGlobalIndex<FACE_CODIM>(faceThis);
@@ -341,12 +361,17 @@ int main (int argc , char **argv) {
 
 	typedef Dune::CurvGrid::GlobalBoundaryContainer<GridType> BoundaryContainer;
 	//BoundaryContainer testContainer(*grid, true);
-	BoundaryContainer testContainer(*grid, false, 502, 101, -1.0);
+
+	bool isDomainBoundary = false;
+	int volumeTag = 501;
+	int surfaceTag = 101;
+	int normalSign = -1;
+	BoundaryContainer testContainer(*grid, isDomainBoundary, volumeTag, surfaceTag, normalSign);
 
 	typedef TestIntegrals<GridType> Integr;
-	typename Integr::GlobalCoordinate rezNormalSelf = Integr::normalIntegralSelf(*grid);
+	typename Integr::GlobalCoordinate rezNormalSelf = Integr::normalIntegralSelf(*grid, isDomainBoundary, volumeTag, surfaceTag, normalSign);
 	typename Integr::GlobalCoordinate rezNormalOther = Integr::normalIntegralOtherDomain(testContainer);
-	ctype rezEdgeSelf = Integr::edgeLengthSelf(*grid);
+	ctype rezEdgeSelf = Integr::edgeLengthSelf(*grid, isDomainBoundary, volumeTag, surfaceTag);
 	ctype rezEdgeOther = Integr::edgeLengthOtherDomain(testContainer);
 
 	MPI_Comm comm = Dune::MPIHelper::getCommunicator();
@@ -362,7 +387,7 @@ int main (int argc , char **argv) {
 	std::map<int, int> globalIndexFace;
 	std::map<int, int> globalIndexEdge;
 	std::map<int, int> globalIndexVertex;
-	Integr::globalIndexSelf(*grid, globalIndexFace, globalIndexEdge, globalIndexVertex);
+	Integr::globalIndexSelf(*grid, globalIndexFace, globalIndexEdge, globalIndexVertex, isDomainBoundary, volumeTag, surfaceTag);
 	Integr::globalIndexOtherDomain(testContainer, globalIndexFace, globalIndexEdge, globalIndexVertex);
 
 	int faceMin = INT_MAX;
@@ -419,6 +444,7 @@ int main (int argc , char **argv) {
 	std::map<int, int> globalIndexFace2;
 	std::map<int, int> globalIndexEdge2;
 	std::map<int, int> globalIndexVertex2;
+
 	Integr::globalIndexOtherDomain(testContainer, globalIndexFace2, globalIndexEdge2, globalIndexVertex2);
 
 	/*
@@ -433,20 +459,20 @@ int main (int argc , char **argv) {
 	}*/
 
 
-
-
 	int tmpLocalIndex;
 	for (GIndMapIter iter = globalIndexFace2.begin(); iter != globalIndexFace2.end(); iter++) {
-		std::cout << "Process "<< grid->comm().rank() << " testing global index " << iter->first << std::endl;
-		bool local = grid->entityLocalIndex(FACE_CODIM, iter->first, tmpLocalIndex) == false;  // Mapped global boundary segments must not exist on this process
-		Dune::PartitionType thisType = grid->gridbase().entityPartitionType(FACE_CODIM, tmpLocalIndex);
+		//std::cout << "Process "<< grid->comm().rank() << " testing global index " << iter->first << std::endl;
 
-		if (local && (thisType != Dune::PartitionType::GhostEntity)) {
-			std::cout << "...Warning: Unexpexted parallel face of local index " << tmpLocalIndex << " and type " << thisType << std::endl;
+		// Mapped global boundary segments must not exist on this process
+		bool local = grid->entityLocalIndex(FACE_CODIM, iter->first, tmpLocalIndex);
+
+		if (local) {
+			Dune::PartitionType thisType = grid->gridbase().entityPartitionType(FACE_CODIM, tmpLocalIndex);
+			if (thisType != Dune::PartitionType::GhostEntity) {
+				std::cout << "...Warning: Unexpexted parallel face of local index " << tmpLocalIndex << " and type " << thisType << std::endl;
+			}
 		}
 	}
-
-
 
 
 

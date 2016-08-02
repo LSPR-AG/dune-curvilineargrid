@@ -701,8 +701,10 @@ namespace Dune
     	bool exist = gridbase_->findEntityLocalIndex(codim, globalIndex, baseLocalIndex);
 
     	// Convert from base local index back to Grid local index
-    	if (codim == dimension)	{ localIndex = gridbase_->cornerUniqueLocalIndex(baseLocalIndex); }
-    	else										{ localIndex = baseLocalIndex; }
+    	if (exist) {
+        	if (codim == dimension)	{ localIndex = gridbase_->cornerUniqueLocalIndex(baseLocalIndex); }
+        	else										{ localIndex = baseLocalIndex; }
+    	}
     	return exist;
     }
 

@@ -117,7 +117,7 @@ public:
 	{
 
 		// Unless the user wishes to obtain a domain boundary container, user must specify the tags associated with the boundary
-		assert(findDB_ || ((volumeTag_ != 0) && (surfaceTag_ != 0)));
+		assert(findDB_ || ((volumeTag_ > 0) && (surfaceTag_ > 0)));
 
 
 		/****************************************************

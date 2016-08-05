@@ -81,6 +81,9 @@ namespace Dune
 
 
   //! dimension independent parts for CurvilinearGmshReaderParser
+  // [TODO] Create new parameter - partition strategy
+  //				- VolumeMethodUniformPartition - calculate weight only based on elements
+  //				- HybridMethodUniformPartition - calculate reasonably large weight for boundary segments, and small for volume elements
   template<typename GridType, typename FactoryType>
   class CurvilinearGmshReaderParser
   {

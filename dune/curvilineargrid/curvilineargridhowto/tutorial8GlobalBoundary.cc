@@ -17,8 +17,8 @@
 
 
 // Calculates the outer normal to the intersection times the integration element
-template<class Grid, int mydim>
-struct NormalFunctorLinear
+template<class Grid, int mydim, class SegmentContainer>
+struct NormalFunctor
 {
 	typedef Dune::FieldVector<double, mydim>           LocalCoordinate;
 	typedef typename Grid::Traits::LeafIntersection    Intersection;
@@ -28,15 +28,14 @@ struct NormalFunctorLinear
     typedef GlobalCoordinate               ResultValue;
     typedef std::vector<GlobalCoordinate>  ResultType;
 
-	//Intersection I_;
-    GlobalCoordinate n_;
+    const SegmentContainer & s_;
 
-	NormalFunctorLinear(const GlobalCoordinate & n) : n_(n)  { }
+	NormalFunctor(const SegmentContainer & s) : s_(s)  { }
 
 	// Calculates the outer normal to the intersection times the integration element
 	ResultType operator()(const LocalCoordinate & x) const
     {
-    	return ResultType(1, n_);
+    	return ResultType(1, s_.unitOuterNormal(x));
     }
 
 	GlobalCoordinate zeroValue(unsigned int rezIndex) const { return GlobalCoordinate(0.0); }
@@ -80,15 +79,17 @@ public:
   typedef typename FaceGeometry::LocalCoordinate  LocalCoordinate;
   typedef typename FaceGeometry::GlobalCoordinate  GlobalCoordinate;
 
-  typedef NormalFunctorLinear<GridType, 2>             Integrand2DVector;
-  typedef Dune::QuadratureIntegrator<double, 2>  Integrator2DVector;
-  typedef typename Integrator2DVector::template Traits<Integrand2DVector>::StatInfo  StatInfo;
-
   typedef Dune::ReferenceElements<ct, dim> ReferenceElements3d;
   typedef Dune::ReferenceElements<ct, dim-1> ReferenceElements2d;
 
   typedef Dune::CurvGrid::GlobalBoundaryContainer<GridType> BoundaryContainer;
   typedef Dune::CurvGrid::GlobalBoundaryIterator<GridType> BoundaryIterator;
+  //typedef typename BoundaryContainer::BoundaryContainer  SegmentContainer;
+
+  typedef NormalFunctor<GridType, 2, Intersection> Integrand2DVectorLocal;
+  typedef NormalFunctor<GridType, 2, BoundaryIterator> Integrand2DVectorParallel;
+  typedef Dune::QuadratureIntegrator<double, 2>  Integrator2DVector;
+  typedef typename Integrator2DVector::template Traits<Integrand2DVectorLocal>::StatInfo  StatInfo;
 
   typedef std::map<int, int> GIndMap;
   typedef std::pair<int,int> GIndPair;
@@ -110,6 +111,8 @@ public:
 
 
   static GlobalCoordinate normalIntegralSelf (const GridType & grid, bool isDB, int volTag = 0, int surfTag = 0, int normalSign = 1) {
+	  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Normal Integral on own boundary:::");
+
 	  // get the instance of the LeafGridView
 	  LeafGridView leafView = grid.leafGridView();
 	  const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
@@ -125,17 +128,17 @@ public:
 			  // Only process the intersection if it is a valid interior or domain boundary segment
 			  bool isBS = isBoundary(grid, elemThis, intersection, isDB, volTag, surfTag);
 			  if (isBS) {
-				  Dune::GeometryType gt = intersection.type();
+				  //Dune::GeometryType gt = intersection.type();
 				  FaceGeometry geometry = intersection.geometry();
-				  GlobalCoordinate normal = intersection.unitOuterNormal(faceCenterLocal);
+				  //GlobalCoordinate normal = intersection.unitOuterNormal(faceCenterLocal);
 
 				  //Integrand2DVector integrand(intersection);
-				  Integrand2DVector integrand(normal);
+				  Integrand2DVectorLocal integrand(intersection);
 
 				  const double RELATIVE_TOLERANCE = 1.0e-5;
 				  const double ACCURACY_GOAL = 1.0e-15;
 				  const int NORM_TYPE = Dune::QUADRATURE_NORM_L2;
-				  StatInfo thisIntegralN = Integrator2DVector::template integrateRecursive<FaceGeometry, Integrand2DVector, NORM_TYPE>(geometry, integrand, RELATIVE_TOLERANCE, ACCURACY_GOAL);
+				  StatInfo thisIntegralN = Integrator2DVector::template integrateRecursive<FaceGeometry, Integrand2DVectorLocal, NORM_TYPE>(geometry, integrand, RELATIVE_TOLERANCE, ACCURACY_GOAL);
 
 				  //std::cout << "---- adding normal contribution " << thisIntegralN.second[0] << " from " << gt << ". Needed order " << thisIntegralN.first << std::endl;
 
@@ -151,22 +154,20 @@ public:
   }
 
 
-  static GlobalCoordinate normalIntegralOtherDomain(const BoundaryContainer & container) {
+  static GlobalCoordinate normalIntegralOtherDomain(const BoundaryContainer & container, int normalSign = 1) {
+	  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Normal Integral on global boundary container:::");
 
 	  GlobalCoordinate  rez(0.0);
 
 	  BoundaryIterator biter(container);
 	  while (!biter.end()) {
-
-		  BaseGeometryFace baseGeom = biter.geometry();
-		  GlobalCoordinate normal = biter.unitOuterNormal();
-
-		  Integrand2DVector integrand(normal);
+		  Integrand2DVectorParallel integrand(biter);
 
 		  const double RELATIVE_TOLERANCE = 1.0e-5;
 		  const double ACCURACY_GOAL = 1.0e-15;
 		  const int NORM_TYPE = Dune::QUADRATURE_NORM_L2;
-		  StatInfo thisIntegralN = Integrator2DVector::template integrateRecursive<BaseGeometryFace, Integrand2DVector, NORM_TYPE>(baseGeom, integrand, RELATIVE_TOLERANCE, ACCURACY_GOAL);
+		  StatInfo thisIntegralN = Integrator2DVector::template integrateRecursive<BaseGeometryFace, Integrand2DVectorParallel, NORM_TYPE>(
+				  biter.geometry(), integrand, RELATIVE_TOLERANCE, ACCURACY_GOAL);
 
 		  //std::cout << "---- adding normal contribution " << thisIntegralN.second[0] << " from " << baseGeom.type() << ". Needed order " << thisIntegralN.first << std::endl;
 
@@ -175,11 +176,15 @@ public:
 		  ++biter;
 	  }
 
+	  // Note that the normal may be inner or outer wrt associated volume element, determined by user
+	  rez *= normalSign;
 	  return rez;
   }
 
 
   static ct edgeLengthSelf(const GridType & grid, bool isDB, int volTag = 0, int surfTag = 0) {
+	  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Edge Length on own boundary:::");
+
 	  // get the instance of the LeafGridView
 	  LeafGridView leafView = grid.leafGridView();
 	  const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
@@ -203,11 +208,13 @@ public:
 			  }
 		  }
 	  }
-	  return rez * 0.5;  // Count each edge only 1/2 since it is accessed twice, once from each neighboring face
+	  return rez * 0.5; // Count each edge only 1/2 since it is accessed twice, once from each neighboring face
   }
 
 
   static ct edgeLengthOtherDomain(const BoundaryContainer & container) {
+	  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Edge Length on global boundary container:::" );
+
 	  const double RELATIVE_TOLERANCE = 1.0e-5;
 
 	  ct  rez(0.0);
@@ -215,13 +222,12 @@ public:
 	  BoundaryIterator biter(container);
 	  while (!biter.end()) {
 		  for (int iEdge = 0; iEdge < 3; iEdge++) {
-
 			  rez += biter.geometryEdge(iEdge).volume(RELATIVE_TOLERANCE);
 		  }
 		  ++biter;
 	  }
 
-	  return rez * 0.5;
+	  return rez * 0.5; // Count each edge only 1/2 since it is accessed twice, once from each neighboring face
   }
 
 
@@ -232,6 +238,9 @@ public:
 		  GIndMap & gindmapvertex,
 		  bool isDB, int volTag = 0, int surfTag = 0
   ) {
+	  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Global Index on own boundary:::");
+
+
 	  // get the instance of the LeafGridView
 	  LeafGridView leafView = grid.leafGridView();
 	  const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
@@ -295,6 +304,8 @@ public:
 		  GIndMap & gindmapedge,
 		  GIndMap & gindmapvertex
   ) {
+	  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing GlobalIndex on global boundary container:::");
+
 	  BoundaryIterator biter(container);
 	  while (!biter.end()) {
 		  int gindface = biter.template globalIndex<FACE_CODIM>(0);
@@ -366,11 +377,13 @@ int main (int argc , char **argv) {
 	int volumeTag = 501;
 	int surfaceTag = 101;
 	int normalSign = -1;
-	BoundaryContainer testContainer(*grid, isDomainBoundary, volumeTag, surfaceTag, normalSign);
+	BoundaryContainer testContainer(*grid, isDomainBoundary, volumeTag, surfaceTag);
+
+	std::cout << ":::Constructed Container:::" << std::endl;
 
 	typedef TestIntegrals<GridType> Integr;
 	typename Integr::GlobalCoordinate rezNormalSelf = Integr::normalIntegralSelf(*grid, isDomainBoundary, volumeTag, surfaceTag, normalSign);
-	typename Integr::GlobalCoordinate rezNormalOther = Integr::normalIntegralOtherDomain(testContainer);
+	typename Integr::GlobalCoordinate rezNormalOther = Integr::normalIntegralOtherDomain(testContainer, normalSign);
 	ctype rezEdgeSelf = Integr::edgeLengthSelf(*grid, isDomainBoundary, volumeTag, surfaceTag);
 	ctype rezEdgeOther = Integr::edgeLengthOtherDomain(testContainer);
 

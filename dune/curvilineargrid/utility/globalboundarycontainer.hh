@@ -104,7 +104,14 @@ public:
 		// Unless the user wishes to obtain a domain boundary container, user must specify the tags associated with the boundary
 		assert(findDB_ || ((volumeTag_ > 0) && (surfaceTag_ > 0)));
 
-
+		{
+			std::stringstream logstr;
+			logstr << "Initializing GlobalBoundaryContainer with ";
+			logstr << "volumeTag=" << volumeTag_ << ", ";
+			logstr << "surfaceTag=" << surfaceTag_ << ", ";
+			logstr << "findDomainBoundary=" << findDomainBoundary;
+			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, logstr.str());
+		}
 
 		// MPI_COMM Data
 		std::vector<UInt> elemOrder;
@@ -216,7 +223,7 @@ public:
 				<< gInd[3].size() << std::endl;
 		*/
 
-		LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "Started Global Boundary Communication");
+		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "Started Global Boundary Communication");
 
 		mpiAllGatherVwrapper(nBS, nBSTotal, commSize);
 		mpiAllGatherVwrapper(bsSubInd, bsSubIndTotal, commSize);
@@ -230,7 +237,7 @@ public:
 		// Have order last, so that we know from commSize, how many boundary elements there are on each process
 		mpiAllGatherVwrapper(elemOrder, elemOrderTotal, commSize);
 
-		LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "Finished Global Boundary Communication");
+		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "Finished Global Boundary Communication");
 
 		/*
 		std::cout << rank_  << " AfterComm: "
@@ -320,11 +327,7 @@ public:
 			}
 		}
 
-		std::cout << "Finished Loop" << std::endl;
-
-		// [FIXME] [FIXME] [FIXME] [FIXME] [FIXME] [FIXME] [FIXME] [FIXME]
-
-		// Much assert here and everywhere
+		//std::cout << "rank=" << rank_ << " Finished Loop" << std::endl;
 	}
 
 

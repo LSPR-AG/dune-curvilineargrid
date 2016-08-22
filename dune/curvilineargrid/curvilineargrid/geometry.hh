@@ -3,8 +3,7 @@
 #ifndef DUNE_CURVGRID_GEOMETRY_HH
 #define DUNE_CURVGRID_GEOMETRY_HH
 
-#include <dune/common/nullptr.hh>
-#include <dune/common/typetraits.hh>
+//#include <dune/common/typetraits.hh>
 
 #include <dune/geometry/referenceelements.hh>
 #include <dune/curvilineargeometry/interpolation/polynomial.hh>
@@ -28,23 +27,23 @@ namespace Dune
     {
       typedef CurvGeometry< mydim, cdim, Grid > This;
 
-      typedef typename remove_const< Grid >::type::Traits Traits;
-      typedef typename remove_const< Grid >::type::ctype ctype;
+      typedef typename Grid::Traits Traits;
+      typedef typename Grid::ctype ctype;
 
       //template< int, int, class > friend class Geometry;
 
     public:
-	  typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
+	  typedef typename Grid::GridBaseType     GridBaseType;
       typedef typename GridBaseType::InternalIndexType         InternalIndexType;
       typedef typename GridBaseType::InterpolatoryOrderType    InterpolatoryOrderType;
 
       static const int mydimension = mydim;
       static const int coorddimension = cdim;
-      static const int dimension = remove_const< Grid >::type::dimension;
+      static const int dimension = Grid::dimension;
       static const int codimension = dimension - mydimension;
 
     protected:
-      typedef typename remove_const< Grid >::type::template Codim<codimension>::EntityGeometryMappingImpl   BasicMapping;
+      typedef typename Grid::template Codim<codimension>::EntityGeometryMappingImpl   BasicMapping;
 
 
     public:

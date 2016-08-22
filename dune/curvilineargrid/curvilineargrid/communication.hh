@@ -45,13 +45,13 @@ namespace Dune
     template<class Grid>
     class Communication
     {
-    	typedef typename remove_const< Grid >::type::Traits Traits;
-    	typedef typename remove_const< Grid >::type::ctype ctype;
+    	typedef typename Grid::Traits Traits;
+    	typedef typename Grid::ctype ctype;
 
-    	static const int dimension   = remove_const< Grid >::type::dimension;		 //! dimension of the grid
+    	static const int dimension   = Grid::dimension;		 //! dimension of the grid
 
-  	    typedef typename remove_const< Grid >::type::GridStorageType  GridStorageType;
-  	    typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
+  	    typedef typename Grid::GridStorageType  GridStorageType;
+  	    typedef typename Grid::GridBaseType     GridBaseType;
 
     	typedef typename GridBaseType::LocalIndexType        LocalIndexType;
     	typedef typename GridBaseType::GlobalIndexType       GlobalIndexType;

@@ -40,9 +40,9 @@ namespace Dune
   class CurvEntityBase
   {
   public:
-	  typedef typename remove_const< Grid >::type::Traits Traits;
+	  typedef typename Grid::Traits Traits;
 
-	  typedef typename remove_const< Grid >::type::ctype ctype;
+	  typedef typename Grid::ctype ctype;
 
 	  typedef typename Traits::template Codim< codim >::EntitySeed  EntitySeed;
 	  typedef Dune::CurvGrid::CurvEntitySeed<codim, Grid>           EntitySeedImpl;
@@ -50,16 +50,16 @@ namespace Dune
   public:
 
 	  static const int codimension     = codim;				                         //! codimensioon of the entity
-	  static const int dimension       = remove_const< Grid >::type::dimension;		 //! dimension of the grid
+	  static const int dimension       = Grid::dimension;		 //! dimension of the grid
 	  static const int mydimension     = dimension - codimension;		                 //! dimension of the entity
-	  static const int dimensionworld  = remove_const< Grid >::type::dimensionworld;   //! dimension of the world
+	  static const int dimensionworld  = Grid::dimensionworld;   //! dimension of the world
 
 
 	  typedef typename Traits::template Codim< codimension >::Geometry      Geometry;	    //! type of corresponding geometry
 	  typedef typename Traits::template Codim< codimension >::GeometryImpl  GeometryImpl;
 
-	  typedef typename remove_const< Grid >::type::GridStorageType  GridStorageType;
-	  typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
+	  typedef typename Grid::GridStorageType  GridStorageType;
+	  typedef typename Grid::GridBaseType     GridBaseType;
 	  typedef typename GridStorageType::IdType                  IdType;
 	  typedef typename GridBaseType::LocalIndexType             LocalIndexType;
 	  typedef typename GridBaseType::StructuralType             StructuralType;
@@ -287,8 +287,8 @@ namespace Dune
   template<int dim, class Grid>
   class CurvEntity <0, dim, Grid> : public CurvEntityBase<0, dim, Grid>
   {
-	  typedef typename remove_const< Grid >::type::Traits  Traits;
-	  typedef typename remove_const< Grid >::type::ctype   ctype;						//! coordinate type of the grid
+	  typedef typename Grid::Traits  Traits;
+	  typedef typename Grid::ctype   ctype;						//! coordinate type of the grid
 
 	  typedef  CurvEntity <0, dim, Grid>  This;
 
@@ -298,9 +298,9 @@ namespace Dune
 	   *  \{ */
 
 	  static const int codimension    = 0;		                                //! codimensioon of the entity
-	  static const int dimension      = remove_const< Grid >::type::dimension;	//! dimension of the grid
+	  static const int dimension      = Grid::dimension;	//! dimension of the grid
 	  static const int mydimension    = dimension;                              //! dimension of the entity
-	  static const int dimensionworld = remove_const< Grid >::type::dimensionworld;                                    //! dimension of the world
+	  static const int dimensionworld = Grid::dimensionworld;                                    //! dimension of the world
 	  /** \} */
 
 
@@ -324,8 +324,8 @@ namespace Dune
 	  typedef Dune::CurvGrid::CurvIntersectionIterator<Grid>   IntersectionIteratorImpl;
 
 
-	  typedef typename remove_const< Grid >::type::GridStorageType  GridStorageType;
-	  typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
+	  typedef typename Grid::GridStorageType  GridStorageType;
+	  typedef typename Grid::GridBaseType     GridBaseType;
 
 	  typedef typename GridBaseType::GlobalIndexType           GlobalIndexType;
 	  typedef typename GridBaseType::LocalIndexType            LocalIndexType;

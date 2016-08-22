@@ -19,16 +19,16 @@ namespace Dune
     template< int codim, class Grid >
     class CurvEntitySeed
     {
-    	typedef typename remove_const< Grid >::type::Traits  Traits;
-    	typedef typename remove_const< Grid >::type::ctype   ctype;
+    	typedef typename Grid::Traits  Traits;
+    	typedef typename Grid::ctype   ctype;
 
     public:
       static const int codimension    = codim;
-      static const int dimension      = remove_const< Grid >::type::dimension;
+      static const int dimension      = Grid::dimension;
       static const int mydimension    = dimension - codimension;
-      static const int dimensionworld = remove_const< Grid >::type::dimensionworld;
+      static const int dimensionworld = Grid::dimensionworld;
 
-	  typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
+	  typedef typename Grid::GridBaseType     GridBaseType;
       typedef typename GridBaseType::LocalIndexType         LocalIndexType;
       typedef typename GridBaseType::IndexSetIterator       IndexSetIterator;
 

@@ -19,16 +19,16 @@ namespace Dune
     class CurvIntersection
     {
 
-      typedef typename remove_const< Grid >::type::Traits Traits;
+      typedef typename Grid::Traits Traits;
 
     public:
-      typedef typename remove_const< Grid >::type::ctype ctype;
+      typedef typename Grid::ctype ctype;
 
-      static const int dimension = remove_const< Grid >::type::dimension;
-      static const int dimensionworld = remove_const< Grid >::type::dimensionworld;
+      static const int dimension = Grid::dimension;
+      static const int dimensionworld = Grid::dimensionworld;
 
-	  typedef typename remove_const< Grid >::type::GridStorageType  GridStorageType;
-	  typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
+	  typedef typename Grid::GridStorageType  GridStorageType;
+	  typedef typename Grid::GridBaseType     GridBaseType;
 
       // Codimensions of entity types for better code readability
       static const int   VERTEX_CODIM   = GridStorageType::VERTEX_CODIM;
@@ -65,8 +65,8 @@ namespace Dune
       typedef Dune::FieldVector< ctype, dimensionworld >   GlobalCoordinate;
 
 
-      typedef typename remove_const< Grid >::type::template Codim<ELEMENT_CODIM>::EntityGeometryMappingImpl  ElementBaseGeometry;
-      typedef typename remove_const< Grid >::type::template Codim<FACE_CODIM>::EntityGeometryMappingImpl     FaceBaseGeometry;
+      typedef typename Grid::template Codim<ELEMENT_CODIM>::EntityGeometryMappingImpl  ElementBaseGeometry;
+      typedef typename Grid::template Codim<FACE_CODIM>::EntityGeometryMappingImpl     FaceBaseGeometry;
 
       typedef typename ElementBaseGeometry::JacobianInverseTransposed   JacobianInverseTransposed;
 

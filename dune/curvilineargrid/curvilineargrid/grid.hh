@@ -3,7 +3,7 @@
 #ifndef DUNE_CURVGRID_GRID_HH
 #define DUNE_CURVGRID_GRID_HH
 
-#include <dune/common/nullptr.hh>
+//#include <dune/common/nullptr.hh>
 
 #include <dune/grid/common/grid.hh>
 #include <dune/grid/common/datahandleif.hh>

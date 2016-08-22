@@ -26,13 +26,13 @@ namespace Dune
     template< int codim, class Grid >
     class CurvEntityPointer
     {
-    	typedef typename remove_const< Grid >::type::Traits Traits;
-    	typedef typename remove_const< Grid >::type::ctype  ctype;
+    	typedef typename Grid::Traits Traits;
+    	typedef typename Grid::ctype  ctype;
 
     	typedef CurvEntityPointer< codim, Grid > This;
 
     public:
-        static const int dimension     = remove_const< Grid >::type::dimension;
+        static const int dimension     = Grid::dimension;
         static const int codimension   = codim;
 
         typedef typename Traits::template Codim<codim>::Entity      Entity;
@@ -42,7 +42,7 @@ namespace Dune
 
         typedef Dune::CurvGrid::CurvEntity<codim, dimension, Grid>  EntityImpl;
 
-  	    typedef typename remove_const< Grid >::type::GridBaseType   GridBaseType;
+  	    typedef typename Grid::GridBaseType   GridBaseType;
         typedef typename GridBaseType::IndexSetIterator             IndexSetIterator;
 
         static  Entity seed2entity(const EntitySeed & seed, GridBaseType & gridbase)

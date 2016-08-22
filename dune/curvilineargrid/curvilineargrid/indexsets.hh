@@ -5,7 +5,7 @@
 
 #include <vector>
 
-#include <dune/common/typetraits.hh>
+//#include <dune/common/typetraits.hh>
 
 #include <dune/grid/common/gridenums.hh>
 #include <dune/grid/common/indexidset.hh>
@@ -25,18 +25,18 @@ namespace Dune
     class CurvIndexSet
       : public Dune::IndexSet< Grid, CurvIndexSet< Grid>,
         unsigned int
-        //typename remove_const< Grid >::type::LocalIndexType
+        //typename Grid::LocalIndexType
         >
     {
-    	typedef typename remove_const< Grid >::type::Traits Traits;
-    	typedef typename remove_const< Grid >::type::ctype ctype;
+    	typedef typename Grid::Traits Traits;
+    	typedef typename Grid::ctype ctype;
 
     public:
-      static const int dimension = remove_const< Grid >::type::dimension;
+      static const int dimension = Grid::dimension;
 
     private:
 
-	    typedef typename remove_const< Grid >::type::GridBaseType     GridBaseType;
+	    typedef typename Grid::GridBaseType     GridBaseType;
     	typedef typename GridBaseType::LocalIndexType         LocalIndexType;
 
 

@@ -1,3 +1,6 @@
+#ifndef DUNE_PARALLEL_DATA_WRITER_HH_
+#define DUNE_PARALLEL_DATA_WRITER_HH_
+
 
 #include <vector>
 #include <string>
@@ -201,3 +204,5 @@ public:
 
 
 };
+
+#endif //DUNE_PARALLEL_DATA_WRITER_HH_

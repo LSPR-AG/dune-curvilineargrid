@@ -1,6 +1,6 @@
 # Define variable with path to the grids to be used in the code
 add_definitions("-DDUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH=\"${PROJECT_SOURCE_DIR}/doc/grids/\"")
-# add_definitions("-DHAVE_LOG_MSG_DVERB")
+#add_definitions("-DHAVE_LOG_MSG_DVERB")
 
 # Define tests to be run
 set(TESTS
@@ -10,6 +10,7 @@ set(TESTS
   test-globalcommmap
   test-vectorhelper
   test-curvgrid
+  test-mpimutex
 )
 
 add_executable(test-diagnostics test-diagnostics.cc)
@@ -18,6 +19,7 @@ add_executable(test-allcommunicate test-allcommunicate.cc)
 add_executable(test-globalcommmap test-globalcommmap.cc)
 add_executable(test-vectorhelper test-vectorhelper.cc)
 add_executable(test-curvgrid test-curvgrid.cc)
+add_executable(test-mpimutex test-mpimutex.cc)
 
 target_link_libraries(test-diagnostics dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-diagnostics-base dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
@@ -25,6 +27,7 @@ target_link_libraries(test-allcommunicate dunecommon dunegeometry dunegrid) # du
 target_link_libraries(test-globalcommmap dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-vectorhelper dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-curvgrid dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-mpimutex dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 
 
 # We do not want want to build the tests during make all,
@@ -43,6 +46,7 @@ if(HAVE_MPI)
     add_dune_mpi_flags(test-diagnostics-base)
     add_dune_mpi_flags(test-allcommunicate)
     add_dune_mpi_flags(test-globalcommmap)
+    add_dune_mpi_flags(test-mpimutex)
     add_dune_parmetis_flags(test-diagnostics)
     add_dune_parmetis_flags(test-diagnostics-base)
     add_dune_parmetis_flags(test-curvgrid)

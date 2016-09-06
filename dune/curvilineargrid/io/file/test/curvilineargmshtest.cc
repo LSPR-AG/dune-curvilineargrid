@@ -92,7 +92,9 @@ int main(int argc, char** argv)
     // Properties of the grid
     bool withGhostElements    = true;
     bool withGmshElementIndex = true;
-    bool withProcessPratition = true;
+    bool withProcessPartition = true;
+    CurvilinearGmshReaderLoadBalanceStrategy LBstrat = LoadBalanceDefault;
+    //CurvilinearGmshReaderLoadBalanceStrategy LBstrat = LoadBalanceBoundary;
     const bool isCached = true;
 
     // Instantiation of the logging message
@@ -101,6 +103,9 @@ int main(int argc, char** argv)
     LoggingMessage::init(mpihelper);
     LoggingTimer::init(mpihelper);
 
+    // [TODO] DEBUG
+    //LoggingMessage::setPVerbose(true);
+
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
     typedef Dune::CurvilinearGridBase<double, 3, isCached>  SimplexGridType;
 
@@ -108,7 +113,7 @@ int main(int argc, char** argv)
     //Dune::GridFactory<ALUSimplexGridType> factory;
     Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, withGmshElementIndex, mpihelper);
 
-    Dune::CurvilinearGmshReader< SimplexGridType>::read(factory, filename, mpihelper, withGmshElementIndex, withProcessPratition);
+    Dune::CurvilinearGmshReader< SimplexGridType>::read(factory, filename, mpihelper, withGmshElementIndex, withProcessPartition, LBstrat);
 
     //factory.createGrid(nVertexTotal, nElementTotal);
 

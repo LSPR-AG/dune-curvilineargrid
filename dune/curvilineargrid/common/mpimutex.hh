@@ -6,14 +6,17 @@
 #include <mpi.h>
 
 
-#ifndef MPI_MUTEX_HH_
-#define MPI_MUTEX_HH_
+#ifndef DUNE_MPI_MUTEX_HH_
+#define DUNE_MPI_MUTEX_HH_
 
 #define MPI_MUTEX_MSG_TAG_BASE 1023
+
+namespace Dune {
 
 class MPIMutex {
     
 public:
+
     MPIMutex(int rank, int size, int home) :
         rank_(rank),
         size_(size),
@@ -50,10 +53,9 @@ public:
     
     
     ~MPIMutex() {
-        std::cout << "Started Destructor" << std::endl;
-        
-        // [TODO] Is it necessary to call barrier on destruction?
-        MPI_Barrier(MPI_COMM_WORLD);
+        //std::cout << "Started Destructor" << std::endl;
+        // Is it necessary to call barrier on destruction?
+        // MPI_Barrier(MPI_COMM_WORLD);
 
         if (rank_ == home_) {
             // Free waitlist
@@ -76,14 +78,9 @@ public:
         unsigned char waitlist[size_]; 
         unsigned char lockVar = 1;
         int i;
-
-        //std::cout << "PFFF: " << home_ << std::endl;
         
         // Try to acquire lock in one access epoch
         MPI_Win_lock(MPI_LOCK_EXCLUSIVE, home_, 0, win_);
-        
-        //std::cout << "PFFF2: " << std::endl;
-        
         MPI_Put(&lockVar, 1, MPI_CHAR, home_, rank_ /* &win_[rank_] */, 1, MPI_CHAR, win_);
         MPI_Get(waitlist, size_, MPI_CHAR, home_, 0, size_, MPI_CHAR, win_);
         MPI_Win_unlock(home_, win_);
@@ -95,12 +92,12 @@ public:
             if (waitlist[i] == 1 && i != rank_) {
                 // We have to wait for the lock
                 // Dummy receive, no payload
-                printf("Worker %d waits for lock\n", rank_);
+                //printf("Worker %d waits for lock\n", rank_);
                 MPI_Recv(&lockVar, 0, MPI_CHAR, MPI_ANY_SOURCE, tag_, comm_, MPI_STATUS_IGNORE);
                 break;
             }
         }
-        printf("Worker %d has the lock\n", rank_);
+        //printf("Worker %d has the lock\n", rank_);
         
         //std::cout << "Finished Lock" << std::endl;
         
@@ -131,7 +128,7 @@ public:
                 return 1;
             }
         }
-        printf("Worker %d has the lock\n", rank_);
+        //printf("Worker %d has the lock\n", rank_);
         
         //std::cout << "Finished TryLock" << std::endl;
         return 0;
@@ -158,7 +155,7 @@ public:
         for (i = 0; i < size_; i++, next = (next + 1) % size_) {
             if (waitlist[next] == 1) {
                 // Dummy send, no payload
-                printf("Worker %d transfers lock ownership to worker %d\n", rank_, i);
+                //printf("Worker %d transfers lock ownership to worker %d\n", rank_, i);
                 MPI_Send(&lockVar, 0, MPI_CHAR, next, tag_, comm_);
                 break;
             }
@@ -185,4 +182,7 @@ private:
 };
 
 
-#endif //MPI_MUTEX_HH_
+}
+
+
+#endif //DUNE_MPI_MUTEX_HH_

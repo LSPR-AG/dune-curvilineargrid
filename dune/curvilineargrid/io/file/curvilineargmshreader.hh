@@ -1731,7 +1731,7 @@ namespace Dune
     {
         // [FIXME] It should not be necessary to know about boundary segments
     	// The reader should always insert them if they are available
-    	const bool DEFAULT_CURV_GMSH_READER_WRITE_VTK               = true;   // If the reader will write mesh to .vtk after reading it
+    	const bool DEFAULT_CURV_GMSH_READER_WRITE_VTK               = false;   // If the reader will write mesh to .vtk after reading it
     	const bool DEFAULT_CURV_GMSH_READER_INSERT_BOUNDARY_SEGMENT = true;    // If the reader will insert boundary segments
 
     	std::string log_string = "[[Started CurvilinearGmshReader. This rank " + std::to_string(mpihelper.rank()) + " with total processes " + std::to_string(mpihelper.size());

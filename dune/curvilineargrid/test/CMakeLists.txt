@@ -11,6 +11,7 @@ set(TESTS
   test-vectorhelper
   test-curvgrid
   test-mpimutex
+  test-realtimelog
 )
 
 add_executable(test-diagnostics test-diagnostics.cc)
@@ -20,6 +21,7 @@ add_executable(test-globalcommmap test-globalcommmap.cc)
 add_executable(test-vectorhelper test-vectorhelper.cc)
 add_executable(test-curvgrid test-curvgrid.cc)
 add_executable(test-mpimutex test-mpimutex.cc)
+add_executable(test-realtimelog test-realtimelog.cc)
 
 target_link_libraries(test-diagnostics dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-diagnostics-base dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
@@ -28,6 +30,7 @@ target_link_libraries(test-globalcommmap dunecommon dunegeometry dunegrid) # dun
 target_link_libraries(test-vectorhelper dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-curvgrid dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(test-mpimutex dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-realtimelog dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 
 
 # We do not want want to build the tests during make all,
@@ -47,16 +50,31 @@ if(HAVE_MPI)
     add_dune_mpi_flags(test-allcommunicate)
     add_dune_mpi_flags(test-globalcommmap)
     add_dune_mpi_flags(test-mpimutex)
+    add_dune_mpi_flags(test-realtimelog)
     add_dune_parmetis_flags(test-diagnostics)
     add_dune_parmetis_flags(test-diagnostics-base)
     add_dune_parmetis_flags(test-curvgrid)
+    add_dune_parmetis_flags(test-realtimelog)
 endif(HAVE_MPI)
 
+#set_property(TARGET test-diagnostics APPEND_STRING PROPERTY COMPILE_FLAGS ${CURVGRID_FLAGS})
+#set_property(TARGET test-diagnostics-base APPEND_STRING PROPERTY COMPILE_FLAGS ${CURVGRID_FLAGS})
+#set_property(TARGET test-curvgrid APPEND_STRING PROPERTY COMPILE_FLAGS ${CURVGRID_FLAGS})
+set_property(TARGET test-realtimelog APPEND_STRING PROPERTY COMPILE_FLAGS "-DHAVE_CURVGRID_LINUX_MEMORY_LOG")
+
 # Add boost
-if(Boost_FOUND)
-   target_link_libraries(test-diagnostics ${Boost_LIBRARIES})
-   target_link_libraries(test-diagnostics-base ${Boost_LIBRARIES})
-   target_link_libraries(test-curvgrid ${Boost_LIBRARIES})
-endif()
+# if(Boost_FOUND)
+#    target_link_libraries(test-diagnostics ${Boost_LIBRARIES})
+#    target_link_libraries(test-diagnostics-base ${Boost_LIBRARIES})
+#    target_link_libraries(test-curvgrid ${Boost_LIBRARIES})
+# endif()
+
+
+################################
+# Add threads flags for memtest #
+################################
+#find_package( Threads )
+#target_link_libraries( memstattest ${CMAKE_THREAD_LIBS_INIT} )
+#set_target_properties(memstattest PROPERTIES COMPILE_FLAGS "-pthread")
 
 

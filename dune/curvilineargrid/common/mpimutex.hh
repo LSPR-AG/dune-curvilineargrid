@@ -55,7 +55,7 @@ public:
     ~MPIMutex() {
         //std::cout << "Started Destructor" << std::endl;
         // Is it necessary to call barrier on destruction?
-        // MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
 
         if (rank_ == home_) {
             // Free waitlist

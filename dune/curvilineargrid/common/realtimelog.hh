@@ -144,9 +144,7 @@ protected:
 
 
 	void stopImpl() {
-		// Delete the mutex
-		assert(mpimutex_);  // If init was called, the mpimutex should be initialized at this stage
-		delete mpimutex_;
+		//std::cout << "[[[Closing Real time log...." << std::endl;
 
 		// Finish the thread and write all remaining memory data to the file
 		if (rank_ == Dune::CurvGrid::MPI_MASTER_RANK) {
@@ -154,6 +152,12 @@ protected:
 			fi_.get();
 			//t.join();
 		}
+
+		// Delete the mutex
+		assert(mpimutex_);  // If init was called, the mpimutex should be initialized at this stage
+		delete mpimutex_;
+
+		//std::cout << "[[[Closed Real time log...." << std::endl;
 	}
 
 

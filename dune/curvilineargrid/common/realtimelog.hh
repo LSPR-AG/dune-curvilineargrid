@@ -132,14 +132,16 @@ protected:
 
 	// Write a note of arbitrary text to the log file. Useful to determine where exactly the code is at this moment of time
 	void noteImpl(std::string text) {
-		std::vector<std::string> datastr { text };
-		writeFileSecure("NOTE", datastr);
+		std::stringstream sstr;
+		sstr << time2str(timeNow())  << "; " << rank_ << "; " << "NOTE" << "; " << text;
+		writeFileSecure(std::vector<std::string>(1, sstr.str()));
 	}
 
 	// Save the name and value of a variable at a given point in time
 	void logvarImpl(std::string name, std::string val) {
-		std::vector<std::string> datastr { name + "; " + val };
-		writeFileSecure("VAR", datastr);
+		std::stringstream sstr;
+		sstr << time2str(timeNow())  << "; " << rank_ << "; " << "VAR" << "; " << name << "; " << val;
+		writeFileSecure(std::vector<std::string>(1, sstr.str()));
 	}
 
 
@@ -223,12 +225,13 @@ protected:
 		assert(memTimes.size() == memData.size());
 		for (int i = 0; i < memData.size(); i++) {
 			std::stringstream str;
+			str << time2str(memTimes[i])  << "; " << rank_ << "; " << "MEM" << "; ";
 			for (int j = 0; j < memData[i].size() - 1; j++) { str << memData[i][j] << "; "; }
 			str << memData[i][memData[i].size() - 1];  // write the last one without separator at the end
 			datastr[i] = str.str();
 		}
 
-		writeFileSecure("MEM", datastr);
+		writeFileSecure(datastr);
 
 		memData.clear();
 		memTimes.clear();
@@ -237,7 +240,7 @@ protected:
 
 	// Write parallel data to file, using mutexes to avoid clashes
 	// Can write several instances of one command to save on file writing
-	void writeFileSecure(std::string command, const std::vector<std::string> & output) {
+	void writeFileSecure(const std::vector<std::string> & output) {
 		// If this rank has threads writing to the memory file, lock file output for threads
 		std::lock_guard<std::mutex> * lock;
 		if (rank_ == Dune::CurvGrid::MPI_MASTER_RANK)  { lock = new std::lock_guard<std::mutex>(threadmutex_); }
@@ -248,7 +251,7 @@ protected:
 		std::fstream outfile;
 		outfile.open(filename_, std::ios::out | std::ios::app);
 		for (int i = 0; i < output.size(); i++) {
-			outfile << time2str(timeNow())  << "; " << rank_ << "; " << command << "; " << output[i] << std::endl;
+			outfile << output[i] << std::endl;
 		}
 		outfile.close();
 

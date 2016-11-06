@@ -53,10 +53,10 @@ namespace Dune
           : gridbase_(gridbase),
       	    geomtypes_
       	    {
-  		      std::vector<GeometryType> (1, GeometryType ( Dune::GenericGeometry::SimplexTopology<3>::type::id, 3)),
-  		      std::vector<GeometryType> (1, GeometryType ( Dune::GenericGeometry::SimplexTopology<2>::type::id, 2)),
-  		      std::vector<GeometryType> (1, GeometryType ( Dune::GenericGeometry::SimplexTopology<1>::type::id, 1)),
-  		      std::vector<GeometryType> (1, GeometryType ( Dune::GenericGeometry::SimplexTopology<0>::type::id, 0))
+  		      std::vector<GeometryType> (1, GeometryType ( Dune::Impl::SimplexTopology< 3 >::type::id, 3)),
+  		      std::vector<GeometryType> (1, GeometryType ( Dune::Impl::SimplexTopology< 2 >::type::id, 2)),
+  		      std::vector<GeometryType> (1, GeometryType ( Dune::Impl::SimplexTopology< 1 >::type::id, 1)),
+  		      std::vector<GeometryType> (1, GeometryType ( Dune::Impl::SimplexTopology< 0 >::type::id, 0))
       	    }
       {
 

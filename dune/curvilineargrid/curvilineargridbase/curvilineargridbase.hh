@@ -439,8 +439,8 @@ public:
     {
     	switch(codim)
     	{
-    	case VERTEX_CODIM  : return Dune::GeometryType(Dune::GenericGeometry::SimplexTopology<0>::type::id, 0);   break;
-    	case EDGE_CODIM    : return Dune::GeometryType(Dune::GenericGeometry::SimplexTopology<1>::type::id, 1);   break;
+    	case VERTEX_CODIM  : return Dune::GeometryType(Dune::Impl::SimplexTopology< 0 >::type::id);   break;
+    	case EDGE_CODIM    : return Dune::GeometryType(Dune::Impl::SimplexTopology< 1 >::type::id);   break;
     	case FACE_CODIM    : return gridstorage_.face_[localIndex].geometryType;                                  break;
     	case ELEMENT_CODIM : return gridstorage_.element_[localIndex].geometryType;                               break;
     	}

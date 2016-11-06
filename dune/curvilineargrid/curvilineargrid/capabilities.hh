@@ -7,9 +7,10 @@
 
 #include <dune/common/forloop.hh>
 
+#include <dune/geometry/type.hh>
 #include <dune/grid/common/capabilities.hh>
 #include <dune/curvilineargrid/curvilineargrid/declaration.hh>
-#include <dune/geometry/genericgeometry/topologytypes.hh>
+//#include <dune/geometry/genericgeometry/topologytypes.hh>
 
 namespace Dune
 {
@@ -28,7 +29,8 @@ namespace Dune
     struct hasSingleGeometryType< Dune::CurvilinearGrid< ctype, cdim, isCached> >
     {
         static const bool v = true;
-        static const unsigned int topologyId = GenericGeometry::SimplexTopology<3>::type::id;
+        //static const unsigned int topologyId = GenericGeometry::SimplexTopology<3>::type::id;
+        static const unsigned int topologyId = Impl::SimplexTopology< 3 >::type::id;
     };
 
 

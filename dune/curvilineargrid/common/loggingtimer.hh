@@ -97,6 +97,12 @@ public:
     static void time(std::string actionName)  { getInstance().timeImpl(actionName); }
 
 
+    /** \brief Checks if a given action has ever been timed  **/
+    static bool isTimed(std::string actionName) {
+    	return getInstance().isTimedImpl(actionName);
+    }
+
+
     /** \brief Reports all operations timed on this process. This is a serial operation: if called in parallel, each process will report */
     static void report() { getInstance().reportImpl(); }
 
@@ -152,6 +158,11 @@ protected:
     /***********************************************************/
     /* Implementation                                          */
     /***********************************************************/
+
+    bool isTimedImpl(std::string actionName) {
+    	return namemap_.find(actionName) != namemap_.end();
+    }
+
 
     // Starts timer by mapping the action name to current time
     // If action already mapped, notes duration of the action

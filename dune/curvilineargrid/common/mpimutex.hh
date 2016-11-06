@@ -13,7 +13,12 @@
 
 namespace Dune {
 
+
+// [FIXME] Currently uses CHAR for waitlist. ATM, this code only scales to 256 processors
 class MPIMutex {
+
+	static const char MPI_MUTEX_UNLOCKED = 0;
+	static const char MPI_MUTEX_LOCKED = 1;
     
 public:
 
@@ -27,20 +32,20 @@ public:
         
         // What the hell does this do?
         static int tag = MPI_MUTEX_MSG_TAG_BASE;    
-
         tag_ = tag++;
 
         if (rank == home) {
-            // Allocate and expose waitlist
+            // Allocate and expose MPI Memory. This is standard CHAR* memory, optimized for Remote Memory Access (RMA)
             MPI_Alloc_mem(size_, MPI_INFO_NULL, &waitlist_);
-            if (!waitlist_) {
-                fprintf(stderr, "Warning: MPI_Alloc_mem failed on worker %2d\n", rank_);
-                exit(1);
-            }
-            memset(waitlist_, 0, size_);
+            if (!waitlist_) { fprintf(stderr, "Warning: MPI_Alloc_mem failed on worker %2d\n", rank_); exit(1); }
+
+            // Initialize all entries of waitlist as unlocked
+            memset(waitlist_, MPI_MUTEX_UNLOCKED, size_);
+
+            // Create the Remote Memory Access window for waitlist
             MPI_Win_create(waitlist_, size_, 1, MPI_INFO_NULL, comm_, &win_);
         } else {
-            // Don't expose anything
+            // Don't expose anything - the waitlist is stored only on one process
             waitlist_ = NULL;
             MPI_Win_create(waitlist_, 0, 1, MPI_INFO_NULL, comm_, &win_);
         }
@@ -72,25 +77,41 @@ public:
     
     // Assign lock to this process
     // If another process has the lock, wait
+    /******
+     * Algorithm: data
+     * 1) Exists shared array waitlist_[size_], which has 1's for every process currently having lock or waiting for lock, and 0's otherwise
+     *
+     * Algorithm: lock()
+     * 1) When a process locks, it writes its intention to lock into waitlist_, then gets copy of waitlist
+     * 2) The received local copy of waitlist has 1's for all processes that attempted to lock before this process
+     * 3) This process waits to receive an (empty) note from each process that is before it. Then it is considered to have the lock
+     *
+     * Algorithm: unlock()
+     * 1) When a process unlocks(), it removes itself from waitlist_ by PUT 0, then gets copy of waitlist
+     * 2) The received local copy of waitlist has 1's for all processes that attempted to lock after this process, so far
+     * 3) This process waits to send an (empty) note to each process that is after it at this moment. Then it is considered to have unlocked
+     *
+     *
+     *
+     */
     int lock() {
         //std::cout << "Started Lock" << std::endl;
         
         unsigned char waitlist[size_]; 
-        unsigned char lockVar = 1;
+        unsigned char lockVar = MPI_MUTEX_LOCKED;
         int i;
-        
-        // Try to acquire lock in one access epoch
-        MPI_Win_lock(MPI_LOCK_EXCLUSIVE, home_, 0, win_);
-        MPI_Put(&lockVar, 1, MPI_CHAR, home_, rank_ /* &win_[rank_] */, 1, MPI_CHAR, win_);
-        MPI_Get(waitlist, size_, MPI_CHAR, home_, 0, size_, MPI_CHAR, win_);
-        MPI_Win_unlock(home_, win_);
 
-        assert(waitlist[rank_] == 1);
+        // Lock the waitlist_ while doing operations on it, so there are no collisions
+        MPI_Win_lock(MPI_LOCK_EXCLUSIVE, home_, 0, win_);								// Try to acquire lock in one access epoch
+        MPI_Put(&lockVar, 1, MPI_CHAR, home_, rank_, 1, MPI_CHAR, win_);		// Attempt to insert value of lockVar into window at displacement rank_
+        MPI_Get(waitlist, size_, MPI_CHAR, home_, 0, size_, MPI_CHAR, win_);		// Attempt to get a copy of the waitlist_ array from the home_ rank
+        MPI_Win_unlock(home_, win_);																	// Unlock the window
 
-        // Count the 1's
+        assert(waitlist[rank_] == MPI_MUTEX_LOCKED);										// Verify that this process has managed to PUT its lock intention into waitlist_
+
+        // For each process that has the lock before this process, wait to RECV an empty note that it has finished
         for (i = 0; i < size_; i++) {
-            if (waitlist[i] == 1 && i != rank_) {
-                // We have to wait for the lock
+            if (waitlist[i] == MPI_MUTEX_LOCKED && i != rank_) {
                 // Dummy receive, no payload
                 //printf("Worker %d waits for lock\n", rank_);
                 MPI_Recv(&lockVar, 0, MPI_CHAR, MPI_ANY_SOURCE, tag_, comm_, MPI_STATUS_IGNORE);
@@ -110,7 +131,7 @@ public:
         //std::cout << "Started TryLock" << std::endl;
         
         unsigned char waitlist[size_]; 
-        unsigned char lockVar = 1;
+        unsigned char lockVar = MPI_MUTEX_LOCKED;
         int i;
 
         // Try to acquire lock in one access epoch
@@ -119,11 +140,11 @@ public:
         MPI_Get(waitlist, size_, MPI_CHAR, home_, 0, size_, MPI_CHAR, win_);
         MPI_Win_unlock(home_, win_);
 
-        assert(waitlist[rank_] == 1);
+        assert(waitlist[rank_] == MPI_MUTEX_LOCKED);
 
         // Count the 1's
         for (i = 0; i < size_; i++) {
-            if (waitlist[i] == 1 && i != rank_) {
+            if (waitlist[i] == MPI_MUTEX_LOCKED && i != rank_) {
                 //Lock is already held, return immediately
                 return 1;
             }
@@ -140,20 +161,20 @@ public:
         //std::cout << "Started Unlock" << std::endl;
         
         unsigned char waitlist[size_]; 
-        unsigned char lockVar = 0;
+        unsigned char lockVar = MPI_MUTEX_UNLOCKED;
         int i, next;
 
         MPI_Win_lock(MPI_LOCK_EXCLUSIVE, home_, 0, win_);
-        MPI_Put(&lockVar, 1, MPI_CHAR, home_, rank_ /* &win[rank_] */, 1, MPI_CHAR, win_);
+        MPI_Put(&lockVar, 1, MPI_CHAR, home_, rank_, 1, MPI_CHAR, win_);
         MPI_Get(waitlist, size_, MPI_CHAR, home_, 0, size_, MPI_CHAR, win_);
         MPI_Win_unlock(home_, win_);
         
-        assert(waitlist[rank_] == 0);
+        assert(waitlist[rank_] == MPI_MUTEX_UNLOCKED);
 
         // If there are other processes waiting for the lock, transfer ownership
         next = (rank_ + 1 + size_) % size_;
         for (i = 0; i < size_; i++, next = (next + 1) % size_) {
-            if (waitlist[next] == 1) {
+            if (waitlist[next] == MPI_MUTEX_LOCKED) {
                 // Dummy send, no payload
                 //printf("Worker %d transfers lock ownership to worker %d\n", rank_, i);
                 MPI_Send(&lockVar, 0, MPI_CHAR, next, tag_, comm_);

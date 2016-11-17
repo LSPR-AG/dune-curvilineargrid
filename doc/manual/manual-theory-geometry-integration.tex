@@ -1,19 +1,19 @@
-\subsection{Integration}
+\section{Integration}
 \label{sec:theory:integration}
 
-An important function of any entity is calculating its volume, integrating scalar and vector functions within it. In order to parametrize the integration domain, the integration is converted to local coordinates, namely
+An important method of any entity is calculating scalar and vector parametric integrals over its global volume, the simplest being the volume itself. In general form the integral can be written as
 \[ \int f(\vec{x}) d^{\dim} x = \int f(\vec{r}) \mu(\vec{r}) d^{\dim} r \]
-where $\vec{x}$ and $\vec{r}$ are global and local coordinates respectively, and the conversion function $\mu(\vec{r})$ is called the integration element. In the original \textit{dune-geometry} paradigm, geometry class itself does not perform any integration, but calculates the integration element$\mu(\vec{r})$. The user chooses and performs the integration over reference element by using, for example, one of the quadrature rules\cite{abramowitz+1970} provided by \textit{dune-geometry}. A standard numerical quadrature can written as a weighted sum
+where $\vec{x}$ and $\vec{r}$ are global and local coordinates respectively, $f(\vec{x})$ some function defined over the element, and the function $\mu(\vec{r})$ associated with the change of coordinates, called the integration element. In the original \textit{dune-geometry} paradigm, geometry class itself does not perform any integration, but calculates the integration element$\mu(\vec{r})$. Later, the user performs the integration over the reference element by using, for example, one of the quadrature rules\cite{abramowitz+1970} provided by \textit{dune-geometry}. A standard numerical quadrature can written as a weighted sum
 \[ \int f(\vec{r}) \mu(\vec{r}) d^{\dim} r = \sum_i f(\vec{r}_i) \mu(\vec{r}_i) w_i  \]
-where the $r_i$ and $w_i$ are the quadrature points and weights. The sampling points and weights are a property of a quadrature rule used, and can be reused for all integrands given fixed domain and approximation order. More precisely, given a polynomial order $p$, one can construct a finite numerical quadrature, which will be exact for all functions, well approximated by polynomials of order $p$ and below. \\
+where the $r_i$ and $w_i$ are the quadrature points and weights. The sampling points and weights are a property of the quadrature rule used, and can be reused for all integrands given fixed local geometry and approximation order. More precisely, given a polynomial order $p$, one can construct a finite numerical quadrature, which will be exact for polynomials of order $p$ and below, and thus well approximate integral over any function, that is well-approximated by a polynomial. \\
 
 \noindent
-Numerical quadrature methods in practice are considerably faster than any other known method for domain dimensions $\dim \leq 3$ \cite{schurer2003}, but they also have disadvantages. Firstly, they are inaccurate for functions that can't be approximated by reasonable order polynomials. Secondly, numerical quadratures for non-trivial domains (e.g. simplices) have so far only been calculated only to very moderate orders (~20) \cite{zhang+2008}. Finding a numerical quadrature is equivalent to finding roots of a polynomial, which is extremely hard in more than 1 dimension. One way to overcome these difficulties is to transform the integration domain to a cuboid using a Duffy transform:
+Numerical quadrature methods in practice are considerably faster than any other known method for geometry dimensions $\dim \leq 3$ \cite{schurer2003}, but they also have disadvantages. Firstly, they are inaccurate for functions that can't be approximated by reasonable order polynomials. Secondly, numerical quadratures for non-trivial domains (e.g. simplices) have so far only been calculated only to very moderate orders (~20) \cite{zhang+2008}. Finding a numerical quadrature is equivalent to finding roots of a polynomial, which is extremely hard in more than 1 dimension. One way to overcome these difficulties is to transform the integration domain to a cuboid using a Duffy transform (for full derivation, see abstract \ref{section-abstract-duffy-transform})
 
 \[ \int_0^1 \int_0^{1-x} f(x,y) dx dy = \int_0^1 \int_0^1 f(x, (1-x)t ) dx dt  \]
 
 \noindent
-The advantage of the cuboid domain is that a quadrature rule can be constructed from a tensor product of 1D quadratures, thus only requiring the knowledge of 1D quadratures, which are available to a relatively high order. Quadrature rules created in this fashion have more points per order than the rules created specifically for the desired (e.g. simplex) domain. Nevertheless, they work, and they are implemented in \textit{dune-grid} up to order 61. There exist advanced methods to improve performance of quadrature integration (e.g. Sparse Grids \cite{petras2000}), but they are beyond the scope of this paper. \\
+The advantage of the cuboid geometry is that a quadrature rule can be constructed from a tensor product of 1D quadratures, which are readily available at relatively high orders. Quadrature rules created in this way have more points per order than the optimal rules, created specifically for the desired (e.g. simplex) geometries. Nevertheless, they work, and are availabe in, e.g., \textit{dune-geometry} up to order 61. We are aware of existence of advanced methods to improve performance of quadrature integration (e.g. Sparse Grids \cite{petras2000}), but they are beyond the scope of this paper. \\
 
 %%%\subsection{Overview of available numerical methods}
 %%%
@@ -62,18 +62,15 @@ The advantage of the cuboid domain is that a quadrature rule can be constructed 
 %%%		\subitem - Any way to do the refinement or error-control?
 %%%\end{itemize}
 
-
-\subsubsection{Additional Concerns}
-
 The integration in \textit{dune-curvilineargeometry} focuses on two additional questions:
 \begin{itemize}
 	\item Integrating polynomials of arbitrary order
-	\item Integrating smooth functions with optimal polynomial order not known in advance.
+	\item Integrating smooth functions with no a priori knowledge of the optimal polynomial approximation order.
 \end{itemize}
 
 \noindent
-\textbf{Analytic Integration}\\
-To address the first question, \textit{dune-curvilineargeometry} implements a polynomial class, which is stored as a sum of monomials of a given order. Integrals over monomials of a given order can be expressed analytically \cref{appendix-proof-simplexintegral} \\
+\subsection{Analytic Integration}
+To address the first question, \textit{dune-curvilineargeometry} implements a polynomial class, which is stored as a sum of monomials of a given order. Integrals over monomials of any given order can be expressed analytically \cref{appendix-proof-simplexintegral}, and thus an analytical integral over arbitrary polynomial is given by the sum of such monomial integrals \\
 
 \begin{table}[h]
 \centering
@@ -95,20 +92,23 @@ $ \int_0^1 \int_0^{1-x} \int_0^{1-x-y} x^i y^j z^k dx dy dz = \frac{i! j! k!}{(i
 \end{table}
 
 \noindent
-We provide a method to integrate over a reference element in the polynomial class. It is exact and works simply by summing the analytical monomial integrals given above for all monomial summands. \\
+The polynomial class implemented in \textit{dune-curvilineargeometry} provides a method that implements analytical integration. \\
 
 \noindent
-\textbf{Adaptive Integration}\\
-In its most general form a scalar integral over an element can be written as \[\int f(\vec{r}) d^{\dim} x = \int f(\vec{r}) \mu(\vec{r}) d^{\dim} r,\] where the integration element $\mu(\vec{r})$ can most generally be written as \[\mu(\vec{r}) = \sqrt{\det(J J^T)},\] where $J$ is the Jacobian matrix. \\
+\subsection{Adaptive Integration}
+In its general form, a scalar integral over an element can be written as \[\int f(\vec{r}) d^{\dim} x = \int f(\vec{r}) \mu(\vec{r}) d^{\dim} r,\] where the integration element is given by \[\mu(\vec{r}) = \sqrt{\det(J J^T)},\] and $J$ is the Jacobian matrix. \\
 
 \noindent
-In the case of matching element and space dimension (like volume in 3D, and area in 2D), the integration element simplifies to $|\det J|$. Even though absolute value is not a polynomial function, it can be observed that $\det J$ is not allowed to change sign over the element for any sensible non-self-intersecting geometries. Even if $\det J = 0$ somewhere within the element, it would mean that a finite volume element inside reference element is mapped to a 0 volume in real space, which should be avoided by meshing tool. Therefore, in this case, $\det J$ will always have the same sign. It remains to evaluate it anywhere inside the element, and multiply by -1 if it is negative. Then the integration of scalar polynomial function over this integration element can be done exactly. \\
+In the case of matching element and space dimension (like volume in 3D, or area in 2D), the integration element simplifies to $|\det J|$. Even though absolute value is not a polynomial function, it can be observed that $\det J$ is not allowed to change sign over the element, as that would result in self-intersection. Also the case of $\det J = 0$ should be avoided by meshing tool, as it leads to zero volumes in global coordinates. It remains to evaluate the integration element it anywhere inside the element and discard the minus sign if it happens to be negative. Then, if the integrand is well-approximated by a polynomial, so is the entire integral, and thus it can be integrated exactly. \\
 
 \noindent
-In the case of mismatching dimensions (like area in 3D, and length in 2D and 3D), the expression for $\mu(\vec{r})$ can not be simplified, and therefore the integrand is a square root of a polynomial. This integral cannot be done analytically, and therefore requires a numerical method. Currently, \textit{dune-curvilineargeometry} provides a recursive integrator, which iteratively increases the quadrature order until the estimated integration error converges to a desired tolerance. This method can take several seconds if the integrand requires very high polynomial order, but for low order integrands it converges much faster.
+In the case of mismatching dimensions (like area in 3D, or length in 2D and 3D), the expression for $\mu(\vec{r})$ cannot be simplified, as it is a square root a polynomial that itself is not a square of another. Such integrals, in general, do not possess a closed form solution and have to be dome numerically. To tackle this problem, \textit{dune-curvilineargeometry} provides a recursive integrator class, which iteratively increases the quadrature order until the estimated integration error converges to a desired tolerance level. This method can take several seconds for surface area calculation of near-singular geometries requiring very high polynomial order, but on average it converges much faster. The method accepts integrands in terms of functors overloading a skeleton class, and the \textit{dune-curvilineargeometry} uses it internally to provide volumes and surfaces of curvilinear entities, only requiring the user to additionally specify the desired tolerance level. \\
 
 \noindent
-Still, there is definitely room for improvement. According to \cite{schurer2003} best results in low-dimensional numerical integration are achieved by adaptive quadrature of high degree, whereas Monte-Carlo methods are best for high-dimensional integrals. Thus, using an external adaptive library, for example the GSL extension from \url{http://ab-initio.mit.edu/wiki/index.php/Cubature}, could be of definite advantage. It is based on Clenshaw-Curtis quadrature, which has the advantage of being hierarchical, and thus can be refined to iteratively improve precision withouth having to sacrifice previous sample points. Another speedup could be provided by employing sparse grids \cite{petras2000} \\
+In addition, the integrator class supports simultaneous integration of vector and matrix integrands via $Dune::DynamicVector$ and $Dune::DynamicMatrix$, as well as $std::vector$. The motivation of this implementation is due to the fact that frequently simultaneous evaluation of a vector or a matrix is considerably cheaper than individual evaluation of each component. The method provides several possible matrix and vector convergence error estimates (such as 1 and 2-norm), which can be freely selected to adapt to the problem at hand.\\
+
+\noindent
+Still, there is definitely room for improvement. According to \cite{schurer2003}, best results in low-dimensional numerical integration are achieved by adaptive quadrature of high degree, whereas Monte-Carlo methods perform better for high-dimensional integrals. Thus, using an external adaptive library, for example the GSL extension due to Steven G. Johnson (\url{http://ab-initio.mit.edu/wiki/index.php/Cubature}) could be of definite advantage. This library is based on Clenshaw-Curtis quadrature, which has the advantage of being hierarchical. Thus, it can be refined to iteratively improve precision by re-using the points already calculated for lower order integrals. Another speedup could be provided by employing sparse grids \cite{petras2000} \\
 
 %%%\subsection{Integration Element - Vector}
 %%%

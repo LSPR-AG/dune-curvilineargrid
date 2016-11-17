@@ -29,11 +29,16 @@ int main (int argc , char **argv) {
 	GridType * grid = createGrid<GridType>(mpihelper, 2);
 
 
-    // **********************************************
+    // *********************************************************
     // Do all sort of fancy things with the grid here
-    // **********************************************
-	std::cout << "the number of grid elements = " << grid->size(0) << " process rank = " << grid->comm().rank() << " process size = " << grid->comm().size() << std::endl;
-
+	// In this example we collect some information and
+	// use the LoggingMessage to write it on the master process
+    // *********************************************************
+	std::stringstream loggingStream;
+	loggingStream << "the number of grid elements = " << grid->size(0);
+	loggingStream << " process rank = " << grid->comm().rank();
+	loggingStream << " process size = " << grid->comm().size();
+	Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_PRODUCTION>(__FILE__, __LINE__, loggingStream.str());
 
 
 	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;

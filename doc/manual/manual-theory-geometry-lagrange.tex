@@ -1,0 +1,146 @@
+\section{Lagrange Polynomial Interpolation}
+\label{theory-lagrange}
+
+Below we present the theory of interpolation using Lagrange Polynomials, applied to simplex geometries, This section is inspired (among others), by \cite{koshiba+2000, ilic+2003, berrut+2004}, and is a summary of well-known results. The goal of Lagrange Interpolation is to construct a mapping $\vec{x} = \vec{p}(\vec{r})$ from local coordinates of an entity to global coordinates of the domain. In its own local coordinates, the entity will be denoted as a reference element \citeDune{}. A simplex reference element is given by the following coordinates: \\
+
+\noindent
+\begin{tabular}{l l l}
+\hline
+  Label & Dimension & Coordinates \\ \hline
+  $\Delta_0$ & 0 & $\{ 0 \}$ \\
+  $\Delta_1$ & 1 & $\{ 0\}, \{ 1\}$ \\
+  $\Delta_2$ & 2 & $\{ 0, 0 \}, \{ 1, 0 \}, \{ 0, 1 \}$ \\
+  $\Delta_3$ & 3 & $\{ 0, 0, 0 \}, \{ 1, 0, 0 \}, \{ 0, 1, 0 \}, \{ 0, 0, 1 \}$ \\
+\end{tabular} \\
+
+\vspace{2mm}
+
+\noindent
+Local simplex geometries can be parametrized using the local coordinate vector $\vec{r}$: \\
+
+\noindent
+\begin{tabular}{l l l}
+\hline
+  Entity      & Parametrization    & Range \\ \hline
+  Edge        & $\vec{r}=(u)$      & $u \in [0,1]$ \\
+  Triangle    & $\vec{r}=(u,v)$    & $u \in [0,1]$ and $v \in [0, 1-u]$ \\
+  Tetrahedron & $\vec{r}=(u,v,w)$  & $u \in [0,1]$, $v \in [0, 1-u]$ and $w \in [0, 1-u-v]$ \\
+\end{tabular} \\
+
+\subsection{Interpolatory Vertices}
+\label{theory-lagrange-vertices}
+
+\noindent
+In order to define the curvilinear geometry, a set of global coordinates $\vec{x}_i = \vec{p}_i(\vec{r}_i)$, known as interpolatory vertices, is provided. By convention, the interpolatory vertices correspond to a sorted structured grid on a reference simplex, namely
+\[\vec{r}_{i,j,k} = \frac{(k,j,i)}{Ord}, \;\;\; i=[0..Ord], \;\;\; j=[0..Ord-i], \;\;\; k=[0..Ord-i-j]\]
+where $Ord$ is the interpolation order of the entity. The task is to provide a bijective map from structured local grid to provided global coordinates. It is the job of the meshing software (e.g. GMSH\citeGMSH{}) to ensure that the global geometry of an entity is non-self-intersecting, non-singular, and that its curvature is optimized for PDE convergence \cite{lenoir1986}. In principle, a non-uniform grid could be used in order to minimize the effect of Runge phenomenon \cite{runge1901}, However, it is not an issue for lower polynomial orders, and is the standard currently provided by the available meshing software. \\
+
+\noindent
+The above discretization generates the number of interpolatory vertices described by triangular/tetrahedral numbers, which are also the numbers describing the total number of polinomially-complete monomials up to a given order: \\
+
+\noindent
+\begin{tabular}{l l l l l l}
+\hline
+  Entity \textbackslash Order & 1 & 2  & 3  & 4  & 5 \\ \hline
+  Edge                        & 2 & 3  & 4  & 5  & 6 \\
+  Triangle                    & 3 & 6  & 10 & 15 & 21 \\
+  Tetrahedron                 & 4 & 10 & 20 & 35 & 56 \\
+\end{tabular} \\
+
+
+\subsection{Interpolatory Polynomials}
+\label{theory-lagrange-polynomials}
+
+\noindent
+The number of interpolatory points above exactly matches the total number of monomials necessary to construct a complete polynomial of order $Ord$ or less. It is quite obvious, since the above discretization matches the binomial/trinomial triangle (AKA Pascal's triangle). We define the functions $z^{(1,i)}(u)$, $z^{(2,i)}(u,v)$ and $z^{(3,i)}(u,v,w)$ as the set of all monomials of corresponding order, where the parameters are the entity dimension and polynomial order respectively:
+\begin{itemize}
+	\item edge: \\
+		$z^{(1,1)}(u) = \{1, u\}$, \\
+		$z^{(1,2)}(u) = \{1, u, u^2\}$, \\
+		$z^{(1,3)}(u) = \{1, u, u^2, u^3\}$, \\
+		$z^{(1,4)}(u) = \{1, u, u^2, u^3, u^4\}$, \\
+		$z^{(1,5)}(u) = \{1, u, u^2, u^3, u^4, u^5\}$, \\
+		etc
+	\item face:	\\
+		$z^{(2,1)}(u,v)	= \{1, u, v\}$, \\
+		$z^{(2,2)}(u,v) = \{1, u, v, u^2, uv, v^2\}$, \\
+		etc
+	\item tetrahedron: \\
+		$z^{(3,1)}(u,v,w) = \{1, u, v, w\}$, \\ 
+		$z^{(3,2)}(u,v,w) = \{1, u, v, w, u^2, uv, v^2, wu, wv, w^2\}$, \\
+		etc
+\end{itemize}
+
+\noindent
+The mapping $\vec{p}(\vec{r})$ is selected to exactly fit all the interpolatory vertices $\vec{x}_i$. Since the number of interpolatory vertices and monomials is the same, the associated polynomials will be unique. This allows the simplex geometries to be interpolated by a \textit{complete} basis for each given order. This is not the same for entities of other geometry types. For example, for hexahedra, the above numbers do not match. Therefore one either has to use structured local grid with incomplete polynomial order basis, or choose a more sophisticated local discretization. \citeauthor{volakis+2006} choose the first approach, interpolating a 9 node 2nd order rectangle with 4th order incomplete polynomial which has a convenient separable tensor product form. \\
+
+\noindent
+Returning to simplices, one way to rewrite the above map is
+\begin{equation}
+	\vec{p}(\vec{r}) = \sum_j L_j(\vec{r})\vec{x}_j 
+\end{equation}
+\noindent
+where $\vec{p}_j $ are the fixed interpolatory vertices, and $L_j$ are the Lagrange Polynomials, defined by their interpolatory property
+\begin{equation}
+	\label{equation-lagrangepol-interpolatory-property}
+	L_j(\vec{r}_i) = \delta_{ij}
+\end{equation}
+\noindent
+for all local interpolatory vertices $\vec{r}_i$. The advantage of this formulation is that the Lagrange Polynomials are independent of the interpolatory vertices $\vec{x}_i$, and thus can be pre-computed and reused for all entities of a given order. It remains to determine the exact form of Lagrange Polynomials. We will present a short proof that the following equation holds:
+\begin{equation}
+	\label{equation-lagrangepol-basis-link}
+	z_i(\vec{r}) = \sum_j L_j(\vec{r}) z_i (\vec{r}_j) 
+\end{equation}
+\noindent
+where $\{z\}$ is a vector of monomials defined above. This equation should hold for all $z^{(\dim, Ord)}$, where $\dim = \{1,2,3\}$. For $\dim < 3$ where $z$ is defined for less than 3 parameters, we simply ignore the extra parameters in $\vec{r}$. Both LHS and RHS of \eqref{equation-lagrangepol-basis-link} are polynomials of order at most $Ord$, which means that they have at most $N_{Ord}$ free parameters, and therefore, if we can show that the equation holds for $N_{Ord}$ different parameter sets, then it holds for all others as well. Thus it is enough to show that it holds for all $\vec{r} = \vec{r}_k$, which is true due to \eqref{equation-lagrangepol-interpolatory-property}. Finally, we can write \eqref{equation-lagrangepol-basis-link} as a vector equation
+\begin{equation}
+	\vec{z} (\vec{r}) = V \vec{L} (\vec{r})
+\end{equation}
+\noindent
+where $V_{ij} = z_i (\vec{r}_j)$, and find the Lagrange polynomial coefficients by solving the linear system
+\begin{equation}
+	\vec{L} (\vec{r}) = V^{-1} \vec{z} (\vec{r})
+\end{equation}
+
+\noindent
+It is important to note that the resulting interpolated geometry in global coordinates is NOT exhaustively defined by the shape of its boundary, as the entire volume of the geometry inside the entity undergoes this polynomial transformation.
+
+
+\subsection{Implementation for Simplices}
+\label{subsection-simplexgrid}
+
+\noindent
+In this section we discuss how to efficiently enumerate the simplex interpolatory points, and to construct the reference simplex grid. \\
+
+\noindent
+Let us place a set of points $\vec{\eta} \in Z^{\dim}$ over simplex $\Delta^{\dim}_{\mathrm{len}}$. This can be done trivially
+by using 3 for loops and pushing vectors into a vector
+\begin{itemize}
+	\item $\Delta^{1}_n = \{(i)\}$, for $i = [1$ to $n]$
+	\item $\Delta^{2}_n = \{(j,i)\}$, for $i = [1$ to $n]$, $j = [1$ to $n - i]$
+	\item $\Delta^{3}_n = \{(k,j,i)\}$, for $i = [1$ to $n]$, $j = [1$ to $n - i]$, $k = [1$ to $n - i - j]$
+\end{itemize}
+
+\noindent
+Then, each point $(\Delta^{d}_n)_i$ corresponds exactly to the power of $u,v,w$ in the expansion of
+\[ (1 + u)^n = \sum_{i=0}^n C^{(\Delta^{1}_n)_i}_n u^{(\Delta^{1}_n)_{i,1}} \]
+\[ (1 + u + v)^n = \sum_{i=0}^n C^{(\Delta^{1}_n)_i}_n u^{(\Delta^{1}_n)_{i,1}} v^{(\Delta^{1}_n)_{i,2}} \]
+\[ (1 + u + v + w)^n = \sum_{i=0}^n C^{(\Delta^{1}_n)_i}_n u^{(\Delta^{1}_n)_{i,1}} v^{(\Delta^{1}_n)_{i,2}} w^{(\Delta^{1}_n)_{i,3}} \]
+
+\noindent
+where $C^{i}_n, C^{i,j}_n$ and $C^{i,j,k}_n$ are the binomial, trinomial and quartal coefficients. The powers of the parameters given in above expansion are exactly the complete monomial basis for a polynomial of order up to and including $d$. \\
+
+\noindent
+Also, it is convenient to note that $(\Delta^{d}_n)_i / n$ is exactly the parametric coordinates of the interpolation points on a regular grid over simplex. 
+
+\begin{figure}[hp]
+    \centering
+    \includegraphics[scale=0.5]{images/pic-simplex-grid.png}
+    %\caption{Awesome Image}
+    %\label{fig:awesome_image}
+\end{figure}
+
+\noindent
+After the monomials and the parametric interpolation points have been constructed, it remains to construct the interpolation matrix by evaluating the monomials at the interpolation points, then to invert the matrix, and multiply the monomial vector by it obtaining Lagrange Polynomials. This has been implemented both explicitly, by calculating all the lagrange interpolatory polynomials for simplices and writing them as functions, and implicitly, by introducing a polynomial class, which has all the above functionality, and thus generates a set of interpolatory polynomials which can be evaluated and integrated analytically by the code.
+
+

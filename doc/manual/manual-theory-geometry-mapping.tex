@@ -1,0 +1,54 @@
+\section{Coordinate transformation}
+
+In order to calculate the coordinate transformation properties, one requires the knowledge of the local-to-global map $\vec{p}(\vec{r})$ and its first partial derivatives. Currently, only the Lagrange Polynomials themselves are provided as hard-coded expressions, but their derivatives are not yet available as hard-coded quantities, and thus are extracted from the analytical map. This is, naturally, a little slower than having hard-coded derivatives. However, the advantage of analytical formulation is that the user can further apply algebraic and differential operators to the analytical map to obtain, for example, a Hessian matrix of the transformation.  \\
+
+\noindent
+\textbf{Local-to-Global map} $\vec{p}(\vec{r})$ is computed numerically using hard-coded Lagrange polynomials when the order is below or equal to 5, and through analytic procedures otherwise. \\
+
+\noindent
+\textbf{Jacobian and JacobianInverse}.
+The local-to-global mapping is represented by a vector of analytic polynomials, further computing Jacobian matrix $J_{ij}(\vec{r}_0) = \partial_{r_i} p_j (\vec{R}) |_{\vec{r}_0}$ using exact partial differentiation provided by the polynomial class. This results in a matrix of polynomials, which can be evaluated for the desired local coordinates. The inverse and the integration element of the associated entity are then computed numerically using Dune-provided linear algebra routines, namely the matrix inverse $J^{-1}$ and pseudodeterminant $dI = \sqrt{\det(JJ^T)}$ respectively. \\
+
+\noindent
+\textbf{Global-to-Local map} is the inverse of a polinomial map. Given the matching world and entity dimension, the method searches for the exact coordinate local to the element, that corresponds to the provided coordinate. Further, this method is extended to elements with $(dim_{elem} \leq dim_{world})$ by converting it to an optimization problem
+\begin{equation}
+  \label{eq-theory-mapping-optimization}
+  \vec{r} : |\vec{p}(\vec{r}) - \vec{x} |^2 \rightarrow \min
+\end{equation} 
+searching for the local coordinate closest to the inverse of the desired global coordinate in terms of distance in global coordinates. \\
+
+\noindent
+While this problem is always uniquely solvable in linear case, in curvilinear case it experiences several additional challenges
+\begin{itemize}
+	\item Polynomial interpolatory map $\vec{p}(\vec{r})$ is strictly bijective inside the reference element, which must be ensured by the mesh generator. However, this need not be the case outside it. For example, $p(r) = r^2$ is a bijective 1D local-to-global map for an edge defined on $[0,1]$. However, the map is clearly non-invertible for all $p(r) \leq 0$, and thus asking for a local coordinate corresponding to the global coordinate $-1$ has no defined answer.
+	\item Curvilinear geometries have singularities, like $r = 0$ in the previous example. At these points the integration element is zero, which most simple iterative methods can not handle. It should be expected from the meshing software that the mapping inside of the element is non-singular, as that would result in infinitesimal global volumes associated with finite local volumes, de-stabilizing optimization methods and integration routines. However, there is no restriction on the singularity being in the near vicinity of the element in question, which may be enough to significantly damage convergence.
+	\item For $(dim_{elem} \leq dim_{world})$, the optimization problem \ref{eq-theory-mapping-optimization} is non-convex. It can have multiple solutions, even uncountably many.
+\end{itemize}
+
+\noindent
+For obvious reasons we will not solve the problem directly, as searching for roots of a system of polynomial equations with several parameters is a very challenging task \cite{canny+1989}. Instead, the problem is solved by a first order Gauss-Newton method \cite{bjoerck+1996}, extending the implementation from Dune-multilinear geometry.
+
+\noindent
+After having discussions with the community, we have realised, that in order to satisfy all use cases there is a need to implement two distinct methods
+\begin{itemize}
+  \item Restrictive method, useful to those who want to find the element containing the global coordinate, as well as the local coordinate inside that element. If the provided global coordinate is inside the element, the method will return a success and a valid local coordinate. Otherwise, the method will return a fail and no coordinate at all, denoting that the global coordinate is not inside the element. This method also extends to lower dimension entities, finding the local coordinate within the element (!), which minimizes the distance to the provided global coordinate. Given a well-defined map (non-singular in the vicinity of the element), this method is guaranteed to converge.
+  \item Non-restrictive method, useful to those who wish to extrapolate the global-to-local map beyond the reference element. This method searches for the inverse (or the distance minimizer) over the entire local domain. This is a best effort method - due to the above mentioned difficulties, it is expected to fail to converge for some maps and global coordinates. In this case, an exception is thrown.
+\end{itemize}
+
+\noindent
+Below we outline the algorithm of the restrictive method:
+
+\begin{mybox}
+\begin{enumerate}
+	\item Let $\vec{x}_0$ be the requested global coordinate
+	\item Start with a local point $\vec{r}_0$ guaranteed to be inside the element (e.g. its center),
+	\item Iteratively choose better approximations for local coordinate using \[\vec{r}_{n+1} = \vec{r}_n + \vec{d}(\vec{r}_n)\] where $\vec{d}(\vec{r}_n)$ is the solution of
+	        \[ J(\vec{r}_n) \vec{d}(\vec{r}_n) = \vec{p}(\vec{r}_n) \] and $J(\vec{r})$ is the Jacobian matrix.
+	\item The iterative process is finished when the global coordinate distance converges to a given tolerance level in terms of the two-norm
+	        \[\Delta_i = \{ |\vec{p}(\vec{r}_i) - \vec{x}_0 |^2 \}. \]
+	\item The iteration is terminated prematurely if there is enough evidence that the optimal vertex is outside the element. For this, two criteria are used: the running estimate being far outside the element \[|\vec{p}_0 - \vec{p}_i|_2 > 4 R_{elem}\] and the convergence speed being slower than expected \[ 2 \Delta_{i + 10} > \Delta_{i} \]
+\end{enumerate}
+\end{mybox}
+
+\noindent
+We are still looking to improve this method. It correctly predicts the global coordinates being inside and outside the element for most of our tests, but fails to identify the boundary points inside the element for certain cases. We warmly welcome suggestions from the community.

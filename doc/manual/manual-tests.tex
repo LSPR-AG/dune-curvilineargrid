@@ -1,0 +1,48 @@
+
+\subsection{Curvilinear Geometry}
+\label{sec:tests:curvgeom}
+
+\noindent
+\textbf{test-polynomial}. This test performs arithmetic operations, differentiation and integration of basic polynomials in 1D, 2D and 3D. \\
+
+\noindent
+\textbf{test-polynomialvector}. This test generates random polynomial vectors in 3D and checks that basic vector calculus identities $\nabla \times \nabla f(\vec{x}) = 0$ and $\nabla \cdot (\nabla \times \vec{g}(\vec{x})) = 0$ hold. \\
+
+\noindent
+\textbf{test-quadratureintegration}. This test performs recursive integration on a set of functions \cref{appendix:tests:quadintegrator:performance} (given in  \cref{appendix-geometry-tests-integral}) and reports the order at which the integral converges. \\
+
+\noindent
+\textbf{test-quadratureintegration-matrix}. This test constructs random polynomial matrices, integrates them both recursively and analytically and compares the results. \\
+
+\noindent
+\textbf{test-lagrangeinterpolation}. This test uses explicit polynomial maps given by functors and interpolates them using progressively higher order. It then evaluates the interpolated mapping, first for the interpolation points, then for a set of random points within the entity, and compares to the exact mapping. For the interpolatory points, the analytical and interpolated maps should always match due to the interpolatory property of \textit{Lagrange} polynomials, whereas for all other points within the entity the maps would only match if the polynomial interpolation order is greater or equal to the polynomial order of the original map. \\
+%It is intended to also test the \textit{SubentityInterpolator} method in the future. This can be done by evaluating the local-to-global map on the subentity and on the parent entity, restricting the sampling points to the subentity in question, and verifying that they match. \\
+
+\noindent
+\textbf{test-curvilineargeometry}. This set of tests is performed for all 3 dimensions and for interpolation orders 1 to 5, first constructing the curvilinear geometries and cached geometries for a set of analytical functions \cref{appendix:tests:curvgeom:integrand} in \cref{appendix-geometry-tests-integral}.
+\begin{itemize}
+	\item \textbf{Test 1}. Evaluate the \textit{global()} mapping for all corners of the entity and compare to the analytical map.
+	\item \textbf{Test 2}. Evaluate the \textit{global()} mapping for a random set of local coordinates within the entity, and compare the results to the analytical map. The test is omitted if the interpolation order is smaller than the order of the mapping.
+	\item \textbf{Test 3}. Evaluate the \textit{local()} mapping for all global interpolation points of the entity and compare to the interpolatory reference grid. Also, check if all these points are reported to be inside the element. As described in \cref{sec:theory:coordinatetransform}, the current \textit{local()} method is imperfect:
+		\subitem -It fails to converge to a boundary point if the geometry has a zero derivative on the corner or on the whole boundary. This is the expected befaviour for singular entities, thus such entities should be avoided at the meshing stage.
+		\subitem -It occasionally fails to correctly identify the point to be interior to the entity, if the point is close to the boundary.
+	\item \textbf{Test 4}. It is verified if $\vec{p} \approx local(global(\vec{p}))$ for a set of random coordinates $\vec{p}$ within the entity. It is also checked if all the sample points are reported to be inside the entity as they should be.
+	\item \textbf{Test 5}. It is verified that the global coordinates on the immediate exterior of the entity are correctly identified to be outside it, at the same time checking the functionality of the subentity normal functionality. For this, unit outer normals are constructed for a set of points across the boundary of the entity at regular intervals. The sample exterior points are then defined to be $\vec{p} = \vec{g} + \alpha \vec{n}$, where $\vec{g}$ is the global coordinate of the boundary point, $\vec{n}$ the normal at that point, and $\alpha = 0.01 L$ a small displacement, where $L$ is the length scale of all entities (see \cref{fig:geometry:test:normal}).
+	\item \textbf{Test 6}. The scalar basis functions given in \cref{appendix:tests:curvgeom:integrand} are integrated over the reference geometry, and results are compared to the exact values given in \cref{appendix:tests:curvgeom:mappings}
+	\item \textbf{Test 7}. The dot product surface integrals of vector basis functions are integrated over the reference geometry, and compared to  the exact values. Integrands, mappings and exact results are given in \cref{appendix:tests:curvgeom:dotproductintegral}
+\end{itemize}
+
+\begin{figure}
+    \centering
+    \includegraphics[scale=1.0]{images/normaltest}
+	\captionsetup{width=0.8\textwidth} 
+	\caption{A combined accuracy test to find the outer normal and capability to accurately determine whether a given global coordinate is exterior. Face normals are sampled on a regular grid over the boundary, and are used to produce global coordinates barely exterior to the entity. }
+	\label{fig:geometry:test:normal}
+\end{figure}
+
+
+\subsection{Curvilinear Grid}
+\label{sec:tests:curvgrid}
+
+At present, \curvgrid{} does not employ explicit testing procedures. The confidence in its accuracy is based on extensive testing of \curvgeom{}, the accuracy of the provided tutorials, and the fact that our 3D FEM code based on the \curvgrid{} successfully reproduces reproduces standard benchmarks and experimental results. For discussion on future development of \curvgrid{} testing procedures, please refer to \cref{sec:conclusion:futurework}
+

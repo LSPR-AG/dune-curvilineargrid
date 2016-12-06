@@ -40,9 +40,8 @@ int main (int argc , char **argv) {
 	loggingStream << " process size = " << grid->comm().size();
 	Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_PRODUCTION>(__FILE__, __LINE__, loggingStream.str());
 
-
-	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
-	LoggingTimerDev::reportParallel();
+	// Report the parallel timing statistics
+	Dune::LoggingTimer<Dune::LoggingMessage>::reportParallel();
 
     // Delete the grid
     delete grid;

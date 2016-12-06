@@ -2,13 +2,13 @@
 \label{interface-geometry-polynomial}
 
 \noindent
-Arbitrary polynomial of order up to $n$ with $d$ parameters can be represented in its expanded form as
+An arbitrary polynomial of order $n$ with $d$ parameters can be represented in its expanded form as
 \[ p(\vec{u}) = \sum_i A_i \prod_{j = 0}^d u_j^{\mathrm{pow}_{i,j}},  \]
-for example in 3D this can be written as
+where ${pow}_{i,j}$ is the power $j$\textsuperscript{th} dimension of $i$\textsuperscript{th} summand. For example, in 3D this can be written as
 \[ p(\vec{u}) = \sum_i A_i u^{pow_{u,i}} v^{pow_{v,i}} w^{pow_{w, i}},  \]
 
 \noindent
-We define a Monomial class, which stores a constant multiplier $A$ and a vector of powers $pow$. \\
+We define a Monomial class, which stores a constant multiplier $A$ and vector of powers $pow$. \\
 
 \begin{mybox}
 \begin{lstlisting}
@@ -47,7 +47,7 @@ The below interface provides methods to perform basic algebraic operations with 
 \end{mybox}
 
 \noindent
-It is possible to differentiate, integrate and evaluate a polynomial. $derivative$ returns the partial derivative of the polynomial wrt coordinate indexed by the parameter. $evaluate$ evaluates the polynomial at the provided local coordinate. $integrateRefSimplex$ integrates the polynomial over the reference simplex of the same dimension as the polynomial, thus returning a scalar. An integral of a monomial over reference simplex has analytical expression, see the proof in appendix \ref{appendix-proof-simplexintegral}  \\
+We have implemented differentiation, integration and evaluation a polynomials. $derivative$ routine returns the partial derivative of a polynomial w.r.t. coordinate indexed by the parameter; $evaluate$ routine evaluates the polynomial at the provided local coordinate; $integrateRefSimplex$ routine integrates the polynomial over the reference entity of the same dimension as the polynomial, returning a scalar. An integral of a monomial over the reference simplex has an analytical expression, see \ref{appendix-proof-simplexintegral} \\
 
 
 \begin{mybox}
@@ -60,7 +60,7 @@ It is possible to differentiate, integrate and evaluate a polynomial. $derivativ
 
 
 \noindent
-The following auxiliary methods can be used to extract additional information about a polynomial. $order$ returns the largest power among all monomials, that is, the sum of powers of that monomial. Magnitude returns the largest absolute value prefactor over all monomials. $to\_string$ converts the polynomial to a string for further text output \\
+%The following auxiliary methods can be used to extract additional information about a polynomial. $order$ routine returns the largest power among all monomials, that is, the sum of powers of that monomial; $magnitude$ routine returns the largest absolute value prefactor over all monomials. $to\_string$ routine converts the polynomial to a string for further text output \\
 
 \begin{mybox}
 \begin{lstlisting}
@@ -70,9 +70,12 @@ The following auxiliary methods can be used to extract additional information ab
 \end{lstlisting}
 \end{mybox}
 
-
 \noindent
-\uline{Compactify}: adds up all summands with the same power. Sorts the summands by $(x_1,y_1,z_1) < (x_2, y_2, z_2)$, where $x$ has the highest priority and $z$ has the lowest priority. Then all of the repeating powers will be consecutive. Simply loop over sorted polynomial, and to a new polynomial add the sums of all consecutive repeating polynomials.
+Also, caching is implemented via the $cache()$ routine. This method can be called after the polynomial will no longer be changed, but only evaluated. Pre-computing factorials and monomial powers accelerates further evaluation and analytical integration of the polynomial.
+
+
+%\noindent
+%\uline{Compactify}: adds up all summands with the same power. Sorts the summands by $(x_1,y_1,z_1) < (x_2, y_2, z_2)$, where $x$ has the highest priority and $z$ has the lowest priority. Then all of the repeating powers will be consecutive. Simply loop over sorted polynomial, and to a new polynomial add the sums of all consecutive repeating polynomials.
 
 
 

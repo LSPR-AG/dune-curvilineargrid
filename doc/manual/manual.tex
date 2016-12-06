@@ -1,7 +1,10 @@
 %\documentclass[a4paper,twocolumn]{article}
-\documentclass[a4paper,11pt]{book}
+\documentclass[a4paper,11pt]{article}
+
 
 \usepackage[sort&compress,super]{natbib}
+\usepackage[T1]{fontenc}
+
 \usepackage[english]{babel}
 \usepackage{amsmath, esint}
 \usepackage{amssymb}
@@ -31,6 +34,9 @@
 \usepackage{hyperref}
 \usepackage[nameinlink]{cleveref}         %% Allows referencing subfigures. Must be loaded after hyperref
 
+
+\usepackage{setspace}
+
 \DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
 \DeclarePairedDelimiter{\floor}{\lfloor}{\rfloor}
 
@@ -44,6 +50,12 @@ innerrightmargin=4pt,innertopmargin=2pt,innerbottommargin=2pt]{mybox}
 
 %\usepackage[colorlinks,linkcolor=blue,anchorcolor=blue,citecolor=green]{hyperref} % hyper reference to contents 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Line spacing
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\onehalfspacing
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Citation Shorthands
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -56,6 +68,19 @@ innerrightmargin=4pt,innertopmargin=2pt,innerbottommargin=2pt]{mybox}
 \newcommand{\citeSuperLUDist}{\cite{li+2003}}
 
 
+\newcommand{\dune}{\setlength\emergencystretch{3cm}\texttt{DUNE}}
+\newcommand{\gmsh}{\setlength\emergencystretch{3cm}\texttt{gmsh}}
+\newcommand{\ParMETIS}{\setlength\emergencystretch{3cm}\texttt{ParMETIS}}
+\newcommand{\SuperLUDist}{\setlength\emergencystretch{3cm}\texttt{SuperLU DIST}}
+\newcommand{\ParaView}{\setlength\emergencystretch{3cm}\texttt{ParaView}}
+\newcommand{\visit}{\setlength\emergencystretch{3cm}\texttt{VisIt}}
+\newcommand{\hades}{\setlength\emergencystretch{3cm}\texttt{HADES3D}}
+\newcommand{\dunegeom}{\setlength\emergencystretch{3cm}\texttt{dune-geometry}}
+\newcommand{\dunegrid}{\setlength\emergencystretch{3cm}\texttt{dune-grid}}
+\newcommand{\curvgeom}{\setlength\emergencystretch{3cm}\texttt{dune-curvilineargeometry}}
+\newcommand{\curvgrid}{\setlength\emergencystretch{3cm}\texttt{dune-curvilineargrid}}
+\newcommand{\curvreader}{\setlength\emergencystretch{3cm}\texttt{curvreader}}
+\newcommand{\curvwriter}{\setlength\emergencystretch{3cm}\texttt{curvwriter}}
 
 
 
@@ -118,56 +143,111 @@ innerrightmargin=4pt,innertopmargin=2pt,innerbottommargin=2pt]{mybox}
 
 \vspace{2mm}
 
-%%\textbf{WEBSITE}
-
 \end{center}
 
 
-
-
-
-
-
-
+\begin{figure}[H]
+    \centering
+	\begin{subfigure}[b]{\textwidth} \hspace{4mm} \includegraphics[scale=1.5]{images/frontpage} \end{subfigure}
+    
+% 	\begin{subfigure}[b]{0.3\textwidth} \hspace{4mm} \includegraphics[scale=0.2]{images/32-full} \end{subfigure}
+% 	\begin{subfigure}[b]{0.3\textwidth} \hspace{4mm} \includegraphics[scale=0.07]{images/mie-1000-febi-2ndtry}       \end{subfigure}
+% 	\begin{subfigure}[b]{0.3\textwidth} \hspace{4mm} \includegraphics[scale=0.08]{images/example_herzian}       \end{subfigure}
+% 	\begin{subfigure}[b]{0.3\textwidth} \hspace{4mm} \includegraphics[scale=0.10]{images/gmshreader-vtk-wireframe}       \end{subfigure}
+% 	\begin{subfigure}[b]{0.3\textwidth} \hspace{4mm} \includegraphics[scale=0.1]{images/tutorial3-vtk-globalsinusoid}       \end{subfigure}
+% 	\begin{subfigure}[b]{0.3\textwidth} \hspace{4mm} \includegraphics[scale=0.15]{images/sphere32discr6ord5}       \end{subfigure}
+% 	\begin{subfigure}[b]{0.3\textwidth} \hspace{4mm} \includegraphics[scale=0.08]{images/plane_wave_example}       \end{subfigure}
+% 	\begin{subfigure}[b]{0.3\textwidth} \hspace{4mm} \includegraphics[scale=0.15]{images/Edge1_Kind1}       \end{subfigure}
+% 	\begin{subfigure}[b]{0.3\textwidth} \hspace{4mm} \includegraphics[scale=0.15]{images/bullseye-core-angle}       \end{subfigure}
+% 	\begin{subfigure}[b]{0.3\textwidth} \hspace{4mm} \includegraphics[scale=0.1]{images/cavity-1000-field-at-600nm}       \end{subfigure}
+\end{figure}
 
 
 
 \pagebreak
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% BEGIN OF ABSTRACT
+% ACRONYMS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\noindent
+\textbf{List of Acronyms} \\
+%\texttt{SNOM/NSOM} - Near-field Scanning Optical Microscopy \\
+%\texttt{TERS} - Tip-Enhanced Raman Spectroscopy\\
+%\texttt{SERS} - Surface-Enhanced Raman Spectroscopy\\
+%\texttt{SPR} - Surface Plasmon Resonance\\
+%\texttt{PEF} - Plasmon-Enhanced Fluorescence\\
+%\texttt{AFM} - Atomic Force Microscopy\\
+%\texttt{SEM} - Scanning Electron Microscopy\\
+%\texttt{TEM} - Transverse Electric Magnetic (Mode)\\
+\texttt{LSPR} - Localised Surface Plasmon Resonance\\
+%
+%\texttt{DRA} - Dielectric Resonator Antenna\\
+%
+\texttt{DUNE} - Distributed Unified Numerical Library\\
+\texttt{PDE} - Partial Differential Equation\\
+\texttt{DoF} - Degree of Freedom\\
+\texttt{HTVFE} - Hierarchical Tangential Vector Finite Elements\\
+\texttt{FDTD} - Finite Difference Time Domain \\
+\texttt{FEM} - Finite Element Method\\
+\texttt{SIE} - Surface Integral Equation (Method)\\
+\texttt{CG} - Continuous Galerkin\\
+\texttt{DG} - Discontinuous Galerkin\\
+\texttt{DGTD} - Discontinuous Galerkin Time Domain\\
+\texttt{DGFD} - Discontinuous Galerkin Frequency Domain\\
+%\texttt{FETI-DP} - Finite Element Tearing and Interconnect - Dual Primal (Method)\\
+%\texttt{DD} - Domain Decomposition\\
+\texttt{ABC} - Absorbing Boundary Condition\\
+%\texttt{PML} - Perfectly Matched Layer\\
+\texttt{BI} - Boundary Integral \\
+\texttt{FEBI} - Finite Element Boundary Integral\\
+%
+%
+\texttt{MPI} - Message Passing Interface\\
+\texttt{POD} - Plain Old Datatype\\
+\texttt{RAM} - Random Access Memory\\
+\texttt{GPU} - Graphical Processing Unit\\
+\texttt{CAD} - Computer-Aided Design\\
+\texttt{GSL} - GNU Standard Library\\
+\texttt{STL} - Standard Template Library\\
+\texttt{GPL} - General Public License\\
+%
+\texttt{EPFL} - \'Ecole Polytechnique F\'ed\'erale de Lausanne \\
+\texttt{NAM} - Nanophotonics and Metrology (Laboratory, EPFL) \\
+\texttt{EDPO} - Ecole Doctorale Photonique (EPFL)\\
+%\texttt{PSI} - Paul Scherrer Institut\\
+%\texttt{CSCS} - Centro Svizzero di Calcolo Scientifico\\
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ABSTRACT
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\pagebreak
 \vfill
 
-\noindent \textbf{\textsc{ABSTRACT}} - We introduce the \texttt{dune-curvilineargrid} module. The module provides the self-contained, parallel grid manager \texttt{dune-curvilineargrid}, as well as the underlying elementary curvilinear geometry class \texttt{dune-curvilineargeometry}. Both modules are developed as extension of \text{DUNE} \citeDune project, and conform to the corresponding standard interface. We expect the reader to be at least briefly familiar with the Dune interface to fully benefit from this paper.
+\noindent \textbf{\textsc{ABSTRACT}} - We introduce the \curvgrid{} module. The module provides the self-contained, parallel grid manager \curvgrid{}, as well as the underlying elementary curvilinear geometry class \curvgeom{}. Both modules are developed as extension of the \dune{} \citeDune{} project, and conform to the generic \dunegrid{} and \dunegeom{} interfaces respectively. We expect the reader to be at least briefly familiar with the \dune{} interface to fully benefit from this paper.
 %%
-This work is carried out by a technology company LSPR AG. It is motivated by reliable and scalable design of nanooptical devices, performed by HADES3D family of electromagnetic codes. It is of primary scientific and industrial interest to model full 3D geometric designs as close to the real fabricated structures as possible. Curvilinear geometries improve both the accuracy of modeling smooth material boundaries, and the convergence rate of PDE solutions with increasing basis function order \cite{fahs2011}, reducing the computational effort required for robust modeling.
+\curvgrid{} is a part of the computational framework developed within the doctoral thesis of Aleksejs Fomins. The work is carried out at the technology company LSPR AG. It is motivated by the need for reliable and scalable electromagnetic design of nanooptical devices, achieved by \hades{} family of electromagnetic codes. It is of primary scientific and industrial interest to model full 3D geometric designs as close to the real fabricated structures as possible. Curvilinear geometries improve both the accuracy of modeling smooth material boundaries, and the convergence rate of PDE solutions with increasing basis function order \cite{fahs2011}, reducing the necessary computational effort. Additionally, higher order methods decrease the memory footprint of PDE solvers at the expense of higher operational intensity, which helps in extracting optimal performance from processing power dominated high performance architectures \cite{williams+2009}.
 %%
-\texttt{dune-curvilineargeometry} is capable to model simplex entities (edges, triangles and tetrahedrons) up to polynomial order 5 hard-coded, and up to arbitrary order via analytical procedures. Its most notable features are local-to-global and global-to-local coordinate maps, analytical and adaptive integration, explicit polynomial scalars, vectors and matrices (e.g. Jacobians and Integration Elements).
+\curvgrid{} is capable of modeling simplex entities (edges, triangles and tetrahedra) up to polynomial order 5 via hard-coded \textit{Lagrange} polynomials, and arbitrary order via analytical procedures. Its most notable features are local-to-global and global-to-local coordinate mappings, symbolic and recursive integration, symbolic polynomial scalars, vectors and matrices (e.g. Jacobians and Integration Elements).
 %%
-\texttt{dune-curvilineargrid} module uses \texttt{dune-curvilineargeometry} to provide the following functionality: fully parallel input of curvilinear meshes in the \texttt{gmsh}\citeGMSH mesh format, processing only the corresponding part of the mesh on each available core; mesh partitioning at the reading stag (using \texttt{Parmetis} \citeParMetis); unique global indices for all mesh entities over all processes; ghost elements associated with the interprocessor boundaries; interprocessor communication of data for entities of the mesh of all codimensions via the standard \text{DUNE} data handle interface. There is also significant support for boundary integral codes, allowing arbitrary number of interior boundary surfaces, as well as parallel communication allowing for all-to-all dense coupling procedures.
+\curvgrid{} uses the \curvgeom{} module to provide the following functionality: fully parallel input of curvilinear meshes in the \gmsh{} \citeGMSH{} mesh format, processing only the corresponding part of the mesh on each available core; mesh partitioning at the reading stage (using \ParMETIS{} \citeParMetis{}); unique global indices for all mesh entities over all processes; Ghost elements associated with the interprocessor boundaries; interprocessor communication of data for shared entities of all codimensions via the standard \dune{} data handle interface. There is also significant support for Boundary Integral (BI) codes, allowing for arbitrary number of interior boundary surfaces, as well as all-to-all dense parallel communication procedures.
 %%
-The \texttt{dune-curvilineargrid} grid manager is continuously developed and improved. Among other things, we are working on higher order basis functions for curvilinear grids, non-uniform adaptive h and p-refinement, periodicity. 
+The \curvgrid{} grid manager is continuously developed and improved, and so is this documentation. %Among other things, we are working on higher order basis functions for curvilinear grids, non-uniform adaptive h and p-refinement, periodicity. 
 %%
-As more work is being done on \texttt{dune-curvilineargrid}, this document will be updated. For the most recent version of the documentation, as well as for the source codes please refer to the following repositories: \\
+For the most recent version of the documentation, as well as the source code, please refer to the following repositories \\
 
 \noindent
 \url{http://www.github.com/lspr-ag/dune-curvilineargeometry}\\
 \url{http://www.github.com/lspr-ag/dune-curvilineargrid}\\
 
 \noindent
-As well as our website\\
+and our website\\
 
 \noindent
 \url{http://www.curvilinear-grid.org}
-
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% END OF ABSTRACT
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \end{titlepage}
 
@@ -181,35 +261,46 @@ As well as our website\\
 
 \pagebreak
 \vspace{15mm}
-\noindent \textbf{Acknowledgements} - While the architecture, implementation and down-to-earth programming work for \texttt{dune-curvilineargrid} grid manager is credited to Aleksejs Fomins and Benedikt Oswald, both authors are pleased to acknowledge the inspiration and support from the wider \text{DUNE} community. We mention names in alphabetical order and sometimes associated with a specific subject. In case we have forgotten to acknowledge an important contributor we kindly ask you to inform us and we will be happy to insert the name immediately. So, then, here we are:
+\noindent \textbf{Acknowledgements} - While the architecture, implementation and down-to-earth programming work for \curvgrid{} grid manager is credited to Aleksejs Fomins and Benedikt Oswald, both authors are pleased to acknowledge the inspiration and support from the wider \dune{} community. We mention names in alphabetical order and sometimes associated with a specific subject. In case we have forgotten to acknowledge an important contributor we kindly ask you to inform us and we will be happy to insert the name immediately. Here we are:
 %%
 %%
-\textit{Peter Bastian}, Professor at University of Heidelberg, Germany for initial suggestion to consider curvilinear tetrahedral grids in order to reduce the computational burden onto the complex linear solver;
+\textit{Peter Bastian}, Professor at University of Heidelberg, Germany for initial suggestion to consider curvilinear tetrahedral grids in order to reduce the computational burden of the complex linear solver;
 %%
 %%
-\textit{Markus Blatt}, Heidelberg, Germany, based independent high performance computing and \text{DUNE} contractor, for numerous hints related to the build system and \text{DUNE} architecture;
+\textit{Markus Blatt}, Heidelberg, Germany based independent high performance computing and \dune{} contractor, for numerous hints related to the build system and \dune{} architecture;
 %%
 %%
-\textit{Andreas Dedner}, professor, University of Warwick, United Kingdom, for numerous hints related to the \text{DUNE} architecture;
+\textit{Andreas Dedner}, professor, University of Warwick, United Kingdom, for numerous hints related to the \dune{} architecture;
 %%
 %%
-\textit{Jorrit 'Hippi Joe' Fahlke}, postdoctoral scientist, University of M\"unster, Germany, for numerous hints related to the \text{DUNE} architecture, grid API, grid testing and many other fields;
+\textit{Christian Engwer}, professor, University of M\"unster, Germany, for fruitful discussions on \dune{} and \curvgrid{} interface;
 %%
 %%
-\textit{Dominic Kempf}, Phd student, University of Heidelberg, Germany for support w.r.t grid API implementation in \text{DUNE}, especially w.r.t \textit{CMake};
+\textit{Jorrit 'Hippi Joe' Fahlke}, postdoctoral scientist, University of M\"unster, Germany, for numerous hints related to the \dune{} architecture, grid API, grid testing and many other fields;
 %%
 %%
-\textit{Robert Klo\"fkorn}, senior research scientist, IRISI, Norway, for support w.r.t grid API implementation in \text{DUNE};
+\textit{Christoph Gr\"uniger}, doctoral student, University of Stuttgart, Germany for support with \dune{} internal implementation;
 %%
 %%
-\textit{Steffen Mu\"thing}, senior research scientist, IRISI, Norway, for support w.r.t grid API implementation in \text{DUNE};
+\textit{Dominic Kempf}, doctoral student, University of Heidelberg, Germany for support w.r.t grid API implementation in \dune{}, especially w.r.t \textit{CMake};
 %%
 %%
-\textit{Martin Nolte}, postdoctoral scientist, University of Freiburg im Breisgau, Germany, for numerous hints related to the \text{DUNE} architecture;
+\textit{Robert Kl\"ofkorn}, senior research scientist, IRISI, Norway, for support w.r.t grid API implementation in \dune{};
 %%
 %%
-\textit{Oliver Sander}, professor, TU Aachen, Germany, for numerous hints related to the \text{DUNE} architecture, numerical integration and quadrature;
+\textit{Steffen M\"uthing}, postdoctoral scientist, University of Heidelberg, Germany for support with \dune{} internal implementation;
+%%
+%%
+\textit{Martin Nolte}, postdoctoral scientist, University of Freiburg im Breisgau, Germany, for numerous hints related to the \dune{} architecture;
+%%
+%%
+\textit{Oliver Sander}, professor, TU Dresden, Germany, for numerous hints related to the \text{DUNE} architecture, numerical integration and quadrature; \\
 
+\noindent
+Also we would like to express special gratitude to Prof. Olivier Martin for supervising the thesis of Aleksejs Fomins through its ups and downs, and to Prof. Emeritus. J\"org Waldvogel, who has spent significant amounts of his private time and even visited our company in order to enlighten us about the deep details of numerical integration. We would like to acknowledge enormous support from other software communities, especially Xiaoye Sherry Li for support with SuperLUDist project, George Karypis for support with Parmetis and Steven G. Johnson for support with his GSL cubature implementation. Finally we would like to express our gratitude to Prof. Torsten Hoefler for advices on newest MPI standards, and Prof. Ralf Hiptmair for fruitful discussions on PDE solvers, including integration. \\
+
+% \noindent
+% We are immensely indebted to the above people, and perhaps many others who have contributed with their advices. Community support is the crucial element that makes science possible.
 
 
 
@@ -219,11 +310,11 @@ As well as our website\\
 
 \vspace{20mm}
 {\small
-\noindent \textbf{LEGAL NOTICE} - The development of the \texttt{dune-curvilineargrid} grid manager is sponsored by a technology company \textbf{LSPR AG}, Grubenstrasse 9, CH-8045 Z\"urich, Switzerland. \textbf{LSPR AG} exclusively holds all rights associated with \texttt{dune-curvilineargrid}.
+\noindent \textbf{LEGAL NOTICE} - The development of the \curvgrid{} grid manager is sponsored by the technology company \textbf{LSPR AG}, Grubenstrasse 9, CH-8045 Z\"urich, Switzerland. \textbf{LSPR AG} exclusively holds all rights associated with \curvgrid{}.
 %%
-The \texttt{dune-curvilineargrid} fully parallel grid manager will be made publicly available via \texttt{Github} and is a free software based on the GPLv2 license. Other licenses can be negotiated through \texttt{curvilinear-grid@lspr.swiss}.
+The \curvgrid{} fully parallel grid manager is publicly available via \texttt{Github} and is a free software based on the GPLv2 license. Other licenses can be negotiated through \texttt{curvilinear-grid@lspr.swiss}.
 %%
-We herewith exclude any liability on the part of \textbf{LSPR AG} since the software is made available as is. Any user uses the software at his own risk and by no means \textbf{LSPR AG} assumes any responsibility for harmful consequences or any other damage caused by the use of the software. We emphasise that the whole project is governed by Swiss Law and nothing else. Especially, we reject any attempt of any other sovereign law to cover what we do.
+We herewith exclude any liability on the part of \textbf{LSPR AG} since the software is made available as is. Any user uses the software at his own risk and by no means \textbf{LSPR AG} assumes any responsibility for harmful consequences or any other damage caused by the use of the software. We emphasize that the whole project is governed by Swiss Law and nothing else. Especially, we reject any attempt of any other sovereign law to cover what we do.
 }
 
 
@@ -231,7 +322,7 @@ We herewith exclude any liability on the part of \textbf{LSPR AG} since the soft
 
 
 \newpage
-\chapter{Introduction}
+\section{Introduction}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Curvilinear Grid Outline - Section on capabilities of the Grid
@@ -242,9 +333,7 @@ We herewith exclude any liability on the part of \textbf{LSPR AG} since the soft
 
 
 
-
-\newpage
-\chapter{Theory}
+\section{Theory}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Theory for Lagrange Polynomials
@@ -274,6 +363,7 @@ We herewith exclude any liability on the part of \textbf{LSPR AG} since the soft
 % Implementation Details - Curvilinear GMSH Reader
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\pagebreak
 \section{Reading Curvilinear Grid}
 \input{manual-implementation-gmshreader}
 
@@ -282,7 +372,9 @@ We herewith exclude any liability on the part of \textbf{LSPR AG} since the soft
 % Implementation Details - Curvilinear Grid Constructor
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\pagebreak
 \section{Constructing Curvilinear Grid}
+\label{impl-grid-constructor}
 \input{manual-implementation-gridconstructor}
 
 
@@ -290,16 +382,19 @@ We herewith exclude any liability on the part of \textbf{LSPR AG} since the soft
 % Implementation Details - Curvilinear VTK Writer
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\pagebreak
 \section{Writing Curvilinear Grid}
 \input{manual-implementation-gridwriter}
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Implementation Details - Diagnostics
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\input{manual-diagnostics}
 
-\input{manual-diagnostics}
 
-
-
-\chapter{Tutorials}
+\pagebreak
+\section{Tutorials}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Curvilinear Grid Howto - Section on tutorials
@@ -312,13 +407,13 @@ We herewith exclude any liability on the part of \textbf{LSPR AG} since the soft
 % Curvilinear Grid Diagnostics - Section on mesh statistics and visualisation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%\input{manual-diagnostics}
+% \input{manual-diagnostics}
 
 
+\pagebreak
+\section{Testing}
 
-\chapter{Testing}
-
-
+\input{manual-tests}
 
 
 
@@ -395,12 +490,23 @@ We herewith exclude any liability on the part of \textbf{LSPR AG} since the soft
 
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Conclusions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\pagebreak
+\section{Conclusion}
+
+\input{manual-conclusion-further-work}
 
 
 
+
+
+\pagebreak
 \appendix
 
-\chapter{Proofs}
+\section{Proofs and Concepts}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Proof of explicit expression for the integration elements
@@ -422,8 +528,15 @@ We herewith exclude any liability on the part of \textbf{LSPR AG} since the soft
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \input{manual-appendix-geometry-polynomialintegralproof}
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Conversion from GMSH to DUNE notation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{manual-appendix-reader-curvilinear-enumeration}
 
-\chapter{Interfaces}
+
+
+
+\section{Interfaces}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of Polynomial Class
@@ -447,6 +560,13 @@ We herewith exclude any liability on the part of \textbf{LSPR AG} since the soft
 % Interface of AllCommunication 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \input{manual-appendix-interface-allcommunicate}
+
+
+\section{Explicit tests and solutions}
+
+\input{manual-appendix-geometry-tests-integral}
+
+
 
 
 

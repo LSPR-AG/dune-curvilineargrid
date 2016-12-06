@@ -1,171 +1,95 @@
 
-\section{Implementation Details - Curvilinear GMSH Reader}
+% \subsection{Structure of .msh files}
+% 
+% \begin{mybox}
+% \begin{lstlisting}
+% $MeshFormat
+% ver f_type data_size    # This line is mostly irrelevant
+% $EndMeshFormat
+% $Nodes
+% n_vertices
+% 1 x y z
+% 2 x y z
+% .......
+% n_vertices x y z
+% $EndNodes
+% $Elements
+% n_elem
+% 1 elem_type n_tags (process_tags) v_1 v_2 ... v_N
+% 2 elem_type n_tags (process_tags) v_1 v_2 ... v_N
+% .......
+% n_elem elem_type n_tags (process_tags) v_1 v_2 ... v_N
+% $EndElements
+% \end{lstlisting}
+% \end{mybox}
+% 
+% \noindent
+% where
+% \begin{itemize}
+% 	\item $ver$             - version of the GMSH file
+% 	\item $f\_type$          - type of file (irrelevant)
+% 	\item $data\_size$       - size of file (irrelevant)
+% 	\item $n\_vertices$      - number of vertices of the mesh
+% 	\item $i\ x\ y\ z$         - index of the vertex and its coordinates
+% 	\item $n\_elem$          - number of elements of the mesh
+% 	\item $elem\_type$       - Integer which determines element type and interpolation order
+% 	\item $n\_tags$          - Total number of tags. If $>2$, then have $process\_tags$
+% 	\item $process\_tags$    - Tags which determine the process the vertex belongs to. Only if GMSH is told to partition the mesh
+% 	\item $v\_1\ v\_2\ ...\ v\_N$ - Indices of interpolatory vertices associated with this element (includes corners)
+% \end{itemize}
+% \subsection{Parallel Implementation}
 
-\subsection{Structure of .msh files}
+From the outset the parallel implementation of the Curvilinear GMSH Reader is targeted at high parallel scalability. It loads the mesh evenly on all involved processes, avoiding master process bottlenecks. The algorithm to achieve this requires reading the mesh file several times on each process:
 
 \begin{mybox}
-\begin{lstlisting}
-$MeshFormat
-ver f_type data_size    # This line is mostly irrelevant
-$EndMeshFormat
-$Nodes
-n_vertices
-1 x y z
-2 x y z
-.......
-n_vertices x y z
-$EndNodes
-$Elements
-n_elem
-1 elem_type n_tags (process_tags) v_1 v_2 ... v_N
-2 elem_type n_tags (process_tags) v_1 v_2 ... v_N
-.......
-n_elem elem_type n_tags (process_tags) v_1 v_2 ... v_N
-$EndElements
-\end{lstlisting}
+\begin{enumerate}
+  \item ELEMENT PASS 1: Count the total number of elements boundary segments
+
+  \item ELEMENT PASS 2: Read corners for all elements within the block associated to this process. Given equal splitting of elements across all processes, the process with index $rank$ should read the elements with indices $interv(rank) = \floor[\Big]{ [rank, rank+1] \cdot N_{elem} / p_{tot} } + 1$.
+        
+  \item If partitioning is enabled, partition the elements among all processes. The partitioning uses the \textit{ParMETIS\_V3\_PartMeshKway} function of \ParMETIS{} \citeParMetis{}. It produces contiguous subdomains on each process, with a roughly equal number of elements on each process. \ParMETIS{} naturally also minimizes the number of boundary connections, thus minimizing the number of interprocessor boundaries and the amount of parallel communication necessary at a later stage. We have also implemented support for \ParMETIS{} multiple constraint partitioning capabilities, but, as of time of writing \ParMETIS{} does not guarantee contiguous subdomains for multi-constraint partitioning.
+        
+  \item ELEMENT PASS 3: Read all data associated with elements on this process partition. Map all faces to the elements sharing them using the sorted global index of the face corners. The elements are written to the grid factory
+       
+  \item ELEMENT PASS 4: Read all data associated with boundary elements. Determine if the element belongs to this process by looking it up in the available face map. Separate the processed boundaries by boundary tag. Identify which of the boundary tags is associated with the domain boundary by determining the faces that have only one neighboring element across all processes, and sharing this information with all other processes. Thus each process is aware of all volume and boundary tags, even if there are no entities with this tag on the process. The boundary segments are written to the grid factory.
+
+  \item VERTEX PASS 1: Read the coordinates of the vertices associated with the entities present on this process. The vertex coordinates are written to the grid factory.
+\end{enumerate}
 \end{mybox}
 
 \noindent
-where
-\begin{itemize}
-	\item $ver$             - version of the GMSH file
-	\item $f\_type$          - type of file (irrelevant)
-	\item $data\_size$       - size of file (irrelevant)
-	\item $n\_vertices$      - number of vertices of the mesh
-	\item $i\ x\ y\ z$         - index of the vertex and its coordinates
-	\item $n\_elem$          - number of elements of the mesh
-	\item $elem\_type$       - Integer which determines element type and interpolation order
-	\item $n\_tags$          - Total number of tags. If $>2$, then have $process\_tags$
-	\item $process\_tags$    - Tags which determine the process the vertex belongs to. Only if GMSH is told to partition the mesh
-	\item $v\_1\ v\_2\ ...\ v\_N$ - Indices of interpolatory vertices associated with this element (includes corners)
-\end{itemize}
+The implementation has an option to directly output the processed mesh into $.VTK$ file set for debugging purposes.
 
-\subsection{Convention for numbering interpolatory vertices}
-\label{impl-gmsh-numbering-convention}
-
-\noindent
-Each curvilinear element posesses a set of interpolatory vertices. For order 1 (linear elements) this is just the set of corners of the element, but for higher orders there are additional points located in on the inside of the elements, their faces and edges. To number these vertices, GMSH uses recursive conviention.
-
-\begin{enumerate}
-	\item First number all corners, then all edges, then all faces, then vertices inside element, then internal vertices of the element
-	\item Inside edge, vertices are numbered sequentially
-	\item For a triangle, the order of edges is $(0,1)$, $(1,2)$, $(2,0)$. (in 2D)
-	\item For a tetrahedron, the order of edges is $(0,1)$, $(1,2)$, $(2,0)$, $(3,0)$, $(3,2)$, $(3,1)$.
-	\item For a tetrahedron, the order of faces is $(0, 2, 1)$, $(0, 1, 3)$, $(0, 3, 2)$, $(3, 1, 2)$, including orientation
-	\item If there are vertices associated with element itself(for example, on the triangle or inside the tetrahedron), a smaller element is created inside this triangle preserving its orientation, and is then numbered recursively.
-\end{enumerate}
-
-\noindent
-Unfortunately, this convention does not match the grid convention used in DUNE, namely
-\begin{mybox}
-\begin{lstlisting}
-for (z=0 to 1, y=0 to 1-z, x=0 to 1-z-y) { vertex(x,y,z); }
-\end{lstlisting}
-\end{mybox}
-
-\noindent
-There is no good expression which maps from GMSH to DUNE convention, so it was implemented it by hand for simplex geometries up to order 5.
-\begin{itemize}
-	\item Triangle Order 1: \{0, 1, 2\}
-	\item Triangle Order 2: \{0, 3, 1, 5, 4, 2\}
-	\item Triangle Order 3: \{0, 3, 4, 1, 8, 9, 5, 7, 6, 2\}
-	\item Triangle Order 4: \{0, 3, 4, 5, 1, 11, 12, 13, 6, 10, 14, 7, 9, 8, 2\}
-	\item Triangle Order 5: \{0, 3, 4, 5, 6, 1, 14, 15, 18, 16, 7, 13, 20, 19, 8, 12, 17, 9, 11, 10, 2\}
-	
-	\item Tetrahedron Order 1: \{0, 3, 1, 2\}
-	\item Tetrahedron Order 2: \{0, 7, 3, 4, 9, 1, 6, 8, 5, 2\}
-	\item Tetrahedron Order 3: \{0, 11, 10, 3, 4, 17, 14, 5, 15, 1, 9, 18, 12, 16, 19, 6, 8, 13, 7, 2\}
-	\item Tetrahedron Order 4: \{0, 15, 14, 13, 3, 4, 25, 27, 19, 5, 26, 20, 6, 21, 1, 12, 28, 29, 16, 22, 34, 31, 24, 32, 7, 11, 30, 17, 23, 33, 8, 10, 18, 9, 2\}
-	\item Tetrahedron Order 5: \{0, 19, 18, 17, 16, 3, 4, 34, 39, 36, 24, 5, 37, 38, 25, 6, 35, 26, 7, 27, 1, 15, 40, 43, 41, 20, 28, 52, 55, 46, 33, 53, 49, 30, 47, 8, 14, 45, 44, 21, 31, 54, 51, 32, 50, 9, 13, 42, 22, 29, 48, 10, 12, 23, 11, 2\}
-\end{itemize}
-
-
-\subsection{Parallel Implementation}
-
-The idea of parallel implementation is that all data - vertex coordinates, internal elements and boundary elements - are split between processes, not to exceed the single core memory. Thus the strategy for reading data on a process $i$ is as follows:
-\begin{enumerate}
-	\item Compute the total number $N_{elem}$ of non-boundary (internal) elements.
-\end{enumerate}
-
-\begin{mybox}
-Loop over all elements in the file, and count the number of elements with dimension equal to the world dimension
-\end{mybox}	
-\begin{enumerate}[resume]	
-	\item Read and store internal elements belonging to this process. If elements are split in consequent equal chunks among processes, then process $rank$ should read the elements with indices $interv(rank) = \floor[\Big]{ [rank, rank+1] \cdot N_{elem} / p_{tot} } + 1$.
-\end{enumerate}
-
-\begin{mybox}
-\begin{itemize}
-	\item Loop over all elements in the file
-	\item Store all internal elements for which $index \in interv(rank)$
-	\item Add global indices of vertices belonging to selected elements to a set
-\end{itemize}
-
-\end{mybox}		
-
-
-\begin{enumerate}[resume]
-	\item Read and store boundary elements belonging to this process - those which match the subentities of some elements.
-\end{enumerate}
-\begin{mybox}
-	\begin{itemize}
-		\item Only read the boundaries for which all \textbf{corners} have already been included to the element vertex set. 
-	\end{itemize}
-\end{mybox}	
-
-\begin{enumerate}[resume]
-	\item Read and store vertices belonging to this process. Namely, all the vertices that are necessary to construct the elements and boundaries belonging to 
-this process.
-	\begin{itemize}
-		\item Local index of a vertex is a number $[0,n_p)$ where $n_p$ is the total number of vertices on the process.
-		\item Local index of a vertex is given by the order they are inserted to the grid factory. It is in the ascending order of the global index, just that certain vertices of global index are not on this process. To keep track of this we fill the global-to-local map for vertices.
-	\end{itemize}
-
-	\item Add boundary elements to factory. It is necessary to connect the boundary elements to the internal elements they share a face with, because during load balance, the boundaries need to be communicated together with the corresponding elements.GMSH does not provide information on this interconnection.
-	\begin{itemize}
-		\item \uline{Important!} This must be done before adding internal elements to factory, as we also need to add the interconnection array.
-		\item Add global element index as well
-	\end{itemize}
-\end{enumerate}
-
-\begin{mybox}
-\noindent
-Currently using brute-force, because it is not much slower than improved for \\
-
-\noindent
-\uline{Trivial Algorithm: (Complexity $O(12 N_{elem} N_{\beta} / p_{tot}^2)$)}\\
-\textit{Loop over all stored boundary elements $\beta_i$, and over all stored internal elements $E_j$.} \\
-\textit{ If $\beta_i \in E_j$ for some $j$ then store $\beta_i$ }\\
-
-\noindent
-\uline{Improved Algorithm: (Complexity $O(12 N_{elem} \log_2 (N_{\beta} / p_{tot}) / p_{tot}$)}\\
-
-\begin{enumerate}
-	\item Construct map from boundary vertex index set to boundary id
-	\item Add all boundaries to the map
-	\item Loop over each face of all internal elements
-	\begin{enumerate}
-		\item If $map[face]$ is non-null, link the element and boundary
-	\end{enumerate}
-\end{enumerate}
-
-\end{mybox}	
-		
-\begin{enumerate}[resume]
-	\item Add internal elements to factory
-\end{enumerate}
-\begin{mybox}
-	\begin{itemize}
-		\item For debugging purposes write each element to a .vtk file using CurvilinearVTKWriter.
-		\item Add element vertices and global element index to factory
-		\item If creating grid with boundaries, also pass $internal\_to\_boundary\_element\_linker$. This array stores the indices of boundaries which are connected to this element (if any).
-	\end{itemize}
-\end{mybox}
-
-
-
-
-
-
-
-\subsection{Partitioning}
+% \begin{mybox}
+% \noindent
+% Currently using brute-force, because it is not much slower than improved for \\
+% 
+% \noindent
+% \uline{Trivial Algorithm: (Complexity $O(12 N_{elem} N_{\beta} / p_{tot}^2)$)}\\
+% \textit{Loop over all stored boundary elements $\beta_i$, and over all stored internal elements $E_j$.} \\
+% \textit{ If $\beta_i \in E_j$ for some $j$ then store $\beta_i$ }\\
+% 
+% \noindent
+% \uline{Improved Algorithm: (Complexity $O(12 N_{elem} \log_2 (N_{\beta} / p_{tot}) / p_{tot}$)}\\
+% 
+% \begin{enumerate}
+% 	\item Construct map from boundary vertex index set to boundary id
+% 	\item Add all boundaries to the map
+% 	\item Loop over each face of all internal elements
+% 	\begin{enumerate}
+% 		\item If $map[face]$ is non-null, link the element and boundary
+% 	\end{enumerate}
+% \end{enumerate}
+% 
+% \end{mybox}	
+% 		
+% \begin{enumerate}[resume]
+% 	\item Add internal elements to factory
+% \end{enumerate}
+% \begin{mybox}
+% 	\begin{itemize}
+% 		\item For debugging purposes write each element to a .vtk file using CurvilinearVTKWriter.
+% 		\item Add element vertices and global element index to factory
+% 		\item If creating grid with boundaries, also pass $internal\_to\_boundary\_element\_linker$. This array stores the indices of boundaries which are connected to this element (if any).
+% 	\end{itemize}
+% \end{mybox}

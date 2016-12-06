@@ -19,14 +19,23 @@
 
 
 const bool isCached = true;
-typedef Dune::FieldVector<double, 3>  GlobalCoordinate;
+const int DIM0D = 0;   const int CODIM0D = 3;
+const int DIM1D = 1;   const int CODIM1D = 2;
+const int DIM2D = 2;   const int CODIM2D = 1;
+const int DIM3D = 3;   const int CODIM3D = 0;
 
 
 // Calculates the outer normal to the intersection times the integration element
 template<class Grid, int mydim>
 struct NormalFunctor
 {
-	typedef Dune::FieldVector<double, mydim>           LocalCoordinate;
+	static const int cdim =  Grid::dimension;
+	typedef typename Grid::ctype ct;
+
+	typedef Dune::FieldVector<ct, cdim>      GlobalCoordinate;
+	typedef Dune::FieldVector<ct, mydim>  LocalCoordinate;
+
+
 	typedef typename Grid::Traits::LeafIntersection    Intersection;
 
     static const unsigned int RETURN_SIZE = 1;
@@ -51,53 +60,36 @@ struct NormalFunctor
 // Then over all intersections
 // Then for each intersection that is a boundary segment it integrates the normal component by component
 template<class GridType>
-void Integrate (GridType& grid)
-{
-  const int dim =  GridType::dimension;
-  typedef typename GridType::ctype ct;
-  typedef typename GridType::LeafGridView LeafGridView;
-  typedef typename LeafGridView::IntersectionIterator IntersectionIterator;
-  typedef typename LeafGridView::template Codim< 0 >::Entity Entity;
-  typedef typename IntersectionIterator :: Intersection Intersection;
+void Integrate (GridType & grid) {
+	// Define standard grid properties
+	const int cdim =  GridType::dimension;
+	typedef typename GridType::ctype ct;
+	typedef typename GridType::LeafGridView LeafGridView;
+	typedef typename LeafGridView::template Codim<1>::Geometry FaceGeometry;
+	typedef Dune::FieldVector<ct, cdim>      GlobalCoordinate;
 
+	// Define Functor and Integrator
+	typedef NormalFunctor<GridType, DIM2D>             Integrand2DVector;
+	typedef Dune::QuadratureIntegrator<ct, DIM2D>  Integrator2DVector;
+	typedef typename Integrator2DVector::template Traits<Integrand2DVector>::StatInfo  StatInfo;
 
+	// Define Integrator parameters
+	double RELATIVE_TOLERANCE = 1.0e-5;
+	double ACCURACY_GOAL = 1.0e-15;
+	const int NORM_TYPE = Dune::QUADRATURE_NORM_L2;
 
+	// Initialize the integral result
+	GlobalCoordinate  normalintegral(0.0);
 
-  // get the instance of the LeafGridView
-  LeafGridView leafView = grid.leafGridView();
-  const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
+	// Iterate over entities, then over intersections (faces) of the grid
+	LeafGridView leafView = grid.leafGridView();
+	const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
 
-  typedef typename LeafGridView::template Codim<0>::Iterator EntityLeafIterator;
-  typedef typename LeafGridView::template Codim<1>::Geometry FaceGeometry;
-
-  typedef NormalFunctor<GridType, 2>             Integrand2DVector;
-  typedef Dune::QuadratureIntegrator<double, 2>  Integrator2DVector;
-  typedef typename Integrator2DVector::template Traits<Integrand2DVector>::StatInfo  StatInfo;
-
-  GlobalCoordinate  normalintegral(0.0);
-  double RELATIVE_TOLERANCE = 1.0e-5;
-  double ACCURACY_GOAL = 1.0e-15;
-  const int NORM_TYPE = Dune::QUADRATURE_NORM_L2;
-
-  // Iterate over entities of this codimension
-  EntityLeafIterator ibegin = leafView.template begin<0>();
-  EntityLeafIterator iend   = leafView.template end<0>();
-
-  for (EntityLeafIterator it = ibegin; it != iend; ++it)
-  {
-	  const Entity &entity = *it;
-
-	  std::cout << "-accessing entity " << indexSet.index(entity) << std::endl;
-
-	  const IntersectionIterator nbegin = leafView.ibegin(entity);
-	  const IntersectionIterator nend = leafView.iend(entity);
-
-	  for( IntersectionIterator nit = nbegin; nit != nend; ++nit )
-	  {
-		  const Intersection &intersection = *nit;
-
-		  if (!intersection.neighbor())
-		  {
+	for (auto&& elementThis : elements(leafView, Dune::Partitions::interiorBorder)) {
+		std::cout << "-accessing element " << indexSet.index(elementThis) << std::endl;
+		for (auto&& intersection : intersections(leafView, elementThis)) {
+			if (!intersection.neighbor())
+			{
 			  Dune::GeometryType gt = intersection.type();
 			  FaceGeometry geometry = intersection.geometry();
 
@@ -105,22 +97,28 @@ void Integrate (GridType& grid)
 
 			  StatInfo thisIntegralN = Integrator2DVector::template integrateRecursive<FaceGeometry, Integrand2DVector, NORM_TYPE>(geometry, n, RELATIVE_TOLERANCE, ACCURACY_GOAL);
 
-			  std::cout << "---- adding normal contribution " << thisIntegralN.second[0] << " from " << gt << ". Needed order " << thisIntegralN.first << std::endl;
+			  std::stringstream logsstr;
+			  logsstr << "---- from entity " << gt;
+			  logsstr << " adding normal integral contribution " <<  thisIntegralN.second[0];
+			  logsstr << ". Needed order " << thisIntegralN.first;
+			  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_PRODUCTION>(__FILE__, __LINE__, logsstr.str());
 
 			  normalintegral += thisIntegralN.second[0];
-		  }
-	  }
-  }
+			}
+		}
+	}
 
-  // The actual integral is the sum over all processors
-  // Unfortunately, DynamicVector can not be directly communicated since it is dynamic
-  GlobalCoordinate rez = grid.comm().sum(normalintegral);
-  if (grid.comm().rank() == 0)  { std::cout << "Normal integral amounted to " << rez << std::endl; }
+
+	// The actual integral is the sum over all processors
+	// Unfortunately, DynamicVector can not be directly communicated since it is dynamic
+	GlobalCoordinate rez = grid.comm().sum(normalintegral);
+	if (grid.comm().rank() == 0)  { std::cout << "Normal integral amounted to " << rez << std::endl; }
 }
 
 
 
 int main (int argc , char **argv) {
+	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
 
 	// Define curvilinear grid
@@ -131,10 +129,17 @@ int main (int argc , char **argv) {
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
 	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
 
-	// Traverse all entities of the grid and write information about each entity
-	Integrate(*grid);
+	// Allow parallel output over all processes for the remainder of the program
+	Dune::LoggingMessage::setPVerbose(true);
 
-	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+	// Traverse all entities of the grid and write information about each entity
+	LoggingTimerDev::time("Integrating normal integral");
+	Integrate(*grid);
+	LoggingTimerDev::time("Integrating normal integral");
+
+	// Use barrier to clean up the output a little bit. Note that this slows down the program
+	grid->comm().barrier();
+
 	LoggingTimerDev::reportParallel();
 
     // Delete the grid

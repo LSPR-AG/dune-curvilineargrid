@@ -19,7 +19,10 @@
 
 
 const bool isCached = true;
-typedef Dune::FieldVector<double, 3>  GlobalCoordinate;
+const int DIM0D = 0;   const int CODIM0D = 3;
+const int DIM1D = 1;   const int CODIM1D = 2;
+const int DIM2D = 2;   const int CODIM2D = 1;
+const int DIM3D = 3;   const int CODIM3D = 0;
 
 
 // This Functor creates a field of a single charge at the origin of global coordinates
@@ -29,7 +32,11 @@ typedef Dune::FieldVector<double, 3>  GlobalCoordinate;
 template<class Grid, int mydim>
 struct GaussFunctor
 {
-	typedef Dune::FieldVector<double, mydim>       LocalCoordinate;
+	static const int cdim =  Grid::dimension;
+	typedef typename Grid::ctype ct;
+
+	typedef Dune::FieldVector<ct, cdim>      GlobalCoordinate;
+	typedef Dune::FieldVector<ct, mydim>  LocalCoordinate;
 
     static const unsigned int RETURN_SIZE = 1;
     typedef double                    ResultValue;
@@ -38,16 +45,17 @@ struct GaussFunctor
 	typedef typename Grid::Traits::LeafIntersection               Intersection;
 
 	const Intersection & I_;
+	const GlobalCoordinate & x0_;
 
 	// Instantiate with Intersection of interest.
-    GaussFunctor(const Intersection & I) : I_(I)  { }
+    GaussFunctor(const Intersection & I, const GlobalCoordinate & x0) : I_(I), x0_(x0)  { }
 
     // Calculates EM field vector of a single charge assuming the charge is at the origin of global coordinates
     // Also assuming dielectric permittivity epsilon = 1
-    static GlobalCoordinate ChargeField(const GlobalCoordinate & x)
+    GlobalCoordinate ChargeField(const GlobalCoordinate & x) const
     {
-    	GlobalCoordinate rez = x;
-    	rez /= pow(x.two_norm2(), 1.5);
+    	GlobalCoordinate rez = x - x0_;
+    	rez /= pow(rez.two_norm2(), 1.5);
     	return rez;
     }
 
@@ -73,69 +81,52 @@ struct GaussFunctor
 // Then over all intersections
 // Then for each intersection that is a boundary segment it integrates the Surface projection of EM field of a single charge
 // The output of this function should be 4pi for whatever closed geometry that includes the origin
-template<class GridType>
-void Integrate (GridType& grid)
+template<class GridType, class GlobalCoordinate>
+void Integrate (GridType& grid, const GlobalCoordinate & x0)
 {
-  const int dim =  GridType::dimension;
-  typedef typename GridType::ctype ct;
-  typedef typename GridType::LeafGridView LeafGridView;
-  typedef typename LeafGridView::IntersectionIterator IntersectionIterator;
-  typedef typename LeafGridView::template Codim< 0 >::Entity Entity;
-  typedef typename IntersectionIterator :: Intersection Intersection;
+	// Define standard grid properties
+	const int dim =  GridType::dimension;
+	typedef typename GridType::ctype ct;
+	typedef typename GridType::LeafGridView LeafGridView;
+	typedef typename LeafGridView::template Codim<CODIM2D>::Geometry FaceGeometry;
+
+	// Define Integrator and Functor
+	typedef GaussFunctor<GridType, DIM2D>              Integrand2D;
+	typedef Dune::QuadratureIntegrator<ct, DIM2D>  Integrator2DScalar;
+	typedef typename Integrator2DScalar::template Traits<Integrand2D>::StatInfo  StatInfo;
+
+	// Choose integrator parameters
+	double RELATIVE_TOLERANCE = 1.0e-5;
+	double ACCURACY_GOAL = 1.0e-15;
+	const int NORM_TYPE = Dune::QUADRATURE_NORM_L2;
+
+	// Initialize the integral variable
+	double gaussintegral = 0.0;
 
 
-
-
-  // get the instance of the LeafGridView
-  LeafGridView leafView = grid.leafGridView();
-  const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
-
-  typedef typename LeafGridView::template Codim<0>::Iterator EntityLeafIterator;
-  typedef typename LeafGridView::template Codim<1>::Geometry FaceGeometry;
-
-
-  typedef GaussFunctor<GridType, 2>              Integrand2D;
-  typedef Dune::QuadratureIntegrator<double, 2>  Integrator2DScalar;
-  typedef typename Integrator2DScalar::template Traits<Integrand2D>::StatInfo  StatInfo;
-
-
-  double gaussintegral = 0.0;
-  double RELATIVE_TOLERANCE = 1.0e-5;
-  double ACCURACY_GOAL = 1.0e-15;
-  const int NORM_TYPE = Dune::QUADRATURE_NORM_L2;
-
-  // Iterate over entities of this codimension
-  EntityLeafIterator ibegin = leafView.template begin<0>();
-  EntityLeafIterator iend   = leafView.template end<0>();
-
-  for (EntityLeafIterator it = ibegin; it != iend; ++it)
-  {
-	  const Entity &entity = *it;
-
-	  std::cout << "-accessing entity " << indexSet.index(entity) << std::endl;
-
-	  const IntersectionIterator nbegin = leafView.ibegin(entity);
-	  const IntersectionIterator nend = leafView.iend(entity);
-
-	  for( IntersectionIterator nit = nbegin; nit != nend; ++nit )
-	  {
-		  const Intersection &intersection = *nit;
-		  FaceGeometry geometry = intersection.geometry();
-
-
-		  if (!intersection.neighbor())
-		  {
+	// Iterate over entities of the grid, then over intersections (faces) of each entity
+	LeafGridView leafView = grid.leafGridView();
+	for (auto&& elementThis : elements(leafView, Dune::Partitions::interiorBorder)) {
+		for (auto&& intersection : intersections(leafView, elementThis)) {
+			// Check if intersection is a domain boundary segment - has no neighbor element
+			if (!intersection.neighbor()) {
+			  FaceGeometry geometry = intersection.geometry();
 			  Dune::GeometryType gt = intersection.type();
 
-			  Integrand2D g(intersection);
+			  Integrand2D gaussf(intersection, x0);
 
-			  StatInfo thisIntegralG = Integrator2DScalar::template integrateRecursive<FaceGeometry, Integrand2D, NORM_TYPE>(geometry, g, RELATIVE_TOLERANCE, ACCURACY_GOAL);
-			  std::cout << "---- adding gauss contribution from " << gt << "  " << thisIntegralG.second[0] << ". Needed order " << thisIntegralG.first << std::endl;
+			  StatInfo thisIntegralG = Integrator2DScalar::template integrateRecursive<FaceGeometry, Integrand2D, NORM_TYPE>(geometry, gaussf, RELATIVE_TOLERANCE, ACCURACY_GOAL);
+
+			  std::stringstream logsstr;
+			  logsstr << "---- from entity " << gt;
+			  logsstr << " adding Gauss integral contribution " << thisIntegralG.second[0];
+			  logsstr << ". Needed order " << thisIntegralG.first;
+			  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_PRODUCTION>(__FILE__, __LINE__, logsstr.str());
 
 			  gaussintegral += thisIntegralG.second[0];
-		  }
-	  }
-  }
+			}
+		}
+	}
 
   // The actual integral is the sum over all processors
   double rez = grid.comm().sum(gaussintegral);
@@ -146,6 +137,7 @@ void Integrate (GridType& grid)
 
 
 int main (int argc , char **argv) {
+	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
 
 	// Define curvilinear grid
@@ -158,10 +150,17 @@ int main (int argc , char **argv) {
 	// Create Grid
 	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
 
-	// Perform the integration
-	Integrate(*grid);
+	// Allow parallel output over all processes for the remainder of the program
+	Dune::LoggingMessage::setPVerbose(true);
 
-	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+	// Place a charge slightly off of the origin, to make the field on the spherical boundary asymmetric
+	Dune::FieldVector<ctype, dim> x0;  x0[0] = 0.2;
+
+	// Perform the integration
+	LoggingTimerDev::time("Integrating Gauss integral");
+	Integrate(*grid, x0);
+	LoggingTimerDev::time("Integrating Gauss integral");
+
 	LoggingTimerDev::reportParallel();
 
     // Delete the grid

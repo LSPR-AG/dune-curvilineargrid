@@ -36,9 +36,8 @@ GridType * createGrid(Dune::MPIHelper & mpihelper, int exampleFile)
     bool withGmshElementIndex = true;      // to re-use Global Element Index provided by GMSH (recommended)
 
     // Initialize LoggingMessage and LoggingTimer
-    typedef Dune::LoggingTimer<Dune::LoggingMessage> LoggingTimer;
     Dune::LoggingMessage::init(mpihelper);
-    LoggingTimer::init(mpihelper);
+    Dune::LoggingTimer<Dune::LoggingMessage>::init(mpihelper);
 
     // Construct the grid factory
     Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, withGmshElementIndex, mpihelper);

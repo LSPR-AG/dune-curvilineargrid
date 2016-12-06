@@ -1,0 +1,49 @@
+\subsection{Further work}
+\label{sec:conclusion:futurework}
+
+\noindent
+In this section we discuss the further work to be undertaken in the development of \curvgrid{}. \cref{table:conclusion:todolist} presents a list of directions for further work in terms of functionality, performance and scalability. In addition, it is fully intended to implement an automatic \curvgrid{} testing procedure. The essential part of automatic testing is the integration of the standard \dunegrid{} testing procedures, applicable to all grids that adhere to the facade class interface. From one side, \curvgrid{} extends the standard \dunegrid{} interface, and it is not yet decided if it is best to extend the standard interface to include the additional curvilinear functionality, or if it is preferable to perform the additional curvilinear-only tests in a separate routine. From the other side, several tests for the current standard interface (for example, global-to-local mapping) are hard-wired to linear geometries and do not foresee the difference in expected behaviour of such tests between linear and curvilinear grids. The integration of curvilinear standard functionality is an ongoing discussion within the \dune{} community. \\
+
+\noindent
+We would also like to elaborate on the improvement of scalability of \curvgrid{} assembly. Currently, the assembly of grid connectivity requires an all-to-all communication step to determine the neighboring processes for each shared vertex. An optimal algorithm to determine process neighbors should make use of the following observations:
+\begin{itemize}
+ \item Most interprocessor boundary vertices are shared by two processes only, all other cases are progressively more rare
+ \item If an interprocessor boundary vertex is shared between two processes, the surrounding vertices are likely to be shared by the same processes
+\end{itemize}
+
+\noindent
+Another convention responsible for the scalability of the construction process, albeit not as much as the all-to-all communication, is the shared entity ownership. Currently the shared entities are owned by the lowest rank containing them. This results in progressively higher workload of global index enumeration for lower rank processes. This paradigm can and should be replaced by a more balanced one. Another desired property is avoiding parallel communication in entity ownership determination. Thus, the ownership must be uniquely determined from the sharing process ranks and the shared entity corner global indices, and must result in the same ordering on all processes. An example of such convention is a $XOR$ operation between the entity corner global indices and the containing process ranks. This quantity is the same over all processes computing it, and is more or less random, resulting in a much better workload distribution than the lower rank convention. That said, the global index enumeration part is a $O(n)$ algorithm, and thus is one of the faster parts of the constructor even without optimization.
+
+\begin{flushleft}
+\begin{table}
+\begin{tabularx}{\textwidth}{@{}| l X |@{}}
+\hline
+Functionality & 1D and 2D curvilinear simplex grids \\
+Functionality & Arbitrary polynomial order curvilinear simplex meshes. Requires a generalized mapper from \gmsh{} to \textit{Sorted Cartesian} node indexing. \\
+Functionality & Non-uniform polynomial order curvilinear meshes \\
+Functionality & Additional geometry types (e.g. hexahedral, prismatic) \\
+Functionality & Non-conformal curvilinear meshes (with hanging nodes) \\
+Functionality & Global and local refinement of curvilinear grids, including adaptive refinement \\
+Functionality & Mixed element grids \\
+Functionality & Usage of \gmsh{} partition tags to read pre-partitioned meshes \\
+Functionality & Multi-constraint grid partition, for example, for simultaneous element and boundary segment load balancing \\
+Functionality & Dynamic load balancing \\
+Functionality & Front/Overlap partition types \\
+Functionality & Identification and management of periodic boundaries directly from boundary tags \\
+Performance & Symbolic polynomial vector and matrix classes that share pre-computed monomials \\
+Performance & Adaptive quadrature (e.g. \textit{Clenshaw-Curtis}), sparse grids \cite{petras2000} \\
+Performance & Efficient location of the curvilinear element containing a given global coordinate (for example, via Octant Tree) \\
+Performance & \textit{BoundaryContainer} interior surface outer normal computation instead of communicating it  \\
+Scalability & Complete switch of \curvgrid{} to neighbour MPI communication \\
+Scalability & Improved load balance of shared entity ownership during grid construction \\
+Scalability & \textit{ParallelDataWriter} scalability improvement using the \textit{MPI-3} parallel file output  \\
+Scalability & \textit{BoundaryContainer} boundary surface communication using blocks that fit process memory \\
+\hline
+\end{tabularx}
+\caption{To do - list of \curvgrid{}}
+\label{table:conclusion:todolist}
+\end{table}
+\end{flushleft}
+
+
+

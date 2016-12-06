@@ -1,7 +1,9 @@
-\section{Duffy Transform}
+\subsection{Duffy Transform}
 \label{section-abstract-duffy-transform}
 
-The Duffy transform is is a bijective map between the local coordinate of a hypercube and another entity, in our case, the reference simplex. Further, one can use the Duffy transform to directly apply the hypercubic integration routines (e.g. tensor product quadrature rules) to simplex domains. Effectively, Duffy transform claims that $ \int_{\triangle} f(\vec{x}) d\vec{x} = \int_{\Box} g(\vec{\tau}) f(\vec{x}(\vec{\tau})) d\vec{\tau}$, giving explicit expressions for $g(\vec{\tau})$ and $\vec{x}(\vec{\tau})$. \\
+The \textit{Duffy} transform is is a bijective map between the local coordinate of a hypercube and another entity, in our case, the reference simplex. Further, one can use the \textit{Duffy} transform to directly apply the hypercubic integration routines (e.g. tensor product quadrature rules) to simplex domains. Effectively, the \textit{Duffy} transform claims that
+\[\int_{\triangle} f(\vec{x}) d\vec{x} = \int_{\Box} g(\vec{\tau}) f(\vec{x}(\vec{\tau})) d\vec{\tau},\]
+giving explicit expressions for $g(\vec{\tau})$ and $\vec{x}(\vec{\tau})$. \\
 
 \noindent
 We consider simplices of all dimensions up to 3: \\
@@ -22,7 +24,7 @@ dx dt \]
 using a substitution $t = y / (1 - x)$, such that $t \in [0, 1]$. \\
 
 \noindent
-\textbf{3D}: Here we map from reference tetrahedron to reference cube. We transform the integral of interest, namely
+\textbf{3D}: Here we map from the reference tetrahedron to the reference cube. We transform the integral of interest, namely
 
 \[ \int_0^1 \int_0^{1-x} \int_0^{1-x-y} f \scalebox{1.2}{\Bigg(}
 \begin{matrix}  x \\ y \\ z  \end{matrix} \scalebox{1.2}{\Bigg)}

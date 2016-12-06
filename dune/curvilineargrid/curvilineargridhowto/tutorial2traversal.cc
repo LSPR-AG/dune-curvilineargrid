@@ -14,7 +14,10 @@
 
 
 const bool isCached = true;
-
+const int DIM0D = 0;   const int CODIM0D = 3;
+const int DIM1D = 1;   const int CODIM1D = 2;
+const int DIM2D = 2;   const int CODIM2D = 1;
+const int DIM3D = 3;   const int CODIM3D = 0;
 
 // example for a generic algorithm that traverses
 // the entities of a given mesh in various ways
@@ -80,17 +83,17 @@ int main (int argc , char **argv) {
 	// Define curvilinear grid
 	const int dimension = 3;
 	typedef  double    ctype;
-	const int grid_file_type = 1;  // createGrid procedure provides 6 different example grids numbered 0 to 5
-
-    // Create Grid
 	typedef Dune::CurvilinearGrid<ctype, dimension, isCached> GridType;
+
+	// Create Grid
+	const int grid_file_type = 1;  // createGrid procedure provides 8 different example grids numbered 0 to 7
 	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
 
 	// Traverse all entities of the grid and write information about each entity
-	traversal<0, GridType>(*grid);  // Elements
-	traversal<1, GridType>(*grid);  // Faces
-	traversal<2, GridType>(*grid);  // Edges
-	traversal<3, GridType>(*grid);  // Corners
+	traversal<CODIM3D, GridType>(*grid);  // Elements
+	traversal<CODIM2D, GridType>(*grid);  // Faces
+	traversal<CODIM1D, GridType>(*grid);  // Edges
+	traversal<CODIM0D, GridType>(*grid);  // Corners
 
 	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
 	LoggingTimerDev::reportParallel();

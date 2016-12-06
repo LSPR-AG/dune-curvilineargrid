@@ -18,6 +18,8 @@
 
 #include <dune/grid/common/mcmgmapper.hh>
 
+
+#include <dune/curvilineargrid/common/realtimelog.hh>
 #include <dune/curvilineargrid/curvilineargrid/grid.hh>
 #include <dune/curvilineargrid/curvilineargrid/factory.hh>
 #include <dune/curvilineargrid/io/file/curvilineargmshreader.hh>
@@ -45,6 +47,7 @@ int main(int argc, char** argv)
     typedef Dune::LoggingTimer<Dune::LoggingMessage>  LoggingTimer;
     LoggingMessage::init(mpihelper);
     LoggingTimer::init(mpihelper);
+    CurvGridRealTimeLog::init(mpihelper, "memlog", 1, 5);
 
     /******************************************************/
     /** Define GridType and associated factory class      */
@@ -90,6 +93,8 @@ int main(int argc, char** argv)
     /******************************************************/
     /* Report timing information                          */
     /******************************************************/
+    CurvGridRealTimeLog::stop();
+
     LoggingTimer::reportParallel();
 
 

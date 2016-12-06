@@ -155,7 +155,7 @@ int main (int argc , char **argv) {
 	typedef  double    ctype;
 
 	// NOTE: This test only makes sense for geometries with several interior boundaries
-	const int grid_file_type = 7;  // createGrid procedure provides 6 different example grids numbered 0 to 7
+	const int grid_file_type = 7;  // createGrid procedure provides 8 different example grids numbered 0 to 7
 
 	static const int INNER_VOLUME_TAG = 501;
 	static const int OUTER_VOLUME_TAG = 503;

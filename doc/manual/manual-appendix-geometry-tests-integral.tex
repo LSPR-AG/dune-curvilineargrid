@@ -1,0 +1,113 @@
+\subsection{Curvilinear Geometry Integral Tests}
+\label{appendix-geometry-tests-integral}
+This section presents explicit polynomial maps, integrands and exact results for integrals used in \curvgeom{} testing procedures (see \cref{sec:tests:curvgeom})
+
+
+\begin{table} [H]
+\centering
+\begin{tabular}{| l | l | l | l | l |}
+\hline
+Ref. Element & Function       	& Analytic result   & Convergence order & Time to solution (ms) \\ \hline
+1D Simplex & $1.0$               	& 1                 & 4                 & 0.06 \\ \hline
+1D Simplex & $x$                  	& 0.5               & 4                 & 0.06 \\ \hline
+1D Simplex & $x^3 - 3x + 3$	& 1.75              & 6                 & 0.07 \\ \hline
+1D Simplex & $\sqrt{x}$		& 0.666666667       & 28                & 0.07 \\ \hline
+
+2D Simplex & $1$	                			& 0.5               & 3                 & 0.06 \\ \hline
+2D Simplex & $1 + x$                  			& 0.666666667       & 3                 & 0.07 \\ \hline
+2D Simplex & $1 + x^2 + y^2$        	  	& 0.666666667       & 4                 & 0.07 \\ \hline
+2D Simplex & $xyy$              			& 0.016666667       & 5                 & 0.08 \\ \hline
+2D Simplex & $\sqrt{xy}$              			& 0.130899694       & 30                & 0.29 \\ \hline
+2D Simplex & $2000 x^3 y^3$   	   	& 1.785714286       & 9                 & 0.07 \\ \hline
+2D Simplex & $3628800 x^7 y^{10}$		& 0.545584447       & 18                & 0.19 \\ \hline
+2D Simplex & $\sqrt{x^7 y^{10} + 0.5}$	& 0.353554             & 3                 & 0.07 \\ \hline
+
+3D Simplex & $1$                    			& 1/6               		& 3                 & 0.07 \\ \hline
+3D Simplex & $\sqrt{xyz}$            			& 0.013297747       & 39                & 10.3 \\ \hline
+3D Simplex & $\sqrt{x^2 + y^2 + z^2}$	& 0.0877136        	& 13                & 0.36 \\ \hline
+\end{tabular}
+\caption{Performance of recursive integration routine with relative accuracy $\epsilon = 10^{-5}$}
+\label{appendix:tests:quadintegrator:performance}
+\end{table}
+
+
+\begin{table} [H]
+\centering
+\begin{tabular}{ | l | l | l |}
+  \hline
+  Ord & Dim & Scalar Basis Function \\ \hline
+  0 & 1 & $1$ \\ \hline
+  1 & 1 & $1 + 2x$ \\ \hline
+  2 & 1 & $1 + 2x + 3x^2$ \\ \hline
+  3 & 1 & $1 + 2x + 3x^2 + 4x^3$ \\ \hline
+  4 & 1 & $1 + 2x + 3x^2 + 4x^3 + 5x^4$ \\ \hline
+  5 & 1 & $1 + 2x + 3x^2 + 4x^3 + 5x^4 + 6x^5$ \\ \hline
+%%  
+  0 & 2 & $1$ \\ \hline
+  1 & 2 & $1 + 2(x + y)$ \\ \hline
+  2 & 2 & $1 + 2(x + y) + 3(x^2 + y^2) + xy$ \\ \hline
+  3 & 2 & $1 + 2(x + y) + 3(x^2 + y^2) + xy + 4(x^3 + y^3) + xy^2$ \\ \hline
+  4 & 2 & $\begin{array}{lcl} 1 & + & 2(x + y) + 3(x^2 + y^2) + xy + 4(x^3 + y^3) + xy^2 \\ & + & 5(x^4 + y^4) + xy^3 \end{array}$ \\ \hline
+  5 & 2 & $\begin{array}{lcl} 1 & + & 2(x + y) + 3(x^2 + y^2) + xy + 4(x^3 + y^3) + xy^2 \\ & + & 5(x^4 + y^4) + xy^3 + 6(x^5 + y^5) + xy^4 \end{array}$ \\ \hline
+%%  
+  0 & 3 & $1$ \\ \hline
+  1 & 3 & $1 + 2(x + y + z)$ \\ \hline
+  2 & 3 & $1 + 2(x + y + z) + 3(x^2 + y^2 + z^2) + xy$ \\ \hline
+  3 & 3 & $1 + 2(x + y + z) + 3(x^2 + y^2 + z^2) + xy + 4(x^3 + y^3 + z^3) + xyz$ \\ \hline
+  4 & 3 & $\begin{array}{lcl} 1 & + & 2(x + y + z) + 3(x^2 + y^2 + z^2) + xy + 4(x^3 + y^3 + z^3) + xyz \\ & + & 5(x^4 + y^4 + z^4) + xyz^2 \end{array}$ \\ \hline
+  5 & 3 & $\begin{array}{lcl} 1 & + & 2(x + y + z) + 3(x^2 + y^2 + z^2) + xy + 4(x^3 + y^3 + z^3) + xyz \\ & + & 5(x^4 + y^4 + z^4) + xyz^2 + 6(x^5 + y^5 + z^5) + xyz^3 \end{array}$ \\ \hline
+\end{tabular}
+%\vfill
+\caption{Scalar basis functions used in \curvgeom{} test. There is one function for each polynomial order and each geometry dimension}
+\label{appendix:tests:curvgeom:integrand}
+\end{table}
+
+\begin{landscape}
+
+\begin{table} [H]
+\centering
+\begin{tabular}{ | l | l | l | l | l | l | l | l | l |}
+  \hline
+  $d_e$ & Map & $\mu(\vec{r})$ & $I_0$ & $I_1$ & $I_2$ & $I_3$ & $I_4$ & $I_5$ \\ \hline
+  1 & $(x)$                & $1$ & $1.0$ & $2.0$ & $3.0$ & $4.0$ & $5.0$ & $6.0$ \\ \hline
+  1 & $(x,0)$              & $1$ & $1.0$ & $2.0$ & $3.0$ & $4.0$ & $5.0$ & $6.0$ \\ \hline
+  1 & $(x,0,0)$            & $1$ & $1.0$ & $2.0$ & $3.0$ & $4.0$ & $5.0$ & $6.0$ \\ \hline
+  1 & $(1+2x)$             & $2$ & $2.0$ & $4.0$ & $6.0$ & $8.0$ & $10.0$ & $12.0$ \\ \hline
+  1 & $(2x,3x)$            & $\sqrt{13}$ & $\sqrt{13}$ & $2\sqrt{13}$ & $3\sqrt{13}$ & $4\sqrt{13}$ & $5\sqrt{13}$ & $6\sqrt{13}$ \\ \hline
+  1 & $(2x,0.5+3x,5x)$     & $\sqrt{38}$ & $1\sqrt{38}$ & $2\sqrt{38}$ & $3\sqrt{38}$ & $4\sqrt{38}$ & $5\sqrt{38}$ & $6\sqrt{38}$ \\ \hline
+  1 & $(x^2)$              & $2x$ & $1.0$ & $7/3$ & $23/6$ & $163/30$ & $71/10$ & $617/70$ \\ \hline
+  1 & $(x,x^2)$            & $\sqrt{1 + 4x^2}$ & $1.47894286$ & $3.175666172$ & $4.994678155$ & $6.89140143$ & $8.84167808$ & $10.83102449$ \\ \hline
+  1 & $(x,x^2,2)$          & $\sqrt{1 + 4x^2}$ & $1.47894286$ & $3.175666172$ & $4.994678155$ & $6.89140143$ & $8.84167808$ & $10.83102449$ \\ \hline
+  2 & $(x,y)$              & $1$ & $1/2$ & $7/6$ & $41/24$ & $17/8$ & $37/15$ & $2.75714$ \\ \hline
+  2 & $(x,y,0)$            & $1$ & $1/2$ & $7/6$ & $41/24$ & $17/8$ & $37/15$ & $2.75714$ \\ \hline
+  2 & $(1+x,x+y)$          & $1$ & $1/2$ & $7/6$ & $41/24$ & $17/8$ & $37/15$ & $2.75714$ \\ \hline
+  2 & $(y,3x,x+y)$         & $\sqrt{19}$ & $\sqrt{19}/2$ & $7\sqrt{19}/6$ & $41\sqrt{19}/24$ & $17\sqrt{19}/8$ & $37\sqrt{19}/15$ & $2.75714 \sqrt{19}$ \\ \hline
+  2 & $(x^2,y^2)$          & $4xy$ & $1/6$ & $13/30$ & $59/90$ & $103/126$ & $0.94127$ & $1.03915$ \\ \hline
+  2 & $(x^2,y^2,xy)$       & $2\sqrt{x^4+y^4+4x^2 y^2}$ & $0.360858$ & $0.938231$ & $1.47326$ & $1.93004$ & $2.33506$ & $2.70079$ \\ \hline
+  3 & $(x,y,z)$            & $1$ & $1.0/6$ & $5.0/12$ & $23.0/40$ & $0.676389$ & $0.748214$ & $0.801935$ \\ \hline
+  3 & $(x+y,y+z,x+z)$      & $2$ & $1.0/3$ & $5.0/6$ & $23.0/20$ & $2\cdot 0.676389$ & $2\cdot 0.748214$ & $2\cdot 0.801935$ \\ \hline
+  3 & $(x^2,y^2,z^2)$      & $8xyz$ & $1.0/90$ & $0.0301587$ & $0.0416667$ & $0.0481922$ & $0.0522134$ & $0.05483$ \\ \hline
+\end{tabular} %\vfill
+\caption{Curvilinear mappings used in \curvgeom{} test, their integration elements, and integral values for integrals $I_{Ord}$ from  \cref{appendix:tests:curvgeom:integrand}. Integrals are indexed by the associated polynomial order $Ord$, and dimension chosen to correspond to the dimension of the mapping.}
+\label{appendix:tests:curvgeom:mappings}
+\end{table}
+
+\end{landscape}
+
+
+\begin{table}
+\centering
+\begin{tabular}{ | l | l | l | l | l | l | }
+  \hline
+  mydim & cdim & map               & Normal                  & Integrand                  & Result     \\ \hline
+  1     & 2    & $(x,0)$           & $(0,-1)$                & $-x$                       & $-1/2$     \\ \hline
+  1     & 2    & $(2x,3x)$         & $(3,-2)$                & $x$                        & $1/2$      \\ \hline
+  1     & 2    & $(x,x^2)$         & $(2x,-1)$               & $2x^2-x$                   & $1/6$      \\ \hline
+  2     & 3    & $(x,y,0)$         & $(0,0,-1)$              & $-xy$                      & $-1/24$    \\ \hline
+  2     & 3    & $(y,3x,x+y)$      & $(-3,-1,3)$             & $-3x-y+3xy$                & $-13/24$   \\ \hline
+  2     & 3    & $(y^2,x^2,xy)$    & $(-2y^2,-2x^2,4xy)$     & $-2x^3-2y^3+4x^2y^2$      & $-17/180$   \\ \hline
+\end{tabular}
+%\\
+\caption{Table 3. DotProduct Integrals of Vector basis functions over curved boundaries}
+\label{appendix:tests:curvgeom:dotproductintegral}
+\end{table}

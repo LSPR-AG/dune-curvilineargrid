@@ -1,10 +1,10 @@
 \subsection{AllCommunicate}
 \label{interface-allcommunicate}
 
-This section will discuss the templated MPI communication and the nearest neighbor communication. \\
+This section will discuss the templated the interface of our wrappers for MPI all-to-all communication and the nearest neighbor communication. \\
 
 \noindent
-A wrapper for $MPI\_Alltoallv$ communication, allowing arrays of arbitrary type $T$, as long as its size is fixed and can be determined at compile-time (Plain Old Datatype, POD). Non scalable - do not use on very large architectures. Works optimal if each process has non-zero communication to each other. User needs to provide input and output arrays, to which the data to be communicated to all other processes is concatenated, as well as integer arrays denoting how many entries will be sent to and received from each process. Note that out and lengthOut need not be known a priori, but need to have sufficient memory reserved for the output to be written.
+A wrapper for $MPI\_Alltoallv$ method allows arrays of arbitrary type $T$, as long as its size is fixed and can be determined at compile-time (Plain Old Datatype, POD). This communication protocol is not scalable for very large architectures, since the number of communications performed by each process grows linearly with the process count. Its optimal use case is completely dense communication - every two processes exchange some information. The user needs to provide the input and output arrays, as well as the integer arrays denoting how many entries will be sent to and received from each process. Note that $out$ and $lengthOut$ need not be known \textit{a priori}, but need to have sufficient memory reserved for the output to be written.
 \begin{mybox}
 \begin{lstlisting}
   template <typename T>
@@ -12,15 +12,16 @@ A wrapper for $MPI\_Alltoallv$ communication, allowing arrays of arbitrary type 
 \end{lstlisting}
 \end{mybox}
 \noindent
-A more comfortable interface for the above communication uses vectors. The meaning of the arguments is the same, however, memory is automatically reserved for the output vectors, so there is no need to know the required memory a priori.
+A more comfortable interface for the above communication uses STL vectors. The meaning of the arguments is the same, however, the memory is automatically reserved for the output vectors, so there is no need to compute the required memory \textit{a priori}.
 \begin{mybox}
 \begin{lstlisting}
   template <typename T>
   void communicate(const std::vector<T> & in, const std::vector<int> & lengthIn, std::vector<T> & out, std::vector<int> & lengthOut)
 \end{lstlisting}
 \end{mybox}
+
 \noindent
-The problem with all-to-all communication is that the price per process grows with process number, which is unaffordable for high processor architectures. In order to avoid this bottleneck a scalable all-to-all communication pattern is used, where each process only communicates with its neighbours, the number of which does not grow with architecture size. In the below protocol, $in$ and $out$ concatenate all the data sent to and received from neighbour processes only. $nNeighborIn$ and $nNeighborOut$ specify the number of send-to-neighbors and receive-from-neighbors. $ranksIn$ and $ranksOut$ specify the ranks of all neighbour processes. Same as in the first protocol, all output variables need not be known a priori, but must have sufficient memory reserved.
+It is frequently the case that several processes need to communicate to several others, but most of the processes do not communicate to each other. Typically in finite difference or finite element implementations, each node communicates with the neighboring nodes only, and the communication per process stays constant with increasing process count. In this scenario, it is impractical to use all-to-all communication, and implementation of pairwise communication may be tedious. Starting from MPI-2 \cite{MPI-3.1}, the standard includes the nearest neighbor communication paradigm \textit{MPI\_Neighbor\_alltoallv}, designed especially for this purpose. We provide wrappers for this function.   In the floolwing protocol, $in$ and $out$ concatenate all the data sent to and received from neighbour processes only. $nNeighborIn$ and $nNeighborOut$ specify the number of send-to-neighbors and receive-from-neighbors. $ranksIn$ and $ranksOut$ specify the ranks of all neighbour processes. Same as in the first protocol, all output variables need not be known \textit{a priori}, but must have sufficient memory reserved.
 \begin{mybox}
 \begin{lstlisting}
   template <typename T>
@@ -28,7 +29,7 @@ The problem with all-to-all communication is that the price per process grows wi
 \end{lstlisting}
 \end{mybox}
 \noindent
-And a vector version of the above, which automatically reserves memory for output vectors
+We also present an STL vector version of the above, which automatically reserves memory for output vectors
 \begin{mybox}
 \begin{lstlisting}
   template <typename T>

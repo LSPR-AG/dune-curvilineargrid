@@ -105,7 +105,7 @@ The $GeometryType$ and $LocalIndex$ are standard in \dune{}. $GlobalIndex$ provi
 
 
 
-\subsection{Tutorial 3 - Visualisation}
+\subsection{Tutorial 3 - Visualization}
 \label{usage-howto-tutorial-visualisation}
 
 This tutorial demonstrates a simple way to output the curvilinear grid and associated vector fields (e.g. solutions of your PDE) to a PVTU file set using the \textit{CurvilinearVTKGridWriter} class. The writer is able to output arbitrary number of user-defined fields. The fields can be scalar or vector, and can be associated either with elements or with boundary faces. The sampled fields must overload the \textit{Dune::VTKScalarFunction} or \textit{Dune::VTKVectorFunction} standard provided by \curvgrid{}, and thus adhere to the following interface: \\
@@ -319,7 +319,7 @@ In order to iterate over the \textit{BoundaryContainer}, we implement the accomp
 \end{mybox}
 
 \noindent
-The boundary iterator re-implements most of the functionality of the standard Dune iterator, such as \textit{geomertry()}, \textit{unitOuterNormal()}, \textit{indexInInside()}, \textit{geometryInInside()}, as well as some additional functionality compactified into the same iterator to save on communication complexity, such as 
+The boundary iterator re-implements most of the functionality of the standard Dune iterator, such as \textit{geometry()}, \textit{unitOuterNormal()}, \textit{indexInInside()}, \textit{geometryInInside()}, as well as some additional functionality compactified into the same iterator to save on communication complexity, such as 
 
 \begin{mybox}
 \begin{lstlisting}

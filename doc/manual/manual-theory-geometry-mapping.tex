@@ -32,10 +32,10 @@ While this problem is always uniquely solvable in linear case, in the curvilinea
 \end{itemize}
 
 \noindent
-For obvious reasons we will not solve the problem directly, as searching for the roots of a system of polynomial equations in 2D and 3D is well-known to be a challenging task \cite{canny+1989}. Instead, the problem is solved by a first order \textit{Gauss-Newton} method \cite{bjoerck+1996}, extending the implementation from \texttt{dune-multilineargeometry}.
+For obvious reasons we will not solve the problem directly, as searching for the roots of a system of polynomial equations in 2D and 3D is well-known to be a challenging task \cite{canny+1989}. Instead, the problem is solved by a first order \textit{Gauss-Newton} method \cite{bjoerck+1996}, extending the implementation from \texttt{dune-multilineargeometry}. \\
 
 \noindent
-Based on an exchange with the \dune{} user community, we have realised that in order to satisfy all use cases we need to implement two distinct methods
+Based on an exchange with the \dune{} user community, we have realized that in order to satisfy all use cases we need to implement two distinct methods
 \begin{itemize}
   \item Restrictive method, useful to those who want to find the element containing the global coordinate, as well as the local coordinate inside that element. If the provided global coordinate is inside the element, the method will return a success and a valid local coordinate. Otherwise, the method will return a fail and no coordinate at all, meaning that the global coordinate is not inside the element. This method also extends to lower dimension entities, finding the local coordinate within the element (!), which minimizes the distance to the provided global coordinate. Given a well-defined map (non-singular in the vicinity of the element), this method is guaranteed to converge.
   \item Non-restrictive method, useful to those who wish to extrapolate the global-to-local map beyond the reference element. This method searches for the inverse (or the distance minimizer) over the entire local domain. This is a best effort method - due to the above mentioned difficulties, it is expected to fail to converge for some maps and global coordinates. In this case, an exception is thrown.

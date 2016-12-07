@@ -1,8 +1,8 @@
-\subsection{Further work}
-\label{sec:conclusion:futurework}
+% \subsection{Further work}
+% \label{sec:conclusion:futurework}
 
 \noindent
-In this section we discuss the further work to be undertaken in the development of \curvgrid{}. \cref{table:conclusion:todolist} presents a list of directions for further work in terms of functionality, performance and scalability. In addition, it is fully intended to implement an automatic \curvgrid{} testing procedure. The essential part of automatic testing is the integration of the standard \dunegrid{} testing procedures, applicable to all grids that adhere to the facade class interface. From one side, \curvgrid{} extends the standard \dunegrid{} interface, and it is not yet decided if it is best to extend the standard interface to include the additional curvilinear functionality, or if it is preferable to perform the additional curvilinear-only tests in a separate routine. From the other side, several tests for the current standard interface (for example, global-to-local mapping) are hard-wired to linear geometries and do not foresee the difference in expected behaviour of such tests between linear and curvilinear grids. The integration of curvilinear standard functionality is an ongoing discussion within the \dune{} community. \\
+In this section we discuss the further work to be undertaken in the development of \curvgrid{}. \cref{table:conclusion:todolist} presents a list of directions for further work in terms of functionality, performance and scalability. In addition, it is fully intended to implement an automatic \curvgrid{} testing procedure. The essential part of automatic testing is the integration of the standard \dunegrid{} testing procedures, applicable to all grids that adhere to the facade class interface. From one side, \curvgrid{} extends the standard \dunegrid{} interface, and it is not yet decided if it is best to extend the standard interface to include the additional curvilinear functionality, or if it is preferable to perform the additional curvilinear-only tests in a separate routine. From the other side, several tests for the current standard interface (for example, global-to-local mapping) are hard-wired to linear geometries and do not foresee the difference in expected behavior of such tests between linear and curvilinear grids. The integration of curvilinear standard functionality is an ongoing discussion within the \dune{} community. \\
 
 \noindent
 We would also like to elaborate on the improvement of scalability of \curvgrid{} assembly. Currently, the assembly of grid connectivity requires an all-to-all communication step to determine the neighboring processes for each shared vertex. An optimal algorithm to determine process neighbors should make use of the following observations:
@@ -34,7 +34,8 @@ Performance & Symbolic polynomial vector and matrix classes that share pre-compu
 Performance & Adaptive quadrature (e.g. \textit{Clenshaw-Curtis}), sparse grids \cite{petras2000} \\
 Performance & Efficient location of the curvilinear element containing a given global coordinate (for example, via Octant Tree) \\
 Performance & \textit{BoundaryContainer} interior surface outer normal computation instead of communicating it  \\
-Scalability & Complete switch of \curvgrid{} to neighbour MPI communication \\
+Performance & Optimization of \curvwriter{} performance, memory footprint, and resulting file size	 \\
+Scalability & Complete switch of \curvgrid{} to neighbor MPI communication \\
 Scalability & Improved load balance of shared entity ownership during grid construction \\
 Scalability & \textit{ParallelDataWriter} scalability improvement using the \textit{MPI-3} parallel file output  \\
 Scalability & \textit{BoundaryContainer} boundary surface communication using blocks that fit process memory \\

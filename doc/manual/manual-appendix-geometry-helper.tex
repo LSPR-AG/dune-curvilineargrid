@@ -1,6 +1,9 @@
 \subsection{CurvilinearGeometryHelper}
 \label{interface-geometry-helper}
 
+\noindent
+This section will discuss the interface of the \textit{CurvilinearGeometryHelper} class. This is an auxiliary class of \curvgeom{}, which provides functionality for addressing subentities of a uniform interpolatory grid, which are later used by \curvgeom{} to address the subentity geometries. \\
+
 
 \noindent
 Hard-coded number of curvilinear degrees of freedom as given in \ref{theory-lagrange} \\
@@ -21,7 +24,7 @@ Hard-coded map between a corner internal index and vertex internal index. \\
 \end{mybox}
 
 \noindent
-This procedure extracts corner indices from a vertex index set using the $cornerIndex$ command \\
+A procedure to extract corner indices from a vertex index set \\ % using the $cornerIndex$ command \\
 
 \begin{mybox}
 \begin{lstlisting}
@@ -31,7 +34,7 @@ This procedure extracts corner indices from a vertex index set using the $corner
 \end{mybox}
 
 \noindent
-Coordinate of a corner of a reference element based on index. \\ %Should be replaced by $ref.position()$ together with other methods of this class. \\
+A procedure to find the coordinate of a corner of a reference element based on its index. \\ %Should be replaced by $ref.position()$ together with other methods of this class. \\
 
 \begin{mybox}
 \begin{lstlisting}
@@ -41,7 +44,7 @@ Coordinate of a corner of a reference element based on index. \\ %Should be repl
 \end{mybox}
 
 \noindent
-Generates a vector of integer vectors which label the positions of a regular grid over a simplex \\
+A procedure to generate a set of integer coordinates for the uniform interpolatory simplex grid (see \cref{fig:lagrange:enumerationconstruction}) \\
 
 \begin{mybox}
 \begin{lstlisting}
@@ -51,7 +54,7 @@ Generates a vector of integer vectors which label the positions of a regular gri
 \end{mybox}
 
 \noindent
-Generates a vector of coordinates which correspond to a regular grid over a simplex. Can re-use the already existing \textit{simplexGridEnumerate} array for speedup \\
+A procedure to generate the local vertex set for a uniform interpolatory simplex grid (see \cref{fig:lagrange:enumerationconstruction}). Can re-use the already existing \textit{simplexGridEnumerate} array for speedup \\
 
 \begin{mybox}
 \begin{lstlisting}
@@ -64,7 +67,7 @@ Generates a vector of coordinates which correspond to a regular grid over a simp
 
 
 \noindent
-List of internal vertex indices of an element corresponding to the interpolatory vertices of a subentity of the element
+A procedure to extract the local interpolatory vertex grid of a subentity of a given entity. \textit{subentityCodim} determines the codimension of the subentity, \textit{subentityIndex} determines the internal index of the subentity within the parent entity.
 
 \begin{mybox}
 \begin{lstlisting}

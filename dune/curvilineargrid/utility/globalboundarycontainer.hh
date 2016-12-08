@@ -364,6 +364,8 @@ public:
 		std::vector<int> displCommRecv(size_, 0);		// Displacement in bytes
 		mpi_err = MPI_Allgather(&nCommThis, 1, MPI_INT, reinterpret_cast<int *>(nCommRecv.data()), 1, MPI_INT, comm);
 		int nCommRecvTot = std::accumulate(nCommRecv.begin(), nCommRecv.end(), 0);		// The total number of structrures that will be received by any one process
+		assert(nCommRecvTot > 0);																								// It is unexpected that there are no boundary segments over all processes. Likely to be mesh/job file bug
+
 		for (int i = 0; i < size_; i++) { sizeCommRecv[i] = nCommRecv[i] * structSize; }
 		for (int i = 1; i < size_; i++) { displCommRecv[i] = displCommRecv[i-1] + sizeCommRecv[i-1]; }
 

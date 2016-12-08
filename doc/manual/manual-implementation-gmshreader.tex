@@ -43,9 +43,11 @@ From the outset the parallel implementation of the Curvilinear GMSH Reader is ta
 
 \begin{mybox}
 \begin{enumerate}
-  \item ELEMENT PASS 1: Count the total number of elements boundary segments
+  \item VERTEX PASS 1: Skip all vertices, and place file pointer before the element section
 
-  \item ELEMENT PASS 2: Read corners for all elements within the block associated to this process. Given equal splitting of elements across all processes, the process with index $rank$ should read the elements with indices $interv(rank) = \floor[\Big]{ [rank, rank+1] \cdot N_{elem} / p_{tot} } + 1$.
+  \item ELEMENT PASS 1: Count the total number of elements and boundary segments
+
+  \item ELEMENT PASS 2: Read corners for all elements within the block associated to this process. Given equal splitting of elements across all processes, the process with index $rank$ should read the elements with indices \[interv(rank) = \floor[\Big]{ [rank, rank+1] \cdot N_{elem} / p_{tot} } + 1.\]
         
   \item If partitioning is enabled, partition the elements among all processes. The partitioning uses the \textit{ParMETIS\_V3\_PartMeshKway} function of \ParMETIS{} \citeParMetis{}. It produces contiguous subdomains on each process, with a roughly equal number of elements on each process. \ParMETIS{} naturally also minimizes the number of boundary connections, thus minimizing the number of interprocessor boundaries and the amount of parallel communication necessary at a later stage. We have also implemented support for \ParMETIS{} multiple constraint partitioning capabilities, but, as of time of writing \ParMETIS{} does not guarantee contiguous subdomains for multi-constraint partitioning.
         

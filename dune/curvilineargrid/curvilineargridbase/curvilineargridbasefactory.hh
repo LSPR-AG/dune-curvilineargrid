@@ -41,6 +41,8 @@
 namespace Dune
 {
 
+namespace CurvGrid {
+
 
 template< class GridBaseType >
 class CurvilinearGridBaseFactory
@@ -67,9 +69,10 @@ class CurvilinearGridBaseFactory
     CurvilinearGridBaseFactory(
     	bool withGhostElements,
     	bool withGmshElementIndex,
-    	MPIHelper &mpihelper)
+    	MPIHelper &mpihelper,
+		std::vector<bool> periodicCuboidDimensions = std::vector<bool>())
     {
-    	gridbase_ = new GridBaseType(withGhostElements, withGmshElementIndex, mpihelper);
+    	gridbase_ = new GridBaseType(withGhostElements, withGmshElementIndex, mpihelper, periodicCuboidDimensions);
     }
 
     ~CurvilinearGridBaseFactory ()  {}
@@ -121,6 +124,8 @@ class CurvilinearGridBaseFactory
     GridBaseType * gridbase_;
 
   };
+
+} // namespace CurvGrid
 
 } // End of Namespace Dune
 

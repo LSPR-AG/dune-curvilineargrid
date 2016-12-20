@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     
     {
-        Dune::MPIMutex m(rank, size, 0);
+        Dune::CurvGrid::MPIMutex m(rank, size, 0);
         m.lock();
         std::fstream outfile;
         outfile.open("testfile.txt", std::fstream::out | std::fstream::app);

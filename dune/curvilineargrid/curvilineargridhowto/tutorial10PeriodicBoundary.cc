@@ -13,11 +13,10 @@
 #include <dune/curvilineargrid/curvilineargridhowto/creategrid.hh>
 
 
-const bool isCached = true;
-
-
 using namespace Dune;
 using namespace Dune::CurvGrid;
+
+const bool isCached = true;
 
 
 int main (int argc , char **argv) {
@@ -33,14 +32,10 @@ int main (int argc , char **argv) {
 
 
     // *********************************************************
-    // Do all sort of fancy things with the grid here
-	// In this example we collect some information and
-	// use the LoggingMessage to write it on the master process
+	// Check if grid recognises it is parallel
     // *********************************************************
 	std::stringstream loggingStream;
-	loggingStream << "the number of grid elements = " << grid->size(0);
-	loggingStream << " process rank = " << grid->comm().rank();
-	loggingStream << " process size = " << grid->comm().size();
+	loggingStream << "Is curvilinear grid parallel = " << grid->withPeriodic();
 	LoggingMessage::template write<LOG_MSG_PRODUCTION>(__FILE__, __LINE__, loggingStream.str());
 
 	// Report the parallel timing statistics

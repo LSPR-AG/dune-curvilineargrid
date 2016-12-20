@@ -44,8 +44,8 @@ struct CurvFactory
     bool withGhostElements    = true;
     bool withGmshElementIndex = true;
 
-    Dune::CurvilinearGridFactory< GridType > factory(withGhostElements, withGmshElementIndex, mpihelper);
-    Dune::CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper);
+    CurvilinearGridFactory< GridType > factory(withGhostElements, withGmshElementIndex, mpihelper);
+    CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper);
 
     return factory.createGrid();
   }
@@ -97,7 +97,7 @@ int main (int argc , char **argv) {
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
 
     // Instantiation of the logging message and loggingtimer
-    typedef Dune::LoggingTimer<Dune::LoggingMessage>     LoggingTimer;
+    typedef LoggingTimer<LoggingMessage>     LoggingTimer;
     LoggingMessage::init(mpihelper);
     LoggingTimer::init(mpihelper);
 

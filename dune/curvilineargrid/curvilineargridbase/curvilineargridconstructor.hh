@@ -57,6 +57,7 @@
 
 #include <dune/curvilineargrid/curvilineargridbase/curvilinearglobalindexconstructor.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilinearghostconstructor.hh>
+#include <dune/curvilineargrid/curvilineargridbase/curvilinearperiodicconstructor.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilinearpostconstructor.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilinearoctreenode.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilinearlooseoctree.hh>
@@ -64,7 +65,7 @@
 
 namespace Dune {
 
-
+namespace CurvGrid {
 
 
 // Forwards-declatation of the base class
@@ -88,10 +89,10 @@ public:
 	typedef typename GridBase::GridStorageType                  GridStorageType;
     typedef typename GridBase::LoggingTimer                     LoggingTimer;
 
-    typedef Dune::CurvilinearGhostConstructor<GridBase>         GridGhostConstructor;
-    typedef Dune::CurvilinearPostConstructor<GridBase>		    GridPostConstructor;
-    typedef Dune::CurvilinearGlobalIndexConstructor<GridBase>   GridGlobalIndexConstructor;
-
+    typedef CurvilinearGhostConstructor<GridBase>         GridGhostConstructor;
+    typedef CurvilinearPostConstructor<GridBase>		    GridPostConstructor;
+    typedef CurvilinearGlobalIndexConstructor<GridBase>   GridGlobalIndexConstructor;
+    typedef CurvilinearPeriodicConstructor<GridBase>  GridPeriodicConstructor;
 
     typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
     typedef typename GridStorageType::LocalIndexType            LocalIndexType;
@@ -100,7 +101,7 @@ public:
 	typedef typename GridStorageType::PhysicalTagType           PhysicalTagType;
 	typedef typename GridStorageType::InterpolatoryOrderType    InterpolatoryOrderType;
 
-    typedef typename GridStorageType::Vertex                    Vertex;
+    typedef typename GridStorageType::GlobalCoordinate                    GlobalCoordinate;
     typedef typename GridStorageType::VertexStorage             VertexStorage;
     typedef typename GridStorageType::EdgeStorage               EdgeStorage;
     typedef typename GridStorageType::FaceStorage               FaceStorage;
@@ -148,7 +149,7 @@ public: /* public methods */
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
 
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "Initialized CurvilinearGridConstructor");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "Initialized CurvilinearGridConstructor");
     }
 
 
@@ -164,7 +165,7 @@ public:
      * \param[in] globalIndex      global index of this vertex
      * \param[in] structtype       (optional) partition type of this vertex. User SHOULD use default value
      * */
-    void insertVertex(Vertex p, GlobalIndexType globalIndex, Dune::PartitionType ptype = Dune::PartitionType::InteriorEntity)
+    void insertVertex(GlobalCoordinate p, GlobalIndexType globalIndex, Dune::PartitionType ptype = Dune::PartitionType::InteriorEntity)
     {
         VertexStorage point;
         point.coord = p;
@@ -176,7 +177,7 @@ public:
 
         std::stringstream log_stream;
         log_stream << "CurvilinearGridConstructor: Inserted vertex LocalIndex=" << gridstorage_.point_.size()-1 << " GlobalIndex=" << globalIndex;
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
     }
 
     /** \brief Insert an element into the mesh
@@ -197,8 +198,8 @@ public:
     	InterpolatoryOrderType order,
     	PhysicalTagType physicalTag)
     {
-        if (!gt.isTetrahedron() || (vertexIndexSet.size() != Dune::CurvilinearGeometryHelper::dofPerOrder(gt, order)))  {
-        	LoggingMessage::template write<CurvGrid::LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridConstructor: insertElement() unexpected element type or number of interpolatory points");
+        if (!gt.isTetrahedron() || (vertexIndexSet.size() != CurvilinearGeometryHelper::dofPerOrder(gt, order)))  {
+        	LoggingMessage::template write<LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridConstructor: insertElement() unexpected element type or number of interpolatory points");
             DUNE_THROW(Dune::IOError, "CurvilinearGrid: insertElement() unexpected element type or number of interpolatory points");
         }
 
@@ -215,12 +216,12 @@ public:
         gridstorage_.element_.push_back(thisElement);
 
         std::stringstream log_stream;
-        log_stream << "CurvilinearGridConstructor: Inserted Element Type=" << Dune::CurvilinearGeometryHelper::geometryName(gt);
+        log_stream << "CurvilinearGridConstructor: Inserted Element Type=" << CurvilinearGeometryHelper::geometryName(gt);
         log_stream << " LocalIndex=" << thisLocalIndex;
         log_stream << " Order=" << order;
         log_stream << " PhysicalTag=" << physicalTag;
-        log_stream << " VertexIndices=(" << Dune::VectorHelper::vector2string(vertexIndexSet) << ")";
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
+        log_stream << " VertexIndices=(" << VectorHelper::vector2string(vertexIndexSet) << ")";
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
     }
 
     /** Insert a boundary segment into the mesh
@@ -248,15 +249,15 @@ public:
     	PhysicalTagType physicalTag,
 		bool isDomainBoundary)
     {
-        if (!gt.isTriangle() || (vertexIndexSet.size() != Dune::CurvilinearGeometryHelper::dofPerOrder(gt, order)))  {
-        	LoggingMessage::template write<CurvGrid::LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridConstructor: insertBoundarySegment() unexpected number of interpolatory points");
+        if (!gt.isTriangle() || (vertexIndexSet.size() != CurvilinearGeometryHelper::dofPerOrder(gt, order)))  {
+        	LoggingMessage::template write<LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridConstructor: insertBoundarySegment() unexpected number of interpolatory points");
             DUNE_THROW(Dune::IOError, "CurvilinearGridConstructor: insertBoundarySegment() unexpected number of interpolatory points");
         }
 
 
         // Get corners of this face
         // **********************************************************************************
-        std::vector<LocalIndexType> faceCorners = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ctype, 2>(gt, vertexIndexSet, order);
+        std::vector<LocalIndexType> faceCorners = CurvilinearGeometryHelper::entityVertexCornerSubset<ctype, 2>(gt, vertexIndexSet, order);
         FaceKey thisFaceKey;
         thisFaceKey.node0 = gridstorage_.point_[faceCorners[0]].globalIndex;
         thisFaceKey.node1 = gridstorage_.point_[faceCorners[1]].globalIndex;
@@ -275,7 +276,7 @@ public:
         // Take associated element, get all its corners, get all keys, compare to face key
         // **********************************************************************************
         /*
-        std::vector<LocalIndexType> elementCorners = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ctype, 3>(
+        std::vector<LocalIndexType> elementCorners = CurvilinearGeometryHelper::entityVertexCornerSubset<ctype, 3>(
         		gridstorage_.element_[associatedElementIndex].geometryType,
         		gridstorage_.element_[associatedElementIndex].vertexIndexSet,
         		gridstorage_.element_[associatedElementIndex].interpOrder
@@ -292,7 +293,7 @@ public:
         while (!found_face)
         {
             if (j == nFacePerTetrahedron)  {
-            	LoggingMessage::template write<CurvGrid::LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridConstructor: insertBoundarySegment() did not find the face in the associated element");
+            	LoggingMessage::template write<LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridConstructor: insertBoundarySegment() did not find the face in the associated element");
                 DUNE_THROW(Dune::IOError, "CurvilinearGrid: insertBoundarySegment() did not find the face in the associated element");
             }
 
@@ -342,13 +343,13 @@ public:
 
 
                 std::stringstream log_stream;
-                log_stream << "CurvilinearGridConstructor: Inserted BoundarySegment Type=" << Dune::CurvilinearGeometryHelper::geometryName(gt);
+                log_stream << "CurvilinearGridConstructor: Inserted BoundarySegment Type=" << CurvilinearGeometryHelper::geometryName(gt);
                 log_stream << " LocalIndex=" << gridstorage_.face_.size()-1;
                 log_stream << " Order=" << order;
                 log_stream << " PhysicalTag=" << physicalTag;
                 log_stream << " AssociatedElementIndex=" << associatedElementIndex;
                 log_stream << " InternalSubentityIndex=" << j;
-                LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
+                LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
             }
 
             j++;
@@ -380,7 +381,7 @@ public:
 
     void generateMesh() {
 
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Initializing mesh");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Initializing mesh");
 
         // Construct missing parts of the mesh
         // ************************************************************
@@ -394,68 +395,61 @@ public:
         markBorderEdge();
         LoggingTimer::time("CurvilinearGridConstructor: EntityGeneration");
 
+
+		// Generate Global Index
+		// **********************************************************
         if (size_ > 1)  // Parallel case
-        {
-#if HAVE_MPI
-        	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Assembling Parallel Grid");
+		{
+			LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Assembling Parallel Grid");
 
-        	// Generate Global Index
-        	// **********************************************************
-        	LoggingTimer::time("CurvilinearGridConstructor: Global Index Generation");
+			LoggingTimer::time("CurvilinearGridConstructor: Global Index Generation");
 
-        	GridGlobalIndexConstructor giConstructor(
-        		gridstorage_,
-        		gridbase_,
-        		mpihelper_,
+			GridGlobalIndexConstructor giConstructor(
+				gridstorage_,
+				gridbase_,
+				mpihelper_,
 
-        		edgeKey2LocalIndexMap_,
-        		internalFaceKey2LocalIndexMap_,
-        		domainBoundaryFaceKey2LocalIndexMap_,
-        		processBoundaryFaceKey2LocalIndexMap_);
+				edgeKey2LocalIndexMap_,
+				internalFaceKey2LocalIndexMap_,
+				domainBoundaryFaceKey2LocalIndexMap_,
+				processBoundaryFaceKey2LocalIndexMap_);
 
-        	giConstructor.generateEdgeGlobalIndex();
-        	giConstructor.generateFaceGlobalIndex();
-        	if (!gridstorage_.withElementGlobalIndex_) { giConstructor.generateElementGlobalIndex(); }   // Generate element global index unless it was explicitly provided by the factory
+			giConstructor.generateEdgeGlobalIndex();
+			giConstructor.generateFaceGlobalIndex();
+			if (!gridstorage_.withElementGlobalIndex_) { giConstructor.generateElementGlobalIndex(); }   // Generate element global index unless it was explicitly provided by the factory
 
-            // Fill in Global2Local maps
-            for (unsigned int iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)    { gridstorage_.entityIndexMap_[EDGE_CODIM][gridstorage_.edge_[iEdge].globalIndex] = iEdge; }
-            for (unsigned int iFace = 0; iFace < gridstorage_.face_.size(); iFace++)    { gridstorage_.entityIndexMap_[FACE_CODIM][gridstorage_.face_[iFace].globalIndex] = iFace; }
-            for (unsigned int iElem = 0; iElem < gridstorage_.element_.size(); iElem++) {	gridstorage_.entityIndexMap_[ELEMENT_CODIM][gridstorage_.element_[iElem].globalIndex] = iElem; }
+			// Fill in Global2Local maps
+			for (unsigned int iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)    { gridstorage_.entityIndexMap_[EDGE_CODIM][gridstorage_.edge_[iEdge].globalIndex] = iEdge; }
+			for (unsigned int iFace = 0; iFace < gridstorage_.face_.size(); iFace++)    { gridstorage_.entityIndexMap_[FACE_CODIM][gridstorage_.face_[iFace].globalIndex] = iFace; }
+			for (unsigned int iElem = 0; iElem < gridstorage_.element_.size(); iElem++) {	gridstorage_.entityIndexMap_[ELEMENT_CODIM][gridstorage_.element_[iElem].globalIndex] = iElem; }
 
-            LoggingTimer::time("CurvilinearGridConstructor: Global Index Generation");
+			LoggingTimer::time("CurvilinearGridConstructor: Global Index Generation");
+		}
+		else  // Serial case
+		{
+			LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Assembling Serial Grid");
 
+			// Serial case:
+			// * Boundary Neighbors not necessary, since all boundaries are domain boundaries
+			// * No ghost elements, even if requested by user
+			// * Fake globalIndex by making it equal to localIndex
 
-        	// Generate Ghost elements
-        	// **********************************************************
+			LoggingTimer::time("CurvilinearGridConstructor: Global Index Generation");
 
-            if (gridstorage_.withGhostElements_)
-            {
-            	LoggingTimer::time("CurvilinearGridConstructor: Ghost Element Constructor");
-            	GridGhostConstructor ghostConstructor(gridstorage_, mpihelper_);
-            	ghostConstructor.generate();
-            	LoggingTimer::time("CurvilinearGridConstructor: Ghost Element Constructor");
-            }
-#endif
-        }
-        else  // Serial case
-        {
-        	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Assembling Serial Grid");
-            // Serial case:
-            // * Boundary Neighbors not necessary, since all boundaries are domain boundaries
-            // * No ghost elements, even if requested by user
-            // * Fake globalIndex by making it equal to localIndex
+			gridstorage_.withGhostElements_ = false;
+			for (unsigned int i = 0; i < gridstorage_.edge_.size();    i++)  { gridstorage_.edge_[i].globalIndex = i;     gridstorage_.entityIndexMap_[EDGE_CODIM][i] = i; }
+			for (unsigned int i = 0; i < gridstorage_.face_.size();    i++)  { gridstorage_.face_[i].globalIndex = i;     gridstorage_.entityIndexMap_[FACE_CODIM][i] = i; }
+			for (unsigned int i = 0; i < gridstorage_.element_.size(); i++)  { gridstorage_.element_[i].globalIndex = i;  gridstorage_.entityIndexMap_[ELEMENT_CODIM][i] = i;  gridstorage_.entityInternalIndexSet_[ELEMENT_CODIM].insert(i); }
 
-            gridstorage_.withGhostElements_ = false;
-            for (unsigned int i = 0; i < gridstorage_.edge_.size();    i++)  { gridstorage_.edge_[i].globalIndex = i;     gridstorage_.entityIndexMap_[EDGE_CODIM][i] = i; }
-            for (unsigned int i = 0; i < gridstorage_.face_.size();    i++)  { gridstorage_.face_[i].globalIndex = i;     gridstorage_.entityIndexMap_[FACE_CODIM][i] = i; }
-            for (unsigned int i = 0; i < gridstorage_.element_.size(); i++)  { gridstorage_.element_[i].globalIndex = i;  gridstorage_.entityIndexMap_[ELEMENT_CODIM][i] = i;  gridstorage_.entityInternalIndexSet_[ELEMENT_CODIM].insert(i); }
+			for (FaceMapIterator faceIter = internalFaceKey2LocalIndexMap_.begin(); faceIter != internalFaceKey2LocalIndexMap_.end(); faceIter++)              { LocalIndexType localIndex = (*faceIter).second;        gridstorage_.entityInternalIndexSet_[FACE_CODIM].insert(localIndex); }
+			for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)  { LocalIndexType localIndex = (*faceIter).second;        gridstorage_.faceDomainBoundaryIndexSet_.insert(localIndex); }
 
-            for (FaceMapIterator faceIter = internalFaceKey2LocalIndexMap_.begin(); faceIter != internalFaceKey2LocalIndexMap_.end(); faceIter++)              { LocalIndexType localIndex = (*faceIter).second;        gridstorage_.entityInternalIndexSet_[FACE_CODIM].insert(localIndex); }
-            for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)  { LocalIndexType localIndex = (*faceIter).second;        gridstorage_.faceDomainBoundaryIndexSet_.insert(localIndex); }
+			gridstorage_.nEntityTotal_[EDGE_CODIM] = gridstorage_.edge_.size();
+			gridstorage_.nEntityTotal_[FACE_CODIM] = gridstorage_.face_.size();
 
-            gridstorage_.nEntityTotal_[EDGE_CODIM] = gridstorage_.edge_.size();
-            gridstorage_.nEntityTotal_[FACE_CODIM] = gridstorage_.face_.size();
-        }
+			LoggingTimer::time("CurvilinearGridConstructor: Global Index Generation");
+		}
+
 
         // Deletes all temporary memory
         // ************************************************************
@@ -465,11 +459,42 @@ public:
         processBoundaryFaceKey2LocalIndexMap_.clear();
 
 
+        // Construct periodic boundary
+        // ************************************************************
+        GridPeriodicConstructor periodicConstructor(gridstorage_, gridbase_, mpihelper_);
+        if (gridstorage_.periodicCuboidDimensions_.size() > 0) { periodicConstructor.generate(); }
+
+
+    	// Generate Ghost elements
+    	// **********************************************************
+        if (size_ > 1)  // Parallel case
+        {
+            if (gridstorage_.withGhostElements_)
+            {
+            	LoggingTimer::time("CurvilinearGridConstructor: Ghost Element Constructor");
+
+            	if (gridstorage_.periodicCuboidDimensions_.size() > 0)		{
+            		GridGhostConstructor ghostConstructor(gridstorage_, mpihelper_, &(periodicConstructor.map()));
+            		ghostConstructor.generate();
+            	} else {
+            		GridGhostConstructor ghostConstructor(gridstorage_, mpihelper_);
+            		ghostConstructor.generate();
+            	}
+
+            	LoggingTimer::time("CurvilinearGridConstructor: Ghost Element Constructor");
+            }
+        }
+
+
+        // Free up memory by deleting the periodic constructor
+        // ************************************************************
+        periodicConstructor.clean();
+
+
         // Create sets that will be used for iteration over the map
         // Create maps of all entity subsets which can be communicated over
         // Find neighbor ranks for all entities that can be communicated over
         // ************************************************************
-
         LoggingTimer::time("CurvilinearGridConstructor: Index Set Generation");
         GridPostConstructor postConstructor(gridstorage_, gridbase_, mpihelper_);
         postConstructor.generateCornerIndex();
@@ -525,11 +550,11 @@ protected:
      * */
     void computeProcessBoundingBox()
     {
-        Vertex min = gridstorage_.point_[0].coord;
-        Vertex max = min;
+        GlobalCoordinate min = gridstorage_.point_[0].coord;
+        GlobalCoordinate max = min;
 
         for (unsigned int i = 1; i < gridstorage_.point_.size(); i ++) {
-        	Dune::LoggingMessage::writePatience(" Computing process bounding box...", i, gridstorage_.point_.size());
+        	LoggingMessage::writePatience(" Computing process bounding box...", i, gridstorage_.point_.size());
 
             min[0] = std::min(min[0], gridstorage_.point_[i].coord[0]);
             min[1] = std::min(min[1], gridstorage_.point_[i].coord[1]);
@@ -568,10 +593,10 @@ protected:
         // Loop over all elements and their edges
         for (int iElem = 0; iElem < nElem; iElem++)
         {
-        	Dune::LoggingMessage::writePatience("Generating edges...", iElem, nElem);
+        	LoggingMessage::writePatience("Generating edges...", iElem, nElem);
 
         	EntityStorage & thisElem = gridstorage_.element_[iElem];
-            std::vector<LocalIndexType> elementCornerLocalIndexSet = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ctype, 3>(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
+            std::vector<LocalIndexType> elementCornerLocalIndexSet = CurvilinearGeometryHelper::entityVertexCornerSubset<ctype, 3>(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
 
             for (int iEdge = 0; iEdge < nEdgePerTetrahedron; iEdge++)
             {
@@ -614,7 +639,7 @@ protected:
                     log_stream << " LocalIndex=" << localEdgeIndex;
                     log_stream << " AssociatedElementIndex=" << iElem;
                     log_stream << " InternalSubentityIndex=" << iEdge;
-                    LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
+                    LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
 
                     gridstorage_.edge_.push_back(thisEdge);
 
@@ -658,10 +683,10 @@ protected:
         // Loop over all elements and their faces
         for (int iElem = 0; iElem < nElem; iElem++)
         {
-        	Dune::LoggingMessage::writePatience("Generating faces...", iElem, nElem);
+        	LoggingMessage::writePatience("Generating faces...", iElem, nElem);
 
         	EntityStorage & thisElem = gridstorage_.element_[iElem];
-            std::vector<int> elementCornerLocalIndexSet = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ctype, 3>(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
+            std::vector<int> elementCornerLocalIndexSet = CurvilinearGeometryHelper::entityVertexCornerSubset<ctype, 3>(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
 
             // Store info for all faces except of domain boundaries
             // Store it in a map, not to store internal faces twice
@@ -693,7 +718,7 @@ protected:
 
                 std::stringstream log_stream;
                 log_stream << "CurvilinearGridConstructor: Adding FaceKey=(" << thisKey.node0 << ", " << thisKey.node1 << ", " << thisKey.node2 << ") attached to total of " << connectedFaceInfo.size() / 2 << " elements";
-                LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
+                LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
 
 
                 // FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.find(thisKey);
@@ -755,7 +780,8 @@ protected:
             //log_stream << " Order=" << order;
             log_stream << " PhysicalTag=" << faceDBIter->second;
 
-            // Store internal, domain and process boundaries separately for faster iterators
+            // Treat domain boundaries
+            // NOTE: This will also include periodic boundaries, which will be specialised from domain boundaries later
             if (foundDB) {
             	dbCount++;
             	thisFace.physicalTag = faceDBIter->second;  // Here physical tag is very important as it need not match the tag of the element
@@ -770,25 +796,20 @@ protected:
                 gridstorage_.boundarySegmentIndexMap_[localFaceIndex] = localFaceDBIndex;
                 gridstorage_.boundarySegment2LocalIndexMap_[localFaceDBIndex] = localFaceIndex;
 
-            	boundaryName += " StructuralType=domainBoundary";
-            } else {
-            	thisFace.boundaryType = GridStorageType::FaceBoundaryType::None;
+            	boundaryName += " BoundaryType=domainBoundary";
 
+            } else { // Treat regular interior faces, interior boundaries, and periodic boundaries
+
+             	/* Note: We do not actually store IB as boundary segments at the moment, because there is no particular need for it
+             	 * At the moment the IB are in no way different to regular faces, other than having a special physicalTag */
             	 if (foundIB) {
                  	ibCount++;
                  	thisFace.physicalTag = faceIBIter->second;
                  	thisFace.boundaryType = GridStorageType::FaceBoundaryType::InteriorBoundary;  // !! When periodic and internal boundaries are introduced this line will change
-
-                 	/* Note: We do not actually store IB as boundary segments at the moment, because there is no particular need for it
-                 	 * At the moment the IB are in no way different to regular faces, other than having a special physicalTag
-                 	 *
-                     LocalIndexType localFaceDBIndex = gridstorage_.boundarySegmentIndexMap_.size();
-                     domainBoundaryFaceKey2LocalIndexMap_[faceDBIter->first] = localFaceIndex;
-                     gridstorage_.boundarySegmentIndexMap_[localFaceIndex] = localFaceDBIndex;
-                     gridstorage_.boundarySegment2LocalIndexMap_[localFaceDBIndex] = localFaceIndex;
-                     */
-
-                     boundaryName += " StructuralType=interiorBoundary";
+                     boundaryName += " BoundaryType=interiorBoundary";
+            	 } else {
+            		 // If the face is not specifically marked as DBSegment or IBSegment, it is a regular face - interior or PB
+            		 thisFace.boundaryType = GridStorageType::FaceBoundaryType::None;
             	 }
 
 
@@ -801,7 +822,7 @@ protected:
                      LocalIndexType thisFaceLocalPBIndex = gridstorage_.processBoundaryIndexMap_[FACE_CODIM].size();
                      gridstorage_.processBoundaryIndexMap_[FACE_CODIM][localFaceIndex] = thisFaceLocalPBIndex;
 
-                     boundaryName += " StructuralType=processBoundary";
+                     boundaryName += " PartitionType=processBoundary";
                  } else {
              		// If it exists, the 2nd neighbouring element needs to be mapped
                  	LocalIndexType    thisAssociatedElement2Index = connectedFaceInfo[2];
@@ -815,13 +836,13 @@ protected:
 
                      // Add this face to the internal map
                      internalFaceKey2LocalIndexMap_[(*iter).first] = localFaceIndex;    // Store Map (key -> faceIndex)
-                 	 boundaryName += "StructuralType=internal";
+                 	 boundaryName += " PartitionType=interior";
                  }
             }
             log_stream << boundaryName;
 
             // Add face to the mesh
-            LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
+            LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
             gridstorage_.face_.push_back(thisFace);
 
             // Update neighbor index storage size
@@ -838,7 +859,7 @@ protected:
         domainBoundaryFaceKey2TagMap_.clear();
         interiorBoundaryFaceKey2TagMap_.clear();
 
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished generating faces");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Finished generating faces");
     }
 
 
@@ -861,7 +882,7 @@ protected:
         int faceCount = 0;
         for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
-        	Dune::LoggingMessage::writePatience("Marking process boundary vertices...", faceCount++, processBoundaryFaceKey2LocalIndexMap_.size());
+        	LoggingMessage::writePatience("Marking process boundary vertices...", faceCount++, processBoundaryFaceKey2LocalIndexMap_.size());
 
         	EntityStorage thisFace = gridbase_.entityData(1, (*faceIter).second);
 
@@ -877,7 +898,7 @@ protected:
         faceCount = 0;
         for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
-        	Dune::LoggingMessage::writePatience("Generating Boundary Corners...", faceCount++, processBoundaryFaceKey2LocalIndexMap_.size());
+        	LoggingMessage::writePatience("Generating Boundary Corners...", faceCount++, processBoundaryFaceKey2LocalIndexMap_.size());
 
             // Get global indices of the associated vertices from the map
             FaceKey thisFaceKey = (*faceIter).first;
@@ -898,7 +919,7 @@ protected:
                     LocalIndexType processBoundaryCornerIndex = gridstorage_.processBoundaryIndexMap_[VERTEX_CODIM].size();
                 	gridstorage_.processBoundaryIndexMap_[VERTEX_CODIM][thisCornerLocalIndex] = processBoundaryCornerIndex;
 
-                    LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Adding boundary corner GlobalIndex=" + std::to_string(thisVertexKey[i]));
+                    LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Adding boundary corner GlobalIndex=" + std::to_string(thisVertexKey[i]));
                 }
             }
         }
@@ -927,7 +948,7 @@ protected:
         int faceCount = 0;
         for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
         {
-        	Dune::LoggingMessage::writePatience("Marking process boundary edges...", faceCount++, processBoundaryFaceKey2LocalIndexMap_.size());
+        	LoggingMessage::writePatience("Marking process boundary edges...", faceCount++, processBoundaryFaceKey2LocalIndexMap_.size());
 
             // Get info of this face wrt associated element
             FaceKey thisFaceKey = (*faceIter).first;
@@ -967,7 +988,7 @@ protected:
 
                     std::stringstream log_stream;
                     log_stream << "CurvilinearGridConstructor: -- From face index= " << thisFaceLocalIndex << " marking process boundary edge index=" << thisEdgeLocalIndex << " EdgeKey= (" << thisEdgeKey[i].node0 << ", " << thisEdgeKey[i].node1 << ")";
-                    LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
+                    LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
                 }
             }
         }
@@ -995,11 +1016,11 @@ protected:
      *
      * */
     void constructOctree() {
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started OCTree construction");
+    	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started OCTree construction");
 
         // bounding box of whole mesh
-        Vertex center = gridstorage_.boundingBoxCenter_;
-        Vertex extent = gridstorage_.boundingBoxExtent_;
+        GlobalCoordinate center = gridstorage_.boundingBoxCenter_;
+        GlobalCoordinate extent = gridstorage_.boundingBoxExtent_;
 
         // octree length is the largest component of extent
         double length = extent[0];
@@ -1012,7 +1033,7 @@ protected:
         // loop over all tets and insert them in the octree
         for (unsigned int iElem = 0; iElem < gridstorage_.element_.size(); iElem++)
         {
-        	Dune::LoggingMessage::writePatience("Filling OCTree with elements...", iElem, gridstorage_.element_.size());
+        	LoggingMessage::writePatience("Filling OCTree with elements...", iElem, gridstorage_.element_.size());
 
             NodeType* thisNode = new NodeType(gridbase_, iElem);
             gridstorage_.octree_->addNode(thisNode);
@@ -1028,7 +1049,7 @@ protected:
         outputString << ", #octants=" << nOctant;
         outputString << ", #nodes=" << nNode;
         outputString << ", avg. node depth=" << avgNodeDepth;
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, outputString.str());
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, outputString.str());
     }
 
 
@@ -1054,6 +1075,8 @@ private: // Private members
     int rank_;
     int size_;
 };
+
+} // namespace CurvGrid
 
 } // namespace Dune
 

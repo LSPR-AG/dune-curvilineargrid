@@ -15,6 +15,8 @@
 
 namespace Dune {
 
+namespace CurvGrid {
+
 
 class VectorHelper
 {
@@ -307,6 +309,8 @@ public:
 
 
 };
+
+} // namespace CurvGrid
 
 } // namespace Dune
 

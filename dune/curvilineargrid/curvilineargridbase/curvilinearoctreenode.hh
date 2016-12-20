@@ -56,6 +56,9 @@
 
 namespace Dune {
 
+namespace CurvGrid {
+
+
 // Forward-declaration of GridBase because the modules include each other
 template <class ct, int cdim, bool isCached>
 class CurvilinearGridBase;
@@ -68,10 +71,10 @@ class CurvilinearOctreeNode {
 public:
 
     /* public types */
-    typedef Dune::FieldVector<ct, cdim>      Vertex;
-    typedef std::vector<Vertex>              VertexVector;
+    typedef Dune::FieldVector<ct, cdim>      GlobalCoordinate;
+    typedef std::vector<GlobalCoordinate>              VertexVector;
 
-    typedef Dune::CurvilinearGridBase<ct, cdim, isCached>  GridBaseType;
+    typedef CurvilinearGridBase<ct, cdim, isCached>  GridBaseType;
 
     typedef typename GridBaseType::EntityStorage                        EntityStorage;
     typedef typename GridBaseType::template Codim<0>::EntityGeometry    ElementGeometry;
@@ -92,7 +95,7 @@ public: /* public methods */
     ElementGeometry elementGeometry() { return gridbase_.template entityGeometry<0>(elementIndex_); }
 
     // Gets a box in which this Tetrahedron fits
-    void elementBoundingBox(Vertex & center, Vertex & extent) const {
+    void elementBoundingBox(GlobalCoordinate & center, GlobalCoordinate & extent) const {
     	center = boundingBoxCenter_;
     	extent = boundingBoxExtent_;
     }
@@ -138,13 +141,13 @@ private:
 
     	ElementGeometry thisGeometry = elementGeometry();
 
-    	Vertex maxBoxCorner = thisGeometry.vertex(0);
-    	Vertex minBoxCorner = maxBoxCorner;
+    	GlobalCoordinate maxBoxCorner = thisGeometry.vertex(0);
+    	GlobalCoordinate minBoxCorner = maxBoxCorner;
 
 
     	// 1) Find corners of surrounding box for the interpolatory vertex set
     	for (int i = 1; i < thisGeometry.nVertex(); i++)  {
-    		Vertex tmpVertex = thisGeometry.vertex(i);
+    		GlobalCoordinate tmpVertex = thisGeometry.vertex(i);
 
     		if (tmpVertex[0] > maxBoxCorner[0])  { maxBoxCorner[0] = tmpVertex[0]; }
     		if (tmpVertex[1] > maxBoxCorner[1])  { maxBoxCorner[1] = tmpVertex[1]; }
@@ -172,10 +175,12 @@ private: // Private members
 
     int elementIndex_;
 
-    Vertex boundingBoxCenter_;
-    Vertex boundingBoxExtent_;
+    GlobalCoordinate boundingBoxCenter_;
+    GlobalCoordinate boundingBoxExtent_;
 
 };
+
+} // namespace CurvGrid
 
 } // namespace Dune
 

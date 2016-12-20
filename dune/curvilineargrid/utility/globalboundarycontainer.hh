@@ -110,7 +110,7 @@ public:
 			logstr << "volumeTag=" << volumeTag_ << ", ";
 			logstr << "surfaceTag=" << surfaceTag_ << ", ";
 			logstr << "findDomainBoundary=" << findDomainBoundary;
-			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, logstr.str());
+			LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, logstr.str());
 		}
 
 		// MPI_COMM Data
@@ -223,7 +223,7 @@ public:
 				<< gInd[3].size() << std::endl;
 		*/
 
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "Started Global Boundary Communication");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "Started Global Boundary Communication");
 
 		mpiAllGatherVwrapper(nBS, nBSTotal, commSize);
 		mpiAllGatherVwrapper(bsSubInd, bsSubIndTotal, commSize);
@@ -237,7 +237,7 @@ public:
 		// Have order last, so that we know from commSize, how many boundary elements there are on each process
 		mpiAllGatherVwrapper(elemOrder, elemOrderTotal, commSize);
 
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "Finished Global Boundary Communication");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "Finished Global Boundary Communication");
 
 		/*
 		std::cout << rank_  << " AfterComm: "
@@ -357,7 +357,7 @@ public:
 		 *  2) Send number of structures this proc will communicate to all other processes
 		 *********************************************************************************/
 
-		LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "--GlobalBoundaryContainer: Communicating Domain Size. ThisSize=" + std::to_string(nCommThis));
+		LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "--GlobalBoundaryContainer: Communicating Domain Size. ThisSize=" + std::to_string(nCommThis));
 
 		nCommRecv = std::vector<int>(size_, 0);		// Number of elements that are sent by each of the processes
 		std::vector<int> sizeCommRecv(size_, 0);		// Total size in bytes sent by each process
@@ -376,7 +376,7 @@ public:
 		 *  3) MPI_COMM local struct array to all faces except this one
 		 *********************************************************************************/
 
-		LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "--GlobalBoundaryContainer: Communicating Domain. nComm=" + std::to_string(nCommRecvTot) + ", single structure size=" + std::to_string(structSize));
+		LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "--GlobalBoundaryContainer: Communicating Domain. nComm=" + std::to_string(nCommRecvTot) + ", single structure size=" + std::to_string(structSize));
 
 		// Reserve memory in boundary container for structures that will be received
 		rez = std::vector<DataType>(nCommRecvTot);

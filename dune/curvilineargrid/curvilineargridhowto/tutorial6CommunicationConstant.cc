@@ -13,6 +13,9 @@
 #include <dune/curvilineargrid/curvilineargridhowto/creategrid.hh>
 
 
+using namespace Dune;
+using namespace Dune::CurvGrid;
+
 const bool isCached = true;
 
 
@@ -44,7 +47,7 @@ public:
 	assert(gtVec.size() == 1);
 
 	std::cout << "expecting to communicate " << in_.size() << " of " << indexset_.size(gtVec[0]) << " entities" << std::endl;
-	std::cout << "the expected send-indices are " << Dune::VectorHelper::map2string(in_) << std::endl;
+	std::cout << "the expected send-indices are " << VectorHelper::map2string(in_) << std::endl;
   }
 
   //! returns true if data for this codim should be communicated
@@ -327,13 +330,10 @@ int main (int argc , char **argv) {
 	// Define curvilinear grid
 	const int dim = 3;
 	typedef  double    ctype;
-	const int grid_file_type = 1;  // createGrid procedure provides 6 different example grids numbered 0 to 5
-
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
 
-
 	// Create Grid
-	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
+	GridType * grid = createGrid<GridType>(mpihelper, argc, argv);
 
 	// Construct all interfaces we are interested to test
 	// That is, IB->IB, IB->ALL, ALL->IB and ALL->ALL
@@ -372,7 +372,7 @@ int main (int argc , char **argv) {
 	}
 
 
-	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+	typedef LoggingTimer<LoggingMessage>                 LoggingTimerDev;
 	LoggingTimerDev::reportParallel();
 
 

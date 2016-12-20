@@ -68,6 +68,9 @@ extern "C" {
 namespace Dune
 {
 
+namespace CurvGrid {
+
+
   enum CurvilinearGmshReaderLoadBalanceStrategy {
 	  LoadBalanceDefault,			// All elements of the grid have equal weight. ParMetis splits elements equally, then minimizes process boundary count
 	  LoadBalanceBoundary		// Elements on domain boundary have higher weight.
@@ -111,8 +114,7 @@ namespace Dune
     };
 
     // Logging Message Typedefs
-    typedef Dune::LoggingMessage                LoggingMessage;
-    typedef Dune::LoggingTimer<LoggingMessage>  LoggingTimer;
+    typedef Dune::CurvGrid::LoggingTimer<LoggingMessage>  LoggingTimer;
 
     // typedefs
     typedef Dune::FieldVector< ctype, dimWorld_ > GlobalCoordinate;
@@ -180,8 +182,8 @@ namespace Dune
     	fileName = f;
 
     	std::string log_string;
-        LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: using file " + fileName);
-        LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: reading" + std::to_string(dim_) + "d curvilinear gmsh grid...");
+        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: using file " + fileName);
+        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: reading" + std::to_string(dim_) + "d curvilinear gmsh grid...");
 
         // open file name, we use C I/O
         // ***********************************************
@@ -197,30 +199,30 @@ namespace Dune
         if (strcmp(buf_,"$MeshFormat")!=0)   { DUNE_THROW(Dune::IOError, "expected $MeshFormat in first line"); }
         fscanf(file, "%lg %d %d ", &version_number, &file_type, &data_size);
         if( (version_number < 2.0) || (version_number > 2.3) )  { DUNE_THROW(Dune::IOError, "can only read Gmsh version 2 files"); }
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, ":: version " + std::to_string(version_number) + " Gmsh file detected");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, ":: version " + std::to_string(version_number) + " Gmsh file detected");
         fscanf(file, "%s\n", buf_);
         if (strcmp(buf_,"$EndMeshFormat")!=0)  { DUNE_THROW(Dune::IOError, "expected $EndMeshFormat"); }
 
         // Reading Node data
         // ***********************************************
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Reading vertex header ------------------------");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Reading vertex header ------------------------");
         fscanf(file, "%s\n", buf_);
         if (strcmp(buf_,"$Nodes")!=0)  { DUNE_THROW(Dune::IOError, "expected $Nodes"); }
         fscanf(file, "%d\n", &nVertexTotal_);
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, ":: file contains " + std::to_string(nVertexTotal_) + " vertices");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, ":: file contains " + std::to_string(nVertexTotal_) + " vertices");
 
 
         //==========================================================
         // VERTEX PASS 1: Put file pointer and skip all vertices
         //==========================================================
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Vertex-Pass 1: skip all vertices, since we need element data first ---");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Vertex-Pass 1: skip all vertices, since we need element data first ---");
         LoggingTimer::time("CurvilinearGMSHReader: Vertex Pass 1");
 
         long section_vertex_offset = ftell(file);
         for (int iVertex = 0; iVertex < nVertexTotal_; iVertex++ )
         {
         	fgets(buf_, 512, file );
-        	//LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, std::string(buf_));
+        	//LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, std::string(buf_));
         }
         fscanf(file, "%s\n", buf_);
         if (strcmp(buf_,"$EndNodes")!=0)  { DUNE_THROW(Dune::IOError, "expected $EndNodes"); }
@@ -233,18 +235,18 @@ namespace Dune
 
         // Reading Element Data
         // *************************************************
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Reading elements-header -----------------------");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Reading elements-header -----------------------");
         fscanf(file, "%s\n", buf_);
         if (strcmp(buf_,"$Elements")!=0)  { DUNE_THROW(Dune::IOError, "expected $Elements"); }
         fscanf(file, "%d\n", &nEntityTotal_);
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, ":: file contains " + std::to_string(nEntityTotal_) + " elements");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, ":: file contains " + std::to_string(nEntityTotal_) + " elements");
 
 
 
         //=========================================================
         // ELEMENT PASS 1: Count the number of boundary segments
         //=========================================================
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Elements-Pass 1: counting elements on the boundary---");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Elements-Pass 1: counting elements on the boundary---");
         LoggingTimer::time("CurvilinearGMSHReader: Element Pass 1 - Counting Elements");
 
         long fileOffsetElementSection = ftell(file);
@@ -257,12 +259,16 @@ namespace Dune
             // Ignore the rest of data on this line
             fgets(buf_, 512, file );
 
-            LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, std::to_string(entityIndex) + " " + std::to_string(gmshEntityType) );
+            LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, std::to_string(entityIndex) + " " + std::to_string(gmshEntityType) );
 
             // A boundary segment is defined here as any element with dimension less than world dimension
             GeometryType entityType = gmsh2dunemapper_.geometryType(gmshEntityType);
-            if (entityType.dim() < dimWorld_ )     { nBoundarySegmentTotal_++; }
-            else                          { nInteriorElementTotal_++; }
+
+            // Ignore all entities of the types we can not currently handle
+            if (gmsh2dunemapper_.canHandleEntityType(gmshEntityType)) {
+                if (entityType.dim() < dimWorld_ )     { nBoundarySegmentTotal_++; }
+                else                          { nInteriorElementTotal_++; }
+            }
         }
 
         LoggingTimer::time("CurvilinearGMSHReader: Element Pass 1 - Counting Elements");
@@ -272,11 +278,10 @@ namespace Dune
         // ELEMENT PASS 2: Read all linear internal elements
         // Immediately partition them and distribute among processes
         //=========================================================
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Elements-Pass 2: reading internal elements for this process ---");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Elements-Pass 2: reading internal elements for this process ---");
         LoggingTimer::time("CurvilinearGMSHReader: Element Pass 2 - Reading and Partitioning Linear Elements");
 
-        int domainBoundaryTag;
-        int domainBoundaryTagIndex;
+        std::set<int> domainBoundaryTagIndexSet;
         GlobalIndexSet thisProcessInteriorElementIndexSet;
         Tag2LocalIndexMap boundaryGlobalTag2IndexMap;
 
@@ -288,7 +293,7 @@ namespace Dune
         	readBaseElements(file, nEntityTotal_, nInteriorElementTotal_, boundaryTagVector, baseElementVector);
 
         	fseek(file, fileOffsetElementSection, SEEK_SET);
-        	markElementsNextToBoundary(file, nEntityTotal_, baseElementVector, boundaryTagVector, boundaryGlobalTag2IndexMap, domainBoundaryTag, domainBoundaryTagIndex);
+        	markElementsNextToBoundary(file, nEntityTotal_, baseElementVector, boundaryTagVector, boundaryGlobalTag2IndexMap, domainBoundaryTagIndexSet);
         	partitionBaseElements(baseElementVector, thisProcessInteriorElementIndexSet);
         }
 
@@ -302,7 +307,7 @@ namespace Dune
         // Map all d-1 subentities of all elements to the element localID's.
         //    - Needed to find boundaries corresponding to each element.
         //==========================================================
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Elements-Pass 2: reading internal elements for this process ---");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Elements-Pass 2: reading internal elements for this process ---");
         LoggingTimer::time("CurvilinearGMSHReader: Element Pass 3 - Reading Element Data");
 
         fseek(file, fileOffsetElementSection, SEEK_SET);
@@ -325,7 +330,7 @@ namespace Dune
         //    - Note: Can not read internal and boundary elements at the same time
         //            because need d-1 subentity map from all internal elements first
         //==========================================================
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Elements-Pass 3: reading boundary elements for this process ---");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Elements-Pass 3: reading boundary elements for this process ---");
         LoggingTimer::time("CurvilinearGMSHReader: Element Pass 4 - Reading Boundary Segment Data");
 
         fseek(file, fileOffsetElementSection, SEEK_SET);
@@ -338,7 +343,10 @@ namespace Dune
 				tagIndex2linkedElementLocalIndexVectorVector);
 
         // If there is no domain boundary on this process, we might not know its index
-        int nDomainBoundaryElement = tagIndex2boundarySegmentVector[domainBoundaryTagIndex].size();
+        int nDomainBoundaryElement = 0.0;
+        for (auto && tagIndex : domainBoundaryTagIndexSet) {
+        	nDomainBoundaryElement += tagIndex2boundarySegmentVector[tagIndex].size();
+        }
 
         int nBoundaryElement = 0;
         for (int i = 0; i < nBoundaryTag; i++)  { nBoundaryElement += tagIndex2boundarySegmentVector[i].size(); }
@@ -351,7 +359,7 @@ namespace Dune
         // VERTEX PASS 2: Read the vertices
         // But only the ones that correspond to elements on this process
         //==========================================================
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Vertex-Pass 2: reading all vertices necessary for this process ---");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Vertex-Pass 2: reading all vertices necessary for this process ---");
         LoggingTimer::time("CurvilinearGMSHReader: Vertex Pass 4 - Reading Associated Vertices");
 
         fseek(file, section_vertex_offset, SEEK_SET);
@@ -364,13 +372,13 @@ namespace Dune
         //==========================================================
         // Final Step: Insert boundary segments and elements
         //==========================================================
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Adding internal boundary elements to factory ---");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "----- Adding internal boundary elements to factory ---");
         LoggingTimer::time("CurvilinearGMSHReader: Inserting Entities into the factory");
 
         addInternalElements(vertexGlobal2LocalIndexMap, vertexIndex2CoordinateMap, internalElementVector, nBoundarySegmentTotal_);
         for (int iTag = 0; iTag < nBoundaryTag; iTag++) {
         	if (tagIndex2boundarySegmentVector[iTag].size() > 0) {
-        		bool isDomainBoundary = (iTag == domainBoundaryTagIndex);
+        		bool isDomainBoundary =  (domainBoundaryTagIndexSet.find(iTag) != domainBoundaryTagIndexSet.end());
         		addBoundaryElements(
         				vertexGlobal2LocalIndexMap,
 						vertexIndex2CoordinateMap,
@@ -386,12 +394,12 @@ namespace Dune
         nDomainBoundarySegmentTotal_ = comm.sum(nDomainBoundaryElement);
         nInteriorBoundarySegmentTotal_ = comm.sum(nInteriorBoundaryElement);
 
-        LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "Finished Reading Mesh");
-        LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: total vertices          = " + std::to_string(nVertexTotal_)          + " of which on this process " + std::to_string(nVertex) );
-        LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: total internal elements = " + std::to_string(nInteriorElementTotal_) + " of which on this process " + std::to_string(nInternalElement) );
-        LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: total domain boundary segments = " + std::to_string(nDomainBoundarySegmentTotal_) + " of which on this process " + std::to_string(nDomainBoundaryElement) );
-        LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: total interior boundary segments = " + std::to_string(nInteriorBoundarySegmentTotal_) + " of which on this process " + std::to_string(nInteriorBoundaryElement) );
-        LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: total boundary segments = " + std::to_string(nBoundarySegmentTotal_) + " of which on this process " + std::to_string(nBoundaryElement) );
+        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "Finished Reading Mesh");
+        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: total vertices          = " + std::to_string(nVertexTotal_)          + " of which on this process " + std::to_string(nVertex) );
+        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: total internal elements = " + std::to_string(nInteriorElementTotal_) + " of which on this process " + std::to_string(nInternalElement) );
+        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: total domain boundary segments = " + std::to_string(nDomainBoundarySegmentTotal_) + " of which on this process " + std::to_string(nDomainBoundaryElement) );
+        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: total interior boundary segments = " + std::to_string(nInteriorBoundarySegmentTotal_) + " of which on this process " + std::to_string(nInteriorBoundaryElement) );
+        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: total boundary segments = " + std::to_string(nBoundarySegmentTotal_) + " of which on this process " + std::to_string(nBoundaryElement) );
 
 
         assert(nBoundaryElement == nDomainBoundaryElement + nInteriorBoundaryElement);
@@ -419,7 +427,7 @@ namespace Dune
         	LoggingTimer::time("CurvilinearGMSHReader: Writing VTK output");
         	//vtkCurvWriter_.writeVTK("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
         	vtkCurvWriter_.writeParallelVTU("./", "curvreader_output");
-            LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__,  "Curvilinear VTK Writer finished writing" );
+            LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__,  "Curvilinear VTK Writer finished writing" );
             LoggingTimer::time("CurvilinearGMSHReader: Writing VTK output");
         }
 
@@ -469,7 +477,7 @@ namespace Dune
         int eLast = (eTotal * (rank_+1)) / size_;
 
         std::string log_string = " == checkprocess if " + std::to_string(eIndex) + " in [" + std::to_string(eFirst) + "," + std::to_string(eLast) + "]";
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
 
         return ((eIndex >= eFirst)&&(eIndex < eLast));
     }
@@ -484,7 +492,7 @@ namespace Dune
             entityData.vertexIndexSet_.push_back(vertexGlobalIndex);
         }
         std::string log_string = "  --- read entity vertices = " + VectorHelper::vector2string(entityData.vertexIndexSet_);
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
     }
 
 
@@ -521,7 +529,7 @@ namespace Dune
         // Iterator starts from 1 because GMSH numbers vertices [1,n]
         for( int i = 0; i < nVertexTotal_; ++i )
         {
-        	Dune::LoggingMessage::writePatience(" Reading vertices...", i, nVertexTotal_);
+        	LoggingMessage::writePatience(" Reading vertices...", i, nVertexTotal_);
 
             // If this vertex does not belong to this process, just skip it
             if (vertexIndexSet.count(i) == 0)  { fgets(buf_, 512, file ); }
@@ -543,7 +551,7 @@ namespace Dune
                 // The local id of this vertex is equalt to the number of vertices added so far
                 vertexGlobal2LocalIndexMap[i] = vertexIndex2CoordinateMap.size();
 
-                LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "  * Have read vertex " + tmp_out);
+                LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "  * Have read vertex " + tmp_out);
 
                 // Maps global id to global coordinate
                 vertexIndex2CoordinateMap[i] = x;
@@ -578,7 +586,7 @@ namespace Dune
 
         std::stringstream log_string;
         log_string << "    * element " << thisEntity.entityIndex_ << " has " << nTag << " tags";
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string.str());
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string.str());
 
         /** \brief Reading tags
          *
@@ -639,46 +647,49 @@ namespace Dune
         // *************************************************************
         for (int i = 0; i < nEntityTotal_; i++)
         {
-        	Dune::LoggingMessage::writePatience(" Reading linear elements for partitioning...", i, nEntityTotal_);
+        	LoggingMessage::writePatience(" Reading linear elements for partitioning...", i, nEntityTotal_);
 
             // Read the first part of the element info
             GmshEntityData thisElement = readEntitySpec(file);
 
-            // Find if this is a boundary element
-            GeometryType elemType = gmsh2dunemapper_.geometryType(thisElement.gmshType_);
 
-            // If this is a boundary segment, we should note its tag for future use
-            if (elemType.dim() < dimWorld_) {
-            	boundaryTagSet.insert(thisElement.physicalTag_);
+            if (gmsh2dunemapper_.canHandleEntityType(thisElement.gmshType_)) {
+            	// Find if this is a boundary element
+				GeometryType elemType = gmsh2dunemapper_.geometryType(thisElement.gmshType_);
 
-            // If it is an interior element that belongs to this process, it should be read and used for partitioning
-            } else if (elementOnProcess(iSelectElem++, nInteriorElementTotal_)) {
-                // Testing if the current element type can be handled by DUNE
-                // *****************************************************************
-                checkEntityAllowed(thisElement.gmshType_);
-                std::string log_string = "    * element " + std::to_string(thisElement.entityIndex_) + " can be treated by Dune grid ";
-                LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+				// If this is a boundary segment, we should note its tag for future use
+				if (elemType.dim() < dimWorld_) {
+					boundaryTagSet.insert(thisElement.physicalTag_);
 
-                // Obtain all necessary info not to use gmshElementIndex in the following steps
-                // *****************************************************
-                int thisElmOrder               = gmsh2dunemapper_.elementOrder(thisElement.gmshType_);
-                int thisElmDofNo               = gmsh2dunemapper_.dofNumber(thisElement.gmshType_);
-                int thisElmCorners             = ReferenceElements::general(elemType).size(elemType.dim());
-                int thisElmSubentities         = ReferenceElements::general(elemType).size(1);
+				// If it is an interior element that belongs to this process, it should be read and used for partitioning
+				} else if (elementOnProcess(iSelectElem++, nInteriorElementTotal_)) {
+					// Testing if the current element type can be handled by DUNE
+					// *****************************************************************
+					checkEntityAllowed(thisElement.gmshType_);
+					std::string log_string = "    * element " + std::to_string(thisElement.entityIndex_) + " can be treated by Dune grid ";
+					LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
 
-                // Reading Corners of the Element
-                // Note: In GMSH notation corners go first
-                // *************************************************
-                readEntityVertices(file, thisElement, thisElmCorners);
+					// Obtain all necessary info not to use gmshElementIndex in the following steps
+					// *****************************************************
+					int thisElmOrder               = gmsh2dunemapper_.elementOrder(thisElement.gmshType_);
+					int thisElmDofNo               = gmsh2dunemapper_.dofNumber(thisElement.gmshType_);
+					int thisElmCorners             = ReferenceElements::general(elemType).size(elemType.dim());
+					int thisElmSubentities         = ReferenceElements::general(elemType).size(1);
 
-                // Store elements just read
-                baseElementVector.push_back(thisElement);
+					// Reading Corners of the Element
+					// Note: In GMSH notation corners go first
+					// *************************************************
+					readEntityVertices(file, thisElement, thisElmCorners);
+
+					// Store elements just read
+					baseElementVector.push_back(thisElement);
+				}
             }
 
             // Read until the end of the line
             fgets(buf_, 512, file );
         }
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Finished reading base elements");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Finished reading base elements");
 
 
         // Convert the boundary tag set to a sorted tag array for future use
@@ -686,7 +697,7 @@ namespace Dune
         // *************************************************************
     	boundaryTagVector = std::vector<int>(boundaryTagSet.begin(), boundaryTagSet.end());
     	std::sort(boundaryTagVector.begin(), boundaryTagVector.end());
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "Found boundary segments with tags: " + VectorHelper::vector2string(boundaryTagVector));
+    	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "Found boundary segments with tags: " + VectorHelper::vector2string(boundaryTagVector));
 
 
         // Finish reading file
@@ -702,8 +713,7 @@ namespace Dune
 			std::vector<GmshEntityData> & baseElementVector,
 			std::vector<int> & boundaryTagVector,
 			Tag2LocalIndexMap & boundaryGlobalTag2IndexMap,
-			int & domainBoundaryTag,
-			int & domainBoundaryTagIndex)
+			std::set<int> & domainBoundaryTagIndexSet)
     {
     	typedef std::map<std::vector<int>, int> Key2IndexMap;
     	typedef typename Key2IndexMap::iterator  Key2IndexIter;
@@ -754,52 +764,57 @@ namespace Dune
         std::vector<Global2LocalIndexMap> tagInd2FaceGlobal2LocalIndexVector(nPhysicalTag);
         for (int i = 0; i < nEntityTotal_; i++)
         {
-        	Dune::LoggingMessage::writePatience(" Reading boundary segments 1st time...", i, nEntityTotal_);
+        	LoggingMessage::writePatience(" Reading boundary segments 1st time...", i, nEntityTotal_);
 
             // Read the first part of the boundary face info
             GmshEntityData thisElement = readEntitySpec(file);
 
-            // Find if this is a boundary element
-            GeometryType elemType = gmsh2dunemapper_.geometryType(thisElement.gmshType_);
+            if (gmsh2dunemapper_.canHandleEntityType(thisElement.gmshType_)) {
+                // Find if this is a boundary element
+                GeometryType elemType = gmsh2dunemapper_.geometryType(thisElement.gmshType_);
 
-            // If this element is not on the boundary just skip the rest of info on this line
-            if (elemType.dim() == dimWorld_) { fgets(buf_, 512, file ); }
-            else
-            {
-            	/************************************************
-            	 *   Read the boundary segment vertices
-            	 ************************************************/
+                // If this element is not on the boundary just skip the rest of info on this line
+                if (elemType.dim() == dimWorld_) { fgets(buf_, 512, file ); }
+                else
+                {
+                	/************************************************
+                	 *   Read the boundary segment vertices
+                	 ************************************************/
 
-                // Testing if the current element type can be handled by DUNE
-                checkEntityAllowed(thisElement.gmshType_);
-                LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__,  "    * element " + std::to_string(i) + " can be treated by Dune grid ");
+                    // Testing if the current element type can be handled by DUNE
+                    checkEntityAllowed(thisElement.gmshType_);
+                    LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__,  "    * element " + std::to_string(i) + " can be treated by Dune grid ");
 
-                // Obtain all necessary info not to use gmshElementIndex in the following steps
-                int thisElmCorners = SubReferenceElements::general(elemType).size(elemType.dim());
+                    // Obtain all necessary info not to use gmshElementIndex in the following steps
+                    int thisElmCorners = SubReferenceElements::general(elemType).size(elemType.dim());
 
-                // Reading DoF's. Extract only corners. Note that corners come first in GMSH notation, so easy to read
-                readEntityVertices(file, thisElement, thisElmCorners);
+                    // Reading DoF's. Extract only corners. Note that corners come first in GMSH notation, so easy to read
+                    readEntityVertices(file, thisElement, thisElmCorners);
 
+                    // Finish reading line
+                    fgets(buf_, 512, file );
+                    // fscanf(file, "\n");
+
+                	/************************************************
+                	 *   Process the boundary - seek it among the faces of the elements currently on this process
+                	 ************************************************/
+                    std::vector<int> faceKey = thisElement.vertexIndexSet_;
+                    std::sort(faceKey.begin(), faceKey.end());
+
+                    // Subselect only the BS that are faces of the elements present on this process
+                    // If it is already obvious that a BS is shared by 2 elements, mark it directly as IB
+                    Key2IndexIter faceIter = faceKey2IndexMap.find(faceKey);
+                    if (faceIter != faceKey2IndexMap.end()) {
+                    	typename Tag2LocalIndexMap::iterator tagIter = boundaryGlobalTag2IndexMap.find(thisElement.physicalTag_);
+                    	assert(tagIter != boundaryGlobalTag2IndexMap.end());
+
+                    	tagInd2FaceGlobal2LocalIndexVector[tagIter->second][thisElement.entityIndex_] = faceIter->second;
+                    	if (faceIndex2assocElemIndex[faceIter->second].size() == 2)  { isTagInteriorBoundary[tagIter->second] = 1; }
+                    }
+                }
+            } else {
                 // Finish reading line
                 fgets(buf_, 512, file );
-                // fscanf(file, "\n");
-
-            	/************************************************
-            	 *   Process the boundary - seek it among the faces of the elements currently on this process
-            	 ************************************************/
-                std::vector<int> faceKey = thisElement.vertexIndexSet_;
-                std::sort(faceKey.begin(), faceKey.end());
-
-                // Subselect only the BS that are faces of the elements present on this process
-                // If it is already obvious that a BS is shared by 2 elements, mark it directly as IB
-                Key2IndexIter faceIter = faceKey2IndexMap.find(faceKey);
-                if (faceIter != faceKey2IndexMap.end()) {
-                	typename Tag2LocalIndexMap::iterator tagIter = boundaryGlobalTag2IndexMap.find(thisElement.physicalTag_);
-                	assert(tagIter != boundaryGlobalTag2IndexMap.end());
-
-                	tagInd2FaceGlobal2LocalIndexVector[tagIter->second][thisElement.entityIndex_] = faceIter->second;
-                	if (faceIndex2assocElemIndex[faceIter->second].size() == 2)  { isTagInteriorBoundary[tagIter->second] = 1; }
-                }
             }
         }
 
@@ -858,31 +873,31 @@ namespace Dune
 
         // After above iteration, for each IB there must exist at least 2 processes that are certain about it
         // However, no process is guaranteed to know about all IB.
-        // Thus it is essential to combine the knowledge of all processes to
-        int countDBtags = 0;
-        int dbTagInd;
+        // Thus it is essential to combine the knowledge of all processes to obtain the full picture
         Dune::CollectiveCommunication<MPI_Comm> comm = mpihelper_.getCollectiveCommunication();
         for (int iTagInd = 0; iTagInd < nPhysicalTag; iTagInd++) {
         	int tagDBVote  = comm.sum(isTagInteriorBoundary[iTagInd]);
         	assert(tagDBVote >= 0);
 
         	if (tagDBVote == 0) {
-        		countDBtags++;
-        		domainBoundaryTag = boundaryTagVector[iTagInd];
-        		domainBoundaryTagIndex = iTagInd;
+        		domainBoundaryTagIndexSet.insert(iTagInd);
+        		//domainBoundaryTagVector.push_back(boundaryTagVector[iTagInd]);
         	}
         }
 
         // Check that there is exactly 1 domain boundary
-        assert(countDBtags == 1);
+        // NOTE: IN FACT, WE MUST ALLOW TO HAVE SEVERAL USER-DEFINED DB TAGS
+        // assert(domainBoundaryTagIndexSet.size() == 1);
 
 
         // Step 5. Mark all elements neighbouring a Domain Boundary that they indeed do
         // ********************************************************************
-        for (auto && iter : tagInd2FaceGlobal2LocalIndexVector[domainBoundaryTagIndex]) {
-        	std::vector<int> & assocElemInd = faceIndex2assocElemIndex[iter.second];
-        	assert(assocElemInd.size() == 1); // Domain Boundaries must have only one neighbouring element
-        	baseElementVector[assocElemInd[0]].isOnDB_ = true;
+        for (auto && tagIndex : domainBoundaryTagIndexSet) {
+			for (auto && iter : tagInd2FaceGlobal2LocalIndexVector[tagIndex]) {
+				std::vector<int> & assocElemInd = faceIndex2assocElemIndex[iter.second];
+				assert(assocElemInd.size() == 1); // Domain Boundaries must have only one neighbouring element
+				baseElementVector[assocElemInd[0]].isOnDB_ = true;
+			}
         }
     }
 
@@ -901,17 +916,17 @@ namespace Dune
             	// *************************************************************
             	std::vector<unsigned> part(baseElementVector.size(), 0);
         		partitionCompute(part, baseElementVector);
-        		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Finished computing partition");
+        		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Finished computing partition");
 
         		partitionCommunicate(part, baseElementVector, thisProcessInteriorElementIndexSet);
-        		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Finished communicating partition");
+        		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Finished communicating partition");
 
             	std::vector<int> test2 (thisProcessInteriorElementIndexSet.begin(), thisProcessInteriorElementIndexSet.end());
-            	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " elements after partition: " + Dune::VectorHelper::vector2string(test2));
+            	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " elements after partition: " + VectorHelper::vector2string(test2));
     #endif
             } else
             {
-            	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "No MPI found! Running sequential case without partitioning");
+            	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "No MPI found! Running sequential case without partitioning");
             	for (unsigned int i = 0; i < baseElementVector.size(); i++) { thisProcessInteriorElementIndexSet.insert(baseElementVector[i].entityIndex_); }
             }
     }
@@ -945,105 +960,110 @@ namespace Dune
         // Reading element info - tag information and vertex global indices
         for (int i = 0; i < nEntityTotal_; i++)
         {
-        	Dune::LoggingMessage::writePatience(" Reading internal elements...", i, nEntityTotal_);
+        	LoggingMessage::writePatience(" Reading internal elements...", i, nEntityTotal_);
 
             // Read the first part of the element info
             GmshEntityData thisElement = readEntitySpec(file);
 
-            // Find if this is a boundary element
-            GeometryType elemType          = gmsh2dunemapper_.geometryType(thisElement.gmshType_);
-            //bool onBoundary = (elemType.dim() < dimWorld_);
+            if (gmsh2dunemapper_.canHandleEntityType(thisElement.gmshType_)) {
+            	// Find if this is a boundary element
+				GeometryType elemType          = gmsh2dunemapper_.geometryType(thisElement.gmshType_);
+				//bool onBoundary = (elemType.dim() < dimWorld_);
 
-            // Check if this element belongs on this process
-            if ((elemType.dim() < dimWorld_)||(thisProcessInteriorElementIndexSet.count(thisElement.entityIndex_) == 0)) { fgets(buf_, 512, file ); }
-            else
-            {
-                // Testing if the current element type can be handled by DUNE
-                // *****************************************************************
-                checkEntityAllowed(thisElement.gmshType_);
-                log_string = "    * element " + std::to_string(thisElement.entityIndex_) + " can be treated by Dune grid ";
-                LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+				// Check if this element belongs on this process
+				if ((elemType.dim() < dimWorld_)||(thisProcessInteriorElementIndexSet.count(thisElement.entityIndex_) == 0)) { fgets(buf_, 512, file ); }
+				else
+				{
+					// Testing if the current element type can be handled by DUNE
+					// *****************************************************************
+					checkEntityAllowed(thisElement.gmshType_);
+					log_string = "    * element " + std::to_string(thisElement.entityIndex_) + " can be treated by Dune grid ";
+					LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
 
-                // Obtain all necessary info not to use gmshElementIndex in the following steps
-                // *****************************************************
-                int thisElmOrder               = gmsh2dunemapper_.elementOrder(thisElement.gmshType_);
-                int thisElmDofNo               = gmsh2dunemapper_.dofNumber(thisElement.gmshType_);
-                int thisElmCorners             = ReferenceElements::general(elemType).size(elemType.dim());
-                int thisElmSubentities         = ReferenceElements::general(elemType).size(1);
-                int thisElmSubCorners          = ReferenceElements::general(elemType).size(0, 1, elemType.dim());
+					// Obtain all necessary info not to use gmshElementIndex in the following steps
+					// *****************************************************
+					int thisElmOrder               = gmsh2dunemapper_.elementOrder(thisElement.gmshType_);
+					int thisElmDofNo               = gmsh2dunemapper_.dofNumber(thisElement.gmshType_);
+					int thisElmCorners             = ReferenceElements::general(elemType).size(elemType.dim());
+					int thisElmSubentities         = ReferenceElements::general(elemType).size(1);
+					int thisElmSubCorners          = ReferenceElements::general(elemType).size(0, 1, elemType.dim());
 
 
-                // Reading DoF's
-                // *************************************************
-                readEntityVertices(file, thisElement, thisElmDofNo);
+					// Reading DoF's
+					// *************************************************
+					readEntityVertices(file, thisElement, thisElmDofNo);
 
-                // Store all vertices of this element on this process
-                // Note: set ignores request to add an already existing vertex
-                for (int iDof = 0; iDof < thisElmDofNo; iDof++) { vertexIndexSet.insert(thisElement.vertexIndexSet_[iDof]); }
+					// Store all vertices of this element on this process
+					// Note: set ignores request to add an already existing vertex
+					for (int iDof = 0; iDof < thisElmDofNo; iDof++) { vertexIndexSet.insert(thisElement.vertexIndexSet_[iDof]); }
 
+					// Finish reading line
+					fgets(buf_, 512, file );
+					// [TODO] assert that the buffer is empty - there should be nothing left in this string
+					//fscanf(file, "\n");
+
+
+					// Add all subentities of this element to a map, such that it is easy afterwards to find
+					// boundary elements associated with this process
+					// *************************************************************************************
+
+					// 1) get all corners of this process
+					// Note that in GMSH convention the corners come first in the Dof array
+					GlobalIndexVector cornerVector;
+					for (int iCorner = 0; iCorner < thisElmCorners; iCorner++) { cornerVector.push_back(thisElement.vertexIndexSet_[iCorner]); }
+
+					// 2) sort by increasing globalID - Sorting really unnecessary since it is only used to produce the key,
+					//    and the key has to be sorted regardless
+					//std::sort(cornerVector.begin(), cornerVector.end());
+
+					// 3) Calculate the localID of this element
+					int localID = internalElementVector.size();
+
+					for (int iSub = 0; iSub < thisElmSubentities; iSub++)
+					{
+						log_string = " for iSub = " + std::to_string(iSub) + " out of " + std::to_string(thisElmSubentities) + " have sub_size = " + std::to_string(thisElmSubCorners);
+						LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+
+						// 4) get all subsets associated with this element type
+						//std::vector<int> thisSubentityCornerIndexSet = CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet;
+						GlobalIndexVector key;
+
+						for (int iCoord = 0; iCoord < thisElmSubCorners; iCoord++) {
+							int thisCornerInternalSubIndex = ReferenceElements::general(elemType).subEntity(iSub, 1, iCoord, elemType.dim());
+							key.push_back(cornerVector[thisCornerInternalSubIndex]);
+						}
+
+						// Sort the key - It must have the same orientation for both neighboring elements
+						std::sort(key.begin(), key.end());
+
+
+						// 5) Check if map empty for this entry, then add to the map
+						if (boundaryKey2LinkedElementLocalIndexMap.find(key) == boundaryKey2LinkedElementLocalIndexMap.end()) {
+							log_string = " -- element " + std::to_string(localID) + " has added boundary " + VectorHelper::vector2string(key);
+							LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+
+							boundaryKey2LinkedElementLocalIndexMap[key] = LocalIndexVector (1, localID);
+						} else
+						{
+							// 6) In this case this is the 2nd element sharing this boundary
+							LocalIndexVector tmp = boundaryKey2LinkedElementLocalIndexMap[key];
+							tmp.push_back(localID);
+							boundaryKey2LinkedElementLocalIndexMap[key] = tmp;   // Should overwrite previous value
+
+							log_string = " -- element " + std::to_string(localID) + " shares boundary " + VectorHelper::vector2string(key) + " with element " + std::to_string(tmp[0]);
+							LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+						}
+					}
+
+					// correct differences between gmsh and Dune in the local vertex numbering
+					// *************************************************
+					gmsh2dunemapper_.gmsh2DuneElementDofNumbering(elemType, thisElmOrder, thisElement.vertexIndexSet_);
+
+					internalElementVector.push_back(thisElement);
+				}
+            } else {
                 // Finish reading line
                 fgets(buf_, 512, file );
-                // [TODO] assert that the buffer is empty - there should be nothing left in this string
-                //fscanf(file, "\n");
-
-
-                // Add all subentities of this element to a map, such that it is easy afterwards to find
-                // boundary elements associated with this process
-                // *************************************************************************************
-
-                // 1) get all corners of this process
-                // Note that in GMSH convention the corners come first in the Dof array
-                GlobalIndexVector cornerVector;
-                for (int iCorner = 0; iCorner < thisElmCorners; iCorner++) { cornerVector.push_back(thisElement.vertexIndexSet_[iCorner]); }
-
-                // 2) sort by increasing globalID - Sorting really unnecessary since it is only used to produce the key,
-                //    and the key has to be sorted regardless
-                //std::sort(cornerVector.begin(), cornerVector.end());
-
-                // 3) Calculate the localID of this element
-                int localID = internalElementVector.size();
-
-                for (int iSub = 0; iSub < thisElmSubentities; iSub++)
-                {
-                    log_string = " for iSub = " + std::to_string(iSub) + " out of " + std::to_string(thisElmSubentities) + " have sub_size = " + std::to_string(thisElmSubCorners);
-                    LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
-
-                	// 4) get all subsets associated with this element type
-                    //std::vector<int> thisSubentityCornerIndexSet = Dune::CurvilinearGeometryHelper::linearElementSubentityCornerInternalIndexSet;
-                    GlobalIndexVector key;
-
-                    for (int iCoord = 0; iCoord < thisElmSubCorners; iCoord++) {
-						int thisCornerInternalSubIndex = ReferenceElements::general(elemType).subEntity(iSub, 1, iCoord, elemType.dim());
-                    	key.push_back(cornerVector[thisCornerInternalSubIndex]);
-                    }
-
-                    // Sort the key - It must have the same orientation for both neighboring elements
-                    std::sort(key.begin(), key.end());
-
-
-                    // 5) Check if map empty for this entry, then add to the map
-                    if (boundaryKey2LinkedElementLocalIndexMap.find(key) == boundaryKey2LinkedElementLocalIndexMap.end()) {
-                    	log_string = " -- element " + std::to_string(localID) + " has added boundary " + Dune::VectorHelper::vector2string(key);
-                        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
-
-                        boundaryKey2LinkedElementLocalIndexMap[key] = LocalIndexVector (1, localID);
-                    } else
-                    {
-                        // 6) In this case this is the 2nd element sharing this boundary
-                    	LocalIndexVector tmp = boundaryKey2LinkedElementLocalIndexMap[key];
-                        tmp.push_back(localID);
-                        boundaryKey2LinkedElementLocalIndexMap[key] = tmp;   // Should overwrite previous value
-
-                        log_string = " -- element " + std::to_string(localID) + " shares boundary " + Dune::VectorHelper::vector2string(key) + " with element " + std::to_string(tmp[0]);
-                        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
-                    }
-                }
-
-                // correct differences between gmsh and Dune in the local vertex numbering
-                // *************************************************
-                gmsh2dunemapper_.gmsh2DuneElementDofNumbering(elemType, thisElmOrder, thisElement.vertexIndexSet_);
-
-                internalElementVector.push_back(thisElement);
             }
         }
 
@@ -1061,7 +1081,7 @@ namespace Dune
      *  \param[in]  tagIndex2boundarySegmentVector              A vector that stores global indices of boundary segments as function of a boundary subdomain physical tag
      *  \param[in]  boundaryKey2LinkedElementLocalIndexMap        A map from a sorted array of globalID's of vertices that make up a boundary to an array of localID's of internal elements to whom this boundary belongs.
      *  \param[in]  linkedElementLocalIndexVector   A vector that stores a vector of localID's of all elements linked this boundary, for each boundary localID
-     *  \param[in]  domainBoundaryTagIndex   The tag index associated with domain boundary, to distinguish from other interior boundaries
+     *  \param[in]  domainBoundaryTagIndexSet   The tag index associated with domain boundary, to distinguish from other interior boundaries
      *
      *  \note Assumes it is in the correct position in the file
      */
@@ -1087,87 +1107,92 @@ namespace Dune
         // ********************************************************************
         for (int i = 0; i < nEntityTotal_; i++)
         {
-        	Dune::LoggingMessage::writePatience(" Reading boundary segments...", i, nEntityTotal_);
+        	LoggingMessage::writePatience(" Reading boundary segments...", i, nEntityTotal_);
 
             // Read the first part of the element info
             GmshEntityData thisElement = readEntitySpec(file);
 
-            // Find if this is a boundary element
-            GeometryType elemType          = gmsh2dunemapper_.geometryType(thisElement.gmshType_);
+            if (gmsh2dunemapper_.canHandleEntityType(thisElement.gmshType_)) {
+                // Find if this is a boundary element
+                GeometryType elemType          = gmsh2dunemapper_.geometryType(thisElement.gmshType_);
 
-            // If this element is not on the boundary just skip the rest of info on this line
-            if (elemType.dim() == dimWorld_) { fgets(buf_, 512, file ); }
-            else
-            {
-                // Testing if the current element type can be handled by DUNE
-                // *****************************************************************
-                checkEntityAllowed(thisElement.gmshType_);
-                log_string = "    * element " + std::to_string(i) + " can be treated by Dune grid ";
-                LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+                // If this element is not on the boundary just skip the rest of info on this line
+                if (elemType.dim() == dimWorld_) { fgets(buf_, 512, file ); }
+                else
+                {
+                    // Testing if the current element type can be handled by DUNE
+                    // *****************************************************************
+                    checkEntityAllowed(thisElement.gmshType_);
+                    log_string = "    * element " + std::to_string(i) + " can be treated by Dune grid ";
+                    LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
 
-                // Obtain all necessary info not to use gmshElementIndex in the following steps
-                // *****************************************************
-                int thisElmOrder               = gmsh2dunemapper_.elementOrder(thisElement.gmshType_);
-                int thisElmDofNo               = gmsh2dunemapper_.dofNumber(thisElement.gmshType_);
-                int thisElmCorners             = SubReferenceElements::general(elemType).size(elemType.dim());
+                    // Obtain all necessary info not to use gmshElementIndex in the following steps
+                    // *****************************************************
+                    int thisElmOrder               = gmsh2dunemapper_.elementOrder(thisElement.gmshType_);
+                    int thisElmDofNo               = gmsh2dunemapper_.dofNumber(thisElement.gmshType_);
+                    int thisElmCorners             = SubReferenceElements::general(elemType).size(elemType.dim());
 
-                // Reading DoF's
-                // *************************************************
-                readEntityVertices(file, thisElement, thisElmDofNo);
+                    // Reading DoF's
+                    // *************************************************
+                    readEntityVertices(file, thisElement, thisElmDofNo);
 
+                    // Finish reading line
+                    fgets(buf_, 512, file );
+                    // [TODO] Assert that buf is empty - there should be nothing left on this line
+                    //fscanf(file, "\n");
+
+
+
+                    // Finding the associated index in the tag array
+                    // *****************************************************
+                    typename Tag2LocalIndexMap::iterator tagIter = boundaryGlobalTag2IndexMap.find(thisElement.physicalTag_);
+                    assert(tagIter != boundaryGlobalTag2IndexMap.end());  // Should not find non-existing tags
+                    int tagIndex = tagIter->second;
+
+
+                    // Check if associated with any internal element
+                    // ****************************************************************
+
+                    // 1) Obtain corners
+                    GlobalIndexVector cornerVector;
+                    for (int iCorner = 0; iCorner < thisElmCorners; iCorner++) { cornerVector.push_back(thisElement.vertexIndexSet_[iCorner]); }
+
+                    // 2) sort by increasing globalID
+                    std::sort(cornerVector.begin(), cornerVector.end());
+
+                    // 3) Obtain this boundary element's localID
+                    //int localID = tagIndex2boundarySegmentVector[tagIndex].size();
+
+                    log_string = " -- boundary " + std::to_string(thisElement.entityIndex_) + " checking key " + VectorHelper::vector2string(cornerVector);
+                    LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+
+
+
+                    // If this boundary already exists in the map, then add this element
+                    // If not, it is likely on another process
+                    if (boundaryKey2LinkedElementLocalIndexMap.find(cornerVector) != boundaryKey2LinkedElementLocalIndexMap.end())
+                    {
+                    	log_string = " -found b.e localID = " + VectorHelper::vector2string(boundaryKey2LinkedElementLocalIndexMap[cornerVector]);
+                        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+
+                        // correct differences between gmsh and Dune in the local vertex numbering
+                        // *************************************************
+                        gmsh2dunemapper_.gmsh2DuneElementDofNumbering(elemType, thisElmOrder, thisElement.vertexIndexSet_);
+
+                        // Add boundary element
+                        tagIndex2boundarySegmentVector[tagIndex].push_back(thisElement);
+
+                        // If this boundary is linked to an element, write its localID to the internal_element_boundaries for corresponding element
+                        // DUNE_THROW(Dune::IOError, "Have " + std::to_string(thisBoundaryLinkedElements.size()) + " elements associated with 1 boundary. Not implemented yet");
+                        LocalIndexVector thisBoundaryLinkedElements = boundaryKey2LinkedElementLocalIndexMap[cornerVector];
+                        if (thisBoundaryLinkedElements.size() > 1)  { isTagInteriorBoundary[tagIndex] = true; }
+
+                        tagIndex2linkedElementLocalIndexVectorVector[tagIndex].push_back(thisBoundaryLinkedElements);
+                    }
+                }
+            } else {
                 // Finish reading line
                 fgets(buf_, 512, file );
-                // [TODO] Assert that buf is empty - there should be nothing left on this line
-                //fscanf(file, "\n");
-
-
-
-                // Finding the associated index in the tag array
-                // *****************************************************
-                typename Tag2LocalIndexMap::iterator tagIter = boundaryGlobalTag2IndexMap.find(thisElement.physicalTag_);
-                assert(tagIter != boundaryGlobalTag2IndexMap.end());  // Should not find non-existing tags
-                int tagIndex = tagIter->second;
-
-
-                // Check if associated with any internal element
-                // ****************************************************************
-
-                // 1) Obtain corners
-                GlobalIndexVector cornerVector;
-                for (int iCorner = 0; iCorner < thisElmCorners; iCorner++) { cornerVector.push_back(thisElement.vertexIndexSet_[iCorner]); }
-
-                // 2) sort by increasing globalID
-                std::sort(cornerVector.begin(), cornerVector.end());
-
-                // 3) Obtain this boundary element's localID
-                //int localID = tagIndex2boundarySegmentVector[tagIndex].size();
-
-                log_string = " -- boundary " + std::to_string(thisElement.entityIndex_) + " checking key " + Dune::VectorHelper::vector2string(cornerVector);
-                LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
-
-
-
-                // If this boundary already exists in the map, then add this element
-                // If not, it is likely on another process
-                if (boundaryKey2LinkedElementLocalIndexMap.find(cornerVector) != boundaryKey2LinkedElementLocalIndexMap.end())
-                {
-                	log_string = " -found b.e localID = " + Dune::VectorHelper::vector2string(boundaryKey2LinkedElementLocalIndexMap[cornerVector]);
-                    LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
-
-                    // correct differences between gmsh and Dune in the local vertex numbering
-                    // *************************************************
-                    gmsh2dunemapper_.gmsh2DuneElementDofNumbering(elemType, thisElmOrder, thisElement.vertexIndexSet_);
-
-                    // Add boundary element
-                    tagIndex2boundarySegmentVector[tagIndex].push_back(thisElement);
-
-                    // If this boundary is linked to an element, write its localID to the internal_element_boundaries for corresponding element
-                    // DUNE_THROW(Dune::IOError, "Have " + std::to_string(thisBoundaryLinkedElements.size()) + " elements associated with 1 boundary. Not implemented yet");
-                    LocalIndexVector thisBoundaryLinkedElements = boundaryKey2LinkedElementLocalIndexMap[cornerVector];
-                    if (thisBoundaryLinkedElements.size() > 1)  { isTagInteriorBoundary[tagIndex] = true; }
-
-                    tagIndex2linkedElementLocalIndexVectorVector[tagIndex].push_back(thisBoundaryLinkedElements);
-                }
             }
         }
 
@@ -1202,7 +1227,7 @@ namespace Dune
         // Write elements to factory
         for (unsigned int i = 0; i < internalElementVector.size(); i++)
         {
-        	Dune::LoggingMessage::writePatience(" Inserting internal elements into factory...", i, internalElementVector.size());
+        	LoggingMessage::writePatience(" Inserting internal elements into factory...", i, internalElementVector.size());
 
             // Obtain all necessary info not to use gmshElementIndex in the following steps
             // *****************************************************
@@ -1214,7 +1239,7 @@ namespace Dune
             int elemCornerNo      = ReferenceElements::general(elemType).size(elemDim);
 
             std::string log_string = "    * internal_element " + std::to_string(i) + " has dimension " + std::to_string(elemDim) + " and vertex number " + std::to_string(elemCornerNo) + " and physical entity number " + std::to_string(internalElementVector[i].physicalTag_);
-            LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+            LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
 
 
 
@@ -1228,7 +1253,7 @@ namespace Dune
                 elementNodeVector.push_back(vertexIndex2CoordinateMap[vertexGlobalIndex]);  // Compute vertices of this element
             }
 
-            //std::cout << "process_" << rank_ << " element=" << i << " globalVertexIndices=(" << Dune::VectorHelper::vector2string(internalElementVector[i].vertexIndexSet_) << ")" << " localVertexIndices=(" << Dune::VectorHelper::vector2string(localDofVector) << ")" << std::endl;
+            //std::cout << "process_" << rank_ << " element=" << i << " globalVertexIndices=(" << VectorHelper::vector2string(internalElementVector[i].vertexIndexSet_) << ")" << " localVertexIndices=(" << VectorHelper::vector2string(localDofVector) << ")" << std::endl;
 
 
             // TESTING SECTION FOR TETRAHEDRA
@@ -1238,7 +1263,7 @@ namespace Dune
             	addElementToVTK<dimWorld_>(elemType, elementNodeVector, elemOrder, internalElementVector[i].physicalTag_, false);
 
             	log_string = "    * internal_element " + std::to_string(i) + " has been added to the VTK triangles  ";
-            	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+            	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
             }
 
 
@@ -1261,7 +1286,7 @@ namespace Dune
             }
 
             log_string = "    * internal_element " + std::to_string(i) + " has been added to the Geometry Factory ";
-            LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+            LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
         }
     }
 
@@ -1294,7 +1319,7 @@ namespace Dune
         // Write elements to factory
         for (unsigned int i = 0; i < boundaryElementVector.size(); i++)
         {
-        	Dune::LoggingMessage::writePatience(" Inserting boundary segments into factory...", i, boundaryElementVector.size());
+        	LoggingMessage::writePatience(" Inserting boundary segments into factory...", i, boundaryElementVector.size());
 
             // Obtain all necessary info not to use gmshElementIndex in the following steps
             // *****************************************************
@@ -1305,7 +1330,7 @@ namespace Dune
             int boundaryCornerNo      = SubReferenceElements::general(boundaryType).size(boundaryDim);
 
             std::string log_string = "    * boundary_element " + std::to_string(i) + " has dimension " + std::to_string(boundaryDim) + " and vertex number " + std::to_string(boundaryCornerNo) + " and physical entity number " + std::to_string(boundaryElementVector[i].physicalTag_);
-            LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+            LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
 
 
 
@@ -1328,7 +1353,7 @@ namespace Dune
             	addElementToVTK<dimWorld_-1>(boundaryType, elementNodeVector, boundaryOrder, boundaryElementVector[i].physicalTag_, true);
 
             	log_string = "    * boundary_element " + std::to_string(i) + " has been added to the VTK triangles  ";
-            	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+            	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
             }
             // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1350,7 +1375,7 @@ namespace Dune
                 std::string log_string = "    * boundary entity " + std::to_string(i) + " of type " +
                 		((isDomainBoundary) ? "Domain Boundary" : "Interior Boundary") +
                 		" has been added to the Geometry Factory ";
-                LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+                LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
             }
         }
     }
@@ -1370,7 +1395,7 @@ namespace Dune
     void addElementToVTK(const GeometryType & elemType, const GlobalCoordinateVector & elemNodeVector, const int elemOrder, const int physicalTag, const bool isBoundary)
     {
     	const unsigned int INTERIOR_TYPE = Dune::PartitionType::InteriorEntity;
-    	const unsigned int BOUNDARY_TYPE = CurvGrid::BOUNDARY_SEGMENT_PARTITION_TYPE;
+    	const unsigned int BOUNDARY_TYPE = BOUNDARY_SEGMENT_PARTITION_TYPE;
 
     	int VTK_DISCRETIZATION_POINTS = 6;    // Sampling frequency over curved element. min=2 is linear sampling
     	bool VTK_INTERPOLATE = true;          // Whether to use lagrange interpolation or intrinsic interpolatory vertices
@@ -1457,7 +1482,7 @@ namespace Dune
       logstr << " partitionStrat=" << partStrat_;
       logstr << " numConstraint=" << constrNumber;
       logstr << " numElement=" << baseElementVector.size();
-      LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, logstr.str());
+      LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, logstr.str());
 
       ParmetisIndexVector elmdist;
       ParmetisIndexVector elmdist_tmp (size_, 0);
@@ -1512,11 +1537,11 @@ namespace Dune
     	  for (size_t k = 0; k < curNumCorners; ++k)  { eind.push_back(baseElementVector[i].vertexIndexSet_[k] + 1); }
       }
 
-      LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Run parmetis routine");
+      LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Run parmetis routine");
 
       std::stringstream logstr2;
       logstr2 << elmdist.size() << " " << eptr.size() << " " << eind.size() << " " << elmwgt.size();
-      LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Run parmetis routine " + logstr2.str());
+      LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Run parmetis routine " + logstr2.str());
 
 
 #if HAVE_MPI
@@ -1533,7 +1558,7 @@ namespace Dune
 #endif
 #endif
 
-        //LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Parmetis-suggested processes for elements: " + Dune::VectorHelper::vector2string(part));
+        //LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Parmetis-suggested processes for elements: " + VectorHelper::vector2string(part));
     }
 
 
@@ -1561,7 +1586,7 @@ namespace Dune
     	 // 1) Construct a vector of globalId's sorted by the corresponding process number
     	 // *****************************************************************************
 
-    	 LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Sort golbalId array");
+    	 LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Sort golbalId array");
 
     	 // Combine element globalId's with processes to which these elements go
     	 std::vector<ETP> elementToProcess;
@@ -1577,7 +1602,7 @@ namespace Dune
 
     	 // 2) Compute how many elements are send to each process. Communicate this to all processes
     	 // *****************************************************************************
-    	 LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Communicate number of elements to sent do each process");
+    	 LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Communicate number of elements to sent do each process");
 
     	 std::vector<int> sendcounts (size_, 0);
     	 std::vector<int> recvcounts (size_, 0);
@@ -1594,7 +1619,7 @@ namespace Dune
     	 // 3) Construct send and receive displacements (sdispls)
     	 // *****************************************************************************
 
-    	 LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Compute buffer sizes");
+    	 LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Compute buffer sizes");
 
     	 std::vector<int> sdispls (size_, 0);
     	 std::vector<int> rdispls (size_, 0);
@@ -1618,18 +1643,18 @@ namespace Dune
 
     	 // 5) Communicate global indices, put place them into part vector as return value
     	 // *****************************************************************************
-    	 LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Communicate globalId's");
+    	 LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Communicate globalId's");
 
 #if HAVE_MPI
    	     MPI_Alltoallv (sendbuf.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvbuf.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
 #endif
 
-   	     //LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Sending buffer: " + Dune::VectorHelper::vector2string(sendbuf));
-   	     //LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Sending counts: " + Dune::VectorHelper::vector2string(sendcounts));
-   	     //LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Sending displs: " + Dune::VectorHelper::vector2string(sdispls));
-   	     //LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Receiving buffer: " + Dune::VectorHelper::vector2string(recvbuf));
-   	     //LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Receiving counts: " + Dune::VectorHelper::vector2string(recvcounts));
-   	     //LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " Receiving displs: " + Dune::VectorHelper::vector2string(rdispls));
+   	     //LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Sending buffer: " + VectorHelper::vector2string(sendbuf));
+   	     //LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Sending counts: " + VectorHelper::vector2string(sendcounts));
+   	     //LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Sending displs: " + VectorHelper::vector2string(sdispls));
+   	     //LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Receiving buffer: " + VectorHelper::vector2string(recvbuf));
+   	     //LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Receiving counts: " + VectorHelper::vector2string(recvcounts));
+   	     //LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, " Receiving displs: " + VectorHelper::vector2string(rdispls));
 
    	     thisProcessInteriorElementIndexSet = std::set<int> (recvbuf.begin(), recvbuf.end());
 
@@ -1653,8 +1678,8 @@ namespace Dune
     int size_;
 
     // Grid Factory
-    //Dune::GridFactory<GridType>& factory;
-    //Dune::CurvilinearGridBaseFactory<GridType> & factory;
+    //GridFactory<GridType>& factory;
+    //CurvilinearGridBaseFactory<GridType> & factory;
     FactoryType & factory;
 
     // Reading file
@@ -1678,7 +1703,7 @@ namespace Dune
     int nInteriorBoundarySegmentTotal_ = 0;
 
     // Mapping from GMSH to Dune conventions
-    Dune::Gmsh2DuneMapper gmsh2dunemapper_;
+    Gmsh2DuneMapper gmsh2dunemapper_;
 
     // Testing capabilities for writing to VTK.
     CurvilinearVTKWriter<GridType> vtkCurvWriter_;
@@ -1726,16 +1751,17 @@ namespace Dune
                       MPIHelper &mpihelper,
                       bool useGmshElementIndex = true,  // If the reader will reuse the gmsh element index to create element global index. If false, the element global index will be calculated by appropriately shifting the element local index
                       bool partitionMesh = true,
-					  CurvilinearGmshReaderLoadBalanceStrategy partStrat = LoadBalanceDefault  // What weighting strategy to use for Grid
+					  CurvilinearGmshReaderLoadBalanceStrategy partStrat = LoadBalanceDefault,  // What weighting strategy to use for Grid
+					  bool curvReaderWriteVTK = false  // The reader does not immediately output the mesh to VTK by default
     )
     {
         // [FIXME] It should not be necessary to know about boundary segments
     	// The reader should always insert them if they are available
-    	const bool DEFAULT_CURV_GMSH_READER_WRITE_VTK               = false;   // If the reader will write mesh to .vtk after reading it
+    	//const bool DEFAULT_CURV_GMSH_READER_WRITE_VTK               = false;   // If the reader will write mesh to .vtk after reading it
     	const bool DEFAULT_CURV_GMSH_READER_INSERT_BOUNDARY_SEGMENT = true;    // If the reader will insert boundary segments
 
     	std::string log_string = "[[Started CurvilinearGmshReader. This rank " + std::to_string(mpihelper.rank()) + " with total processes " + std::to_string(mpihelper.size());
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, log_string);
+    	LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, log_string);
 
         // create parse object
         CurvilinearGmshReaderParser<Grid, FactoryType> parser(
@@ -1743,7 +1769,7 @@ namespace Dune
         	mpihelper,
         	DEFAULT_CURV_GMSH_READER_INSERT_BOUNDARY_SEGMENT,
         	useGmshElementIndex,
-        	DEFAULT_CURV_GMSH_READER_WRITE_VTK,
+			curvReaderWriteVTK,
         	partitionMesh,
 			partStrat
         );
@@ -1754,10 +1780,11 @@ namespace Dune
         factory.insertNVertexTotal(parser.totalVertex());
         factory.insertNElementTotal(parser.totalInteriorElement());
 
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "...Finished CurvilinearGmshReader]]");
+    	LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "...Finished CurvilinearGmshReader]]");
     }
   };
 
+} // namespace CurvGrid
 
 } // namespace Dune
 

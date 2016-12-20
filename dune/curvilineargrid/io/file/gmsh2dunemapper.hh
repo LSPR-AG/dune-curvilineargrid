@@ -4,6 +4,8 @@
 namespace Dune
 {
 
+namespace CurvGrid {
+
 
 // GMSH Triangle Strategy
 //   1) Vertices {0,1,2}
@@ -80,6 +82,14 @@ GeometryType geometryType(int gmshType)
 
     return rez;
 }
+
+bool canHandleEntityType(int gmshType) {
+	GeometryType gt = geometryType(gmshType);
+	bool rez = (gt.isTriangle() || gt.isTetrahedron()) && (!hasIncompleteOrder(gmshType));
+	if (!rez) { std::cout << "!!! WARNING !!! Skipping GMSH entity of type " << gmshType << std::endl; }
+	return rez;
+}
+
 
 
 // Returns the type name of the element given its GMSH_index
@@ -177,6 +187,8 @@ private:
     std::vector< std::vector< int > > tetrahedralInterpolatoryVertexGmsh2DuneMap;
 };
 
+
+} // namespace CurvGrid
 
 } // namespace Dune
 

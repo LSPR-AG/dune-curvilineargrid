@@ -165,7 +165,7 @@ namespace Dune
 
       Entity inside () const
       {
-    	  IndexSetIterator thisIter = gridbase_->entityIndexIterator(ELEMENT_CODIM, localIndexInside_);
+    	  IndexSetIterator thisIter = gridbase_->entityIndexSetSelect(ELEMENT_CODIM).find(localIndexInside_);
     	  return Entity(EntityImpl(thisIter, *gridbase_, All_Partition));
       }
 
@@ -177,7 +177,7 @@ namespace Dune
     		  DUNE_THROW(Dune::IOError, "Intersection: entityPointer of non-existing outside entity requested");
     	  }
 
-    	  IndexSetIterator thisIter = gridbase_->entityIndexIterator(ELEMENT_CODIM, localIndexOutside_);
+    	  IndexSetIterator thisIter = gridbase_->entityIndexSetSelect(ELEMENT_CODIM).find(localIndexOutside_);
     	  return Entity(EntityImpl(thisIter, *gridbase_, All_Partition));
       }
 
@@ -185,7 +185,9 @@ namespace Dune
       // By dune-convention, domain and periodic boundaries are considered boundaries
       bool boundary () const {
     	  StructuralType boundaryType = gridbase_->faceBoundaryType(localFaceIndex_);
-    	  return (boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary);
+    	  bool isDB = (boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary);
+    	  bool isPeriodic = (boundaryType == GridStorageType::FaceBoundaryType::PeriodicBoundary);
+    	  return (isDB || isPeriodic);
       }
 
 
@@ -199,8 +201,14 @@ namespace Dune
     	  StructuralType boundaryType  = gridbase_->faceBoundaryType(localFaceIndex_);
     	  StructuralType partitionType = gridbase_->entityPartitionType(FACE_CODIM, localFaceIndex_);
 
-    	  if (boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary)  { return false; }
-    	  if (partitionType == Dune::PartitionType::BorderEntity) { return !gridbase_->isSerial(); }
+    	  bool isDB = (boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary);
+    	  bool isPB = (partitionType == Dune::PartitionType::BorderEntity);
+    	  bool isPeriodic = (boundaryType == GridStorageType::FaceBoundaryType::PeriodicBoundary);
+
+    	  if (isDB)  { return false; }												// Pure domain boundaries should not have outer neighbors
+
+    	  // [FIXME] Replace with availability of ghosts in the mesh, ensure that for serial the answer is NO
+    	  if (isPB || isPeriodic) { return !gridbase_->isSerial(); }	// Boundaries that can have ghost neighbor must check if ghosts are implemented
 
     	  return true;
       }
@@ -410,7 +418,7 @@ namespace Dune
 
     	  // 3) Find local coordinates of outside in inside, flip internal coordinates of outside accordingly
     	  std::vector<GlobalCoordinate> inCoord;
-    	  for (int i = 0; i < nCornerPerFace; i++)  { inCoord.push_back(Dune::CurvilinearGeometryHelper::cornerInternalCoordinate<ctype, dimensionworld>(elemGT, insideCornerInternalIndex[i]));  }
+    	  for (int i = 0; i < nCornerPerFace; i++)  { inCoord.push_back(CurvilinearGeometryHelper::cornerInternalCoordinate<ctype, dimensionworld>(elemGT, insideCornerInternalIndex[i]));  }
 
     	  geoInInside_  = new LocalGeometry(GeometryImpl(type(), inCoord,  LINEAR_ELEMENT_ORDER, *gridbase_));
 
@@ -447,7 +455,7 @@ namespace Dune
 
         	  // 4) Fill internal coordinates for both geometries
         	  std::vector<GlobalCoordinate> outCoord;
-        	  for (int i = 0; i < nCornerPerFace; i++)  { outCoord.push_back(Dune::CurvilinearGeometryHelper::cornerInternalCoordinate<ctype, dimensionworld>(elemGT, outsideCornerInternalIndexNew[i])); }
+        	  for (int i = 0; i < nCornerPerFace; i++)  { outCoord.push_back(CurvilinearGeometryHelper::cornerInternalCoordinate<ctype, dimensionworld>(elemGT, outsideCornerInternalIndexNew[i])); }
         	  geoInOutside_ = new LocalGeometry(GeometryImpl(type(), outCoord, LINEAR_ELEMENT_ORDER, *gridbase_));
     	  }
       }

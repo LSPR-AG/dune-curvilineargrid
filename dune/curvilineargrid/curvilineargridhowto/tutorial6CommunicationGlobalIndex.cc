@@ -13,6 +13,10 @@
 #include <dune/curvilineargrid/curvilineargridhowto/creategrid.hh>
 
 
+
+using namespace Dune;
+using namespace Dune::CurvGrid;
+
 const bool isCached = true;
 
 
@@ -132,10 +136,8 @@ int main (int argc , char **argv) {
 	// Define curvilinear grid
 	const int dim = 3;
 	typedef  double    ctype;
-	const int grid_file_type = 1;  // createGrid procedure provides 6 different example grids numbered 0 to 5
-
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
-	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
+	GridType * grid = createGrid<GridType>(mpihelper, argc, argv);
 
 	// Construct all interfaces we are interested to test
 	// That is, IB->IB, IB->ALL, ALL->IB and ALL->ALL
@@ -162,7 +164,7 @@ int main (int argc , char **argv) {
 		communicateGlobalIndex<GridType, 3>(interfType[i], interfDir[i], mpihelper, *grid);  // Vertices
 	}
 
-	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+	typedef LoggingTimer<LoggingMessage>                 LoggingTimerDev;
 	LoggingTimerDev::reportParallel();
 
     // Delete the grid

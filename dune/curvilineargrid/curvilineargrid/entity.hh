@@ -97,7 +97,7 @@ namespace Dune
 	    Dune::PartitionIteratorType pitype
 	    )
 	  	  :
-	  		gridbaseIndexIterator_(gridbase.entityIndexIterator(codim, localIndex)),
+	  		gridbaseIndexIterator_(gridbase.entityIndexSetSelect(codim).find(localIndex)),
 	  		geometry_(nullptr),
 	  		gridbase_(&gridbase),
 	        pitype_(pitype)
@@ -410,7 +410,7 @@ namespace Dune
     subEntity ( int i ) const
     {
     	int subLocalIndex = gridbase_->subentityLocalIndex(*gridbaseIndexIterator_, 0, subcodim, i);
-    	IndexSetIterator subIterator = gridbase_->entityIndexDuneIterator(subcodim, All_Partition, subLocalIndex);
+    	IndexSetIterator subIterator = gridbase_->entityIndexSetDuneSelect(subcodim, All_Partition).find(subLocalIndex);
     	return typename Traits::template Codim< subcodim >::Entity(CurvEntity<subcodim, dimension, Grid>(subIterator, *gridbase_, pitype_));
     }
 

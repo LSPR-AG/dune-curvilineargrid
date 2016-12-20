@@ -32,6 +32,7 @@
 
 namespace Dune {
 
+namespace CurvGrid {
 
 template <class ct, int cdim, typename NodeType>
 class CurvilinearOctant {
@@ -40,7 +41,7 @@ public:
 	// Typedefs
 	// ***************************************************
 
-	typedef Dune::FieldVector<ct, cdim>   Vertex;
+	typedef Dune::FieldVector<ct, cdim>   GlobalCoordinate;
 
 
 
@@ -48,7 +49,7 @@ public:
 	// ***************************************************
 
     /** Constructor for the root CurvilinearOctant */
-	CurvilinearOctant(const Vertex& center, double length) : parent_(0)
+	CurvilinearOctant(const GlobalCoordinate& center, double length) : parent_(0)
 	{
 	    // initialize all children to null.
 	    for (int i = 0; i < 8; i++)  { children_[i] = 0; }
@@ -94,10 +95,10 @@ public:
 
     /** Return child CurvilinearOctant index corresponding to "nodecenter_"
      */
-    int childIndex(const Vertex& nodecenter_)
+    int childIndex(const GlobalCoordinate& nodecenter_)
     {
         int rez = 0;
-        Vertex disp = nodecenter_ - center_;
+        GlobalCoordinate disp = nodecenter_ - center_;
 
         if ( disp[0] > 0 )  { rez += 1; }  // x
         if ( disp[1] > 0 )  { rez += 2; }  // y
@@ -133,7 +134,7 @@ public:
 
 
     /** center of CurvilinearOctant, x-, y- and z-coordinates */
-    Vertex center_;
+    GlobalCoordinate center_;
     /** half of the side length of the CurvilinearOctant */
     double length_;
     /** Parent node */
@@ -144,6 +145,7 @@ public:
     std::vector<NodeType *> node_;
 };
 
+} // namespace CurvGrid
 
 } // namespace Dune
 

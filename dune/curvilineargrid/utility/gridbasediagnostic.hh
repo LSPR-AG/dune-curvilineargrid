@@ -61,7 +61,9 @@
 
 namespace Dune {
 
-using namespace CurvGrid;
+namespace CurvGrid {
+
+
 
 template <class GridType>
 class CurvilinearGridBaseDiagnostic
@@ -88,7 +90,7 @@ private:
     static const int   FACE_CODIM     = GridStorageType::FACE_CODIM;
     static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
-	typedef typename GridStorageType::Vertex                Vertex;
+	typedef typename GridStorageType::GlobalCoordinate                GlobalCoordinate;
 	typedef typename GridStorageType::LocalIndexSet         LocalIndexSet;
 	typedef typename GridStorageType::IndexSetIterator      IndexSetIterator;
 
@@ -164,7 +166,7 @@ public:
 	{
 		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started Writing Grid to VTK");
 
-    	Dune::CurvilinearVTKWriter<GridType> vtkCurvWriter(mpihelper_);
+    	CurvilinearVTKWriter<GridType> vtkCurvWriter(mpihelper_);
 
     	std::vector<PartitionType>  structTypeSet
     	{
@@ -221,21 +223,17 @@ protected:
 		// 1) Collect statistics related to the elements of the mesh
 		// ***********************************************************************8
 		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting element statistics");
-		IndexSetIterator elemIterB = gridbase_.template entityIndexBegin(ELEMENT_CODIM);
-		IndexSetIterator elemIterE = gridbase_.template entityIndexEnd(ELEMENT_CODIM);
 
-
-
-		for (IndexSetIterator elemIter = elemIterB;  elemIter != elemIterE;  elemIter++)
+		for (const auto & elemLocalIndex : gridbase_.entityIndexSetSelect(ELEMENT_CODIM))
 		{
-			GridElementGeometry thisGeometry = gridbase_.template entityGeometry<ELEMENT_CODIM>(*elemIter);
-			std::vector<Vertex> cr       = thisGeometry.cornerSet();
+			GridElementGeometry thisGeometry = gridbase_.template entityGeometry<ELEMENT_CODIM>(elemLocalIndex);
+			std::vector<GlobalCoordinate> cr       = thisGeometry.cornerSet();
 
-			Vertex CoM = cr[0] + cr[1] + cr[2] + cr[3];
+			GlobalCoordinate CoM = cr[0] + cr[1] + cr[2] + cr[3];
 			CoM /= 4;
 
 			std::vector<double>     comCornerRadius { (CoM-cr[0]).two_norm(), (CoM-cr[1]).two_norm(), (CoM-cr[2]).two_norm(), (CoM-cr[3]).two_norm() };
-			std::vector<Vertex> linearEdges   { cr[3]-cr[0], cr[3]-cr[1], cr[3]-cr[2], cr[2]-cr[0], cr[2]-cr[1], cr[1]-cr[0] };
+			std::vector<GlobalCoordinate> linearEdges   { cr[3]-cr[0], cr[3]-cr[1], cr[3]-cr[2], cr[2]-cr[0], cr[2]-cr[1], cr[1]-cr[0] };
 			std::vector<double>     linearEdgeLen;
 			for (int i = 0; i < linearEdges.size(); i++)  { linearEdgeLen.push_back(linearEdges[i].two_norm()); }
 
@@ -272,12 +270,10 @@ protected:
 		// ***********************************************************************
 		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Process Boundary statistics");
 		rez[12].push_back(0.0);  // processBoundarySurfaceArea
-		IndexSetIterator pbIterB = gridbase_.template entityIndexBegin(FACE_CODIM, Dune::PartitionType::BorderEntity);
-		IndexSetIterator pbIterE = gridbase_.template entityIndexEnd  (FACE_CODIM, Dune::PartitionType::BorderEntity);
 
-		for (IndexSetIterator pbIter = pbIterB;  pbIter != pbIterE;  pbIter++)
+		for (const auto & pbLocalIndex : gridbase_.entityIndexSetSelect(FACE_CODIM, Dune::PartitionType::BorderEntity))
 		{
-			GridFaceGeometry faceGeom = gridbase_.template entityGeometry<FACE_CODIM>(*pbIter);
+			GridFaceGeometry faceGeom = gridbase_.template entityGeometry<FACE_CODIM>(pbLocalIndex);
 			double faceCurvilinearArea = faceGeom.volume(1.0e-5);
 			rez[12][0] += faceCurvilinearArea;
 
@@ -288,18 +284,15 @@ protected:
 		// 3) Collect statistics related to the domain boundary of the mesh
 		// ***********************************************************************
 		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Domain Boundary Statistics");
-
 		rez[13].push_back(0.0);  // domainBoundarySurfaceArea
-		IndexSetIterator dbIterB = gridbase_.template entityIndexBegin(FACE_CODIM, Dune::PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
-		IndexSetIterator dbIterE = gridbase_.template entityIndexEnd  (FACE_CODIM, Dune::PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
 
-		for (IndexSetIterator dbIter = dbIterB;  dbIter != dbIterE;  dbIter++)
+		for (const auto & dbLocalIndex : gridbase_.entityIndexSetSelect(FACE_CODIM, Dune::PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE))
 		{
-			GridFaceGeometry faceGeom = gridbase_.template entityGeometry<FACE_CODIM>(*dbIter);
+			GridFaceGeometry faceGeom = gridbase_.template entityGeometry<FACE_CODIM>(dbLocalIndex);
 			double faceCurvilinearArea = faceGeom.volume(1.0e-5);
 			rez[13][0] += faceCurvilinearArea;
 
-			std::cout << "size=" << faceGeom.vertexSet().size() <<" vertices = " << Dune::VectorHelper::vector2string(faceGeom.vertexSet()) << std::endl;
+			std::cout << "size=" << faceGeom.vertexSet().size() <<" vertices = " << VectorHelper::vector2string(faceGeom.vertexSet()) << std::endl;
 
 			Dune::CurvilinearGeometry<double,2,3>::PolynomialGlobalCoordinate polyMap = faceGeom.interpolatoryVectorAnalytical();
 
@@ -314,7 +307,7 @@ protected:
 
 	template <int codim>
 	void addVTKentity(
-		Dune::CurvilinearVTKWriter<GridType> & vtkCurvWriter,
+		CurvilinearVTKWriter<GridType> & vtkCurvWriter,
 		PartitionType ptype,
 		int nDiscretizationPoints,
 		bool interpolate,
@@ -325,13 +318,9 @@ protected:
 	{
 		typedef typename GridBaseType::template Codim<codim>::EntityGeometry     EntityGeometry;
 
-		IndexSetIterator elemIterB =  gridbase_.template entityIndexBegin(codim, ptype, boundaryType);
-		IndexSetIterator elemIterE =  gridbase_.template entityIndexEnd(codim, ptype, boundaryType);
-
-		for (IndexSetIterator elemIter = elemIterB;  elemIter != elemIterE;  elemIter++)
+		for (const auto & elemLocalIndex : gridbase_.entityIndexSetSelect(codim, ptype, boundaryType))
 		{
-			LocalIndexType    thisLocalIndex = *elemIter;
-			PartitionType     thisPType = gridbase_.entityPartitionType(codim, thisLocalIndex);
+			PartitionType     thisPType = gridbase_.entityPartitionType(codim, elemLocalIndex);
 
 			// Checking grid self-consistency
 			assert(thisPType == ptype);
@@ -340,11 +329,11 @@ protected:
 			// [TODO] Rewrite this line when Periodic or Internal boundaries are implemented
 			StructuralType typeTag = (boundaryType != NO_BOUNDARY_TYPE) ? BOUNDARY_SEGMENT_PARTITION_TYPE : ptype;
 
-			PhysicalTagType          physicalTag       = gridbase_.physicalTag(codim, thisLocalIndex);
-			EntityGeometry           thisGeometry      = gridbase_.template entityGeometry<codim>(thisLocalIndex);
+			PhysicalTagType          physicalTag       = gridbase_.physicalTag(codim, elemLocalIndex);
+			EntityGeometry           thisGeometry      = gridbase_.template entityGeometry<codim>(elemLocalIndex);
 			Dune::GeometryType       gt                = thisGeometry.type();
 			InterpolatoryOrderType   order             = thisGeometry.order();
-			std::vector<Vertex>      point             = thisGeometry.vertexSet();
+			std::vector<GlobalCoordinate>      point             = thisGeometry.vertexSet();
 			std::vector<int>         tags  { physicalTag, typeTag, rank_ };
 
 	    	vtkCurvWriter.template addCurvilinearElement<cdim - codim>(
@@ -364,9 +353,9 @@ protected:
 
 
 	// Initializes a FieldVector in 1 line
-	Vertex initVector(ctype a, ctype b, ctype c)
+	GlobalCoordinate initVector(ctype a, ctype b, ctype c)
 	{
-		Vertex rez;
+		GlobalCoordinate rez;
 		rez[0] = a;
 		rez[1] = b;
 		rez[2] = c;
@@ -375,11 +364,11 @@ protected:
 
 	// Dot product between FieldVectors
 	// [TODO] Replace with existing Dune functionality if found
-	ctype GridVectorDot(Vertex a, Vertex b)  { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+	ctype GridVectorDot(GlobalCoordinate a, GlobalCoordinate b)  { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
 
 	// Cross product between FieldVectors
 	// [TODO] Replace with existing Dune functionality if found
-	Vertex GridVectorTimes(Vertex a, Vertex b)  { return initVector(a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]); }
+	GlobalCoordinate GridVectorTimes(GlobalCoordinate a, GlobalCoordinate b)  { return initVector(a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]); }
 
 	// Returns smallest entry of a vector of comparable objects
 	template <class T>
@@ -460,6 +449,7 @@ private:
 
 };
 
+} // namespace CurvGrid
 
 } // namespace Dune
 

@@ -19,7 +19,8 @@
 
 
 
-
+using namespace Dune;
+using namespace Dune::CurvGrid;
 
 /** \brief
  *
@@ -39,19 +40,17 @@ int main (int argc , char **argv) {
 	// Define curvilinear grid
 	const int dim = 3;
 	typedef  double    ctype;
-	const int grid_file_type = 1;  // createGrid procedure provides 6 different example grids numbered 0 to 5
-
 	const bool isCached = true;
 	const int ELEMENT_CODIM = 0;  // Codimension of element in 3D
 
 	// Create Grid
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
-	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
+	GridType * grid = createGrid<GridType>(mpihelper, argc, argv);
 
 	// Reporting vector
 	typedef int     IndexType;
 	typedef double  DataType;
-	typedef Dune::ParallelDataWriter<GridType, IndexType, DataType>  PDWVector;
+	typedef ParallelDataWriter<GridType, IndexType, DataType>  PDWVector;
 
 	std::vector<IndexType>  indexVec;
 	std::vector<int>        sizeVec;
@@ -63,7 +62,7 @@ int main (int argc , char **argv) {
 	typename GridType::LeafGridView leafView = grid->leafGridView();
 	for (auto&& elementThis : elements(leafView, Dune::Partitions::interiorBorder))
 	{
-		Dune::LoggingMessage::writePatience("iterating over elements ", elemInd++, nElem);
+		LoggingMessage::writePatience("iterating over elements ", elemInd++, nElem);
 
 		int globalIndex = grid->template entityGlobalIndex<ELEMENT_CODIM>(elementThis);
 		indexVec.push_back(globalIndex);
@@ -73,7 +72,7 @@ int main (int argc , char **argv) {
 
 	PDWVector::writeParallelData2File("volumevector_" + std::to_string(mpihelper.size()) + ".txt", indexVec, sizeVec, dataVec, *grid);
 
-	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+	typedef LoggingTimer<LoggingMessage>                 LoggingTimerDev;
 	LoggingTimerDev::reportParallel();
 
     // Delete the grid

@@ -4,10 +4,12 @@
 #include <limits>
 #include <map>
 #include <string>
+#include <sstream>
 #include <utility>
 #include <vector>
 #include <iostream>
 #include <assert.h>
+#include <numeric>
 
 #include <fstream>
 
@@ -15,11 +17,12 @@
 #include <dune/common/exceptions.hh>
 #include <dune/common/parallel/mpihelper.hh>
 
+#include <dune/curvilineargrid/common/constant.hh>
+
 
 namespace Dune {
 
 namespace CurvGrid {
-
 
 
 /** \brief This class implements wrappers for MPI_Alltoallv communication, as well as sparse MPI_Neighbor_Alltoallv,
@@ -40,6 +43,75 @@ public:
 	}
 
 
+
+
+	/** \brief A wrapper for Gatherv communication. Non scalable - do not use on very large architectures.
+	 * For sparse communication use gathev_neighbor
+	 * Works optimal if each process has non-zero data to contribute to the Master process
+	 *
+	 *  \param[in] in				buffer with data to send to Master process
+	 *  \param[in] lengthIn		array of sizes of data to be sent to each process (size = mpihelper.size())
+	 *  \param[in] out				buffer with data to be received by Master process. For all other processes it is untouched
+	 *
+	 *  \note This operation does not reserve memory for output arrays. It is assumed that sufficient memory is already reserved
+	 *
+	 * */
+	template <typename T>
+	void gatherv(
+			const T * in,
+			int lengthIn,
+			T * out,
+			int * lengthOut) const
+	{
+		MPI_Comm comm = Dune::MPIHelper::getCommunicator();
+
+		// 1) Calculate the lengths to be sent/received
+		MPI_Gather(&lengthIn, 1, MPI_INT, lengthOut, 1, MPI_INT, MPI_MASTER_RANK, comm);
+
+//		if (rank_ == MPI_MASTER_RANK) {
+//			std::stringstream ss;
+//			for (int i = 0; i < size_; i++) { ss << lengthOut[i] << " "; }
+//			std::cout << "on " << rank_ << " stuff " << ss.str() << std::endl;
+//		}
+
+		// 2) Gather data
+		gatherv_comm_data(in, lengthIn, out, lengthOut, comm);
+	}
+
+
+	/** \brief A wrapper for Gatherv communication. Non scalable - do not use on very large architectures.
+	 * For sparse communication use gathev_neighbor
+	 * Works optimal if each process has non-zero data to contribute to the Master process
+	 *
+	 *  \param[in] in				buffer with data to send to Master process
+	 *  \param[in] lengthIn		array of sizes of data to be sent to each process (size = mpihelper.size())
+	 *  \param[in] out				buffer with data to be received by Master process. For all other processes it is untouched
+	 *
+	 *  \note This operation does not reserve memory for output arrays. It is assumed that sufficient memory is already reserved
+	 *
+	 * */
+	template <typename T>
+	void gatherv(
+			const std::vector<T> & in,
+			std::vector<T> & out,
+			std::vector<int> & lengthOut) const
+	{
+		MPI_Comm comm = Dune::MPIHelper::getCommunicator();
+
+		// 1) Calculate the lengths to be sent/received
+		int lengthIn = in.size();
+		if (rank_ == MPI_MASTER_RANK) { lengthOut.resize(size_); }
+		MPI_Gather(&lengthIn, 1, MPI_INT, reinterpret_cast<int *>(lengthOut.data()), 1, MPI_INT, MPI_MASTER_RANK, comm);
+
+		// 2) Assemble and communicate data vectors
+		if (rank_ == MPI_MASTER_RANK) {
+			int lengthTot = std::accumulate(lengthOut.begin(), lengthOut.end(), 0);
+			out.resize(lengthTot);
+		}
+
+		gatherv_comm_data(in.data(), lengthIn, reinterpret_cast<T *>(out.data()),  lengthOut.data(), comm);
+	}
+
 	/** \brief A wrapper for MPI_Alltoallv communication. Non scalable - do not use on very large architectures.
 	 * Works optimal if each process has non-zero communication to each other. For sparse communication use
 	 * communicate_neighbor
@@ -53,20 +125,19 @@ public:
 	 *
 	 * */
 	template <typename T>
-	void communicate(
+	void all2all(
 		const T * in,
 		const int * lengthIn,
 		T * out,
-		int * lengthOut
-	)
+		int * lengthOut) const
 	{
 		MPI_Comm comm = Dune::MPIHelper::getCommunicator();
 
 		// 1) Communicate lengths of the arrays to be communicated
-		communicate_lengths(lengthIn, lengthOut, false, comm);
+		all2all_comm_len(lengthIn, lengthOut, false, comm);
 
 		// 2) Assemble and communicate data vectors
-		communicate_data(in, lengthIn, out, lengthOut, size_, comm);
+		all2all_comm_data(in, lengthIn, out, lengthOut, size_, comm);
 	}
 
 
@@ -84,18 +155,17 @@ public:
 	 *
 	 * */
 	template <typename T>
-	void communicate(
+	void all2all(
 		const std::vector<T> & in,
 		const std::vector<int> & lengthIn,
 		std::vector<T> & out,
-		std::vector<int> & lengthOut
-	)
+		std::vector<int> & lengthOut) const
 	{
 		MPI_Comm comm = Dune::MPIHelper::getCommunicator();
 
 		// 1) Communicate lengths of the arrays to be communicated
 		lengthOut.resize(size_);
-		communicate_lengths(lengthIn.data(), reinterpret_cast<int *>(lengthOut.data()), false, comm);
+		all2all_comm_len(lengthIn.data(), reinterpret_cast<int *>(lengthOut.data()), false, comm);
 
 
 		// 2) Assemble and communicate data vectors
@@ -103,7 +173,7 @@ public:
 		for (int iProc = 0; iProc < size_; iProc++)  { lengthDataOut += lengthOut[iProc]; }
 
 		out.resize(lengthDataOut);
-		communicate_data(in.data(), lengthIn.data(), reinterpret_cast<T *>(out.data()), lengthOut.data(), size_, comm);
+		all2all_comm_data(in.data(), lengthIn.data(), reinterpret_cast<T *>(out.data()), lengthOut.data(), size_, comm);
 	}
 
 
@@ -119,7 +189,7 @@ public:
 	 *
 	 * */
 	template <typename T>
-	void communicate_neighbors(
+	void all2allnb(
 		const T * in,
 		int nNeighborIn,
 		const int * ranksIn,
@@ -127,8 +197,7 @@ public:
 		T * out,
 		int & nNeighborOut,
 		int * ranksOut,
-		int * lengthOut
-	)
+		int * lengthOut) const
 	{
 		// 0) Construct neighbor communicator
 		// *******************************************************************
@@ -165,12 +234,12 @@ public:
 
 		// 1) Communicate lengths of the arrays to be communicated
 		// *******************************************************************
-		communicate_lengths(lengthIn, lengthOut, true, comm_neighbor);
+		all2all_comm_len(lengthIn, lengthOut, true, comm_neighbor);
 
 
 		// 2) Assemble and communicate data vectors
 		// *******************************************************************
-		communicate_data(in, lengthIn, out, lengthOut, nNeighborOut, comm_neighbor);
+		all2all_comm_data(in, lengthIn, out, lengthOut, nNeighborOut, comm_neighbor);
 	}
 
 
@@ -186,14 +255,13 @@ public:
 	 *
 	 * */
 	template <typename T>
-	void communicate_neighbors(
+	void all2allnb(
 		const std::vector<T>   & in,
 		const std::vector<int> & ranksIn,
 		const std::vector<int> & lengthIn,
 		std::vector<T> & out,
 		std::vector<int> & ranksOut,
-		std::vector<int> & lengthOut
-	)
+		std::vector<int> & lengthOut) const
 	{
 		// 0) Construct neighbor communicator
 		// *******************************************************************
@@ -240,7 +308,7 @@ public:
 		// 1) Communicate lengths of the arrays to be communicated
 		// *******************************************************************
 		lengthOut.resize(nNeighborOut);
-		communicate_lengths(lengthIn.data(), reinterpret_cast<int *>(lengthOut.data()), true, comm_neighbor);
+		all2all_comm_len(lengthIn.data(), reinterpret_cast<int *>(lengthOut.data()), true, comm_neighbor);
 
 
 		// 2) Assemble and communicate data vectors
@@ -249,20 +317,35 @@ public:
 		for (int iProc = 0; iProc < nNeighborOut; iProc++)  { lengthDataOut += lengthOut[iProc]; }
 
 		out.resize(lengthDataOut);
-		communicate_data(in.data(), lengthIn.data(), reinterpret_cast<T *>(out.data()), lengthOut.data(), nNeighborOut, comm_neighbor);
+		all2all_comm_data(in.data(), lengthIn.data(), reinterpret_cast<T *>(out.data()), lengthOut.data(), nNeighborOut, comm_neighbor);
 	}
 
 
 
 
-
-
-
-
-
-
 protected:
-	void communicate_lengths(const int * lengthIn, int * lengthOut, bool neighbour, MPI_Comm comm)
+
+	template<typename T>
+	void gatherv_comm_data(const T * in, int lengthIn, T * out, const int * lengthOut, MPI_Comm comm) const {
+
+		int dataSize = sizeof(T);
+		int lengthByteIn = lengthIn * dataSize;
+
+		if (rank_ == MPI_MASTER_RANK) {
+			int lengthByteOut[size_], displByteOut[size_];
+			for (int iProc = 0; iProc < size_; iProc++) {
+				lengthByteOut[iProc] = dataSize * lengthOut[iProc];
+				displByteOut[iProc] = (iProc == 0) ? 0 : displByteOut[iProc - 1] + lengthByteOut[iProc - 1];
+			}
+
+			MPI_Gatherv(in, lengthByteIn, MPI_BYTE, out, lengthByteOut, displByteOut, MPI_BYTE, MPI_MASTER_RANK, comm);
+		} else {
+			MPI_Gatherv(in, lengthByteIn, MPI_BYTE, out, nullptr, nullptr, MPI_BYTE, MPI_MASTER_RANK, comm);
+		}
+	}
+
+
+	void all2all_comm_len(const int * lengthIn, int * lengthOut, bool neighbour, MPI_Comm comm) const
 	{
 		if (neighbour)  { MPI_Neighbor_alltoall (lengthIn, 1, MPI_INT, lengthOut, 1, MPI_INT, comm); }
 		else            { MPI_Alltoall          (lengthIn, 1, MPI_INT, lengthOut, 1, MPI_INT, comm); }
@@ -271,14 +354,13 @@ protected:
 
 
 	template<typename T>
-	void communicate_data(
+	void all2all_comm_data(
 		const T * in,
 		const int * lengthIn,
 		T * out,
 		int * lengthOut,
 		int nNeighborOut,
-		MPI_Comm comm
-	)
+		MPI_Comm comm) const
 	{
 		int dataSize = sizeof(T);
 		int lengthByteIn[nNeighborOut], displByteIn[nNeighborOut];
@@ -302,7 +384,7 @@ protected:
 private:
 
 	template<class T>
-	void print_array(T * arr, int length, std::string name)
+	void print_array(T * arr, int length, std::string name) const
 	{
 		std::cout << "process_" << rank_ << "printing array " << name << "= (";
 		for (int i = 0; i < length; i++) { std::cout << arr[i] << " "; }

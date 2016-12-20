@@ -44,13 +44,39 @@
 \DeclarePairedDelimiter{\floor}{\lfloor}{\rfloor}	% Round down
 
 
-% Rounded boxes functionality
-\usepackage[framemethod=tikz]{mdframed}
-%\usepackage{mdframed}
+\usepackage{tcolorbox}% http://ctan.org/pkg/tcolorbox
 \definecolor{mycolor}{rgb}{0.122, 0.435, 0.698}
 
-\newmdenv[innerlinewidth=0.5pt, roundcorner=4pt, linecolor=mycolor, backgroundcolor=lightgray, innerleftmargin=4pt,
-innerrightmargin=4pt,innertopmargin=5pt,innerbottommargin=5pt]{mybox}
+%\newcommand{\myboxsrc}[1]{%
+% \newenvironment{\myboxsrc}
+% 	{%
+% 		%\setbox0=\hbox{#1}%
+% 		%\setlength{\@tempdima}{\dimexpr\wd0+13pt}%
+% 		\begin{tcolorbox}[colframe=mycolor,boxrule=0.5pt,arc=4pt, left=6pt,right=6pt,top=6pt,bottom=6pt,boxsep=0pt,width=\@tempdima] %#1
+% 	}
+% 	{
+% 		\end{tcolorbox}
+% 	}
+%-----------------------------------------------
+\usepackage{lipsum}
+%\newenvironment{mybox}{\textbf{startlolo}\\}{\textit{finishlolo}\\}
+\newenvironment{mybox}{\vspace{2mm} \begin{tcolorbox}[colframe=mycolor, left=1pt,right=4pt,top=2pt,bottom=2pt]}{\end{tcolorbox} \vspace{1mm}}
+
+
+
+%\newenvironment{mybox}{\myboxsrc}{}
+%\def\myboxsrc#1\end{\emph{#1}\end}
+
+
+
+
+% Rounded boxes functionality
+%\usepackage[framemethod=tikz]{mdframed}
+%\usepackage{mdframed}
+%\definecolor{mycolor}{rgb}{0.122, 0.435, 0.698}
+
+%\newmdenv[innerlinewidth=0.5pt, roundcorner=4pt, linecolor=mycolor, backgroundcolor=lightgray, innerleftmargin=4pt,
+%innerrightmargin=4pt,innertopmargin=5pt,innerbottommargin=5pt]{mybox}
 
 %\usepackage[colorlinks,linkcolor=blue,anchorcolor=blue,citecolor=green]{hyperref} % hyper reference to contents 
 
@@ -115,9 +141,6 @@ innerrightmargin=4pt,innertopmargin=5pt,innerbottommargin=5pt]{mybox}
 
 
 %\begin{titlepage}
-
-
-
 
 \begin{center}
     

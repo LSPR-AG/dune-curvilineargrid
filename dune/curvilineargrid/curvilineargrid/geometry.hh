@@ -114,7 +114,7 @@ namespace Dune
     	  bool isInside = mapping_.local(globalC, localC);
 
     	  if (!isInside)  {
-    		  std::cout << "searching for global coordinate " << globalC << " in the element given by " << Dune::VectorHelper::vector2string(mapping_.vertexSet()) << std::endl;
+    		  std::cout << "searching for global coordinate " << globalC << " in the element given by " << VectorHelper::vector2string(mapping_.vertexSet()) << std::endl;
     		  DUNE_THROW( IOError, "Failed to find requested global coordinate inside the entity" );
     	  }
 

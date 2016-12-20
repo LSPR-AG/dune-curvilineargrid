@@ -43,6 +43,7 @@
 namespace Dune
 {
 
+namespace CurvGrid {
 
 namespace VTKEntitySubset
 {
@@ -258,8 +259,8 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, FACE_CODIM> (
 {
 	SubEntityIndexVector rez;
 
-    ElemGridEnumerate triangleEnumerator = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<2>(nInterval);
-    ElemGridEnumerate triangleEnumeratorReduced = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<2>(nInterval - 1);
+    ElemGridEnumerate triangleEnumerator = CurvilinearGeometryHelper::simplexGridEnumerate<2>(nInterval);
+    ElemGridEnumerate triangleEnumeratorReduced = CurvilinearGeometryHelper::simplexGridEnumerate<2>(nInterval - 1);
 
     // Takes tetrahedral discretization point key to globalID 3D map, and splits it into 4 triangle 2D maps, corresponding to the faces of the tetrahedron
     Coord2GlobalMapVector consistingTriangles(4);
@@ -455,8 +456,8 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
      *  \param[in]  tagSet                  Set of 0 to 3 tags, in priority order. [Physical Tag, Structural Type, ProcessRank]
      *  \param[in]  elementOrder                   Curvilinear interpolation order of the element
      *  \param[in]  nDiscretizationPoint          Number of discretization points-per-edge
-     *  \param[in]  interpolate                    If set to false, instead of interpolating, the provided interpolation points will be used as discretization points
-     *  \param[in]  interpolate                    If set to true, there will be gaps between all elements, obtained by scaling them away from the center of mass
+     *  \param[in]  interpolate                    If set to false, instead of interpolating, the provided interpolation points will be used as discretization points. Otherwise, a sub-sampling grid over the element will be interpolated
+     *  \param[in]  explode	                    there will be gaps between all elements, obtained by scaling them away from the center of mass
      *  \param[in]  writeEdgeData                  If true, discretization points are connected using linear edges forming triangular mesh, and added to writer
      *  \param[in]  writeTriangleData              If true, discretization points are connected using linear triangles forming triangular mesh, and added to writer
      *
@@ -489,10 +490,10 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         // Treat boundary segments in a special way
         std::string pname;
         bool magnify;
-        if (thisElmPartitionType == CurvGrid::BOUNDARY_SEGMENT_PARTITION_TYPE) {
+        if (thisElmPartitionType == BOUNDARY_SEGMENT_PARTITION_TYPE) {
         	magnify = true;
         	pname = "BoundarySegment";
-        } else if (thisElmPartitionType == CurvGrid::INTERIOR_BOUNDARY_SEGMENT_PARTITION_TYPE) {
+        } else if (thisElmPartitionType == INTERIOR_BOUNDARY_SEGMENT_PARTITION_TYPE) {
             	magnify = false;
             	pname = "InteriorBoundarySegment";
         } else {
@@ -506,7 +507,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         if (mydim == 1)  { writeCodim[ELEMENT_CODIM] = false;  writeCodim[FACE_CODIM] = false; }
 
         std::stringstream log_message;
-        log_message << "VTK_WRITER: Adding a curvilinear element Type=" << Dune::CurvilinearGeometryHelper::geometryName(geomtype);
+        log_message << "VTK_WRITER: Adding a curvilinear element Type=" << CurvilinearGeometryHelper::geometryName(geomtype);
         log_message << " Order="               << elementOrder;
         log_message << " PhysicalTag="         << thisElmPhysTag;
         log_message << " StructuralType="      << pname;
@@ -517,8 +518,8 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         log_message << " writeVTK_edges="      << writeCodim[EDGE_CODIM];
         log_message << " writeVTK_triangles="  << writeCodim[FACE_CODIM];
         log_message << " writeVTK_triangles="  << writeCodim[ELEMENT_CODIM];
-        //log_message << " vertices=" << Dune::VectorHelper::vector2string(nodeSet);
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, log_message.str());
+        //log_message << " vertices=" << VectorHelper::vector2string(nodeSet);
+        LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, log_message.str());
 
         addCurvilinearSimplex<mydim>(geomtype, nodeSet, tagSet, elementOrder, nDiscretizationPoint, explode, magnify, interpolate, writeCodim);
     }
@@ -527,7 +528,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     // Initialize field name. Useful, if master process does not have any entities of a given type, but still needs to write a correct .pvtu file
     template <class VTKVectorFunction>
     void initScalarField(const VTKVectorFunction & vtkfunction) {
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Initializing scalar field " + vtkfunction.name());
+    	LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Initializing scalar field " + vtkfunction.name());
 
     	typedef typename VTKVectorFunction::Domain  Domain;
     	typedef typename VTKVectorFunction::Range   Range;
@@ -540,7 +541,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     // Initialize field name. Useful, if master process does not have any entities of a given type, but still needs to write a correct .pvtu file
     template <class VTKVectorFunction>
     void initVectorField(const VTKVectorFunction & vtkfunction) {
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Initializing vector field " + vtkfunction.name());
+    	LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Initializing vector field " + vtkfunction.name());
 
     	typedef typename VTKVectorFunction::Domain  Domain;
     	typedef typename VTKVectorFunction::Range   Range;
@@ -554,7 +555,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
     template <class VTKVectorFunction>
     void addScalarField(const VTKVectorFunction & vtkfunction) {
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Adding element field " + vtkfunction.name());
+    	LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Adding element field " + vtkfunction.name());
 
     	typedef typename VTKVectorFunction::Domain  Domain;
     	typedef typename VTKVectorFunction::Range   Range;
@@ -585,7 +586,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
 
     template <class VTKVectorFunction>
     void addVectorField(const VTKVectorFunction & vtkfunction) {
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Adding element field " + vtkfunction.name());
+    	LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Adding element field " + vtkfunction.name());
 
     	typedef typename VTKVectorFunction::Domain  Domain;
     	typedef typename VTKVectorFunction::Range   Range;
@@ -1042,7 +1043,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
     template<int codim, int subcodim>
     void refineEntity(const ElemGridEnumerate & simplexEnumerateReduced, int nInterval, const LocalCoordinate2GlobalIdMap & parametricToIndex, const std::vector<int> & tagSet)
     {
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Computing and writing refinement-edges" );
+    	LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Computing and writing refinement-edges" );
     	SubEntityIndexVector thisEntitySubset = VTKEntitySubset::refineEntitySubset<codim, subcodim>(simplexEnumerateReduced, nInterval, parametricToIndex);
 
     	for (unsigned int i = 0; i < thisEntitySubset.size(); i++) {
@@ -1114,7 +1115,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         int nCornerThis = elementInterpolator.nCorner();
 
 
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Calculating CoM" );
+        LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Calculating CoM" );
         GlobalCoordinateVec cornerVector;
         for (int i = 0; i < nCornerThis; i++) { cornerVector.push_back(elementInterpolator.corner(i)); }
         GlobalCoordinate CoM = vectorCentreOfMass(cornerVector);
@@ -1137,12 +1138,12 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         parameter2Index_.clear();
 
 
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Calculating Enumerators" );
-        ElemGridEnumerate  simplexEnumerate        = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval_);
-        ElemGridEnumerate  simplexEnumerateReduced = Dune::CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval_ - 1);
-        std::vector< LocalVector > simplexLocalGrid = Dune::CurvilinearGeometryHelper::simplexGridCoordinateSet<ctype, mydim>(simplexEnumerate, nInterval_);
+        LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Calculating Enumerators" );
+        ElemGridEnumerate  simplexEnumerate        = CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval_);
+        ElemGridEnumerate  simplexEnumerateReduced = CurvilinearGeometryHelper::simplexGridEnumerate<mydim>(nInterval_ - 1);
+        std::vector< LocalVector > simplexLocalGrid = CurvilinearGeometryHelper::simplexGridCoordinateSet<ctype, mydim>(simplexEnumerate, nInterval_);
 
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Computing and inserting refinement vertices" );
+        LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKWriter: Computing and inserting refinement vertices" );
         for (unsigned int i = 0; i < simplexEnumerate.size(); i++)
         {
             // Find if this vertex is internal or boundary
@@ -1233,6 +1234,7 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
   };
 
 
+} // namespace CurvGrid
 
 }  // namespace Dune
 

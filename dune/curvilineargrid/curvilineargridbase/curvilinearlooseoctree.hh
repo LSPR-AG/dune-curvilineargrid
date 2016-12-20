@@ -33,6 +33,8 @@
 
 namespace Dune {
 
+namespace CurvGrid {
+
 /** 
  * Octree with overlapping octants
  * @param NodeType Type of nodes that are stored in the CurvilinearLooseOctree. Pointers to NodeType are stored
@@ -50,8 +52,8 @@ public:
 	// **************************************************************************
 	typedef  ct      ctype;
 
-	typedef Dune::FieldVector<ctype, cdim>                    Vertex;
-	typedef Dune::CurvilinearOctant<ctype, cdim, NodeType>    CurvilinearOctant;
+	typedef Dune::FieldVector<ctype, cdim>                    GlobalCoordinate;
+	typedef CurvilinearOctant<ctype, cdim, NodeType>    CurvOctant;
 
 	/** Filter function deciding whether a point is inside a an OctreeNode */
 	// FIXME: DO FUNCTOR DO NOT DO UGLY POINTER
@@ -64,7 +66,7 @@ public:
 	// FIXME: DO FUNCTOR DO NOT DO UGLY POINTER
 	// FIXME: DO FUNCTOR DO NOT DO UGLY POINTER
 	// FIXME: DO FUNCTOR DO NOT DO UGLY POINTER
-    typedef bool (NodeType::*filter)(const Vertex&) const;
+    typedef bool (NodeType::*filter)(const GlobalCoordinate&) const;
 
     typedef typename std::vector<NodeType *>::iterator NodePtrIterator;
 
@@ -74,14 +76,14 @@ public:
      * "center" and "length".
      */
     CurvilinearLooseOctree(
-    		const Vertex& center,
+    		const GlobalCoordinate& center,
     		double length,
     		int maxDepth,
     		MPIHelper & mpihelper) :
     			maxDepth_(maxDepth),
     			mpihelper_(mpihelper)
 	{
-    	root_ = new CurvilinearOctant(center, length);
+    	root_ = new CurvOctant(center, length);
 	}
 
 
@@ -99,17 +101,17 @@ public:
      * max to level maxDepth_. The return value is a pointer to the
      * Octant storing the node.
      */
-    CurvilinearOctant* addNode(NodeType* thisNode, CurvilinearOctant* octant=0, int depth=0)
+    CurvOctant* addNode(NodeType* thisNode, CurvOctant* octant=0, int depth=0)
     {
     	std::stringstream log_stream;
     	log_stream << "CurvilinearLooseOctree: Adding a node ElementIndex=" << thisNode->elementIndex() <<  " Octant=" << octant << " Depth=" << depth;
 
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, log_stream.str());
+    	LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, log_stream.str());
 
         // root is the default octant
         if (octant == 0)  { octant = root_; }
 
-        Vertex extent, center;
+        GlobalCoordinate extent, center;
         thisNode->elementBoundingBox(center, extent);
 
         // if the octant is twice as big as the node,
@@ -126,7 +128,7 @@ public:
 
             // If Octant does not yet exist: create new one
             if (octant->children_[childIndex] == 0)
-            	octant->children_[childIndex] = new CurvilinearOctant(octant, childIndex);
+            	octant->children_[childIndex] = new CurvOctant(octant, childIndex);
 
             // call myself recursively
             return addNode(thisNode, octant->children_[childIndex], depth + 1);
@@ -147,17 +149,17 @@ public:
         set to zero. "octant" specifies the starting octant. By
         default the search starts at the root node.
     */
-    void findNode(const Vertex& coord,
+    void findNode(const GlobalCoordinate& coord,
                              std::vector<int>& elementIndices,
                              int& nNodeVisited,
                              CurvilinearLooseOctree::filter filter,
-                             CurvilinearOctant* octant=0)
+                             CurvOctant* octant=0)
     {
         // root is the default octant
         if (octant == 0)  { octant = root_; }
 
         // return if coord is outside octant (including overlapping region)
-        Vertex dist = coord - octant->_center;
+        GlobalCoordinate dist = coord - octant->_center;
         double extentLength = 2.0 * octant->length_;
         if (fabs(dist[0]) > extentLength ||
             fabs(dist[1]) > extentLength ||
@@ -191,10 +193,10 @@ public:
         the search starts at the root node. If no node was found, 0 is
         returned.
     */
-    int findSingleNode(const Vertex& coord,
+    int findSingleNode(const GlobalCoordinate& coord,
                                        int& nNodeVisited,
                                        CurvilinearLooseOctree::filter filter,
-                                       CurvilinearOctant* octant=0)
+                                       CurvOctant* octant=0)
     {
         NodeType* thisNode;
 
@@ -202,7 +204,7 @@ public:
         if (octant == 0)  { octant = root_; }
 
         // return if coord is outside octant (including overlapping region)
-        Vertex dist = coord - octant->_center;
+        GlobalCoordinate dist = coord - octant->_center;
         double extentLength = 2.0 * octant->length_;
         if (fabs(dist[0]) > extentLength ||
             fabs(dist[1]) > extentLength ||
@@ -239,7 +241,7 @@ public:
                         int& nOctant,
                         int& nNode)
     {
-        CurvilinearOctant* octant = root_;
+        CurvOctant* octant = root_;
         int depth = 0;
         double sumDepth = 0.0;
 
@@ -278,7 +280,7 @@ public:
     void vtkWriteLevel(int level, std::string filename)
     {
         std::vector<int> cells;
-        Vertex center;
+        GlobalCoordinate center;
         center[0] = 0;
         center[1] = 1;
         center[2] = 2;
@@ -301,7 +303,7 @@ public:
 
         // export all points in level, (2**depth + 1)**3 points
         int n = (1 << level) + 1;
-        Vertex origin = root_->center_;
+        GlobalCoordinate origin = root_->center_;
         origin -= root_->length_;
         double side = 2.0*root_->length_ / (1 << level);
         of << "POINTS " << n*n*n << " float" << std::endl;
@@ -346,7 +348,7 @@ public:
 
 protected:
 
-    void statisticsRecursive(CurvilinearOctant* octant,
+    void statisticsRecursive(CurvOctant* octant,
                                   int depth,
                                   int& maxDepth,
                                   double& sumDepth,
@@ -367,9 +369,9 @@ protected:
     }
 
 
-    void vtkDataRecursive(CurvilinearOctant* octant,
+    void vtkDataRecursive(CurvOctant* octant,
     		                  int depth,
-                              Vertex & center,
+                              GlobalCoordinate & center,
                               int targetDepth,
                               std::vector<int>& cells)
     {
@@ -391,7 +393,7 @@ protected:
             for (int i = 0; i < 8; i ++) {
                 if (octant->children_[i])
                 {
-                	Vertex subCenter;
+                	GlobalCoordinate subCenter;
                 	subCenter[0] = center[0] + ((i & 0x1) == 0x1) * (1 << (targetDepth - depth - 1));
                 	subCenter[1] = center[1] + ((i & 0x2) == 0x2) * (1 << (targetDepth - depth - 1));
                 	subCenter[2] = center[2] + ((i & 0x4) == 0x4) * (1 << (targetDepth - depth - 1));
@@ -406,10 +408,11 @@ private:
 
     MPIHelper &mpihelper_;
 
-    CurvilinearOctant* root_;    /** Root Octant */
+    CurvOctant* root_;    /** Root Octant */
     int maxDepth_;               /** Maximum tree depth */
 };
 
+} // namespace CurvGrid
 
 } // namespace Dune
 

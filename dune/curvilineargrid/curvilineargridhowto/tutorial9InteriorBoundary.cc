@@ -18,6 +18,8 @@
 
 
 
+using namespace Dune;
+using namespace Dune::CurvGrid;
 
 const bool isCached = true;
 typedef Dune::FieldVector<double, 3>  GlobalCoordinate;
@@ -97,14 +99,14 @@ std::vector<double> Integrate (GridType& grid, const std::vector<GlobalCoordinat
   typedef typename GridType::PhysicalTagType         PhysicalTagType;
 
   typedef GaussFunctor<GridType, 2>              Integrand2D;
-  typedef Dune::QuadratureIntegrator<double, 2>  Integrator2DScalar;
+  typedef QuadratureIntegrator<double, 2>  Integrator2DScalar;
   typedef typename Integrator2DScalar::template Traits<Integrand2D>::StatInfo  StatInfo;
 
 
   std::vector<double> gaussintegral(chargePos.size(), 0.0);
   double RELATIVE_TOLERANCE = 1.0e-5;
   double ACCURACY_GOAL = 1.0e-15;
-  const int NORM_TYPE = Dune::QUADRATURE_NORM_L2;
+  const int NORM_TYPE = QUADRATURE_NORM_L2;
 
   for (auto&& elem : elements(leafView, Dune::Partitions::interiorBorder)) {
 
@@ -147,6 +149,9 @@ std::vector<double> Integrate (GridType& grid, const std::vector<GlobalCoordinat
 
 
 
+// NOTE: This test only makes sense for geometries with several interior boundaries
+// NOTE: Currently only works with grid number 7, as boundary tags are hard-coded [TODO] Fix this
+
 int main (int argc , char **argv) {
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
 
@@ -154,18 +159,14 @@ int main (int argc , char **argv) {
 	const int dim = 3;
 	typedef  double    ctype;
 
-	// NOTE: This test only makes sense for geometries with several interior boundaries
-	const int grid_file_type = 7;  // createGrid procedure provides 8 different example grids numbered 0 to 7
-
 	static const int INNER_VOLUME_TAG = 501;
 	static const int OUTER_VOLUME_TAG = 503;
 	static const int INNER_SURFACE_TAG = 101;
 	static const int OUTER_SURFACE_TAG = 102;
 
-	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
-
 	// Create Grid
-	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
+	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
+	GridType * grid = createGrid<GridType>(mpihelper, argc, argv);
 
 	std::vector<double> xCoord{0.0,
 		-0.01, -0.02, -0.03, -0.04, -0.06, -0.4, -0.6, -0.9, -1.1, -2.0,
@@ -193,7 +194,7 @@ int main (int argc , char **argv) {
 	std::vector<double> I2 = Integrate(*grid, chargePos, OUTER_VOLUME_TAG, OUTER_SURFACE_TAG);
 
 	// Report result on the master
-	if (grid->comm().rank() == Dune::CurvGrid::MPI_MASTER_RANK) {
+	if (grid->comm().rank() == MPI_MASTER_RANK) {
 		for (int i = 0; i < xCoord.size(); i++) {
 			std::cout
 				<< "For charge at pos (" << chargePos[i]
@@ -202,7 +203,7 @@ int main (int argc , char **argv) {
 		}
 	}
 
-	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+	typedef LoggingTimer<LoggingMessage>                 LoggingTimerDev;
 	LoggingTimerDev::reportParallel();
 
     // Delete the grid

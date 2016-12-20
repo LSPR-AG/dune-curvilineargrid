@@ -56,6 +56,8 @@
 
 namespace Dune {
 
+namespace CurvGrid {
+
 
 // Forward declaration
 //template <class ct, int cdim, bool isCached>
@@ -84,7 +86,7 @@ public:
     typedef typename GridStorageType::InterpolatoryOrderType    InterpolatoryOrderType;
 
     // Containers
-    typedef typename GridStorageType::Vertex                    Vertex;
+    typedef typename GridStorageType::GlobalCoordinate                    GlobalCoordinate;
     typedef typename GridStorageType::VertexStorage             VertexStorage;
     typedef typename GridStorageType::EdgeStorage               EdgeStorage;
     typedef typename GridStorageType::FaceStorage               FaceStorage;
@@ -110,6 +112,8 @@ public:
     // Face Structural Type
     static const unsigned int NO_BOUNDARY_TYPE     = GridStorageType::FaceBoundaryType::None;
     static const unsigned int DOMAIN_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::DomainBoundary;
+    static const unsigned int INTERIOR_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::InteriorBoundary;
+    static const unsigned int PERIODIC_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::PeriodicBoundary;
 
 public: /* public methods */
 
@@ -125,7 +129,7 @@ public: /* public methods */
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
 
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "Initialized CurvilinearPostConstructor");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "Initialized CurvilinearPostConstructor");
     }
 
 
@@ -137,7 +141,7 @@ public: /* public methods */
     	// Loop over all elements
     	for (unsigned int iElem = 0; iElem < gridstorage_.element_.size(); iElem++)
     	{
-    		Dune::LoggingMessage::writePatience("Generating unique corner indices...", iElem, gridstorage_.element_.size());
+    		LoggingMessage::writePatience("Generating unique corner indices...", iElem, gridstorage_.element_.size());
 
         	// Get LocalCornerIndices
     		std::vector<LocalIndexType> thisCornerIndex = gridbase_.entityCornerLocalIndex(ELEMENT_CODIM, iElem);
@@ -164,7 +168,7 @@ public: /* public methods */
     // NOTE: Must only insert corners, not other interpolatory vertices
     void generateIteratorSets()
     {
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating iterator lists");
+    	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating iterator lists");
 
     	// Initialize all index sets
     	// ***************************************************************
@@ -186,26 +190,26 @@ public: /* public methods */
     	int cornerCount = 0;
         for (Local2LocalIterator iCorner = gridstorage_.cornerIndexMap_.begin();
         	                     iCorner != gridstorage_.cornerIndexMap_.end(); iCorner++) {
-        	Dune::LoggingMessage::writePatience("Generating corner iterator list...", cornerCount++, gridstorage_.cornerIndexMap_.size());
+        	LoggingMessage::writePatience("Generating corner iterator list...", cornerCount++, gridstorage_.cornerIndexMap_.size());
         	fillPartitionIterator(VERTEX_CODIM, (*iCorner).first, gridstorage_.point_[(*iCorner).first].ptype);
         }
 
         for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)         {
-        	Dune::LoggingMessage::writePatience("Generating edge iterator list...", iEdge, gridstorage_.edge_.size());
+        	LoggingMessage::writePatience("Generating edge iterator list...", iEdge, gridstorage_.edge_.size());
         	fillPartitionIterator(EDGE_CODIM,    iEdge, gridstorage_.edge_[iEdge].ptype);
         }
 
         for (LocalIndexType iFace = 0; iFace < gridstorage_.face_.size(); iFace++)         {
-        	Dune::LoggingMessage::writePatience("Generating face iterator list...", iFace, gridstorage_.face_.size());
+        	LoggingMessage::writePatience("Generating face iterator list...", iFace, gridstorage_.face_.size());
         	fillPartitionIterator(FACE_CODIM,    iFace, gridstorage_.face_[iFace].ptype, gridstorage_.face_[iFace].boundaryType );
         }
 
         for (LocalIndexType iElem = 0; iElem < gridstorage_.element_.size(); iElem++)      {
-        	Dune::LoggingMessage::writePatience("Generating element iterator list...", iElem, gridstorage_.element_.size());
+        	LoggingMessage::writePatience("Generating element iterator list...", iElem, gridstorage_.element_.size());
         	fillPartitionIterator(ELEMENT_CODIM, iElem, gridstorage_.element_[iElem].ptype);
         }
 
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating iterator lists");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating iterator lists");
 
     }
 
@@ -227,7 +231,7 @@ public: /* public methods */
      *  */
     void generateCommunicationMaps()
     {
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating communication maps");
+    	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating communication maps");
 
     	// [FIXME] GET DATA FROM REF SUBENTITY SIZE
     	// [FIXME] GET DATA INDIVIDUALLY FOR EACH ELEMENT
@@ -257,14 +261,10 @@ public: /* public methods */
 
 		// Iterate over all PB faces
 		int faceCount = 0;
-
-		IndexSetIterator iterB = gridbase_.entityIndexBegin(FACE_CODIM , Dune::PartitionType::BorderEntity);
-		IndexSetIterator iterE = gridbase_.entityIndexEnd(FACE_CODIM , Dune::PartitionType::BorderEntity);
-		for (IndexSetIterator iter = iterB; iter != iterE; iter++)
+		for (const auto & thisFaceLocalIndex : gridbase_.entityIndexSetSelect(FACE_CODIM , Dune::PartitionType::BorderEntity))
 		{
-			Dune::LoggingMessage::writePatience("Generating communication maps...", faceCount++, gridbase_.nEntity(FACE_CODIM, Dune::PartitionType::BorderEntity));
+			LoggingMessage::writePatience("Generating communication maps...", faceCount++, gridbase_.nEntity(FACE_CODIM, Dune::PartitionType::BorderEntity));
 
-			LocalIndexType thisFaceLocalIndex = *iter;
 			int thisFaceNeighborRank = gridbase_.commEntityNeighborRankSet(FACE_CODIM, thisFaceLocalIndex, Dune::PartitionType::BorderEntity, Dune::PartitionType::BorderEntity)[0];
 
 			// 1) Find all Internal and Ghost entities associated with this PB Face
@@ -298,7 +298,7 @@ public: /* public methods */
 					std::sort(faceNeighborSubentityIndex[iFaceNeighbor][iCodim].begin(), faceNeighborSubentityIndex[iFaceNeighbor][iCodim].end());
 
 					// Subtract face subentity set from element subentity set, such that only internal and ghost subentities are left
-					faceNeighborSubentityIndex[iFaceNeighbor][iCodim] = Dune::VectorHelper::sortedSetComplement(faceNeighborSubentityIndex[iFaceNeighbor][iCodim], faceSubentityIndex[iCodim]);
+					faceNeighborSubentityIndex[iFaceNeighbor][iCodim] = VectorHelper::sortedSetComplement(faceNeighborSubentityIndex[iFaceNeighbor][iCodim], faceSubentityIndex[iCodim]);
 
 					// 2) Add entities to the map unless they are already added.
 					// **********************************************************************
@@ -315,7 +315,7 @@ public: /* public methods */
 						log_str << " subentityNo=" << iEntity;
 						log_str << " localindex =" << thisEntityLocalIndex;
 						log_str << " gives structural type =" << Dune::PartitionName(thisEntityType);
-						LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_str.str());
+						LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_str.str());
 
 
 						// If this is a PB Entity, that happens to not be on the face, it is possible
@@ -325,8 +325,8 @@ public: /* public methods */
 						if (thisEntityType == Dune::PartitionType::BorderEntity)
 						{
 							std::vector<int> & thisEntityPBNeighbors = gridbase_.commEntityNeighborRankSet(iCodim, thisEntityLocalIndex, Dune::PartitionType::BorderEntity, Dune::PartitionType::BorderEntity);
-							bool isNewRank = !Dune::VectorHelper::isInside(thisEntityPBNeighbors, thisFaceNeighborRank);
-							//std::cout << "testing isInside vector=(" << Dune::VectorHelper::vector2string(thisEntityPBNeighbors) << ") elem=" << thisFaceNeighborRank << " isNew=" << isNewRank << std::endl;
+							bool isNewRank = !VectorHelper::isInside(thisEntityPBNeighbors, thisFaceNeighborRank);
+							//std::cout << "testing isInside vector=(" << VectorHelper::vector2string(thisEntityPBNeighbors) << ") elem=" << thisFaceNeighborRank << " isNew=" << isNewRank << std::endl;
 
 							// If this rank is not already in PB-PB of this entity, then it must be in PB-G
 							if (isNewRank)
@@ -356,7 +356,7 @@ public: /* public methods */
 
 					    		std::cout << rank_ << " ERROR: " << expectedTypeName << " " << receivedTypeName << std::endl;
 
-					    		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridBase: Unexpected type name expected=" + expectedTypeName + ", received="+receivedTypeName);
+					    		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridBase: Unexpected type name expected=" + expectedTypeName + ", received="+receivedTypeName);
 					    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected type name");
 					    	}
 
@@ -394,13 +394,13 @@ public: /* public methods */
 		{
 			for (unsigned int iEntity = 0; iEntity < gridstorage_.BI2GNeighborRank_[iCodim].size(); iEntity++)
 			{
-				Dune::VectorHelper::compactify(gridstorage_.BI2GNeighborRank_[iCodim][iEntity]);
+				VectorHelper::compactify(gridstorage_.BI2GNeighborRank_[iCodim][iEntity]);
 			}
 		}
 
 
 
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating communication maps");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating communication maps");
     }
 
 
@@ -444,9 +444,9 @@ public: /* public methods */
 
     	for (int iCodim = 0; iCodim <= dimension; iCodim++)
     	{
-    		Dune::LoggingMessage::writePatience("Communicating neighbour ranks for different communication protocols...", iCodim, dimension + 1);
+    		LoggingMessage::writePatience("Communicating neighbour ranks for different communication protocols...", iCodim, dimension + 1);
 
-    		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started communicating entity ranks for codim=" + std::to_string(iCodim));
+    		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started communicating entity ranks for codim=" + std::to_string(iCodim));
 
 
     		//1) Compute true PB-G candidates, communicate their number to PB neighbor entities
@@ -465,7 +465,7 @@ public: /* public methods */
     	    // ************************************************************************************
     	    communicateGG(iCodim, comm);
 
-    	    LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Finished communicating entity ranks for codim=" + std::to_string(iCodim));
+    	    LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Finished communicating entity ranks for codim=" + std::to_string(iCodim));
     	}
 
     }
@@ -498,13 +498,17 @@ protected:
     	{
     	case Dune::PartitionType::InteriorEntity  :
     	{
-        	if (bordertype == DOMAIN_BOUNDARY_TYPE)
-        	{
-        		// Only faces can be boundarySegments
-        		assert(codim == FACE_CODIM);
+        	if (bordertype == DOMAIN_BOUNDARY_TYPE) {
+        		assert(codim == FACE_CODIM);  // Only faces can be boundarySegments
         		gridstorage_.faceDomainBoundaryIndexSet_.insert(localIndex);
-        	} else
-        	{
+        	} else if (bordertype == PERIODIC_BOUNDARY_TYPE) {
+        		assert(codim == FACE_CODIM);  // Only faces can be boundarySegments
+        		gridstorage_.facePeriodicBoundaryIndexSet_.insert(localIndex);
+        		gridstorage_.faceDomainBoundaryIndexSet_.insert(localIndex);  // Periodic boundaries are also domain boundaries
+        	} else if (bordertype == INTERIOR_BOUNDARY_TYPE) {
+        		assert(codim == FACE_CODIM);  // Only faces can be boundarySegments
+        		gridstorage_.faceInteriorBoundaryIndexSet_.insert(localIndex);
+        	} else {
         		// Consider a face internal only if it is not a boundary segment
         		// Consider all other codim interior entities internal
         		gridstorage_.entityInternalIndexSet_[codim].insert(localIndex);
@@ -537,7 +541,7 @@ protected:
     // [TODO] Possibly set complement unnecessary, since already only adding neighbor if it is not a neighbor already
     void communicatePBG(int codim, MPI_Comm comm)
     {
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started ProcessBoundary-Ghost communication construction");
+    	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started ProcessBoundary-Ghost communication construction");
 
     	Local2LocalIterator iterB = gridstorage_.processBoundaryIndexMap_[codim].begin();
     	Local2LocalIterator iterE = gridstorage_.processBoundaryIndexMap_[codim].end();
@@ -556,10 +560,10 @@ protected:
 			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
 
 			// PB2G may contain repeating entities, and is not sorted, need to compactify
-			Dune::VectorHelper::compactify(gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex]);
+			VectorHelper::compactify(gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex]);
 
 			//1.1) divide provisional PB->G set by PB->PB set to see which provisional PB->G are new
-			gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex] = Dune::VectorHelper::sortedSetComplement(
+			gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex] = VectorHelper::sortedSetComplement(
 				gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex],
 				gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex]
 			);
@@ -582,7 +586,7 @@ protected:
 		// Communicate entity number and candidate number per process
 		MPI_Alltoall(nPBGEntitySend.data(), 1, MPI_INT, reinterpret_cast<int*>(nPBGEntityRecv.data()), 1, MPI_INT, comm);
 		MPI_Alltoall(nPBGRankPerProcessSend.data(), 1, MPI_INT, reinterpret_cast<int*>(nPBGRankPerProcessRecv.data()), 1, MPI_INT, comm);
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ProcessBoundaries with candidates");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ProcessBoundaries with candidates");
 
 
 		//2) For each PB-G entity, communicate its global index
@@ -646,7 +650,7 @@ protected:
 			comm
 		);
 
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated global indices");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated global indices");
 
 
 		// Communicate candidate rank numbers
@@ -655,7 +659,7 @@ protected:
 			reinterpret_cast<int*>(nPBGRankPerEntityRecv.data()), nPBGEntityRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ranks per entity");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ranks per entity");
 
 
 
@@ -706,7 +710,7 @@ protected:
 			reinterpret_cast<int*>(neighborPBGRankSetRecv.data()), nPBGRankPerProcessRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated ranks");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated ranks");
 
 
 		//4) Fill in
@@ -739,7 +743,7 @@ protected:
 
 					if (abs(thisNeighborRank) >= size_)
 					{
-						LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Error: Unexpected received rank=" + std::to_string(thisNeighborRank));
+						LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Error: Unexpected received rank=" + std::to_string(thisNeighborRank));
 						assert(abs(thisNeighborRank) < size_);
 					}
 
@@ -749,7 +753,7 @@ protected:
 
 			}
 		}
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Filled in received data");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Filled in received data");
 
 
 		//5) Compactify PB-G arrays (sort and eliminate repeating)
@@ -760,17 +764,17 @@ protected:
 			LocalIndexType thisEntityLocalPBIndex = (*iter).second;
 
 			// Compactify the neighbor ranks
-			Dune::VectorHelper::compactify(gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex]);
+			VectorHelper::compactify(gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex]);
 
 			// divide PB->G set by PB->PB set
 			// This is just to make sure that no PB-PB links were picked up in the process
-			gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex] = Dune::VectorHelper::sortedSetComplement(
+			gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex] = VectorHelper::sortedSetComplement(
 				gridstorage_.PB2GNeighborRank_[codim][thisEntityLocalPBIndex],
 				gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex]
 			);
 		}
 
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished ProcessBoundary-Ghost communication construction");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished ProcessBoundary-Ghost communication construction");
     }
 
 
@@ -786,7 +790,7 @@ protected:
      * */
     void communicateGPB(int codim, MPI_Comm comm)
     {
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started Ghost-ProcessBoundary communication construction");
+    	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started Ghost-ProcessBoundary communication construction");
 
     	Local2LocalIterator iterB = gridstorage_.processBoundaryIndexMap_[codim].begin();
     	Local2LocalIterator iterE = gridstorage_.processBoundaryIndexMap_[codim].end();
@@ -808,7 +812,7 @@ protected:
 			}
 		}
 		MPI_Alltoall(nGPBEntitySend.data(), 1, MPI_INT, reinterpret_cast<int*>(nGPBEntityRecv.data()), 1, MPI_INT, comm);
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of Ghost candidates per process");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of Ghost candidates per process");
 
 
 		// 2) Communicate global indices for each G-PB entity
@@ -859,7 +863,7 @@ protected:
 			reinterpret_cast<int*>(GPBEntityGlobalIndexRecv.data()), nGPBEntityRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Sent own rank to all ghosts");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Sent own rank to all ghosts");
 
 
 		// 3) On receiving end, mark sender's rank on all received G-PB
@@ -888,7 +892,7 @@ protected:
 					logstr << " expected type=" + Dune::PartitionName(Dune::PartitionType::GhostEntity);
 					logstr << " received=" + Dune::PartitionName(thisEntityType);
 
-					LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, logstr.str());
+					LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, logstr.str());
 					assert(thisEntityType == Dune::PartitionType::GhostEntity);
 				}
 
@@ -896,7 +900,7 @@ protected:
 				gridstorage_.G2BIPBNeighborRank_[codim][thisEntityLocalGhostIndex].push_back(i);
 			}
 		}
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   filled received data");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   filled received data");
 
 
 		// 4) Compactify G-PB arrays (sort and eliminate repeating)
@@ -910,10 +914,10 @@ protected:
 
 			//! Compactify the neighbor ranks
 			//! \note no need to set-divide here, since only BI and PB were communicated
-			Dune::VectorHelper::compactify(gridstorage_.G2BIPBNeighborRank_[codim][thisEntityGhostLocalIndex]);
+			VectorHelper::compactify(gridstorage_.G2BIPBNeighborRank_[codim][thisEntityGhostLocalIndex]);
 		}
 
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished Ghost-ProcessBoundary communication construction");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished Ghost-ProcessBoundary communication construction");
     }
 
 
@@ -925,7 +929,7 @@ protected:
      * */
     void communicateGG(int codim, MPI_Comm comm)
     {
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started Ghost-Ghost communication construction");
+    	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started Ghost-Ghost communication construction");
 
     	Local2LocalIterator iterB = gridstorage_.processBoundaryIndexMap_[codim].begin();
     	Local2LocalIterator iterE = gridstorage_.processBoundaryIndexMap_[codim].end();
@@ -969,7 +973,7 @@ protected:
 		}
 		MPI_Alltoall(nGGEntitySend.data(), 1, MPI_INT, reinterpret_cast<int*>(nGGEntityRecv.data()), 1, MPI_INT, comm);
 		MPI_Alltoall(nGGRanksPerProcessSend.data(), 1, MPI_INT, reinterpret_cast<int*>(nGGRanksPerProcessRecv.data()), 1, MPI_INT, comm);
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ghost entities");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated number of ghost entities");
 
 
     	// 2) Communicate global indices of elements, as well as
@@ -1038,7 +1042,7 @@ protected:
 			reinterpret_cast<int*>(GGEntityGlobalIndexRecv.data()), nGGEntityRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated global indices");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated global indices");
 
 
 		// Communicate candidate rank numbers
@@ -1047,7 +1051,7 @@ protected:
 			reinterpret_cast<int*>(nGGRankPerEntityRecv.data()), nGGEntityRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated data sizes");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated data sizes");
 
 
 
@@ -1109,7 +1113,7 @@ protected:
 			reinterpret_cast<int*>(neighborGGRankSetRecv.data()), nGGRanksPerProcessRecv.data(), displRecv.data(), MPI_INT,
 			comm
 		);
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated ranks");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Communicated ranks");
 
 
 		//4) Fill in
@@ -1145,7 +1149,7 @@ protected:
 				}
 			}
 		}
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Filled in the received data");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Filled in the received data");
 
 
 		//5) Compactify G-G arrays (sort and eliminate repeating)
@@ -1160,7 +1164,7 @@ protected:
 			LocalIndexType thisEntityGhostLocalIndex = (*iter).second;
 
 			// Compactify the neighbor ranks
-			Dune::VectorHelper::compactify(gridstorage_.G2GNeighborRank_[codim][thisEntityGhostLocalIndex]);
+			VectorHelper::compactify(gridstorage_.G2GNeighborRank_[codim][thisEntityGhostLocalIndex]);
 
 			//! No need to perform division, as it is assumed that only ghost entities were communicated,
 			//! if all the previous steps were done correctly
@@ -1170,9 +1174,9 @@ protected:
 		// For debugging purposes
 		std::vector<int> nNeighborG2G;
 		for (int iGhost = 0; iGhost < gridstorage_.G2GNeighborRank_[codim].size(); iGhost++)  { nNeighborG2G.push_back(gridstorage_.G2GNeighborRank_[codim][iGhost].size()); }
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Number of neighbors for ghost entities=" + Dune::VectorHelper::vector2string(nNeighborG2G));
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: --   Number of neighbors for ghost entities=" + VectorHelper::vector2string(nNeighborG2G));
 
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished Ghost-Ghost communication construction");
+		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Finished Ghost-Ghost communication construction");
     }
 
 
@@ -1192,6 +1196,8 @@ private: // Private members
     int rank_;
     int size_;
 };
+
+} // namespace CurvGrid
 
 } // namespace Dune
 

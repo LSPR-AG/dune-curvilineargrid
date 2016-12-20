@@ -1,7 +1,7 @@
 \subsection{Curvilinear Grid Factory}
 \label{interface-grid-factory}
 
-This section will discuss the information that needs to be provided in order to construct a curvilinear grid. \\
+This section will discuss the information that needs to be provided in order to construct a curvilinear grid.
 
 \begin{mybox}
 \begin{lstlisting}
@@ -13,7 +13,7 @@ This section will discuss the information that needs to be provided in order to 
 In the above constructor, \textit{withGhostElements} determines if Ghost elements will be constructed, \textit{withGmshElementIndex} determines if the global element index will be re-used from the \gmsh{} file, or constructed from scratch, and \textit{mpihelper} is the MPI Helper class provided by \dune{}. \\
 
 \noindent
-A vertex must be inserted using its global coordinate and global index. At the moment, \curvgrid{} construction procedure requires \textit{a priori} knowledge of the vertex global index. All vertices belonging to each process must be inserted this way. \\
+A vertex must be inserted using its global coordinate and global index. At the moment, \curvgrid{} construction procedure requires \textit{a priori} knowledge of the vertex global index. All vertices belonging to each process must be inserted this way.
 
 \begin{mybox}
 \begin{lstlisting}
@@ -22,7 +22,7 @@ A vertex must be inserted using its global coordinate and global index. At the m
 \end{mybox}
 
 \noindent
-A curvilinear element must be inserted using its geometry type, interpolatory vertex local index STL vector, interpolatory order and physical tag. Currently, only 3D simplex elements are supported. All elements present on each process must be inserted. One must not insert elements not present on this process. The local index of an interpolatory vertex corresponds to the order the vertices were inserted into the grid. The order in which the vertex indices appear within the element is in accordance with the dune convention, discussed in \cref{impl-gmsh-numbering-convention}. Currently the available interpolation orders are 1-5. The interpolation order must correspond to the number of interpolatory vertices. Currently, physical tag is an integer, corresponding to the material property of the entity or otherwise. \\
+A curvilinear element must be inserted using its geometry type, interpolatory vertex local index STL vector, interpolatory order and physical tag. Currently, only 3D simplex elements are supported. All elements present on each process must be inserted. One must not insert elements not present on this process. The local index of an interpolatory vertex corresponds to the order the vertices were inserted into the grid. The order in which the vertex indices appear within the element is in accordance with the dune convention, discussed in \cref{impl-gmsh-numbering-convention}. Currently the available interpolation orders are 1-5. The interpolation order must correspond to the number of interpolatory vertices. Currently, physical tag is an integer, corresponding to the material property of the entity or otherwise.
 
 \begin{mybox}
 \begin{lstlisting}
@@ -32,7 +32,7 @@ A curvilinear element must be inserted using its geometry type, interpolatory ve
 
 
 \noindent
-A curvilinear boundary segment must be inserted using its geometry type, interpolatory vertex local index vector, interpolatory order, physical tag, and boundary association. Currently, only 2D simplex boundary segments are supported. All boundary segments present on this process must be inserted. One must not insert boundary segments not present on this process. Domain boundary segments must always be present in the mesh file. If interior boundaries are present in the geometry, they are also inserted using this method, setting $isDomainBoundary = false$. \\
+A curvilinear boundary segment must be inserted using its geometry type, interpolatory vertex local index vector, interpolatory order, physical tag, and boundary association. Currently, only 2D simplex boundary segments are supported. All boundary segments present on this process must be inserted. One must not insert boundary segments not present on this process. Domain boundary segments must always be present in the mesh file. If interior boundaries are present in the geometry, they are also inserted using this method, setting $isDomainBoundary = false$.
 
 \begin{mybox}
 \begin{lstlisting}

@@ -18,6 +18,10 @@
 #include <dune/curvilineargrid/curvilineargridhowto/creategrid.hh>
 
 
+
+using namespace Dune;
+using namespace Dune::CurvGrid;
+
 const int DIM0D = 0;
 const int DIM1D = 1;
 const int DIM2D = 2;
@@ -27,9 +31,9 @@ const bool isCached = true;
 
 
 template <typename Grid>
-class VTKFunctionElementIndex	:	public Dune::VTKScalarFunction <Grid, DIM3D>
+class VTKFunctionElementIndex	:	public VTKScalarFunction <Grid, DIM3D>
 {
-	typedef Dune::VTKScalarFunction <Grid, DIM3D>  Base;
+	typedef VTKScalarFunction <Grid, DIM3D>  Base;
 
 protected:
 	/***************************************************************************************************************/
@@ -62,9 +66,9 @@ private:
 
 
 template <typename Grid>
-class VTKFunctionBoundarySegmentIndex	:	public Dune::VTKScalarFunction <Grid, DIM2D>
+class VTKFunctionBoundarySegmentIndex	:	public VTKScalarFunction <Grid, DIM2D>
 {
-	typedef Dune::VTKScalarFunction <Grid, DIM2D>  Base;
+	typedef VTKScalarFunction <Grid, DIM2D>  Base;
 
 protected:
 	/***************************************************************************************************************/
@@ -107,9 +111,9 @@ private:
 // Note: This method is very naive, as it does not even consider the global orientation of the element
 // Normally you can find out the global orientation by considering the global coordinates and/or global ID's of the associated geometry
 template <typename Grid, int mydim>
-class VTKFunctionLocalSinusoid	:	public Dune::VTKVectorFunction <Grid, mydim>
+class VTKFunctionLocalSinusoid	:	public VTKVectorFunction <Grid, mydim>
 {
-	typedef Dune::VTKVectorFunction <Grid, mydim>  Base;
+	typedef VTKVectorFunction <Grid, mydim>  Base;
 
 protected:
 	/***************************************************************************************************************/
@@ -146,9 +150,9 @@ public:
  *  The only difference to local sinusoid method is having to map from local to global coordinates
  *    */
 template <typename Grid, int mydim>
-class VTKFunctionGlobalSinusoid	:	public Dune::VTKVectorFunction <Grid, mydim>
+class VTKFunctionGlobalSinusoid	:	public VTKVectorFunction <Grid, mydim>
 {
-	typedef Dune::VTKVectorFunction <Grid, mydim>  Base;
+	typedef VTKVectorFunction <Grid, mydim>  Base;
 
 protected:
 	/***************************************************************************************************************/
@@ -189,21 +193,13 @@ private:
 int main (int argc , char **argv) {
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
 
-	if (argc <= 1) {
-		std::cout << "--please enter example grid number [0..5] as command line parameter" << std::endl;
-		return 0;
-	}
-    int grid_file_type = atoi(argv[1]);  // createGrid procedure provides 6 different example grids numbered 0 to 5
-    assert((grid_file_type >= 0) && (grid_file_type < 6));
-
-
 	// Define curvilinear grid
 	typedef  double    ctype;
 
 	typedef Dune::CurvilinearGrid<ctype, DIM3D, isCached>   GridType;
 	typedef typename GridType::GridStorageType              GridStorageType;
 	typedef typename GridType::StructuralType               StructuralType;
-	typedef Dune::CurvilinearVTKGridWriter<GridType>        GridWriter;
+	typedef CurvilinearVTKGridWriter<GridType>        GridWriter;
 	typedef typename GridWriter::VTKScalarFunction2D        BaseVTKScalarFunction2D;
 	typedef typename GridWriter::VTKScalarFunction3D        BaseVTKScalarFunction3D;
 	typedef typename GridWriter::VTKVectorFunction2D        BaseVTKVectorFunction2D;
@@ -215,7 +211,7 @@ int main (int argc , char **argv) {
 	typedef VTKFunctionGlobalSinusoid<GridType, DIM3D>      VTKFunctionGlobalSinusoidElem;
 
 	// Create Grid
-	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
+	GridType * grid = createGrid<GridType>(mpihelper, argc , argv);
 
 
     // Construct the VTK writer
@@ -251,7 +247,7 @@ int main (int argc , char **argv) {
     writer.addFieldSet(vtkFuncVectorSet3D_);
     writer.write("./", "tutorial-3-output");
 
-    typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+    typedef LoggingTimer<LoggingMessage>                 LoggingTimerDev;
     LoggingTimerDev::reportParallel();
 
 

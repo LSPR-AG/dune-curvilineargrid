@@ -16,6 +16,8 @@
 namespace Dune
 {
 
+namespace CurvGrid {
+
 
 // This class writes parallel vectors to file by gathering them on MPI_MASTER_RANK
 // [TODO] This code could be optimized by using MPI_File_Write_Ordered
@@ -75,7 +77,7 @@ public:
 	  DataVector  & data,
 	  const Grid & grid)
 	{
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "Started writing the parallel data to file [[...");
+		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "Started writing the parallel data to file [[...");
 
 		int rank = grid.comm().rank();
 		int size = grid.comm().size();
@@ -83,7 +85,7 @@ public:
 		// ******************************************************
 		// Self-test of consistency of input data
 		// ******************************************************
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Testing");
+		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Testing");
 
 		int nElement = grid.numInternal(ELEMENT_CODIM);
 		int nData    = data.size();
@@ -99,7 +101,7 @@ public:
 		// ******************************************************
 		// Compute total number of elements and data points
 		// ******************************************************
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Computing total data size");
+		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Computing total data size");
 
 		int nElementTot = grid.comm().sum(nElement);
 		int nDataTot    = grid.comm().sum(nData);
@@ -107,7 +109,7 @@ public:
 		// ******************************************************
 		// Communicate data sizes over all processes to Master process
 		// ******************************************************
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Communicating sizes to master process");
+		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Communicating sizes to master process");
 
 		SizeVector nElementProcess(size, 0);
 		SizeVector nDataProcess(size, 0);
@@ -118,7 +120,7 @@ public:
 		// ******************************************************
 		// Compute data displacements
 		// ******************************************************
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Computing displacements");
+		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Computing displacements");
 
 		SizeVector displElementProcess(1, 0);
 		SizeVector displDataProcess(1, 0);
@@ -132,7 +134,7 @@ public:
 		// ******************************************************
 		// Gather all data on master process
 		// ******************************************************
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Communicating data to master process");
+		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Communicating data to master process");
 
 		IndexVector  processElementGlobalIndex(nElementTot, 0);
 		SizeVector   processElementNDof       (nElementTot, 0);
@@ -149,7 +151,7 @@ public:
 
 		if (rank == MPI_MASTER_RANK)
 		{
-			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Packaging data to sortable structure");
+			LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Packaging data to sortable structure");
 
 			std::vector<ElementHolder> elemHolder(nElementTot);
 
@@ -170,7 +172,7 @@ public:
 			// ******************************************************
 			// Sort packaged data
 			// ******************************************************
-			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Sorting data");
+			LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Sorting data");
 
 			std::sort(elemHolder.begin(), elemHolder.end());
 
@@ -178,7 +180,7 @@ public:
 			// ******************************************************
 			// Write structure to file
 			// ******************************************************
-			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Writing data to file");
+			LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "  -- Writing data to file");
 
 			std::ofstream outfile;
 			outfile.open(filename);
@@ -194,7 +196,7 @@ public:
 			outfile.close();
 		}
 
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "Finished writing the parallel data to file ...]]");
+		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "Finished writing the parallel data to file ...]]");
 	}
 
 
@@ -203,6 +205,8 @@ public:
 };
 
 
-};
+} // namespace CurvGrid
+
+}; // namespace Dune
 
 #endif //DUNE_PARALLEL_DATA_WRITER_HH_

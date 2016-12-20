@@ -17,6 +17,8 @@
 
 
 
+using namespace Dune;
+using namespace Dune::CurvGrid;
 
 const bool isCached = true;
 const int DIM0D = 0;   const int CODIM0D = 3;
@@ -92,13 +94,13 @@ void Integrate (GridType& grid, const GlobalCoordinate & x0)
 
 	// Define Integrator and Functor
 	typedef GaussFunctor<GridType, DIM2D>              Integrand2D;
-	typedef Dune::QuadratureIntegrator<ct, DIM2D>  Integrator2DScalar;
+	typedef QuadratureIntegrator<ct, DIM2D>  Integrator2DScalar;
 	typedef typename Integrator2DScalar::template Traits<Integrand2D>::StatInfo  StatInfo;
 
 	// Choose integrator parameters
 	double RELATIVE_TOLERANCE = 1.0e-5;
 	double ACCURACY_GOAL = 1.0e-15;
-	const int NORM_TYPE = Dune::QUADRATURE_NORM_L2;
+	const int NORM_TYPE = QUADRATURE_NORM_L2;
 
 	// Initialize the integral variable
 	double gaussintegral = 0.0;
@@ -121,7 +123,7 @@ void Integrate (GridType& grid, const GlobalCoordinate & x0)
 			  logsstr << "---- from entity " << gt;
 			  logsstr << " adding Gauss integral contribution " << thisIntegralG.second[0];
 			  logsstr << ". Needed order " << thisIntegralG.first;
-			  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_PRODUCTION>(__FILE__, __LINE__, logsstr.str());
+			  LoggingMessage::template write<LOG_MSG_PRODUCTION>(__FILE__, __LINE__, logsstr.str());
 
 			  gaussintegral += thisIntegralG.second[0];
 			}
@@ -137,21 +139,19 @@ void Integrate (GridType& grid, const GlobalCoordinate & x0)
 
 
 int main (int argc , char **argv) {
-	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+	typedef LoggingTimer<LoggingMessage>                 LoggingTimerDev;
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
 
 	// Define curvilinear grid
 	const int dim = 3;
 	typedef  double    ctype;
-	const int grid_file_type = 2;  // createGrid procedure provides 6 different example grids numbered 0 to 5
-
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
 
 	// Create Grid
-	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
+	GridType * grid = createGrid<GridType>(mpihelper, argc, argv);
 
 	// Allow parallel output over all processes for the remainder of the program
-	Dune::LoggingMessage::setPVerbose(true);
+	LoggingMessage::setPVerbose(true);
 
 	// Place a charge slightly off of the origin, to make the field on the spherical boundary asymmetric
 	Dune::FieldVector<ctype, dim> x0;  x0[0] = 0.2;

@@ -36,7 +36,7 @@
 
 namespace Dune {
 
-
+namespace CurvGrid {
 
 
 template <class ct, int cdim, bool isCached>
@@ -50,11 +50,18 @@ public:
 	typedef  ct       ctype;
 	typedef  int      GlobalIndexType;
 	typedef  int      LocalIndexType;
-	typedef  Dune::CurvilinearGeometryHelper::InternalIndexType      InternalIndexType;
+	typedef  CurvilinearGeometryHelper::InternalIndexType      InternalIndexType;
 
 	typedef  int      StructuralType;
 	typedef  int      PhysicalTagType;
 	typedef  int      InterpolatoryOrderType;
+
+	// Grid Coordinate types
+	// ******************************************************************
+	typedef Dune::FieldVector<ctype, cdim>         GlobalCoordinate;
+	typedef Dune::FieldVector<ctype, cdim>         LocalCoordinate3D;
+	typedef Dune::FieldVector<ctype, cdim-1>      LocalCoordinate2D;
+	typedef Dune::FieldVector<ctype, cdim-2>      LocalCoordinate1D;
 
 
     // Entity Definition Structures
@@ -65,7 +72,7 @@ public:
 			None               = 0,   // Faces that do not belong to any boundaries
 			DomainBoundary     = 1,   // Faces on the boundary of computational domain
 			InteriorBoundary   = 2,   // Artificial user-defined boundary that may include interior faces
-			PeriodicBoundary   = 3,   // Periodic boundary [Not Implemented]
+			PeriodicBoundary   = 3   // Periodic boundary
 		};
 	};
 
@@ -170,7 +177,7 @@ public:
 	{
 		GlobalIndexType                 globalIndex;
 		Dune::PartitionType             ptype;
-    	Dune::FieldVector<ctype, cdim>  coord;
+    	GlobalCoordinate  coord;
 	};
 
 	struct EdgeStorage
@@ -211,8 +218,6 @@ public:
     // ******************************************************************
 	//typedef GridBase           GridBaseType;
 
-    typedef Dune::FieldVector<ctype, cdim>         Vertex;
-
     typedef typename CurvilinearEntityMapKey::EdgeKey   EdgeKey;
     typedef typename CurvilinearEntityMapKey::FaceKey   FaceKey;
 
@@ -228,8 +233,8 @@ public:
 
     typedef std::vector<std::vector <int> >             EntityNeighborRankVector;
 
-    typedef Dune::CurvilinearOctreeNode<ctype, cdim, isCached>   NodeType;
-    typedef Dune::CurvilinearLooseOctree<ctype, cdim, NodeType>   CurvilinearLooseOctree;
+    typedef Dune::CurvGrid::CurvilinearOctreeNode<ctype, cdim, isCached>   NodeType;
+    typedef Dune::CurvGrid::CurvilinearLooseOctree<ctype, cdim, NodeType>   CurvilinearLooseOctree;
 
 
     // Codimensions of entity types for better code readability
@@ -256,8 +261,8 @@ public:
 
 
     // Storage of process bounding box, since its computation is expensive
-    Vertex boundingBoxCenter_;
-    Vertex boundingBoxExtent_;
+    GlobalCoordinate boundingBoxCenter_;
+    GlobalCoordinate boundingBoxExtent_;
 
     // Storage necessary for user access and computation of globalIndex
     int nEntityTotal_[4];
@@ -284,12 +289,14 @@ public:
     Local2LocalMap  cornerIndexMapRev_;  // corner unique index -> vertex index
 
     // Entity local index -> local structural entity index
-    Local2LocalMap  boundarySegmentIndexMap_;  // Domain Boundary Face Index -> Boundary Segment Index
+    Local2LocalMap  boundarySegmentIndexMap_;				// Domain Boundary Face Index -> Boundary Segment Index
     Local2LocalMap  boundarySegment2LocalIndexMap_;  // Boundary Segment Index -> Domain Boundary Face Index
+    Local2LocalMap  periodicBoundaryIndexMap_;	 			// [TODO] Unique local index for periodic boundaries
 
-    Local2LocalMap  processBoundaryIndexMap_[4];
-    Local2LocalMap  boundaryInternalEntityIndexMap_[4];
-    Local2LocalMap  ghostIndexMap_[4];
+    Local2LocalMap  processBoundaryIndexMap_[4];			// Unique local index for process boundaries
+    Local2LocalMap  boundaryInternalEntityIndexMap_[4];	// Unique local index for interior entities next to communicating boundary (process and periodic)
+    Local2LocalMap  ghostIndexMap_[4];								// Unique local index for ghost entities (process and periodic)
+
 
     // Index sets for entities of a specific structural type
     // Used to iterate over the grid entities
@@ -298,6 +305,8 @@ public:
     LocalIndexSet  entityProcessBoundaryIndexSet_[4];
     LocalIndexSet  entityGhostIndexSet_[4];
     LocalIndexSet  faceDomainBoundaryIndexSet_;
+    LocalIndexSet  faceInteriorBoundaryIndexSet_;
+    LocalIndexSet  facePeriodicBoundaryIndexSet_;
 
     // Two additional composite sets to represent Dune-specific composite partition types
     LocalIndexSet  entityDuneInteriorIndexSet_[4];         // In Dune interior entities are (internal + domain boundaries)
@@ -313,7 +322,14 @@ public:
     EntityNeighborRankVector G2BIPBNeighborRank_[4];  // ghost entity index -> vector{neighbor ranks}
     EntityNeighborRankVector G2GNeighborRank_[4];     // ghost entity index -> vector{neighbor ranks}
 
+    EntityNeighborRankVector PERB2PERBNeighborRank_[4];  // Periodic Boundary Neighbor ranks // [TODO]
 
+
+    // Periodic boundary storage
+    std::vector<bool> periodicCuboidDimensions_;		// Defines which of the X,Y,Z directions of the cuboid domain boundary are periodic
+    GlobalCoordinate periodicCuboidLength_;					// Defines the length of each dimension of the periodic cuboid
+    std::vector<unsigned int> periodicFaceMatchPermutationIndexInner_;  // PeriodicFaceIndex -> Permutation index for interior intersection. When both periodic neighbor faces are permuted, then they match
+    std::vector<unsigned int> periodicFaceMatchPermutationIndexOuter_;  // PeriodicFaceIndex -> Permutation index for exterior intersection.
 
     // Octree used to efficiently locate elements in which the points are located
     CurvilinearLooseOctree * octree_;
@@ -321,13 +337,21 @@ public:
 
     // Constructor and Destructor
     // ******************************************************************
-    CurvilinearGridStorage (bool withGhostElements, bool withElementGlobalIndex) :
+    CurvilinearGridStorage (bool withGhostElements, bool withElementGlobalIndex, std::vector<bool> periodicCuboidDimensions) :
     	withGhostElements_(withGhostElements),
     	withElementGlobalIndex_(withElementGlobalIndex),
     	nEntityTotal_ {0, 0, 0, 0},
     	octree_(0)
     {
-    	GEOMETRY_TOLERANCE = 1.0e-5;    // Default value for tolerance. Can be adjusted using gridbase.setGeometryTolerance(tolerance)
+    		// [TODO] Hardcode constant
+    		GEOMETRY_TOLERANCE = 1.0e-5;    // Default value for tolerance. Can be adjusted using gridbase.setGeometryTolerance(tolerance)
+
+    		// Check periodicity sanity
+            if (periodicCuboidDimensions.size() != 0) {
+            	periodicCuboidDimensions_ = periodicCuboidDimensions;
+            	assert(periodicCuboidDimensions_.size() == cdim);  // It is a coordinate periodicity vector
+            	assert(periodicCuboidDimensions_[0] || periodicCuboidDimensions_[1] || periodicCuboidDimensions_[2]); // At least one of 3D must be periodic
+            }
     }
 
     ~CurvilinearGridStorage()
@@ -337,7 +361,7 @@ public:
 
 };
 
-
+} // namespace CurvGrid
 
 } // namespace Dune
 

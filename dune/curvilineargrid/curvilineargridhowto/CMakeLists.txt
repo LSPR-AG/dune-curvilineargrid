@@ -15,6 +15,7 @@ set(TESTS
 	tutorial7ParallelData
 	tutorial8GlobalBoundary
 	tutorial9InteriorBoundary
+	tutorial10PeriodicBoundary
 )
 
 add_executable(tutorial1gettingstarted tutorial1gettingstarted.cc)
@@ -27,6 +28,7 @@ add_executable(tutorial6CommunicationGlobalIndex tutorial6CommunicationGlobalInd
 add_executable(tutorial7ParallelData tutorial7ParallelData.cc)
 add_executable(tutorial8GlobalBoundary tutorial8GlobalBoundary.cc)
 add_executable(tutorial9InteriorBoundary tutorial9InteriorBoundary.cc)
+add_executable(tutorial10PeriodicBoundary tutorial10PeriodicBoundary.cc)
 target_link_libraries(tutorial1gettingstarted dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial2traversal dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial3visualisation dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
@@ -37,6 +39,7 @@ target_link_libraries(tutorial6CommunicationGlobalIndex dunecommon dunegeometry 
 target_link_libraries(tutorial7ParallelData dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial8GlobalBoundary dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial9InteriorBoundary dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial10PeriodicBoundary dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 
 
 # We do not want want to build the tests during make all,
@@ -61,6 +64,7 @@ if(HAVE_MPI)
     add_dune_mpi_flags(tutorial7ParallelData)
     add_dune_mpi_flags(tutorial8GlobalBoundary)
     add_dune_mpi_flags(tutorial9InteriorBoundary)
+    add_dune_mpi_flags(tutorial10PeriodicBoundary)
     add_dune_parmetis_flags(tutorial1gettingstarted)
     add_dune_parmetis_flags(tutorial2traversal)
     add_dune_parmetis_flags(tutorial3visualisation)
@@ -71,6 +75,7 @@ if(HAVE_MPI)
     add_dune_parmetis_flags(tutorial7ParallelData)
     add_dune_parmetis_flags(tutorial8GlobalBoundary)
     add_dune_parmetis_flags(tutorial9InteriorBoundary)
+    add_dune_parmetis_flags(tutorial10PeriodicBoundary)
 endif(HAVE_MPI)
 
 # Add boost

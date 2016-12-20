@@ -14,7 +14,7 @@ All tutorials of \curvgrid{} reuse the simple auxiliary routine located in \text
 \end{mybox}
 
 \noindent
-These singleton classes are essential for \curvgrid{}, as they support the parallel logging of the grid reading, construction and writing process, as well as later statistics on performance of individual routines. They can also be used by the user to write user logging output and time user functions, comparing them to the grid construction time. The next step is initializing the \textit{Curvilinear Grid Factory} \\
+These singleton classes are essential for \curvgrid{}, as they support the parallel logging of the grid reading, construction and writing process, as well as later statistics on performance of individual routines. They can also be used by the user to write user logging output and time user functions, comparing them to the grid construction time. The next step is initializing the \textit{Curvilinear Grid Factory}
 
 \begin{mybox}
 \begin{lstlisting}
@@ -23,7 +23,7 @@ These singleton classes are essential for \curvgrid{}, as they support the paral
 \end{mybox}
 
 \noindent
-where the boolean variable $withGhostElements$ determines whether the Ghost elements will be constructed and $withGmshElementIndex$ determines if the global element index from \gmsh{} is going to be reused by the grid (recommended). Otherwise, the index is automatically generated (see Tutorial 6 for discussion). After the above prerequisites, the curvilinear \gmsh{} reader is used to read the mesh file, partition it and write it to the provided grid factory.  \\
+where the boolean variable $withGhostElements$ determines whether the Ghost elements will be constructed and $withGmshElementIndex$ determines if the global element index from \gmsh{} is going to be reused by the grid (recommended). Otherwise, the index is automatically generated (see Tutorial 6 for discussion). After the above prerequisites, the curvilinear \gmsh{} reader is used to read the mesh file, partition it and write it to the provided grid factory.
 
 \begin{mybox}
 \begin{lstlisting}
@@ -47,7 +47,7 @@ Finally, the grid is constructed, providing the user with the associated pointer
 \label{usage-howto-tutorial-gettingstarted}
 
 \noindent
-This tutorial uses the above procedure to construct the \curvgrid{} by reading it from a \gmsh{} file. This and all other tutorials can be run both in serial and in parallel. First we define the grid \\
+This tutorial uses the above procedure to construct the \curvgrid{} by reading it from a \gmsh{} file. This and all other tutorials can be run both in serial and in parallel. First we define the grid
 
 \begin{mybox}
 \begin{lstlisting}
@@ -56,7 +56,7 @@ This tutorial uses the above procedure to construct the \curvgrid{} by reading i
 \end{mybox}
 
 \noindent
-where $dim=3$ is the dimension of the grid, $ctype=double$ is the underlying real type, and the $isCached$ is a boolean variable determining if the curvilinear geometry caching is used (recommended). Currently, only 3D tetrahedral grids are available. Then, the curvilinear grid is created by the $createGrid$ procedure described above. Finally, if we are interested in the time statistics for reading and construction of the grid, it can be obtained using the following command \\
+where $dim=3$ is the dimension of the grid, $ctype=double$ is the underlying real type, and the $isCached$ is a boolean variable determining if the curvilinear geometry caching is used (recommended). Currently, only 3D tetrahedral grids are available. Then, the curvilinear grid is created by the $createGrid$ procedure described above. Finally, if we are interested in the time statistics for reading and construction of the grid, it can be obtained using the following command
 
 \begin{mybox}
 \begin{lstlisting}
@@ -69,7 +69,7 @@ where $dim=3$ is the dimension of the grid, $ctype=double$ is the underlying rea
 \subsection{Tutorial 2 - Traverse}
 \label{usage-howto-tutorial-traverse}
 
-This tutorial repeats the procedure from tutorial 1 to create the grid. It then iterates over the grid and extracts relevant information from the curvilinear entities. Currently, \curvgrid{} does not support refinement, so both leaf and level iterators will only iterate over the parent entities. As of \dune{} 2.4 revision the range-based for iterators introduced in \textit{c++11} standard are the preferred way to perform grid iteration. The below example iterator will iterate over all entities of the grid of a given codimension \\
+This tutorial repeats the procedure from tutorial 1 to create the grid. It then iterates over the grid and extracts relevant information from the curvilinear entities. Currently, \curvgrid{} does not support refinement, so both leaf and level iterators will only iterate over the parent entities. As of \dune{} 2.4 revision the range-based for iterators introduced in \textit{c++11} standard are the preferred way to perform grid iteration. The below example iterator will iterate over all entities of the grid of a given codimension
 
 \begin{mybox}
 \begin{lstlisting}
@@ -79,7 +79,7 @@ This tutorial repeats the procedure from tutorial 1 to create the grid. It then 
 \end{mybox}
 
 
-Now, we would like to extract some relevant information from the iterator \\
+Now, we would like to extract some relevant information from the iterator
 \begin{mybox}
 \begin{lstlisting}
   Dune::GeometryType gt = elementThis.type();
@@ -108,7 +108,7 @@ The $GeometryType$ and $LocalIndex$ are standard in \dune{}. $GlobalIndex$ provi
 \subsection{Tutorial 3 - Visualization}
 \label{usage-howto-tutorial-visualisation}
 
-This tutorial demonstrates a simple way to output the curvilinear grid and associated vector fields (e.g. solutions of your PDE) to a PVTU file set using the \textit{CurvilinearVTKGridWriter} class. The writer is able to output arbitrary number of user-defined fields. The fields can be scalar or vector, and can be associated either with elements or with boundary faces. The sampled fields must overload the \textit{Dune::VTKScalarFunction} or \textit{Dune::VTKVectorFunction} standard provided by \curvgrid{}, and thus adhere to the following interface: \\
+This tutorial demonstrates a simple way to output the curvilinear grid and associated vector fields (e.g. solutions of your PDE) to a PVTU file set using the \textit{CurvilinearVTKGridWriter} class. The writer is able to output arbitrary number of user-defined fields. The fields can be scalar or vector, and can be associated either with elements or with boundary faces. The sampled fields must overload the \textit{Dune::VTKScalarFunction} or \textit{Dune::VTKVectorFunction} standard provided by \curvgrid{}, and thus adhere to the following interface:
 
 \begin{mybox}
 \begin{lstlisting}
@@ -138,7 +138,7 @@ We provide 6 examples:
 These examples illustrate the important difference between local and global coordinates. Local coordinates are unique for each element, so one shall observe unique field behavior for each element. Global coordinates on the other hand are the same for all elements, thus providing a single continuous sinusoid across the entire mesh. The local fields are associated with the orientation of the element in space, which is arbitrary up to the permutation of element corners. Thus, to correctly display local fields, one must consider the orientation of the element. This can be achieved by considering the global coordinates and/or global indices of the corner vertices of the element, and of the intersection faces in between two elements. \\
 
 \noindent
-We start by constructing a curvilinear grid as previously demonstrated. We then proceed to initialize the writer, as well as fix its virtual refinement order to 15. We do this because we want to resolve the details of the sinusoid function to a very high precision, and because the mesh size is small. This operation is time-consuming, and, in general, the user should be aware of quadratic complexity of virtual refinement, and choose the refinement order that is necessary and sufficient. Should we choose to avoid specifying a fixed refinement order, the writer will calculate this order itself by considering the curvilinear order of the element. This works fine for most FEM applications, unless the basis order of the element is larger than its curvilinear order. \\
+We start by constructing a curvilinear grid as previously demonstrated. We then proceed to initialize the writer, as well as fix its virtual refinement order to 15. We do this because we want to resolve the details of the sinusoid function to a very high precision, and because the mesh size is small. This operation is time-consuming, and, in general, the user should be aware of quadratic complexity of virtual refinement, and choose the refinement order that is necessary and sufficient. Should we choose to avoid specifying a fixed refinement order, the writer will calculate this order itself by considering the curvilinear order of the element. This works fine for most FEM applications, unless the basis order of the element is larger than its curvilinear order.
 
 \begin{mybox}
 \begin{lstlisting}    
@@ -150,7 +150,7 @@ We start by constructing a curvilinear grid as previously demonstrated. We then 
 \end{mybox}
 
 \noindent
-We proceed to stack the pointers to the above field functors into 4 arrays, distinguished by vector/scalar and 2D/3D fields. We have decided to use dynamic polymorphism to implement this functionality. While this may be less efficient than other implementations, it allows writing fields produced by different functors by the very same compact routine.  \\
+We proceed to stack the pointers to the above field functors into 4 arrays, distinguished by vector/scalar and 2D/3D fields. We have decided to use dynamic polymorphism to implement this functionality. While this may be less efficient than other implementations, it allows writing fields produced by different functors by the very same compact routine.
 
 \begin{mybox}
 \begin{lstlisting}    

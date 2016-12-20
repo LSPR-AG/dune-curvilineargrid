@@ -21,6 +21,9 @@ using namespace std::chrono;
 namespace Dune
 {
 
+namespace CurvGrid {
+
+
 template<typename LoggingMessage>
 class LoggingTimer
 {
@@ -362,6 +365,8 @@ private:
     Dune::MPIHelper * mpihelper_;
 
 };
+
+} // namespace CurvGrid
 
 } // End namespace Dune.
 

@@ -67,8 +67,9 @@
  *     - InterProcessBoundaries automatically generate
  *     - GhostElements automatically communicated and generated (optional)
  *     - GlobalIndex automatically generated for edges, faces and elements
- *     - OCTree functionality allows to find element and its local coordinate corresponding to a given global coordinate
- *     - Supports non-uniformly p-refinemed meshes (not tested)
+ *     - Supports cuboid periodic domains with some or all dimensions periodic. Periodic ghosts are communicated as regular ghosts and not translated
+ *     - [not tested] OCTree functionality allows to find element and its local coordinate corresponding to a given global coordinate
+ *     - [not tested] Supports non-uniformly p-refined meshes (not tested)
  *
  *
  * Missing functionality:
@@ -77,7 +78,6 @@
  *  - [TODO] Does NOT support refinement - it is not possible to dynamically refine or coarsen the mesh at the moment
  *  - [TODO] Does NOT support hanging nodes - it is not possible to load non-uniform h-refined mesh at the moment
  *  - [TODO] Does NOT support front/overlap elements at the moment
- *  - [TODO] DOes NOT support periodic boundaries at the moment
  *  - [TODO] Does NOT support non-tetrahedral meshes. Generalization to arbitrary and mixed geometry meshes is possible but will be cumbersome
  *
  * Development log
@@ -89,10 +89,7 @@
  *
  * Usage:
  *  - [TODO] Disable all the vertex2string output for multiprocessor case - too much output
- *  - [TODO] Implement timing (and perhaps memory usage) for each of the construction operations
- *  - [TODO] Implement memory in LoggingMessage as is done in Hades
  *  - [TODO] Implement TimeSync logging message so processes do not comment on top of each other. Check Boost if already exists
- *
  *
  * Testing:
  *  - [TODO] Constructor run check if all non-owned entities have been successfully enumerated at the end
@@ -101,12 +98,6 @@
  * Additional Functionality - Extended Physical Tags
  *  - Solution 1: Implement Vector Physical Tags, read from GMSH. Involves changing tag reading in GMSH and tag communication in grid construction
  *  - Solution 2: Keep single integer tag. Involves implementing a tag->info mapper in the derived code.
- *
- * Additional Functionality - Internal Surfaces
- *  - [TODO] When reading GMSH surfaces, stop assuming they are boundary surfaces. Insert them as simple BoundarySegments
- *  - [TODO] When constructing faces, do not check for existence of Domain Boundaries.
- *  - [TODO] When finding face neighbor, allow 0 neighbor-intersect and mark as Domain Boundary
- *  - [TODO] When cross-checking fake faces and edges, may not assume that having 1 neighbor -> neighbor is correct. Have to cross check all faces except of those who have no neighbors at all
  *
  * Optimization of CurvilinearVTKWriter:
  *    - Problem: Output too many vertices, many vertices are used several times. However, want to keep functionality to insert
@@ -127,6 +118,8 @@
 
 
 namespace Dune {
+
+namespace CurvGrid {
 
 // *******************************************
 // Forwards-declaration
@@ -161,9 +154,9 @@ public:
 	static const int dimensionworld = cdim;
 	static const int is_cached = isCached;
 
-    typedef Dune::CurvilinearGridBase<ct, cdim, isCached>               GridBaseType;
-    typedef typename Dune::CurvilinearGridStorage<ct, cdim, isCached>   GridStorageType;
-    typedef typename Dune::CurvilinearGridConstructor<GridBaseType>     GridConstructorType;
+    typedef CurvilinearGridBase<ct, cdim, isCached>               GridBaseType;
+    typedef CurvilinearGridStorage<ct, cdim, isCached>   GridStorageType;
+    typedef CurvilinearGridConstructor<GridBaseType>     GridConstructorType;
 
     typedef typename GridStorageType::GlobalIndexType           GlobalIndexType;
     typedef typename GridStorageType::LocalIndexType            LocalIndexType;
@@ -172,7 +165,7 @@ public:
 	typedef typename GridStorageType::PhysicalTagType           PhysicalTagType;
 	typedef typename GridStorageType::InterpolatoryOrderType    InterpolatoryOrderType;
 
-    typedef typename GridStorageType::Vertex                 Vertex;
+    typedef typename GridStorageType::GlobalCoordinate                 GlobalCoordinate;
     typedef typename GridStorageType::VertexStorage          VertexStorage;
     typedef typename GridStorageType::EdgeStorage            EdgeStorage;
     typedef typename GridStorageType::FaceStorage            FaceStorage;
@@ -195,8 +188,8 @@ public:
 
     typedef typename GridStorageType::EntityNeighborRankVector  EntityNeighborRankVector;
 
-    typedef typename Dune::LoggingMessage                       LoggingMessage;
-    typedef typename Dune::LoggingTimer<LoggingMessage>         LoggingTimer;
+    typedef Dune::CurvGrid::LoggingMessage         LoggingMessage;
+    typedef Dune::CurvGrid::LoggingTimer<LoggingMessage>         LoggingTimer;
 
     // Defines the Elementary geometry
     template <int codim>
@@ -204,8 +197,8 @@ public:
     {
     	typedef typename std::conditional<
     	  isCached,
-    	  Dune::CachedCurvilinearGeometry<ct, cdim - codim, cdim>,
-    	  Dune::CurvilinearGeometry<ct, cdim - codim, cdim>
+    	  CachedCurvilinearGeometry<ct, cdim - codim, cdim>,
+    	  CurvilinearGeometry<ct, cdim - codim, cdim>
     	>::type  EntityGeometry;
     };
 
@@ -224,10 +217,14 @@ public:
 public: /* public methods */
 
     /** Parallel constructor - USE THIS CONSTRUCTOR*/
-    CurvilinearGridBase(bool withGhostElements, bool withElementGlobalIndex, MPIHelper &mpihelper) :
+    CurvilinearGridBase(
+    		bool withGhostElements,
+			bool withElementGlobalIndex,
+			MPIHelper &mpihelper,
+			std::vector<bool> periodicCuboidDimensions) :
         gridstage_(0),
         mpihelper_(mpihelper),
-        gridstorage_(withGhostElements, withElementGlobalIndex)
+        gridstorage_(withGhostElements, withElementGlobalIndex, periodicCuboidDimensions)
     {
     	gridconstructor_ = new GridConstructorType(gridstorage_, *this, mpihelper);
 
@@ -235,7 +232,7 @@ public: /* public methods */
         size_ = mpihelper_.size();
 
         std::string log_string = "Initialized CurvilinearGridBase withGhostElements=" + std::to_string(withGhostElements);
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_string);
     }
 
 private:
@@ -256,7 +253,7 @@ public:
      * \param[in] globalIndex      global index of this vertex
      * \param[in] p                coordinate of this vertex
      * */
-    void insertVertex(Vertex p, GlobalIndexType globalIndex)
+    void insertVertex(GlobalCoordinate p, GlobalIndexType globalIndex)
     {
     	assertStage(Stage::GRID_CONSTRUCTION);
     	gridconstructor_->insertVertex(p, globalIndex);
@@ -335,7 +332,7 @@ public:
     	assertStage(Stage::GRID_CONSTRUCTION);
     	gridstage_ = Stage::GRID_OPERATION;
 
-        LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "[[CurvilinearGridBase: Generating curvilinear mesh...");
+        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "[[CurvilinearGridBase: Generating curvilinear mesh...");
 
         gridconstructor_->generateMesh();
 
@@ -374,8 +371,8 @@ public:
         log_stream << " nElementInterior="           << nEntity(ELEMENT_CODIM, PartitionType::InteriorEntity);
         log_stream << " nElementGhost="              << nEntity(ELEMENT_CODIM, PartitionType::GhostEntity);
 
-        LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
-        LoggingMessage::template write<CurvGrid::LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "...CurvilinearGridBase: Finished generating curvilinear mesh]]");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
+        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "...CurvilinearGridBase: Finished generating curvilinear mesh]]");
     }
 
 
@@ -396,6 +393,9 @@ public:
 
     bool withGhostElements() const { return gridstorage_.withGhostElements_; }
 
+    bool withPeriodicBoundaries() const { return gridstorage_.periodicCuboidDimensions_.size() != 0; }
+
+    bool isPeriodicDimension(int dim) const { return gridstorage_.periodicCuboidDimensions_[dim]; }
 
 
 
@@ -511,7 +511,10 @@ public:
     /** Get boundary segment index of this entity if it is a Domain Boundary Face */
     LocalIndexType boundarySegmentIndex(LocalIndexType localIndex) const
     {
-    	assert(gridstorage_.face_[localIndex].boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary);
+    	bool isDB = (gridstorage_.face_[localIndex].boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary);
+    	bool isPeriodic = (gridstorage_.face_[localIndex].boundaryType == GridStorageType::FaceBoundaryType::PeriodicBoundary);
+
+    	assert(isDB || isPeriodic);  // Periodic boundaries are also domain boundaries
     	return gridstorage_.boundarySegmentIndexMap_.at(localIndex);
     }
 
@@ -536,7 +539,7 @@ public:
     	case ELEMENT_CODIM : assert(localIndex < gridstorage_.element_.size());  return gridstorage_.element_[localIndex].ptype;  break;
     	default :
     	{
-    		LoggingMessage::template write<CurvGrid::LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridBase: unexpected codim " + std::to_string(codim));
+    		LoggingMessage::template write<LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridBase: unexpected codim " + std::to_string(codim));
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codimension");
     		break;
     	}
@@ -631,7 +634,7 @@ public:
 
 
     	const EntityStorage & thisElem = gridstorage_.element_[localElementIndex];
-        std::vector<LocalIndexType> elementCornerLocalIndexSet = Dune::CurvilinearGeometryHelper::entityVertexCornerSubset<ct, 3>(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
+        std::vector<LocalIndexType> elementCornerLocalIndexSet = CurvilinearGeometryHelper::entityVertexCornerSubset<ct, 3>(thisElem.geometryType, thisElem.vertexIndexSet, thisElem.interpOrder);
 
         // If we are interested in corners of the element, we are interested in all corners
         if (codim == ELEMENT_CODIM)  { return elementCornerLocalIndexSet; }
@@ -707,7 +710,7 @@ public:
 
     	if (subcodim == codim)  { return entityIndex; }  // In this case return itself as own subentity
     	if (subcodim < codim) {                          // Wrong by definition
-    		LoggingMessage::template write<CurvGrid::LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair = (" + std::to_string(codim) + "," + std::to_string(subcodim) + ")");
+    		LoggingMessage::template write<LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair = (" + std::to_string(codim) + "," + std::to_string(subcodim) + ")");
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: subentityIndex(): Unexpected codim-subcodim pair");
     	}
 
@@ -753,7 +756,7 @@ public:
     		case VERTEX_CODIM :
     		{
     			InterpolatoryOrderType interpolationOrder = gridstorage_.element_[elementLocalIndex].interpOrder;
-    			InternalIndexType cornerInternalIndex = Dune::CurvilinearGeometryHelper::cornerIndex(tetrahedronGeometry, interpolationOrder, elementSubentityInternalIndex1);
+    			InternalIndexType cornerInternalIndex = CurvilinearGeometryHelper::cornerIndex(tetrahedronGeometry, interpolationOrder, elementSubentityInternalIndex1);
     			rez = gridstorage_.element_[elementLocalIndex].vertexIndexSet[cornerInternalIndex];
     		} break;
     	}
@@ -800,7 +803,7 @@ public:
         case 1 : rez = gridstorage_.face_[localIndex].element2Index;  break;
         default:
         {
-        	LoggingMessage::template write<CurvGrid::LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearPostConstructor: Unexpected neighbor subentity index =" + std::to_string(internalNeighborIndex));
+        	LoggingMessage::template write<LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearPostConstructor: Unexpected neighbor subentity index =" + std::to_string(internalNeighborIndex));
         	DUNE_THROW(Dune::IOError, "CurvilinearGrid: faceNeighbor() unexpected neighbor index");  break;
         }
         }
@@ -812,7 +815,7 @@ public:
     /** \brief Coordinate of a requested interpolatory vertex
      *  \param[in] localIndex            local vertex index (insertion index)
      * */
-    Vertex vertex(LocalIndexType localIndex) const { return gridstorage_.point_[localIndex].coord; }
+    GlobalCoordinate vertex(LocalIndexType localIndex) const { return gridstorage_.point_[localIndex].coord; }
 
     /** Storage data related to this entity, except of explicit vertex coordinates
      *  \param[in] codim                 codimension of the entity
@@ -851,7 +854,7 @@ public:
 
 
     /** \brief Minimal bounding box for set of elements on this process */
-    void processBoundingBox(Vertex & center, Vertex & extent) const
+    void processBoundingBox(GlobalCoordinate & center, GlobalCoordinate & extent) const
     {
         center = gridstorage_.boundingBoxCenter_;
         extent = gridstorage_.boundingBoxExtent_;
@@ -879,7 +882,7 @@ public:
      *
      * TODO: PBE file allows femaxx to count time. Use alternative in Dune?
      * */
-    bool locateCoordinate(const Vertex & globalC, std::vector<int> & containerIndex, std::vector<Vertex> & localC) const {
+    bool locateCoordinate(const GlobalCoordinate & globalC, std::vector<int> & containerIndex, std::vector<GlobalCoordinate> & localC) const {
     	DUNE_THROW(Dune::IOError, "Using non-initialised OCTree");
 
         // If the point is not even in the process bounding box, then the coordinate is definitely not on this process
@@ -900,7 +903,7 @@ public:
             for (unsigned int i = 0; i < elementIndices.size(); i++) {
             	typename Codim<ELEMENT_CODIM>::EntityGeometry thisGeometry = entityGeometry<ELEMENT_CODIM>(elementIndices[i]);
 
-                Vertex thisLocalC;
+                GlobalCoordinate thisLocalC;
                 bool isInside = thisGeometry.local( globalC, thisLocalC );
 
                 // If the point is found inside the geometry, add the element index and the found local coordinate to the output
@@ -919,58 +922,6 @@ public:
             return false;
         }
     }
-
-
-    // Iterators over local indices of the mesh
-    // NOTE: There are no iterators over entities because there is no entity object in the core mesh
-    // There will be generic entity in the wrapper because the wrapper will define an entity object
-
-    // Iterator based on local index of the entity
-    // Iterator all entities of a given codimension
-    IndexSetIterator entityIndexIterator(int codim, LocalIndexType localIndex) const
-    {
-    	return gridstorage_.entityAllIndexSet_[codim].find(localIndex);
-    }
-
-    // Iterator for entities of a given codimension and structural type only
-    IndexSetIterator entityIndexIterator(int codim, PartitionType ptype, LocalIndexType localIndex, StructuralType btype = NO_BOUNDARY_TYPE) const
-    {
-    	return entityIndexSetSelect(codim, ptype, btype).find(localIndex);
-    }
-
-    // Iterator for entities of a given codimension and Dune partition type only
-    IndexSetIterator entityIndexDuneIterator(int codim, Dune::PartitionIteratorType pitype, LocalIndexType localIndex) const
-    {
-    	return entityIndexSetDuneSelect(codim, pitype).find(localIndex);
-    }
-
-
-    // Iterators over all entities of a given codimension
-    IndexSetIterator entityIndexBegin(int codim)  { return gridstorage_.entityAllIndexSet_[codim].begin(); }
-
-    IndexSetIterator entityIndexEnd(int codim)    { return gridstorage_.entityAllIndexSet_[codim].end(); }
-
-    // Iterators over specific entities of a given codimension
-    // This construction allows fast iteration over entities of specific structural type
-    IndexSetIterator entityIndexBegin(int codim, PartitionType ptype, StructuralType btype = NO_BOUNDARY_TYPE) const
-    {
-    	return entityIndexSetSelect(codim, ptype, btype).begin();
-    }
-
-    IndexSetIterator entityIndexEnd(int codim, PartitionType ptype, StructuralType btype = NO_BOUNDARY_TYPE) const
-    {
-    	return entityIndexSetSelect(codim, ptype, btype).end();
-    }
-
-
-    IndexSetIterator entityDuneIndexBegin(int codim, Dune::PartitionIteratorType pitype) const {
-    	return entityIndexSetDuneSelect(codim, pitype).begin();
-    }
-
-    IndexSetIterator entityDuneIndexEnd(int codim, Dune::PartitionIteratorType pitype)   const {
-    	return entityIndexSetDuneSelect(codim, pitype).end();
-    }
-
 
 
     const GridStorageType & gridstorage() const { return gridstorage_; }
@@ -999,7 +950,7 @@ public:
     		std::stringstream logstr;
     		logstr << "CurvilinearGridBase: Unexpected codim-structtype pair codim=" << codim;
     		logstr << " ptype=" << ptype;
-    		LoggingMessage::template write<CurvGrid::LOG_MSG_PERSISTENT>( __FILE__, __LINE__, logstr.str());
+    		LoggingMessage::template write<LOG_MSG_PERSISTENT>( __FILE__, __LINE__, logstr.str());
     		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected codim-structtype pair");
     	}
     }
@@ -1008,7 +959,71 @@ public:
 
     /* ***************************************************************************
      * Section: Selector methods for shorthand access of specific arrays
+     *
+     * Iterators over local indices of the mesh
+     * NOTE: There are no iterators over entities because there is no entity object in the core mesh
+     * There will be generic entity in the wrapper because the wrapper will define an entity object
      * ***************************************************************************/
+
+
+
+    // Returns a link to the set of all local indices of entities of a given codimension
+    // This construction allows fast iteration over entities of specific structural type
+    const LocalIndexSet & entityIndexSetSelect(int codim) const {
+    	return gridstorage_.entityAllIndexSet_[codim];
+    }
+
+    // Returns a link to the set of all local indices of entities of a given codimension and specific partition type and boundary type
+    // This construction allows fast iteration over entities of specific structural type
+    const LocalIndexSet & entityIndexSetSelect(int codim, PartitionType ptype, StructuralType boundaryType = NO_BOUNDARY_TYPE) const
+    {
+    	assertValidCodimStructuralType(codim, ptype);
+
+    	// Check if this is a request for a boundary index set
+    	if (boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary)  {
+    		assert(codim == FACE_CODIM);  // According to convention, only faces can be boundarySegments
+    		return gridstorage_.faceDomainBoundaryIndexSet_;
+    	} else if (boundaryType == GridStorageType::FaceBoundaryType::InteriorBoundary)  {
+    		assert(codim == FACE_CODIM);  // According to convention, only faces can be boundarySegments
+    		return gridstorage_.faceInteriorBoundaryIndexSet_;
+    	} else if (boundaryType == GridStorageType::FaceBoundaryType::PeriodicBoundary)  {
+    		assert(codim == FACE_CODIM);  // According to convention, only faces can be boundarySegments
+    		return gridstorage_.facePeriodicBoundaryIndexSet_;
+    	}
+
+    	// Otherwise, this must be a request for a standard dune entity iterator
+    	switch(ptype)
+    	{
+    	case Dune::PartitionType::InteriorEntity   : return gridstorage_.entityInternalIndexSet_[codim];          break;
+    	case Dune::PartitionType::BorderEntity     : return gridstorage_.entityProcessBoundaryIndexSet_[codim];   break;
+    	case Dune::PartitionType::GhostEntity      : return gridstorage_.entityGhostIndexSet_[codim];             break;
+    	}
+    }
+
+
+    // Returns a link to the set of all local indices of entities of a given codimension, based on Dune-convention partition type
+    // This construction allows fast iteration over entities of specific structural type
+    const LocalIndexSet & entityIndexSetDuneSelect(int codim, Dune::PartitionIteratorType pitype) const
+    {
+    	const int DuneIPartition   = Dune::PartitionIteratorType::Interior_Partition;
+    	const int DuneIBPartition  = Dune::PartitionIteratorType::InteriorBorder_Partition;
+    	const int DuneGPartition   = Dune::PartitionIteratorType::Ghost_Partition;
+    	const int DuneAllPartition = Dune::PartitionIteratorType::All_Partition;
+
+    	switch(pitype)
+    	{
+    	case DuneIPartition     : return gridstorage_.entityDuneInteriorIndexSet_[codim];          break;
+    	case DuneIBPartition    : return gridstorage_.entityDuneInteriorBorderIndexSet_[codim];    break;
+    	case DuneGPartition     : return gridstorage_.entityGhostIndexSet_[codim];                 break;
+    	case DuneAllPartition   : return gridstorage_.entityAllIndexSet_[codim];                   break;
+    	default:
+    	{
+    		std::cout << "CurvilinearGridBase: Unexpected dune-pitype" << std::endl;
+    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected dune-pitype");         break;
+    	}
+    	}
+    }
+
 
     Local2LocalMap & selectCommMap(int codim, PartitionType ptype)
     {
@@ -1067,49 +1082,6 @@ protected:
     	if ((gridstage_ == Stage::GRID_OPERATION) && (expectedStage == Stage::GRID_CONSTRUCTION)) { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Attempted to insert entities into grid after construction"); }
     }
 
-    // Returns a link to the set of all local indices of entities of a given codimension and specific structural type
-    const LocalIndexSet & entityIndexSetSelect(int codim, PartitionType ptype, StructuralType boundaryType) const
-    {
-    	assertValidCodimStructuralType(codim, ptype);
-
-    	// Check if this is a request for a boundary index set
-    	if (boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary)
-    	{
-    		assert(codim == FACE_CODIM);  // According to convention, only faces can be boundarySegments
-    		return gridstorage_.faceDomainBoundaryIndexSet_;
-    	}
-
-    	// Otherwise, this must be a request for a standard dune entity iterator
-    	switch(ptype)
-    	{
-    	case Dune::PartitionType::InteriorEntity   : return gridstorage_.entityInternalIndexSet_[codim];          break;
-    	case Dune::PartitionType::BorderEntity     : return gridstorage_.entityProcessBoundaryIndexSet_[codim];   break;
-    	case Dune::PartitionType::GhostEntity      : return gridstorage_.entityGhostIndexSet_[codim];             break;
-    	}
-    }
-
-    // Returns a link to the set of all local indices of entities of a given codimension, based on Dune-convention partition type
-    const LocalIndexSet & entityIndexSetDuneSelect(int codim, Dune::PartitionIteratorType pitype) const
-    {
-    	const int DuneIPartition   = Dune::PartitionIteratorType::Interior_Partition;
-    	const int DuneIBPartition  = Dune::PartitionIteratorType::InteriorBorder_Partition;
-    	const int DuneGPartition   = Dune::PartitionIteratorType::Ghost_Partition;
-    	const int DuneAllPartition = Dune::PartitionIteratorType::All_Partition;
-
-    	switch(pitype)
-    	{
-    	case DuneIPartition     : return gridstorage_.entityDuneInteriorIndexSet_[codim];          break;
-    	case DuneIBPartition    : return gridstorage_.entityDuneInteriorBorderIndexSet_[codim];    break;
-    	case DuneGPartition     : return gridstorage_.entityGhostIndexSet_[codim];                 break;
-    	case DuneAllPartition   : return gridstorage_.entityAllIndexSet_[codim];                   break;
-    	default:
-    	{
-    		std::cout << "CurvilinearGridBase: Unexpected dune-pitype" << std::endl;
-    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected dune-pitype");         break;
-    	}
-    	}
-    }
-
     EntityStorage pointData(LocalIndexType localIndex) const
     {
     	assert(localIndex < gridstorage_.point_.size());
@@ -1141,7 +1113,7 @@ protected:
 
         // Get the internal element vertex indices associated with this face as a subentity
         std::vector<InternalIndexType> subentityVertexIndices =
-            Dune::CurvilinearGeometryHelper::subentityInternalCoordinateSet<ct, cdim>(assocElement.geometryType, thisEdge.interpOrder, 2, thisEdgeData.subentityIndex);
+            CurvilinearGeometryHelper::subentityInternalCoordinateSet<ct, cdim>(assocElement.geometryType, thisEdge.interpOrder, 2, thisEdgeData.subentityIndex);
 
         // Calculate the localIndices's of vertices of this face by extracting them from the element vertex Ids
         for(unsigned int i = 0; i < subentityVertexIndices.size(); i++) { thisEdge.vertexIndexSet.push_back(assocElement.vertexIndexSet[subentityVertexIndices[i]]); }
@@ -1167,7 +1139,7 @@ protected:
 
         // Get the internal element vertex indices associated with this face as a subentity
         std::vector<InternalIndexType> subentityVertexIndices =
-            Dune::CurvilinearGeometryHelper::subentityInternalCoordinateSet<ct, cdim>(assocElement.geometryType, thisFace.interpOrder, 1, thisFaceData.element1SubentityIndex);
+            CurvilinearGeometryHelper::subentityInternalCoordinateSet<ct, cdim>(assocElement.geometryType, thisFace.interpOrder, 1, thisFaceData.element1SubentityIndex);
 
         // Calculate the localIndices's of vertices of this face by extracting them from the element vertex Ids
         for(unsigned int i = 0; i < subentityVertexIndices.size(); i++) { thisFace.vertexIndexSet.push_back(assocElement.vertexIndexSet[subentityVertexIndices[i]]); }
@@ -1190,7 +1162,7 @@ protected:
     {
     	assert(thisData.geometryType.dim() == cdim - codim);
 
-        std::vector<Vertex> entityVertices;
+        std::vector<GlobalCoordinate> entityVertices;
         for (unsigned int i = 0; i < thisData.vertexIndexSet.size(); i++) {
         	LocalIndexType thisIndex = thisData.vertexIndexSet[i];
         	entityVertices.push_back(gridstorage_.point_[thisIndex].coord);
@@ -1205,9 +1177,9 @@ protected:
      * ***************************************************************************/
 
     // Checks if given point fits into the bounding box of the mesh
-    bool isInsideProcessBoundingBoxGracious(const Vertex & point) const {
+    bool isInsideProcessBoundingBoxGracious(const GlobalCoordinate & point) const {
         const double grace_tolerance = 1e-13;
-        Vertex center, extent;
+        GlobalCoordinate center, extent;
 
         bool isInside = true;
 
@@ -1237,6 +1209,8 @@ private: // Private members
     int rank_;
     int size_;
 };
+
+} // namespace CurvGrid
 
 } // namespace Dune
 

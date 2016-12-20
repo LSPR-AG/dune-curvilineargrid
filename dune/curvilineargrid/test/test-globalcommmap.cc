@@ -19,7 +19,7 @@
 
 using namespace Dune;
 
-using namespace CurvGrid;
+using namespace Dune::CurvGrid;
 
 
 

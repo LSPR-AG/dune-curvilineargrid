@@ -17,6 +17,8 @@
 
 
 
+using namespace Dune;
+using namespace Dune::CurvGrid;
 
 const bool isCached = true;
 const int DIM0D = 0;   const int CODIM0D = 3;
@@ -70,13 +72,13 @@ void Integrate (GridType & grid) {
 
 	// Define Functor and Integrator
 	typedef NormalFunctor<GridType, DIM2D>             Integrand2DVector;
-	typedef Dune::QuadratureIntegrator<ct, DIM2D>  Integrator2DVector;
+	typedef QuadratureIntegrator<ct, DIM2D>  Integrator2DVector;
 	typedef typename Integrator2DVector::template Traits<Integrand2DVector>::StatInfo  StatInfo;
 
 	// Define Integrator parameters
 	double RELATIVE_TOLERANCE = 1.0e-5;
 	double ACCURACY_GOAL = 1.0e-15;
-	const int NORM_TYPE = Dune::QUADRATURE_NORM_L2;
+	const int NORM_TYPE = QUADRATURE_NORM_L2;
 
 	// Initialize the integral result
 	GlobalCoordinate  normalintegral(0.0);
@@ -101,7 +103,7 @@ void Integrate (GridType & grid) {
 			  logsstr << "---- from entity " << gt;
 			  logsstr << " adding normal integral contribution " <<  thisIntegralN.second[0];
 			  logsstr << ". Needed order " << thisIntegralN.first;
-			  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_PRODUCTION>(__FILE__, __LINE__, logsstr.str());
+			  LoggingMessage::template write<LOG_MSG_PRODUCTION>(__FILE__, __LINE__, logsstr.str());
 
 			  normalintegral += thisIntegralN.second[0];
 			}
@@ -118,19 +120,17 @@ void Integrate (GridType & grid) {
 
 
 int main (int argc , char **argv) {
-	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+	typedef LoggingTimer<LoggingMessage>                 LoggingTimerDev;
 	static Dune::MPIHelper & mpihelper = Dune::MPIHelper::instance(argc, argv);
 
 	// Define curvilinear grid
 	const int dim = 3;
 	typedef  double    ctype;
-	const int grid_file_type = 1;  // createGrid procedure provides 6 different example grids numbered 0 to 5
-
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
-	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
+	GridType * grid = createGrid<GridType>(mpihelper, argc, argv);
 
 	// Allow parallel output over all processes for the remainder of the program
-	Dune::LoggingMessage::setPVerbose(true);
+	LoggingMessage::setPVerbose(true);
 
 	// Traverse all entities of the grid and write information about each entity
 	LoggingTimerDev::time("Integrating normal integral");

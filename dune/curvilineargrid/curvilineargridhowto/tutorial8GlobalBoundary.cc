@@ -16,6 +16,10 @@
 #include <dune/curvilineargeometry/integration/quadratureintegrator.hh>
 
 
+
+using namespace Dune;
+using namespace Dune::CurvGrid;
+
 // Calculates the outer normal to the intersection times the integration element
 template<class Grid, int mydim, class SegmentContainer>
 struct NormalFunctor
@@ -82,13 +86,13 @@ public:
   typedef Dune::ReferenceElements<ct, dim> ReferenceElements3d;
   typedef Dune::ReferenceElements<ct, dim-1> ReferenceElements2d;
 
-  typedef Dune::CurvGrid::GlobalBoundaryContainer<GridType> BoundaryContainer;
-  typedef Dune::CurvGrid::GlobalBoundaryIterator<GridType> BoundaryIterator;
+  typedef GlobalBoundaryContainer<GridType> BoundaryContainer;
+  typedef GlobalBoundaryIterator<GridType> BoundaryIterator;
   //typedef typename BoundaryContainer::BoundaryContainer  SegmentContainer;
 
   typedef NormalFunctor<GridType, 2, Intersection> Integrand2DVectorLocal;
   typedef NormalFunctor<GridType, 2, BoundaryIterator> Integrand2DVectorParallel;
-  typedef Dune::QuadratureIntegrator<double, 2>  Integrator2DVector;
+  typedef QuadratureIntegrator<double, 2>  Integrator2DVector;
   typedef typename Integrator2DVector::template Traits<Integrand2DVectorLocal>::StatInfo  StatInfo;
 
   typedef std::map<int, int> GIndMap;
@@ -111,7 +115,7 @@ public:
 
 
   static GlobalCoordinate normalIntegralSelf (const GridType & grid, bool isDB, int volTag = 0, int surfTag = 0, int normalSign = 1) {
-	  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Normal Integral on own boundary:::");
+	  LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Normal Integral on own boundary:::");
 
 	  // get the instance of the LeafGridView
 	  LeafGridView leafView = grid.leafGridView();
@@ -137,7 +141,7 @@ public:
 
 				  const double RELATIVE_TOLERANCE = 1.0e-5;
 				  const double ACCURACY_GOAL = 1.0e-15;
-				  const int NORM_TYPE = Dune::QUADRATURE_NORM_L2;
+				  const int NORM_TYPE = QUADRATURE_NORM_L2;
 				  StatInfo thisIntegralN = Integrator2DVector::template integrateRecursive<FaceGeometry, Integrand2DVectorLocal, NORM_TYPE>(geometry, integrand, RELATIVE_TOLERANCE, ACCURACY_GOAL);
 
 				  //std::cout << "---- adding normal contribution " << thisIntegralN.second[0] << " from " << gt << ". Needed order " << thisIntegralN.first << std::endl;
@@ -155,7 +159,7 @@ public:
 
 
   static GlobalCoordinate normalIntegralOtherDomain(const BoundaryContainer & container, int normalSign = 1) {
-	  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Normal Integral on global boundary container:::");
+	  LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Normal Integral on global boundary container:::");
 
 	  GlobalCoordinate  rez(0.0);
 
@@ -165,7 +169,7 @@ public:
 
 		  const double RELATIVE_TOLERANCE = 1.0e-5;
 		  const double ACCURACY_GOAL = 1.0e-15;
-		  const int NORM_TYPE = Dune::QUADRATURE_NORM_L2;
+		  const int NORM_TYPE = QUADRATURE_NORM_L2;
 		  StatInfo thisIntegralN = Integrator2DVector::template integrateRecursive<BaseGeometryFace, Integrand2DVectorParallel, NORM_TYPE>(
 				  biter.geometry(), integrand, RELATIVE_TOLERANCE, ACCURACY_GOAL);
 
@@ -183,7 +187,7 @@ public:
 
 
   static ct edgeLengthSelf(const GridType & grid, bool isDB, int volTag = 0, int surfTag = 0) {
-	  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Edge Length on own boundary:::");
+	  LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Edge Length on own boundary:::");
 
 	  // get the instance of the LeafGridView
 	  LeafGridView leafView = grid.leafGridView();
@@ -213,7 +217,7 @@ public:
 
 
   static ct edgeLengthOtherDomain(const BoundaryContainer & container) {
-	  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Edge Length on global boundary container:::" );
+	  LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Edge Length on global boundary container:::" );
 
 	  const double RELATIVE_TOLERANCE = 1.0e-5;
 
@@ -238,7 +242,7 @@ public:
 		  GIndMap & gindmapvertex,
 		  bool isDB, int volTag = 0, int surfTag = 0
   ) {
-	  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Global Index on own boundary:::");
+	  LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Global Index on own boundary:::");
 
 
 	  // get the instance of the LeafGridView
@@ -249,7 +253,7 @@ public:
 	  unsigned int nElementInterior = grid.numInternal(ELEMENT_CODIM);
 	  for (auto&& elemThis : elements(leafView, Dune::Partitions::interiorBorder)) {
 		  //std::cout << "-accessing entity " << indexSet.index(elemThis) << std::endl;
-		  Dune::LoggingMessage::writePatience("test: globalIndexSelf...", elemCount++, nElementInterior);
+		  LoggingMessage::writePatience("test: globalIndexSelf...", elemCount++, nElementInterior);
 
 		  for (auto&& intersection : intersections(leafView, elemThis)) {
 
@@ -304,7 +308,7 @@ public:
 		  GIndMap & gindmapedge,
 		  GIndMap & gindmapvertex
   ) {
-	  Dune::LoggingMessage::template write<Dune::CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing GlobalIndex on global boundary container:::");
+	  LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing GlobalIndex on global boundary container:::");
 
 	  BoundaryIterator biter(container);
 	  while (!biter.end()) {
@@ -348,6 +352,8 @@ public:
 
 
 /** \brief
+ * NOTE: ONLY SELECT LINEAR FILES, FOR NOW BOUNDARY COMMUNICATOR CAN NOT DEAL WITH CURVILINEAR
+ * NOTE: Currently only works with grid number 7, as boundary tags are hard-coded [TODO] Fix this
  *
  */
 
@@ -358,19 +364,16 @@ int main (int argc , char **argv) {
 	// Define curvilinear grid
 	const int dim = 3;
 	typedef  double    ctype;
-	const int grid_file_type = 7;  // createGrid procedure provides 8 different example grids numbered 0 to 7
-	// NOTE: ONLY SELECT LINEAR FILES, FOR NOW BOUNDARY COMMUNICATOR CAN NOT DEAL WITH CURVILINEAR
-
 	const bool isCached = true;
 	const int ELEMENT_CODIM = 0;  // Codimension of element in 3D
 	const int FACE_CODIM = 1;  // Codimension of face in 3D
 
 	// Create Grid
 	typedef Dune::CurvilinearGrid<ctype, dim, isCached> GridType;
-	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
+	GridType * grid = createGrid<GridType>(mpihelper, argc, argv);
 
 
-	typedef Dune::CurvGrid::GlobalBoundaryContainer<GridType> BoundaryContainer;
+	typedef GlobalBoundaryContainer<GridType> BoundaryContainer;
 	//BoundaryContainer testContainer(*grid, true);
 
 	bool isDomainBoundary = false;
@@ -489,7 +492,7 @@ int main (int argc , char **argv) {
 
 
 
-	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+	typedef LoggingTimer<LoggingMessage>                 LoggingTimerDev;
 	LoggingTimerDev::reportParallel();
 
     // Delete the grid

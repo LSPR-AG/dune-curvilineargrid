@@ -59,6 +59,9 @@
 
 namespace Dune {
 
+namespace CurvGrid {
+
+
 template <class GridType>
 class CurvilinearGridDiagnostic
 {
@@ -156,7 +159,7 @@ public:
 		}
 
 		// Write diagnostics result to a file
-		Dune::DiagnosticsHelper<GridType>::writeAnalyticTestResult(filename, meshStatistics, mpihelper_);
+		DiagnosticsHelper<GridType>::writeAnalyticTestResult(filename, meshStatistics, mpihelper_);
 	}
 
 
@@ -177,6 +180,7 @@ private:
 
 };
 
+} // namespace CurvGrid
 
 } // namespace Dune
 

@@ -13,6 +13,8 @@
 
 namespace Dune {
 
+namespace CurvGrid {
+
 
 // [FIXME] Currently uses CHAR for waitlist. ATM, this code only scales to 256 processors
 class MPIMutex {
@@ -202,8 +204,9 @@ private:
     unsigned char *waitlist_;
 };
 
+} // namespace CurvGrid
 
-}
+} // Dune
 
 
 #endif //DUNE_MPI_MUTEX_HH_

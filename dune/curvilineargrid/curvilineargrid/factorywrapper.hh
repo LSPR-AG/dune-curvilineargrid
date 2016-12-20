@@ -40,6 +40,8 @@
 namespace Dune
 {
 
+namespace CurvGrid {
+
 
 template< class GridType, class HostFactory >
 class CurvilinearGridFactoryWrapper
@@ -124,6 +126,8 @@ class CurvilinearGridFactoryWrapper
 
 
   };
+
+} // namespace CurvGrid
 
 } // End of Namespace Dune
 

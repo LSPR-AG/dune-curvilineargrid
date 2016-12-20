@@ -30,6 +30,9 @@
 
 using namespace Dune;
 
+using namespace Dune::CurvGrid;
+
+
 const bool isGeometryCached     = true;      // We will be using CachedCurvilinearGeometry class
 const bool withGhostElements    = true;     // We want to create a mesh with ghost elements
 const bool withGmshElementIndex = true;
@@ -44,7 +47,7 @@ int main(int argc, char** argv)
     /***************************************************************/
     /** Instantiation of the logging message and loggingtimer      */
     /***************************************************************/
-    typedef Dune::LoggingTimer<Dune::LoggingMessage>  LoggingTimer;
+    typedef LoggingTimer<LoggingMessage>  LoggingTimer;
     LoggingMessage::init(mpihelper);
     LoggingTimer::init(mpihelper);
     CurvGridRealTimeLog::init(mpihelper, "memlog", 1, 5);
@@ -55,7 +58,7 @@ int main(int argc, char** argv)
     typedef Dune::CurvilinearGrid<double, 3, isGeometryCached> GridType;
 
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, withGmshElementIndex, mpihelper);
+    CurvilinearGridFactory<GridType> factory(withGhostElements, withGmshElementIndex, mpihelper);
 
     /******************************************************/
     /* Pass filename as command line argument             */
@@ -66,19 +69,19 @@ int main(int argc, char** argv)
     /******************************************************/
     /* Read mesh and create grid                          */
     /******************************************************/
-    Dune::CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper);
+    CurvilinearGmshReader< GridType >::read(factory, filename, mpihelper);
     GridType * grid = factory.createGrid();
 
     /******************************************************/
     /* Perform diagnostics tests on the constructed grid  */
     /******************************************************/
-    Dune::CurvilinearGridDiagnostic<GridType> diagnostic(mpihelper, *grid);
+    CurvilinearGridDiagnostic<GridType> diagnostic(mpihelper, *grid);
     diagnostic.runAnalyticTest("curvilinearMeshAnalyticTest.txt");
 
     /******************************************************/
     /* Write grid to VTK                                  */
     /******************************************************/
-	Dune::CurvilinearVTKGridWriter<GridType> gridwriter(*grid);
+	CurvilinearVTKGridWriter<GridType> gridwriter(*grid);
 	gridwriter.writeDomainBoundary(true);
 	gridwriter.writeInteriorBoundary(true);
 	gridwriter.write("./", "basis_test");

@@ -7,6 +7,8 @@
 
 using namespace Dune;
 
+using namespace Dune::CurvGrid;
+
 
 int main (int argc , char **argv) {
 	static MPIHelper & mpihelper = MPIHelper::instance(argc, argv);

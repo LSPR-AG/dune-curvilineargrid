@@ -31,6 +31,7 @@
 #include <string>
 #include <cstdlib>
 #include <cstdio>
+#include <assert.h>
 
 /** *\brief include functionality that encapsulates MPI */
 #include <dune/common/parallel/mpihelper.hh>
@@ -58,22 +59,7 @@
 /** \brief provide hades3d namespace */
 using namespace Dune;
 
-
-
-
-// Define path to meshes
-const std::string CURVILINEARGRID_TEST_GRID_PATH = std::string(DUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH) + "curvilinear/";
-
-// Define mesh file names
-const std::string    GMSH_FILE_NAME_SPHERE32_ORD1     =    "sphere32.msh";
-const std::string    GMSH_FILE_NAME_SPHERE32_ORD2     =    "sphere32ord2.msh";
-const std::string    GMSH_FILE_NAME_SPHERE32_ORD3     =    "sphere32ord3.msh";
-const std::string    GMSH_FILE_NAME_SPHERE32_ORD4     =    "sphere32ord4.msh";
-const std::string    GMSH_FILE_NAME_SPHERE32_ORD5     =    "sphere32ord5.msh";
-const std::string    GMSH_FILE_NAME_SPHERE2000_ORD3   =    "sphere2000ord3.msh";
-const std::string    GMSH_FILE_NAME_BULLSEYE400_ORD1  =    "bullseye-rev-400.msh";
-const std::string    GMSH_FILE_NAME_SPHERE2LAYER_ORD1     =    "sphere2layer.msh";
-
+using namespace Dune::CurvGrid;
 
 
 /**\brief Test program which visualizes the base functions on a dgf mesh to
@@ -87,7 +73,8 @@ int main(int argc, char** argv)
 
 
     // Assemble the file name
-    std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE32_ORD2;
+    assert(argc > 1);  // User must provide file name
+    std::string filename(argv[1]);
 
     // Properties of the grid
     bool withGhostElements    = true;
@@ -95,11 +82,12 @@ int main(int argc, char** argv)
     bool withProcessPartition = true;
     CurvilinearGmshReaderLoadBalanceStrategy LBstrat = LoadBalanceDefault;
     //CurvilinearGmshReaderLoadBalanceStrategy LBstrat = LoadBalanceBoundary;
+    bool writeCurvReaderVTK = true;
+
     const bool isCached = true;
 
     // Instantiation of the logging message
-    typedef Dune::LoggingMessage                LoggingMessage;
-    typedef Dune::LoggingTimer<LoggingMessage>  LoggingTimer;
+    typedef LoggingTimer<LoggingMessage>  LoggingTimer;
     LoggingMessage::init(mpihelper);
     LoggingTimer::init(mpihelper);
 
@@ -107,13 +95,13 @@ int main(int argc, char** argv)
     //LoggingMessage::setPVerbose(true);
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
-    typedef Dune::CurvilinearGridBase<double, 3, isCached>  SimplexGridType;
+    typedef CurvilinearGridBase<double, 3, isCached>  SimplexGridType;
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, withGmshElementIndex, mpihelper);
+    CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, withGmshElementIndex, mpihelper);
 
-    Dune::CurvilinearGmshReader< SimplexGridType>::read(factory, filename, mpihelper, withGmshElementIndex, withProcessPartition, LBstrat);
+    CurvilinearGmshReader< SimplexGridType>::read(factory, filename, mpihelper, withGmshElementIndex, withProcessPartition, LBstrat, writeCurvReaderVTK);
 
     //factory.createGrid(nVertexTotal, nElementTotal);
 

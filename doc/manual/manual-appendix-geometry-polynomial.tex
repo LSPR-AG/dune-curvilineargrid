@@ -8,7 +8,7 @@ where ${pow}_{i,j}$ is the power $j$\textsuperscript{th} dimension of $i$\textsu
 \[ p(\vec{u}) = \sum_i A_i u^{pow_{u,i}} v^{pow_{v,i}} w^{pow_{w, i}},  \]
 
 \noindent
-We define a Monomial class, which stores a constant multiplier $A$ and vector of powers $pow$. \\
+We define a Monomial class, which stores a constant multiplier $A$ and vector of powers $pow$.
 
 \begin{mybox}
 \begin{lstlisting}
@@ -17,7 +17,7 @@ We define a Monomial class, which stores a constant multiplier $A$ and vector of
 \end{mybox}
 
 \noindent
-A polynomial can be constructed either empty, from a single monomial or from another polynomial. \\
+A polynomial can be constructed either empty, from a single monomial or from another polynomial.
 
 \begin{mybox}
 \begin{lstlisting}
@@ -28,7 +28,7 @@ A polynomial can be constructed either empty, from a single monomial or from ano
 \end{mybox}
 
 \noindent
-The below interface provides methods to perform basic algebraic operations with polynomials and scalars. The method $axpy$ is the scaled addition, equivalent to $this += other * a$ \\
+The below interface provides methods to perform basic algebraic operations with polynomials and scalars. The method $axpy$ is the scaled addition, equivalent to $this += other * a$
 
 \begin{mybox}
 \begin{lstlisting}
@@ -47,8 +47,7 @@ The below interface provides methods to perform basic algebraic operations with 
 \end{mybox}
 
 \noindent
-We have implemented differentiation, integration and evaluation a polynomials. $derivative$ routine returns the partial derivative of a polynomial w.r.t. coordinate indexed by the parameter; $evaluate$ routine evaluates the polynomial at the provided local coordinate; $integrateRefSimplex$ routine integrates the polynomial over the reference entity of the same dimension as the polynomial, returning a scalar. An integral of a monomial over the reference simplex has an analytical expression, see \ref{appendix-proof-simplexintegral} \\
-
+We have implemented differentiation, integration and evaluation a polynomials. $derivative$ routine returns the partial derivative of a polynomial w.r.t. coordinate indexed by the parameter; $evaluate$ routine evaluates the polynomial at the provided local coordinate; $integrateRefSimplex$ routine integrates the polynomial over the reference entity of the same dimension as the polynomial, returning a scalar. An integral of a monomial over the reference simplex has an analytical expression, see \ref{appendix-proof-simplexintegral}
 
 \begin{mybox}
 \begin{lstlisting}
@@ -58,10 +57,9 @@ We have implemented differentiation, integration and evaluation a polynomials. $
 \end{lstlisting}
 \end{mybox}
 
-
 \noindent
 The following auxiliary methods can be used to provide additional information about a polynomial. $order$ routine returns the largest power among all monomials, that is, the sum of powers of that monomial;
-$magnitude$ routine returns the largest absolute value prefactor over all monomials. $to\_string$ routine converts the polynomial to a string for further text output \\
+$magnitude$ routine returns the largest absolute value prefactor over all monomials. $to\_string$ routine converts the polynomial to a string for further text output
 
 \begin{mybox}
 \begin{lstlisting}

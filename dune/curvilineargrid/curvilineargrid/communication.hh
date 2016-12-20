@@ -238,7 +238,7 @@ namespace Dune
     		CurvilinearMessageBuffer<DataType> scattermessagebuffer;
 
     		/* Debug
-    		std::cout << "Process " << rank_ << " mapsend : " << Dune::VectorHelper::map2string(mapSend) << std::endl;
+    		std::cout << "Process " << rank_ << " mapsend : " << VectorHelper::map2string(mapSend) << std::endl;
     		std::cout << "Process " << rank_ << " ranksend : ";
 
     		for (int i = 0; i < ranklist.size(); i++)
@@ -375,13 +375,13 @@ namespace Dune
 
     		// Communicate number of entities to communicate to each process
     		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Communicating");
-    		allcommunicate.communicate(globalIndexSend, nEntityPerProcessSend, globalIndexRecv, nEntityPerProcessRecv);
+    		allcommunicate.all2all(globalIndexSend, nEntityPerProcessSend, globalIndexRecv, nEntityPerProcessRecv);
 
     		// Communicate data per entity
-    		allcommunicate.communicate(nDataPerEntitySend, nEntityPerProcessSend, nDataPerEntityRecv, nEntityPerProcessRecv);
+    		allcommunicate.all2all(nDataPerEntitySend, nEntityPerProcessSend, nDataPerEntityRecv, nEntityPerProcessRecv);
 
     		// Communicate data
-    		allcommunicate.communicate(dataSend, nDataPerProcessSend, dataRecv, nDataPerProcessRecv);
+    		allcommunicate.all2all(dataSend, nDataPerProcessSend, dataRecv, nDataPerProcessRecv);
 
 
     		// 4) Scatter

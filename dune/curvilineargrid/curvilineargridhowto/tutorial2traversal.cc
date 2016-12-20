@@ -13,6 +13,9 @@
 #include <dune/curvilineargrid/curvilineargridhowto/creategrid.hh>
 
 
+using namespace Dune;
+using namespace Dune::CurvGrid;
+
 const bool isCached = true;
 const int DIM0D = 0;   const int CODIM0D = 3;
 const int DIM1D = 1;   const int CODIM1D = 2;
@@ -69,7 +72,7 @@ void traversal (GridType& grid)
               << " globalIndex=" << globalIndex
               << " physicalTag=" << physicalTag
               << " interpolationOrder=" << interpOrder
-              << " consisting of interpolatory vertices " << Dune::VectorHelper::vector2string(interpVertices)
+              << " consisting of interpolatory vertices " << VectorHelper::vector2string(interpVertices)
               << std::endl;
   }
 }
@@ -86,8 +89,7 @@ int main (int argc , char **argv) {
 	typedef Dune::CurvilinearGrid<ctype, dimension, isCached> GridType;
 
 	// Create Grid
-	const int grid_file_type = 1;  // createGrid procedure provides 8 different example grids numbered 0 to 7
-	GridType * grid = createGrid<GridType>(mpihelper, grid_file_type);
+	GridType * grid = createGrid<GridType>(mpihelper, argc , argv);
 
 	// Traverse all entities of the grid and write information about each entity
 	traversal<CODIM3D, GridType>(*grid);  // Elements
@@ -95,7 +97,7 @@ int main (int argc , char **argv) {
 	traversal<CODIM1D, GridType>(*grid);  // Edges
 	traversal<CODIM0D, GridType>(*grid);  // Corners
 
-	typedef Dune::LoggingTimer<Dune::LoggingMessage>                 LoggingTimerDev;
+	typedef LoggingTimer<LoggingMessage>                 LoggingTimerDev;
 	LoggingTimerDev::reportParallel();
 
     // Delete the grid

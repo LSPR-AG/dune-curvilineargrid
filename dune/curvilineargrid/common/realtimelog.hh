@@ -27,6 +27,10 @@
 namespace Dune
 {
 
+namespace CurvGrid {
+
+
+
 #ifdef HAVE_CURVGRID_LINUX_MEMORY_LOG
 
 
@@ -110,15 +114,15 @@ protected:
 		pauseIntervalSeconds_ = pauseIntervalSeconds;
 		packageWriteSize_ = packageWriteSize;
 		filename_ = filenameBase + ".mem";
-		mpimutex_ = new Dune::MPIMutex(rank_, size_, Dune::CurvGrid::MPI_MASTER_RANK);
+		mpimutex_ = new MPIMutex(rank_, size_, MPI_MASTER_RANK);
 
 		int pid = getpid();
 		std::vector<int> pidGlobal (mpihelper.size());
 
 		MPI_Comm comm = Dune::MPIHelper::getCommunicator();
-		MPI_Gather(&pid, 1, MPI_INT, static_cast<int *>(pidGlobal.data()), 1, MPI_INT, Dune::CurvGrid::MPI_MASTER_RANK, comm);
+		MPI_Gather(&pid, 1, MPI_INT, static_cast<int *>(pidGlobal.data()), 1, MPI_INT, MPI_MASTER_RANK, comm);
 
-		if (rank_ == Dune::CurvGrid::MPI_MASTER_RANK) {
+		if (rank_ == MPI_MASTER_RANK) {
 			// Create the memory file
 			std::fstream memFile;
 			memFile.open(filename_, std::ios::out);
@@ -149,7 +153,7 @@ protected:
 		//std::cout << "[[[Closing Real time log...." << std::endl;
 
 		// Finish the thread and write all remaining memory data to the file
-		if (rank_ == Dune::CurvGrid::MPI_MASTER_RANK) {
+		if (rank_ == MPI_MASTER_RANK) {
 			on_ = false;
 			fi_.get();
 			//t.join();
@@ -243,7 +247,7 @@ protected:
 	void writeFileSecure(const std::vector<std::string> & output) {
 		// If this rank has threads writing to the memory file, lock file output for threads
 		std::lock_guard<std::mutex> * lock;
-		if (rank_ == Dune::CurvGrid::MPI_MASTER_RANK)  { lock = new std::lock_guard<std::mutex>(threadmutex_); }
+		if (rank_ == MPI_MASTER_RANK)  { lock = new std::lock_guard<std::mutex>(threadmutex_); }
 
 		// Lock file output for all ranks except this one, so other ranks can't write to file
 		mpimutex_->lock();
@@ -259,7 +263,7 @@ protected:
 		mpimutex_->unlock();
 
 		// Remove thread-lock
-		if (rank_ == Dune::CurvGrid::MPI_MASTER_RANK)  { delete lock; }
+		if (rank_ == MPI_MASTER_RANK)  { delete lock; }
 	}
 
 
@@ -270,7 +274,7 @@ private:
 	// MPI
 	int rank_;
 	int size_;
-	Dune::MPIMutex * mpimutex_;
+	MPIMutex * mpimutex_;
 
 	// Threads
 	std::atomic<bool> on_;										// Determines if the memory log loop is on or off
@@ -319,9 +323,9 @@ public:
 
 
 
+} // namespace CurvGrid
 
-
-}  // End of namespace Hades3d.
+}  // End of namespace Dune
 
 #endif // CURVGRID_REAL_TIME_LOG_HH_
 

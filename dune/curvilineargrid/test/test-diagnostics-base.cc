@@ -26,6 +26,8 @@
 
 using namespace Dune;
 
+using namespace Dune::CurvGrid;
+
 
 // Define path to meshes
 const std::string CURVILINEARGRID_TEST_GRID_PATH = std::string(DUNE_CURVILINEARGRID_EXAMPLE_GRIDS_PATH) + "curvilinear/";
@@ -54,31 +56,31 @@ int main(int argc, char** argv)
     static MPIHelper &mpihelper=Dune::MPIHelper::instance(argc,argv);
 
     // Instantiation of the logging message and loggingtimer
-    typedef Dune::LoggingTimer<Dune::LoggingMessage>  LoggingTimer;
+    typedef LoggingTimer<LoggingMessage>  LoggingTimer;
     LoggingMessage::init(mpihelper);
     LoggingTimer::init(mpihelper);
 
     // typedef  Dune::ALUGrid<3,3,simplex,nonconforming> SimplexGridType;
-    typedef Dune::CurvilinearGridBase<double, 3, isGeometryCached>  SimplexGridType;
+    typedef CurvilinearGridBase<double, 3, isGeometryCached>  SimplexGridType;
 
     bool withGhostElements = true;
     bool withGmshElementIndex = true;
 
     /** \brief provide a grid factory object for a grid of the ALUGSimplexGrid<3,3> type */
     //Dune::GridFactory<ALUSimplexGridType> factory;
-    Dune::CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, withGmshElementIndex, mpihelper);
+    CurvilinearGridBaseFactory<SimplexGridType> factory(withGhostElements, withGmshElementIndex, mpihelper);
 
 
     // Assemble the file name
     std::string filename = CURVILINEARGRID_TEST_GRID_PATH + GMSH_FILE_NAME_SPHERE2000_ORD3;
-    Dune::CurvilinearGmshReader< SimplexGridType >::read(factory, filename, mpihelper);
+    CurvilinearGmshReader< SimplexGridType >::read(factory, filename, mpihelper);
 
     SimplexGridType * gridbase = factory.createGrid();
 
 
 
     // Perform diagnostics tests on the constructed grid
-    Dune::CurvilinearGridBaseDiagnostic<SimplexGridType> diagnostic(mpihelper, *gridbase);
+    CurvilinearGridBaseDiagnostic<SimplexGridType> diagnostic(mpihelper, *gridbase);
 
 	std::vector<bool> withElements {true, true};                 // Whether to add elements to VTK: Internal / Ghost
 	std::vector<bool> withFaces    {false, false, true, true};   // Whether to add faces to VTK: Internal / Ghost / ProcessBoundary / DomainBoundary

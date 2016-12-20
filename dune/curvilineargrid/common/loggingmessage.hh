@@ -21,6 +21,8 @@
 namespace Dune
 {
 
+namespace CurvGrid {
+
 
 // A specialized set of templated functions that determine whether to write output based on compile parameters
 namespace LoggingMessageCompile
@@ -256,6 +258,8 @@ private:
     bool processVerbose_;
 };
 
+
+} // namespace CurvGrid
 
 } // End namespace Dune.
 

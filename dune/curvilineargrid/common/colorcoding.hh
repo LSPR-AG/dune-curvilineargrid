@@ -3,6 +3,11 @@
 
 #include <ostream>
 
+namespace Dune {
+
+namespace CurvGrid {
+
+
 namespace ColorCoding {
     enum Code {
         FG_DEFAULT = 39,
@@ -32,6 +37,12 @@ namespace ColorCoding {
         return os << "\033[" << static_cast<int>(code) << "m";
     }
 }
+
+
+
+} // namespace CurvGrid
+
+} // Dune
 
 #endif
 

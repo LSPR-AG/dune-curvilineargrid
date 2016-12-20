@@ -60,7 +60,7 @@ namespace Dune
 	    typedef ct  ctype;
 
 	    typedef Dune::CurvilinearGrid<ct, cdim, isCached>               GridType;
-	    typedef typename Dune::CurvilinearGridBase<ct, cdim, isCached>  GridBaseType;
+	    typedef Dune::CurvGrid::CurvilinearGridBase<ct, cdim, isCached>  GridBaseType;
 	    typedef typename GridBaseType::GridStorageType                          GridStorageType;
 
 	    typedef typename GridStorageType::LocalIndexType                 LocalIndexType;
@@ -125,7 +125,7 @@ namespace Dune
     // Curvilinear Grid Implementation
     // ************************************************************************************
 
-    typedef Dune::CurvilinearGridBase<ct, cdim, isCached>  GridBaseType;
+    typedef Dune::CurvGrid::CurvilinearGridBase<ct, cdim, isCached>  GridBaseType;
     typedef typename GridBaseType::GridStorageType         GridStorageType;
     typedef typename GridBaseType::LoggingMessage          LoggingMessage;
     typedef typename GridBaseType::LoggingTimer            LoggingTimer;
@@ -399,7 +399,7 @@ namespace Dune
     typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator lbegin (int level) const
     {
     	assert(level == 0);
-    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityDuneIndexBegin(cd, pitype), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, pitype).begin(), *gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator(iterImpl);
     }
 
@@ -408,7 +408,7 @@ namespace Dune
     typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator lend (int level) const
     {
     	assert(level == 0);
-    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityDuneIndexEnd(cd, pitype), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, pitype).end(), *gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator(iterImpl);
     }
 
@@ -417,7 +417,7 @@ namespace Dune
     typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator lbegin (int level) const
     {
     	assert(level == 0);
-    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityDuneIndexBegin(cd, All_Partition), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, All_Partition).begin(), *gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator(iterImpl);
     }
 
@@ -426,7 +426,7 @@ namespace Dune
     typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator lend (int level) const
     {
     	assert(level == 0);
-    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityDuneIndexEnd(cd, All_Partition), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, All_Partition).end(), *gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator(iterImpl);
     }
 
@@ -434,7 +434,7 @@ namespace Dune
     template<int cd, PartitionIteratorType pitype>
     typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator leafbegin () const
     {
-    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityDuneIndexBegin(cd, pitype), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, pitype).begin(), *gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator(iterImpl);
     }
 
@@ -442,7 +442,7 @@ namespace Dune
     template<int cd, PartitionIteratorType pitype>
     typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator leafend () const
     {
-    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityDuneIndexEnd(cd, pitype), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, pitype).end(), *gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator(iterImpl);
     }
 
@@ -450,7 +450,7 @@ namespace Dune
     template<int cd>
     typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator leafbegin () const
     {
-    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityDuneIndexBegin(cd, All_Partition), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, All_Partition).begin(), *gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator(iterImpl);
     }
 
@@ -458,7 +458,7 @@ namespace Dune
     template<int cd>
     typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator leafend () const
     {
-    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityDuneIndexEnd(cd, All_Partition), *gridbase_);
+    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, All_Partition).end(), *gridbase_);
     	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator(iterImpl);
     }
 
@@ -687,6 +687,7 @@ namespace Dune
     	return globalIndex;
     }
 
+
     template <int codim, int subcodim>
     GlobalIndexType subentityGlobalIndex(const typename Traits::template Codim< codim >::Entity &entity, LocalIndexType subInternalIndex) const {
     	LocalIndexType entityLocalIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
@@ -717,6 +718,7 @@ namespace Dune
     	return gridbase_->physicalTag(codim, baseIndex);
     }
 
+
     // Obtain interpolation order of an entity
     template<int codim>
     InterpolatoryOrderType entityInterpolationOrder (const typename Traits::template Codim< codim >::Entity &entity) const
@@ -725,12 +727,14 @@ namespace Dune
     	return gridbase_->entityInterpolationOrder(codim, baseIndex);
     }
 
+
     template<int codim>
     typename Codim<codim>::EntityGeometryMappingImpl entityBaseGeometry (const typename Traits::template Codim< codim >::Entity &entity) const
     {
     	LocalIndexType baseIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
     	return gridbase_->template entityGeometry<codim>(baseIndex);
     }
+
 
     // The problem is that the local index in the gridBase is different than that in the grid, as in the grid only corners are indexed
     // So, in case of a vertex codimension, need to convert backwards
@@ -750,6 +754,7 @@ namespace Dune
     }
 
 
+    bool withPeriodic() { return gridbase_->withPeriodicBoundaries(); }
 
 
   private:

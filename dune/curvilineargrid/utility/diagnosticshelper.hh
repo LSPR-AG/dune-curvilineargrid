@@ -8,7 +8,9 @@
 namespace Dune
 {
 
-using namespace CurvGrid;
+namespace CurvGrid {
+
+//using namespace CurvGrid;
 
 template <class GridType>
 struct DiagnosticsHelper
@@ -33,7 +35,7 @@ struct DiagnosticsHelper
     static const int   FACE_CODIM     = GridStorageType::FACE_CODIM;
     static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
-	typedef typename GridStorageType::Vertex                Vertex;
+	typedef typename GridStorageType::GlobalCoordinate                GlobalCoordinate;
 
 
 
@@ -54,14 +56,14 @@ struct DiagnosticsHelper
 	template <class Geometry>
 	static void elementStatistics(Geometry & elemGeom, MeshStatType & meshStatistics)
 	{
-		std::vector<Vertex> cr;
+		std::vector<GlobalCoordinate> cr;
 		for (int i = 0; i < elemGeom.corners(); i++)  { cr.push_back(elemGeom.corner(i)); }
 
-		Vertex CoM = cr[0] + cr[1] + cr[2] + cr[3];
+		GlobalCoordinate CoM = cr[0] + cr[1] + cr[2] + cr[3];
 		CoM /= 4;
 
 		std::vector<double> comCornerRadius { (CoM-cr[0]).two_norm(), (CoM-cr[1]).two_norm(), (CoM-cr[2]).two_norm(), (CoM-cr[3]).two_norm() };
-		std::vector<Vertex> linearEdges     { cr[3]-cr[0], cr[3]-cr[1], cr[3]-cr[2], cr[2]-cr[0], cr[2]-cr[1], cr[1]-cr[0] };
+		std::vector<GlobalCoordinate> linearEdges     { cr[3]-cr[0], cr[3]-cr[1], cr[3]-cr[2], cr[2]-cr[0], cr[2]-cr[1], cr[1]-cr[0] };
 		std::vector<double> linearEdgeLen;
 		for (int i = 0; i < linearEdges.size(); i++)  { linearEdgeLen.push_back(linearEdges[i].two_norm()); }
 
@@ -100,7 +102,7 @@ struct DiagnosticsHelper
 	{
 		double faceCurvilinearArea = faceGeom.volume();
 		meshStatistics[12][0] += faceCurvilinearArea;
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB> (__FILE__, __LINE__, "Area: " + std::to_string(faceCurvilinearArea) );
+		LoggingMessage::template write<LOG_MSG_DVERB> (__FILE__, __LINE__, "Area: " + std::to_string(faceCurvilinearArea) );
 	}
 
 
@@ -110,7 +112,7 @@ struct DiagnosticsHelper
 	{
 		double faceCurvilinearArea = faceGeom.volume();
 		meshStatistics[13][0] += faceCurvilinearArea;
-		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB> (__FILE__, __LINE__, "Area: " + std::to_string(faceCurvilinearArea) );
+		LoggingMessage::template write<LOG_MSG_DVERB> (__FILE__, __LINE__, "Area: " + std::to_string(faceCurvilinearArea) );
 	}
 
 
@@ -152,9 +154,9 @@ struct DiagnosticsHelper
 	// *****************************************************************
 
 	// Initializes a FieldVector in 1 line
-	static Vertex initVector(ctype a, ctype b, ctype c)
+	static GlobalCoordinate initVector(ctype a, ctype b, ctype c)
 	{
-		Vertex rez;
+		GlobalCoordinate rez;
 		rez[0] = a;
 		rez[1] = b;
 		rez[2] = c;
@@ -163,11 +165,11 @@ struct DiagnosticsHelper
 
 	// Dot product between FieldVectors
 	// [TODO] Replace with existing Dune functionality if found
-	static ctype GridVectorDot(Vertex a, Vertex b)  { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+	static ctype GridVectorDot(GlobalCoordinate a, GlobalCoordinate b)  { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
 
 	// Cross product between FieldVectors
 	// [TODO] Replace with existing Dune functionality if found
-	static Vertex GridVectorTimes(Vertex a, Vertex b)  { return initVector(a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]); }
+	static GlobalCoordinate GridVectorTimes(GlobalCoordinate a, GlobalCoordinate b)  { return initVector(a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]); }
 
 	// Returns smallest entry of a vector of comparable objects
 	template <class T>
@@ -240,6 +242,8 @@ struct DiagnosticsHelper
 	}
 };
 
-}
+} // namespace CurvGrid
+
+} // namespace Dune
 
 #endif // DUNE_CURVILINEARDIAGNOSTICHELPER_HH

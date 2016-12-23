@@ -185,6 +185,10 @@ public:
 	// Write Grid to VTK, including vector field set defined over each element
 	void write(std::string path, std::string filenamePrefix)
 	{
+		// Determine Grid Capabilities
+		bool isGridParallel = grid_.comm().size() > 0;
+		bool hasGridGhost = grid_.ghostSize(ELEMENT_CODIM) > 0;
+
         // Determine if any of the faces will be written
         bool writeAnyFace = writeDB_ || writePB_ || writeIB_ || writePeriodic_;
 
@@ -219,19 +223,23 @@ public:
 					const EntityFace faceThis = elementThis.template subEntity<FACE_CODIM>(intersection.indexInInside());
 					PhysicalTagType faceTag = grid_.template entityPhysicalTag<FACE_CODIM>(faceThis);
 					Dune::GeometryType  faceGeomType   = faceThis.type();
-					Dune::PartitionType thisFacePType  = faceThis.partitionType();
+
+					// NOTE: CurvGridVTKWriter introduces extended partition type format to better visualise special boundary segments
+					int thisFaceEffectivePartitionType  = faceThis.partitionType();
 
 					// Determine if the face will be written, based on its type
 					// Note that periodic boundaries are also domain boundaries
 					bool writeFace = false;
 					bool isPeriodic = ((intersection.neighbor() == true) && (intersection.boundary() == true));
 					bool isDB = ((intersection.neighbor() == false) && (intersection.boundary() == true)) || isPeriodic;
-					bool isPB = ((intersection.neighbor() == true) && (intersection.boundary() == false));
+					bool isPB = isGridParallel
+							? ((intersection.neighbor() == true) && (intersection.outside().partitionType() == Dune::PartitionType::GhostEntity))
+							: ((intersection.neighbor() == false) && (intersection.boundary() == false));
 					bool isIB = ((!isDB) && (faceTag >= 0));
 
-					if				( isPeriodic && writePeriodic_)	{ writeFace = true;  thisFacePType = PERIODIC_BOUNDARY_PARTITION_TYPE; }
-					else if		( isDB && writeDB_)					{ writeFace = true;  thisFacePType = BOUNDARY_SEGMENT_PARTITION_TYPE; }
-					else if		( isIB && writeIB_)						{ writeFace = true;  thisFacePType = INTERIOR_BOUNDARY_SEGMENT_PARTITION_TYPE; }
+					if				( isPeriodic && writePeriodic_)	{ writeFace = true;  thisFaceEffectivePartitionType = PERIODIC_BOUNDARY_PARTITION_TYPE; }
+					else if		( isDB && writeDB_)					{ writeFace = true;  thisFaceEffectivePartitionType = BOUNDARY_SEGMENT_PARTITION_TYPE; }
+					else if		( isIB && writeIB_)						{ writeFace = true;  thisFaceEffectivePartitionType = INTERIOR_BOUNDARY_SEGMENT_PARTITION_TYPE; }
 					else if		( isPB && writePB_)						{
 						// Do not write PB twice, it is wasteful. Determine which process writes it using unit normal at center
 						// [TODO] Normal orientation is ugly. Can determine owner natively, if can extract easily neighbor rank
@@ -243,18 +251,20 @@ public:
 
 					// Write face
 					// Note: For now, only write face-based fields for domain boundaries
-					if  (writeFace) { writeEntity<FACE_CODIM, EntityFace, Intersection>(faceThis, intersection, thisFacePType, isDB); }
+					if  (writeFace) { writeEntity<FACE_CODIM, EntityFace, Intersection>(faceThis, intersection, thisFaceEffectivePartitionType, isDB); }
 
 					// Write ghost element
-					if (writeGhost_ && isPB) {
+					if (writeGhost_ && (isPB || isPeriodic)) {
 						EntityElement thisGhost = intersection.outside();
-						Dune::PartitionType ghostType = elementThis.partitionType();
-						assert(ghostType == Dune::PartitionType::GhostEntity);
+						Dune::PartitionType ghostType = thisGhost.partitionType();
+
+						if (isPB) { assert(ghostType == Dune::PartitionType::GhostEntity); }
+						int ghostEffectivePartitionType = isPB ? ghostType : PERIODIC_GHOST_PARTITION_TYPE;
 
 						// Note: It is unexpected that the process would know the field on its own Ghost element.
 						// It is most likely that for memory reasons that this field will be stored only once, and on a process for which this element is an interior element
 						bool ghostElementWriteField = true;
-						writeEntity<ELEMENT_CODIM, EntityElement, EntityElement>(thisGhost, thisGhost, ghostType, ghostElementWriteField);
+						writeEntity<ELEMENT_CODIM, EntityElement, EntityElement>(thisGhost, thisGhost, ghostEffectivePartitionType, ghostElementWriteField);
 					}
 				}
 			}
@@ -279,17 +289,18 @@ public:
 protected:
 
 	template <int codim, class GridEntityType, class FieldEntityType>
-	void writeEntity(GridEntityType & gridEntity, FieldEntityType & fieldEntity, Dune::PartitionType pt, bool writeField) {
+	void writeEntity(const GridEntityType & gridEntity, const FieldEntityType & fieldEntity, int ptEff, bool withField) {
 		const int mydim = dimension - codim;
 		Dune::GeometryType gt   = gridEntity.type();
 
 		// Constructing a geometry is quite expensive, do it only once
-		ElementGeometry geom = grid_.template entityBaseGeometry<codim>(gridEntity);
+		typedef typename GridType::GridBaseType::template Codim<codim>::EntityGeometry   ThisGeometry;
+		ThisGeometry geom = grid_.template entityBaseGeometry<codim>(gridEntity);
 		GlobalVector nodeSet = geom.vertexSet();
 
 		PhysicalTagType physicalTag  = grid_.template entityPhysicalTag<codim>(gridEntity);
 		InterpolatoryOrderType curvOrder = grid_.template entityInterpolationOrder<codim>(gridEntity);
-		std::vector<int> tagSet { physicalTag, pt, grid_.comm().rank() };
+		std::vector<int> tagSet { physicalTag, ptEff, grid_.comm().rank() };
 
 		// To accelerate vtk writer, do not overdiscretize low order meshes. Make discretization appropriate for element, unless user specifically asks for fixed order
 		int nDiscretizationPoint = (virtualRefinementOrder_ > 0) ? virtualRefinementOrder_ : curvOrder + 4;
@@ -300,20 +311,23 @@ protected:
 		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, logstr.str());
 		baseWriter_.template addCurvilinearElement<mydim>(gt, nodeSet, tagSet, curvOrder, nDiscretizationPoint, writeInterpolate_, writeExplode_, writeCodim_);
 
-
-		if (writeField) {
+		if (withField) {
 			// Explicitly disallow writing fields for entities other than elements and faces
 			assert((codim == ELEMENT_CODIM) || (codim == FACE_CODIM));
-
-			if (codim == ELEMENT_CODIM) {
-				writeScalarField(vtkScalarElementFunctionSet_, gridEntity, baseWriter_);
-				writeVectorField(vtkVectorElementFunctionSet_, gridEntity, baseWriter_);
-			}
-			else if (codim == FACE_CODIM) {
-				writeScalarField(vtkScalarFaceFunctionSet_, fieldEntity, baseWriter_);
-				writeVectorField(vtkVectorFaceFunctionSet_, fieldEntity, baseWriter_)
-			}
+			writeField(fieldEntity);
 		}
+	}
+
+	void writeField(typename VTKVectorFunction<Grid, DIM3D-ELEMENT_CODIM>::Entity fieldEntity)
+	{
+		writeScalarField(vtkScalarElementFunctionSet_, fieldEntity, baseWriter_);
+		writeVectorField(vtkVectorElementFunctionSet_, fieldEntity, baseWriter_);
+	}
+
+	void writeField(typename VTKVectorFunction<Grid, DIM3D-FACE_CODIM>::Entity fieldEntity)
+	{
+		writeScalarField(vtkScalarFaceFunctionSet_, fieldEntity, baseWriter_);
+		writeVectorField(vtkVectorFaceFunctionSet_, fieldEntity, baseWriter_);
 	}
 
 

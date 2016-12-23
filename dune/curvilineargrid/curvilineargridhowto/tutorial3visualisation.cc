@@ -213,18 +213,32 @@ int main (int argc , char **argv) {
 	// Create Grid
 	GridType * grid = createGrid<GridType>(mpihelper, argc , argv);
 
-
     // Construct the VTK writer
 	GridWriter writer(*grid);
+
+	/***************************************************************
+	 * In the following block we set up the parameters of the writer
+	 * Note that this is entirely optional, as all parameters have default values
+	 ***************************************************************/
 
 	// Set fixed virtual refinement to better resolve the fine sinusoidal fields
 	// This action is not recommended for large grids because it will severely slow down the writing procedure.
 	// If the function polynomial order is not higher than the curvature order of the element, then the writer
 	// will automatically adapt the correct virtual refinement order.
-	const int userDefinedVirtualRefinement = 15;
+	const int userDefinedVirtualRefinement = 7;
 	writer.useFixedVirtualRefinement(userDefinedVirtualRefinement);
+	writer.writeProcessBoundary(true);
+	writer.writeDomainBoundary(true);
+	writer.writeInteriorBoundary(true);
+	writer.writePeriodicBoundary(true);
+	writer.writeGhost(true);
+	writer.writePatience(true);
+	writer.writeInterpolate(true);
+	writer.writeExplode(false);
 
-	// We will attempt to attach two fields to the grid and plot them
+	/***************************************************************
+	 * We will attempt to attach two fields to the grid and plot them
+	 ***************************************************************/
 
 	/** \brief Stores all functors that will be plotted over the mesh during diagnostics phase **/
 	std::vector<BaseVTKScalarFunction2D *> vtkFuncScalarSet2D_;

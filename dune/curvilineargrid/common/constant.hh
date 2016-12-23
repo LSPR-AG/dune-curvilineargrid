@@ -22,7 +22,8 @@ const int MPI_MASTER_RANK = 0;
 // ******************************************************/
 // Curvilinear Grid Constants                          **/
 // ******************************************************/
-const int PERIODIC_BOUNDARY_PARTITION_TYPE = 500;  // Additional partition type for periodic boundary faces
+const int PERIODIC_GHOST_PARTITION_TYPE = 1000;  // Additional partition type for periodic ghosts
+const int PERIODIC_BOUNDARY_PARTITION_TYPE = 600;  // Additional partition type for periodic boundary faces
 const int BOUNDARY_SEGMENT_PARTITION_TYPE = 500;  // Additional partition type for boundary segments to distinguish them from interior faces
 const int INTERIOR_BOUNDARY_SEGMENT_PARTITION_TYPE = 400;  // Additional partition type for interior boundary surfaces
 

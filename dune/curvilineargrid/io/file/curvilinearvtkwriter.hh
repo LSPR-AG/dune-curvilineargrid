@@ -490,9 +490,16 @@ SubEntityIndexVector refineEntitySubset<ELEMENT_CODIM, ELEMENT_CODIM> (
         // Treat boundary segments in a special way
         std::string pname;
         bool magnify;
-        if (thisElmPartitionType == BOUNDARY_SEGMENT_PARTITION_TYPE) {
+
+        if (thisElmPartitionType == PERIODIC_GHOST_PARTITION_TYPE) {
+        	magnify = false;
+        	pname = "PeriodicGhost";
+        } else if (thisElmPartitionType == BOUNDARY_SEGMENT_PARTITION_TYPE) {
         	magnify = true;
-        	pname = "BoundarySegment";
+        	pname = "DomainBoundarySegment";
+        } else if (thisElmPartitionType == PERIODIC_BOUNDARY_PARTITION_TYPE) {
+            	magnify = true;
+            	pname = "PeriodicBoundarySegment";
         } else if (thisElmPartitionType == INTERIOR_BOUNDARY_SEGMENT_PARTITION_TYPE) {
             	magnify = false;
             	pname = "InteriorBoundarySegment";

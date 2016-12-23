@@ -200,6 +200,7 @@ public:
 		LocalIndexType       element1Index;
 		LocalIndexType       element2Index;
 		InternalIndexType    element1SubentityIndex;
+		InternalIndexType    element2SubentityIndex;
 		PhysicalTagType      physicalTag;
 	};
 

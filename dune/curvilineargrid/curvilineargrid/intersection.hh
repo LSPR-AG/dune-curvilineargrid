@@ -96,7 +96,7 @@ namespace Dune
     	  assert(subIndexInside_ <= 4);
     	  if (subIndexInside_ < 4)
     	  {
-        	  localFaceIndex_ = gridbase.subentityLocalIndex (localIndexInside, 0, 1, subIndexInside);
+        	  localFaceIndex_ = gridbase.subentityLocalIndex (localIndexInside, ELEMENT_CODIM, FACE_CODIM, subIndexInside);
 
         	  //std::cout << "Constructing Intersection elementIndex=" << localIndexInside << " internal index=" << subIndexInside << " gets face index=" << localFaceIndex_ << std::endl;
 
@@ -205,12 +205,27 @@ namespace Dune
     	  bool isPB = (partitionType == Dune::PartitionType::BorderEntity);
     	  bool isPeriodic = (boundaryType == GridStorageType::FaceBoundaryType::PeriodicBoundary);
 
-    	  if (isDB)  { return false; }												// Pure domain boundaries should not have outer neighbors
+    	  // Check that no more than 1 one of the above is true
+    	  int nSpecialProperty = int(isDB) + int(isPB) + int(isPeriodic);
+    	  if (nSpecialProperty > 1) {
+    		  std::stringstream logstr;
+    		  logstr << "Intersection is checked for (isDB, isPB, isPeriodic) = (" << isDB << ", " << isPB << ", "
+					  << isPeriodic << "). Having two properties at the same time is unexpected ";
+    		  DUNE_THROW(Dune::IOError, logstr.str() );
+    	  }
 
-    	  // [FIXME] Replace with availability of ghosts in the mesh, ensure that for serial the answer is NO
-    	  if (isPB || isPeriodic) { return !gridbase_->isSerial(); }	// Boundaries that can have ghost neighbor must check if ghosts are implemented
+    	  bool rez = true;
 
-    	  return true;
+    	  // Pure domain boundaries should not have outer neighbors
+    	  if (isDB)  { rez = false; }
+
+    	  // Boundaries that can have ghost neighbor must check if ghosts are implemented
+    	  if (isPB || isPeriodic) { return gridbase_->nEntity(ELEMENT_CODIM, Dune::PartitionType::GhostEntity) > 0; }
+
+    	  // Check if the outside neighbor actually exists
+    	  if (rez) { assert(gridbase_->checkFaceOuterNeighbor(localFaceIndex_)); }
+
+    	  return rez;
       }
 
 
@@ -367,25 +382,40 @@ namespace Dune
         	  LocalIndexType neighborElementIndex0 = gridbase_->faceNeighbor(localFaceIndex_, 0);
         	  LocalIndexType neighborElementIndex1 = gridbase_->faceNeighbor(localFaceIndex_, 1);
 
-        	  localIndexOutside_ = (neighborElementIndex0 == localIndexInside_) ? neighborElementIndex1 : neighborElementIndex0;
+        	  // Determine the outside element local index
+        	  // NOTE: If the outside element is not interior, then the inside elem is always 0th
+        	  // But if both neighbors are interior, then the order is fixed but non-trivial. Find order by comparison
+        	  bool thisInsideElemIs0 = neighborElementIndex0 == localIndexInside_;
+        	  bool thisInsideElemIs1 = neighborElementIndex1 == localIndexInside_;
+        	  assert(thisInsideElemIs0 != thisInsideElemIs1);  // Exactly one of them should be the inside element
+        	  localIndexOutside_ = thisInsideElemIs0 ? neighborElementIndex1 : neighborElementIndex0;
+        	  InternalIndexType neighborOrderOutside = thisInsideElemIs0 ? 1 : 0;
 
-        	  int iFace = 0;
-        	  bool found_face = false;
-        	  while (!found_face)
-        	  {
-        		  if (iFace >= 4)  {
-        			  std::cout << "*** when searching faceIndex=" << localFaceIndex_ << " of structural type" << gridbase_->entityPartitionType(FACE_CODIM, localFaceIndex_) <<" of outsideIndex=" << localIndexOutside_ << std::endl;
-        			  std::cout << "Error: Intersection: Not found face as its outside-element subentity" << std::endl;
-        			  DUNE_THROW(Dune::IOError, "Intersection: Not found face as its outside-element subentity");
-        		  }
+        	  // IMPORTANT NOTE: IN CASE OF PERIODIC FACES, THE INTERSECTION AS SEEN FROM INSIDE AND OUTSIDE ARE DIFFERENT ENTITIES
+        	  subIndexOutside_ = gridbase_->faceSubIndexInNeighbor(localFaceIndex_, neighborOrderOutside);
 
-        		  if (localFaceIndex_ == gridbase_->subentityLocalIndex(localIndexOutside_, ELEMENT_CODIM, FACE_CODIM, iFace))
-        		  {
-        			  found_face = true;
-        			  subIndexOutside_ = iFace;
-        		  }
-        		  iFace++;
-        	  }
+
+//        	  int iFace = 0;
+//        	  bool found_face = false;
+//        	  while (!found_face)
+//        	  {
+//        		  if (iFace >= 4)  {
+//        			  std::stringstream logstr;
+//        			  logstr << "Error: Intersection: Not found face as its outside-element subentity" << std::endl;
+//        			  logstr << "*** when searching faceIndex=" << localFaceIndex_;
+//        			  logstr << " of structural type" << gridbase_->entityPartitionType(FACE_CODIM, localFaceIndex_);
+//        			  logstr <<" of outsideIndex=" << localIndexOutside_;
+//
+//        			  DUNE_THROW(Dune::IOError, logstr.str());
+//        		  }
+//
+//        		  if (localFaceIndex_ == gridbase_->subentityLocalIndex(localIndexOutside_, ELEMENT_CODIM, FACE_CODIM, iFace))
+//        		  {
+//        			  found_face = true;
+//        			  subIndexOutside_ = iFace;
+//        		  }
+//        		  iFace++;
+//        	  }
     	  }
       }
 

@@ -241,8 +241,6 @@ public: /* public methods */
 		int nEdgeTet = 6;
 		int nVertexTet = 4;
 
-		Dune::PartitionType tmpTypes[2] = { Dune::PartitionType::InteriorEntity, Dune::PartitionType::GhostEntity};
-
 		// Resize all neighbor rank arrays, except the boundary internals, since we do not know their lengths
 		// Boundary Internals will be resized as its number is calculated
 		for (int iCodim = 0; iCodim <= dimension; iCodim++)
@@ -271,46 +269,56 @@ public: /* public methods */
 			// **********************************************************************
 
 			// Find local indices of all subentities of this PB face
-			std::vector<LocalIndexType> faceSubentityIndex[4];
-			faceSubentityIndex[FACE_CODIM].push_back(thisFaceLocalIndex);
-			for (int i = 0; i < nEdgeTriangle; i++)    { faceSubentityIndex[EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, EDGE_CODIM, i)); }
-			for (int i = 0; i < nVertexTriangle; i++)  { faceSubentityIndex[VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, VERTEX_CODIM, i)); }
+			std::vector<LocalIndexType> faceSubentityLocalIndex[4];
+			faceSubentityLocalIndex[FACE_CODIM].push_back(thisFaceLocalIndex);
+			for (int i = 0; i < nEdgeTriangle; i++)    { faceSubentityLocalIndex[EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, EDGE_CODIM, i)); }
+			for (int i = 0; i < nVertexTriangle; i++)  { faceSubentityLocalIndex[VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, VERTEX_CODIM, i)); }
 
-			// Fill in the sets associated with internal element
-			// [FIXME] Explain what iFaceNeighbor iterates over
-			std::vector<LocalIndexType> faceNeighborSubentityIndex[2][4];
+			// Verify that the outer neighbor of the process boundary exists
+			if (!gridbase_.checkFaceOuterNeighbor(thisFaceLocalIndex)) {
+				std::stringstream logstr;
+				logstr << "Supposed process boundary " << thisFaceLocalIndex << " does not have initialised outer neighbor" << std::endl;
+				DUNE_THROW(Dune::IOError, logstr.str());
+			}
+
+			// Iterate over process boundary neighbor elements: inner and outer
 			for (int iFaceNeighbor = 0; iFaceNeighbor <= 1; iFaceNeighbor++)
 			{
 				// Gets either internal or ghost element depending on iFaceNeighbor
 				LocalIndexType thisElementLocalIndex = gridbase_.faceNeighbor(thisFaceLocalIndex, iFaceNeighbor);
 
+				Dune::PartitionType thisElementPTypeExpected = iFaceNeighbor == 0 ? Dune::PartitionType::InteriorEntity : Dune::PartitionType::GhostEntity;
+				Dune::PartitionType thisElementPType = gridbase_.entityPartitionType(ELEMENT_CODIM, thisElementLocalIndex);
+				assert(thisElementPType == thisElementPTypeExpected);
+
 				// Find local indices of all subentities of this element
-				faceNeighborSubentityIndex[iFaceNeighbor][ELEMENT_CODIM].push_back(thisElementLocalIndex);
-				for (int i = 0; i < nTriangleTet; i++)  { faceNeighborSubentityIndex[iFaceNeighbor][FACE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, i)); }
-				for (int i = 0; i < nEdgeTet; i++)      { faceNeighborSubentityIndex[iFaceNeighbor][EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, EDGE_CODIM, i)); }
-				for (int i = 0; i < nVertexTet; i++)    { faceNeighborSubentityIndex[iFaceNeighbor][VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, VERTEX_CODIM, i)); }
+				std::vector<LocalIndexType> faceNeighborSubentityLocalIndex[4];
+				faceNeighborSubentityLocalIndex[ELEMENT_CODIM].push_back(thisElementLocalIndex);
+				for (int i = 0; i < nTriangleTet; i++)  { faceNeighborSubentityLocalIndex[FACE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, i)); }
+				for (int i = 0; i < nEdgeTet; i++)      { faceNeighborSubentityLocalIndex[EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, EDGE_CODIM, i)); }
+				for (int i = 0; i < nVertexTet; i++)    { faceNeighborSubentityLocalIndex[VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, VERTEX_CODIM, i)); }
 
 
 				for (int iCodim = 0; iCodim <= dimension; iCodim++)
 				{
 					// Sort subentity index vectors
-					std::sort(faceSubentityIndex[iCodim].begin(), faceSubentityIndex[iCodim].end());
-					std::sort(faceNeighborSubentityIndex[iFaceNeighbor][iCodim].begin(), faceNeighborSubentityIndex[iFaceNeighbor][iCodim].end());
+					std::sort(faceSubentityLocalIndex[iCodim].begin(), faceSubentityLocalIndex[iCodim].end());
+					std::sort(faceNeighborSubentityLocalIndex[iCodim].begin(), faceNeighborSubentityLocalIndex[iCodim].end());
 
 					// Subtract face subentity set from element subentity set, such that only internal and ghost subentities are left
-					faceNeighborSubentityIndex[iFaceNeighbor][iCodim] = VectorHelper::sortedSetComplement(faceNeighborSubentityIndex[iFaceNeighbor][iCodim], faceSubentityIndex[iCodim]);
+					faceNeighborSubentityLocalIndex[iCodim] = VectorHelper::sortedSetComplement(faceNeighborSubentityLocalIndex[iCodim], faceSubentityLocalIndex[iCodim]);
 
 					// 2) Add entities to the map unless they are already added.
 					// **********************************************************************
-					Local2LocalMap & thisLocalMap = gridbase_.selectCommMap(iCodim, tmpTypes[iFaceNeighbor]);
+					Local2LocalMap & thisLocalMap = gridbase_.selectCommMap(iCodim, thisElementPTypeExpected);
 
-					for (unsigned int iEntity = 0; iEntity < faceNeighborSubentityIndex[iFaceNeighbor][iCodim].size(); iEntity++ )
+					for (unsigned int iEntity = 0; iEntity < faceNeighborSubentityLocalIndex[iCodim].size(); iEntity++ )
 					{
-						LocalIndexType thisEntityLocalIndex = faceNeighborSubentityIndex[iFaceNeighbor][iCodim][iEntity];
+						LocalIndexType thisEntityLocalIndex = faceNeighborSubentityLocalIndex[iCodim][iEntity];
 						Dune::PartitionType thisEntityType = gridbase_.entityPartitionType(iCodim, thisEntityLocalIndex);
 
 						std::stringstream log_str;
-						log_str << "CurvilinearPostConstructor: ---- Iterating over iFaceNeighbor=" << Dune::PartitionName(tmpTypes[iFaceNeighbor]);
+						log_str << "CurvilinearPostConstructor: ---- Iterating over iFaceNeighbor=" << Dune::PartitionName(thisElementPTypeExpected);
 						log_str << " codim=" << iCodim;
 						log_str << " subentityNo=" << iEntity;
 						log_str << " localindex =" << thisEntityLocalIndex;
@@ -351,7 +359,7 @@ public: /* public methods */
 
 					    		std::cout << "error in codim " << iCodim << " entity localindex=" << thisEntityLocalIndex << " globalIndex=" << thisEntityGlobalIndex << std::endl;
 
-					    		std::string expectedTypeName = Dune::PartitionName(tmpTypes[iFaceNeighbor]);
+					    		std::string expectedTypeName = Dune::PartitionName(thisElementPTypeExpected);
 					    		std::string receivedTypeName = Dune::PartitionName(thisEntityType);
 
 					    		std::cout << rank_ << " ERROR: " << expectedTypeName << " " << receivedTypeName << std::endl;

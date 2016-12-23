@@ -36,6 +36,7 @@
 #include <iostream>
 #include <assert.h>
 #include <algorithm>
+#include <numeric>
 
 #include <fstream>
 
@@ -125,7 +126,7 @@ public:
 		GlobalCoordinate corner_[3];	// Corner coordinates of this  of this DB
 
 		PeriodicGatherData() {}
-		PeriodicGatherData(int ownerRank, GlobalIndexType gind, GlobalCoordinate com, GlobalCoordinate corner[3]) :
+		PeriodicGatherData(int ownerRank, GlobalIndexType gind, GlobalCoordinate corner[3], GlobalCoordinate com) :
 			ownerRank_(ownerRank),  gind_(gind), com_(com)
 		{
 			corner_[0] = corner[0];
@@ -150,6 +151,7 @@ public:
 		int ownerRank_;
 		unsigned int thisPermutationIndex_;
 
+		PeriodicScatterData() {}
 		PeriodicScatterData(GlobalIndexType gind, int ownerRank, unsigned int thisPermutationIndex) :
 			gind_(gind),
 			ownerRank_(ownerRank),
@@ -183,8 +185,6 @@ public: /* public methods */
         LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>(__FILE__, __LINE__, "Initialized CurvilinearPeriodicConstructor");
     }
 
-	~CurvilinearPeriodicConstructor() { clean(); }
-
 
     /** Communicates the Periodic Boundaries and Periodic Ghost elements
      *
@@ -211,13 +211,11 @@ public: /* public methods */
      * */
     void generate()
     {
-    	// Initialize the periodic storage map
-    	gind2periodicDataMap_ = new GlobalIndexPeriodicScatterDataMap();
-
-
     	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Determining Periodic Boundaries");
     	std::vector<PeriodicGatherData> periodicData[6];
     	determinePeriodicDBNormalDirections(periodicData);
+    	int nPeriodicFaceTotThisProcess = 0;
+    	for (int i = 0; i < 6; i++) { nPeriodicFaceTotThisProcess += periodicData[i].size(); }
 
     	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Gather PRB on Master");
     	std::vector<int> nPeriodicFaceProc[6];
@@ -244,6 +242,8 @@ public: /* public methods */
     	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Assemble PRB gind map");
     	const GlobalIndexPeriodicScatterDataMap & gind2gindrankmap = periodicMapGlobal.map();
 
+
+    	int countFoundPeriodicFaces = 0;
     	for (auto && faceIter : gridstorage_.boundarySegmentIndexMap_) {
 			LocalIndexType thisFaceLocalIndex = faceIter.first;
 			const FaceStorage & thisFace = gridstorage_.face_[thisFaceLocalIndex];
@@ -251,8 +251,16 @@ public: /* public methods */
 
 			auto g2grmInnerIter = gind2gindrankmap.find(thisFaceGlobalIndex);
 			if (g2grmInnerIter != gind2gindrankmap.end()) {
+				// Check that this boundary is already marked as a periodic boundary
+				assert(gridstorage_.face_[thisFaceLocalIndex].boundaryType == GridStorageType::FaceBoundaryType::PeriodicBoundary);
+
+				// Count the periodic face
+				countFoundPeriodicFaces++;
+
 				// Filter out the periodic boundary connection map only with faces local to this process
-				(*gind2periodicDataMap_)[thisFaceGlobalIndex] = g2grmInnerIter->second;
+				PeriodicScatterData neighborData = g2grmInnerIter->second;
+				gind2periodicDataMap_[thisFaceGlobalIndex] = neighborData;
+				gind2periodicDataMapInverse_[neighborData.gind_] = PeriodicScatterData(thisFaceGlobalIndex, rank_, 0); // [FIXME] Permutation index set to whatever number since it is not used
 
 				// Generate the periodic boundary local index
 				assert(gridstorage_.periodicBoundaryIndexMap_.find(thisFaceLocalIndex) == gridstorage_.periodicBoundaryIndexMap_.end());
@@ -269,18 +277,20 @@ public: /* public methods */
 			}
 		}
 
+    	assert(gind2periodicDataMap_.size() == gind2periodicDataMapInverse_.size());
 
-    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Link PRB with PRB local2local");
+    	// Check that all periodic faces were present in the map
+    	assert(countFoundPeriodicFaces == nPeriodicFaceTotThisProcess);
+
     }
 
+    const GlobalIndexPeriodicScatterDataMap & map() const { return gind2periodicDataMap_; }
+    const GlobalIndexPeriodicScatterDataMap & mapInverse() const { return gind2periodicDataMapInverse_; }
 
-
-    const GlobalIndexPeriodicScatterDataMap & map() {
-    	assert(gind2periodicDataMap_ != nullptr);
-    	return *gind2periodicDataMap_;
+    void clear()  {
+    	gind2periodicDataMap_.clear();
+    	gind2periodicDataMapInverse_.clear();
     }
-
-    void clean()  { if (gind2periodicDataMap_ != nullptr)  { delete gind2periodicDataMap_; } }
 
 
 
@@ -335,18 +345,18 @@ protected:
     // Find the permutation of v2 corners such that it conforms to v1
     // Return the permutation index
     unsigned int matchPeriodicFace(
-    		const std::vector<GlobalCoordinate> & v1,
-			const std::vector<GlobalCoordinate> & v2,
+    		const GlobalCoordinate v1[],
+			const GlobalCoordinate v2[],
 			int dim)
     {
+    	const unsigned int nFacePoint = 3;  // [TODO] Make me nice
     	const unsigned int NON_INIT = 10000;  // Set some unrealistic size to check if was init
 
-    	assert(v1.size() == v2.size());
-    	std::vector<unsigned int> perm(v1.size(), NON_INIT);
+    	std::vector<unsigned int> perm(nFacePoint, NON_INIT);
 
-    	for (unsigned int i = 0; i < v1.size(); i++) {
+    	for (unsigned int i = 0; i < nFacePoint; i++) {
     		unsigned int nMatchThisCorner = 0;
-        	for (unsigned int j = 0; j < v2.size(); j++) {
+        	for (unsigned int j = 0; j < nFacePoint; j++) {
         		if (matchPeriodicPoints(v1[i], v2[j], dim, false)) {
         			nMatchThisCorner++;
         			assert(perm[j] == NON_INIT);  // check surjectivity
@@ -361,6 +371,7 @@ protected:
 
 
     // Determine which dimension each of the local DB corresponds to
+    // Optimization: Can skip putting into global map the periodic faces which are both local
     void determinePeriodicDBNormalDirections(std::vector<PeriodicGatherData> periodicData[6])
     {
         for (auto && faceIter : gridstorage_.boundarySegmentIndexMap_)
@@ -391,7 +402,13 @@ protected:
             else if	((ortX == 0)&&(ortY == 0)&&(ortZ == 1)) { ortDim = 5; }
             else { DUNE_THROW(Dune::IOError, "Unexpected orthogonality pattern " + std::to_string(ortX) + " " + std::to_string(ortY) + " " + std::to_string(ortZ)); }
 
+            // If it is decided that this face is a periodic face
             if (gridstorage_.periodicCuboidDimensions_[ortDim / 2]) {
+				// Check that the face is originally a domain boundary, and set its structural type to periodic
+				assert(gridstorage_.face_[thisFaceLocalIndex].boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary);
+				gridstorage_.face_[thisFaceLocalIndex].boundaryType = GridStorageType::FaceBoundaryType::PeriodicBoundary;
+
+				// Add its data to the gather data array
             	periodicData[ortDim].push_back(PeriodicGatherData(rank_, thisFace_.globalIndex, faceGeom.cornerSet().data(), faceCenterGlobal));
             }
         }
@@ -465,7 +482,9 @@ protected:
 								iDim
 						);
 
-						// Store the map from negative to positive direction
+						// Store the map in both directions
+						// NOTE:The permutation index corresponds to permuting arg face, not val face
+						// [TODO] Communicating 2-directional map is unnecessary. Can construct a 1-directional map, communicate, then construct the opposite direction
 						GlobalIndexType gindm = periodicDataTot[iNormDimM][iFace].gind_;
 						GlobalIndexType gindp = periodicDataTot[iNormDimP][iFace].gind_;
 						periodicConnectorTot.push_back(GlobalIndexPeriodicScatterDataPair(gindm, PeriodicScatterData(gindp, periodicDataTot[iNormDimP][iFace].ownerRank_, permIndexM)));
@@ -478,9 +497,6 @@ protected:
 
 private: // Private members
 
-    // Map
-    GlobalIndexPeriodicScatterDataMap * gind2periodicDataMap_;
-
     // Cartesian Unit Vectors
     // [TODO] Move to some reasonable helper class
     GlobalCoordinate eCartesian_[dimension];
@@ -491,6 +507,10 @@ private: // Private members
     MPIHelper &mpihelper_;
     int rank_;
     int size_;
+
+    // Map
+    GlobalIndexPeriodicScatterDataMap gind2periodicDataMap_;				// From this process Periodic face Global index to Neighbor process periodic face data
+    GlobalIndexPeriodicScatterDataMap gind2periodicDataMapInverse_;	// From neighbor process Periodic face Global index to this process periodic face data
 };
 
 } // namespace CurvGrid

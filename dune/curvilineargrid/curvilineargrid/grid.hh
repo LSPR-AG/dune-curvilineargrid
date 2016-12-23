@@ -391,76 +391,70 @@ namespace Dune
 
 
 
-
+    // NOTE: Currently Leaf and Level iterators are identical in CurvGrid, since there is no refinement
+    // NOTE: The only purpose of this structure is shortening the total text for below iterators
+    template<int cd, PartitionIteratorType pitype>
+    struct IterTraits {
+    	typedef Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid>  LevelIterImpl;
+    	typedef Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid>  LeafIterImpl;
+    	typedef typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator  LevelIterator;
+    	typedef typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator  LeafIterator;
+    };
 
 
     //! one past the end on this level
     template<int cd, PartitionIteratorType pitype>
-    typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator lbegin (int level) const
+    typename IterTraits<cd, pitype>::LevelIterator lbegin (int level) const
     {
     	assert(level == 0);
-    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, pitype).begin(), *gridbase_);
-    	return typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator(iterImpl);
+    	const auto baseIter = gridbase_->entityIndexSetDuneSelect(cd, pitype).begin();
+    	const typename IterTraits<cd, pitype>::LevelIterImpl iterImpl(baseIter, *gridbase_);
+    	return typename IterTraits<cd, pitype>::LevelIterator(iterImpl);
     }
 
     //! Iterator to one past the last entity of given codim on level for partition type
     template<int cd, PartitionIteratorType pitype>
-    typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator lend (int level) const
+    typename IterTraits<cd, pitype>::LevelIterator lend (int level) const
     {
     	assert(level == 0);
-    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, pitype).end(), *gridbase_);
-    	return typename Traits::template Codim<cd>::template Partition<pitype>::LevelIterator(iterImpl);
-    }
-
-    //! version without second template parameter for convenience
-    template<int cd>
-    typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator lbegin (int level) const
-    {
-    	assert(level == 0);
-    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, All_Partition).begin(), *gridbase_);
-    	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator(iterImpl);
-    }
-
-    //! version without second template parameter for convenience
-    template<int cd>
-    typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator lend (int level) const
-    {
-    	assert(level == 0);
-    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, All_Partition).end(), *gridbase_);
-    	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LevelIterator(iterImpl);
+    	const auto baseIter = gridbase_->entityIndexSetDuneSelect(cd, pitype).end();
+    	const typename IterTraits<cd, pitype>::LevelIterImpl iterImpl(baseIter, *gridbase_);
+    	return typename IterTraits<cd, pitype>::LevelIterator(iterImpl);
     }
 
     //! return LeafIterator which points to the first entity in maxLevel
     template<int cd, PartitionIteratorType pitype>
-    typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator leafbegin () const
+    typename IterTraits<cd, pitype>::LeafIterator leafbegin () const
     {
-    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, pitype).begin(), *gridbase_);
-    	return typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator(iterImpl);
+    	const auto baseIter = gridbase_->entityIndexSetDuneSelect(cd, pitype).begin();
+    	const typename IterTraits<cd, pitype>::LeafIterImpl iterImpl(baseIter, *gridbase_);
+    	return typename IterTraits<cd, pitype>::LeafIterator(iterImpl);
     }
 
     //! return LeafIterator which points behind the last entity in maxLevel
     template<int cd, PartitionIteratorType pitype>
-    typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator leafend () const
+    typename IterTraits<cd, pitype>::LeafIterator leafend () const
     {
-    	const Dune::CurvGrid::CurvLevelIterator<cd, pitype, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, pitype).end(), *gridbase_);
-    	return typename Traits::template Codim<cd>::template Partition<pitype>::LeafIterator(iterImpl);
+    	const auto baseIter = gridbase_->entityIndexSetDuneSelect(cd, pitype).end();
+    	const typename IterTraits<cd, pitype>::LeafIterImpl iterImpl(baseIter, *gridbase_);
+    	return typename IterTraits<cd, pitype>::LeafIterator(iterImpl);
     }
+
+    //! version without second template parameter for convenience
+    template<int cd>
+    typename IterTraits<cd, All_Partition>::LevelIterator lbegin (int level) const  { return lbegin<cd, All_Partition> (level); }
+
+    //! version without second template parameter for convenience
+    template<int cd>
+    typename IterTraits<cd, All_Partition>::LevelIterator lend (int level) const  { return lbegin<cd, All_Partition> (level); }
 
     //! return LeafIterator which points to the first entity in maxLevel
     template<int cd>
-    typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator leafbegin () const
-    {
-    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, All_Partition).begin(), *gridbase_);
-    	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator(iterImpl);
-    }
+    typename IterTraits<cd, All_Partition>::LeafIterator leafbegin () const  { return leafbegin<cd, All_Partition> (); }
 
     //! return LeafIterator which points behind the last entity in maxLevel
     template<int cd>
-    typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator leafend () const
-    {
-    	const Dune::CurvGrid::CurvLevelIterator<cd, All_Partition, const Grid> iterImpl(gridbase_->entityIndexSetDuneSelect(cd, All_Partition).end(), *gridbase_);
-    	return typename Traits::template Codim<cd>::template Partition<All_Partition>::LeafIterator(iterImpl);
-    }
+    typename IterTraits<cd, All_Partition>::LeafIterator leafend () const  { return leafend<cd, All_Partition> (); }
 
 
 

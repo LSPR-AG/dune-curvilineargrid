@@ -474,7 +474,7 @@ public:
             	LoggingTimer::time("CurvilinearGridConstructor: Ghost Element Constructor");
 
             	if (gridstorage_.periodicCuboidDimensions_.size() > 0)		{
-            		GridGhostConstructor ghostConstructor(gridstorage_, mpihelper_, &(periodicConstructor.map()));
+            		GridGhostConstructor ghostConstructor(gridstorage_, mpihelper_, &periodicConstructor);
             		ghostConstructor.generate();
             	} else {
             		GridGhostConstructor ghostConstructor(gridstorage_, mpihelper_);
@@ -488,7 +488,7 @@ public:
 
         // Free up memory by deleting the periodic constructor
         // ************************************************************
-        periodicConstructor.clean();
+        periodicConstructor.clear();
 
 
         // Create sets that will be used for iteration over the map
@@ -505,18 +505,18 @@ public:
 
         // The PB-PB communication interface is available by default. The below procedures enable the communication interfaces
         // involving ghost entities, and require existence of ghost entities
-        if ((size_ > 1)&& gridstorage_.withGhostElements_)
-        {
-#if HAVE_MPI
-        	LoggingTimer::time("CurvilinearGridConstructor: Generation of communication maps");
-        	postConstructor.generateCommunicationMaps();
-        	LoggingTimer::time("CurvilinearGridConstructor: Generation of communication maps");
-
-        	LoggingTimer::time("CurvilinearGridConstructor: Communication of neighbor ranks");
-            postConstructor.communicateCommunicationEntityNeighborRanks();
-            LoggingTimer::time("CurvilinearGridConstructor: Communication of neighbor ranks");
-#endif
-        }
+//        if ((size_ > 1)&& gridstorage_.withGhostElements_)
+//        {
+//#if HAVE_MPI
+//        	LoggingTimer::time("CurvilinearGridConstructor: Generation of communication maps");
+//        	postConstructor.generateCommunicationMaps();
+//        	LoggingTimer::time("CurvilinearGridConstructor: Generation of communication maps");
+//
+//        	LoggingTimer::time("CurvilinearGridConstructor: Communication of neighbor ranks");
+//            postConstructor.communicateCommunicationEntityNeighborRanks();
+//            LoggingTimer::time("CurvilinearGridConstructor: Communication of neighbor ranks");
+//#endif
+//        }
 
 
         // Construct OCTree
@@ -786,7 +786,8 @@ protected:
             	dbCount++;
             	thisFace.physicalTag = faceDBIter->second;  // Here physical tag is very important as it need not match the tag of the element
             	thisFace.boundaryType = GridStorageType::FaceBoundaryType::DomainBoundary;  // !! When periodic and internal boundaries are introduced this line will change
-            	thisFace.element2Index = -1;              // Boundary Segments do not have a 2nd neighbor
+            	thisFace.element2Index = -1;                  // Boundary Segments do not have a 2nd neighbor
+            	thisFace.element2SubentityIndex = - 1; // Boundary Segments do not have a 2nd neighbor
             	thisFace.ptype = Dune::PartitionType::InteriorEntity; // Note: By Dune classification DB are interior entities (see Dune-Grid-Howto manual)
 
                 // Store face in a Map (key -> faceIndex) for constructor purposes
@@ -816,7 +817,8 @@ protected:
                  if (connectedFaceInfo.size() == 2)		{
                      processBoundaryFaceKey2LocalIndexMap_[(*iter).first] = localFaceIndex;  // Store Map (key -> faceIndex)
                      thisFace.ptype = Dune::PartitionType::BorderEntity;
-                     thisFace.element2Index = 0;                                             // Eventually this will be the Ghost Element Index
+                     thisFace.element2Index = -1;                 // Eventually this will be the Ghost Element Index
+                     thisFace.element2SubentityIndex = - 1; //Eventually this will be the subentity index in Ghost
 
                      // Add this face to the process boundary map
                      LocalIndexType thisFaceLocalPBIndex = gridstorage_.processBoundaryIndexMap_[FACE_CODIM].size();
@@ -829,6 +831,7 @@ protected:
                  	InternalIndexType thisFaceSubentityIndex2 = connectedFaceInfo[3];
                  	gridstorage_.elementSubentityCodim1_[thisAssociatedElement2Index][thisFaceSubentityIndex2] = localFaceIndex;
                  	thisFace.element2Index = thisAssociatedElement2Index;              // This is the 2nd neighbor of this internal face
+                 	thisFace.element2SubentityIndex = thisFaceSubentityIndex2;
                  	thisFace.ptype = Dune::PartitionType::InteriorEntity;
 
                  	log_stream << " AssociatedElement2Index=" << thisAssociatedElement2Index;

@@ -776,6 +776,14 @@ public:
     }
 
 
+    /** \brief Check if there is an outer neighbor defined for the given face local index
+     *  - expect false for domain boundaries and serial process boundaries, true for everything else
+     * */
+    bool checkFaceOuterNeighbor(LocalIndexType localIndex) const {
+    	assert(localIndex < gridstorage_.face_.size());
+    	return gridstorage_.face_[localIndex].element2Index >= 0;
+    }
+
     /** \brief local index of the element that is neighbor to this face
      *
      * \param[in]    localIndex               local index of this face
@@ -808,8 +816,44 @@ public:
         }
         }
 
+        // User should not request non-existing local index
+        if (rez < 0) {
+        	std::stringstream logstr;
+        	logstr << "CurvilinearGrid: Face does not appear to have a neighbor. localIndex=" << localIndex
+        			<< ", internal=" << internalNeighborIndex
+					<< ", resultIndex=" << rez
+					<< ", facePType=" << gridstorage_.face_[localIndex].ptype
+					<< ", boundaryType=" << gridstorage_.face_[localIndex].boundaryType;
+        	DUNE_THROW(Dune::IOError, logstr.str());
+        }
+
         return rez;
     }
+
+
+    // IMPORTANT NOTE: IN CASE OF PERIODIC FACES, THE INTERSECTION AS SEEN FROM INSIDE AND OUTSIDE ARE DIFFERENT ENTITIES
+    InternalIndexType faceSubIndexInNeighbor(LocalIndexType localIndex, InternalIndexType internalNeighborIndex) const {
+    	InternalIndexType rez;
+
+    	assert(localIndex < gridstorage_.face_.size());
+
+        switch(internalNeighborIndex)
+        {
+        case 0 : rez = gridstorage_.face_[localIndex].element1SubentityIndex;  break;
+        case 1 : rez = gridstorage_.face_[localIndex].element2SubentityIndex;  break;
+        default:
+        {
+        	LoggingMessage::template write<LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearPostConstructor: Unexpected neighbor subentity index =" + std::to_string(internalNeighborIndex));
+        	DUNE_THROW(Dune::IOError, "CurvilinearGrid: faceNeighbor() unexpected neighbor index");  break;
+        }
+        }
+
+        // User should not request details of non-existing neighbors. Use checkFaceOuterNeighbor()
+        assert(rez >= 0);
+
+        return rez;
+    }
+
 
 
     /** \brief Coordinate of a requested interpolatory vertex
@@ -1005,6 +1049,13 @@ public:
     // This construction allows fast iteration over entities of specific structural type
     const LocalIndexSet & entityIndexSetDuneSelect(int codim, Dune::PartitionIteratorType pitype) const
     {
+//    	std::cout << " Requested Dune Iter codim=" << codim << " type=" << pitype << std::endl;
+//    	std::cout << " Iterator set sizes for this codim are "
+//    			<< gridstorage_.entityDuneInteriorIndexSet_[codim].size() << " "
+//				<< gridstorage_.entityDuneInteriorBorderIndexSet_[codim].size() << " "
+//				<< gridstorage_.entityGhostIndexSet_[codim].size() << " "
+//				<< gridstorage_.entityAllIndexSet_[codim].size() << std::endl;
+
     	const int DuneIPartition   = Dune::PartitionIteratorType::Interior_Partition;
     	const int DuneIBPartition  = Dune::PartitionIteratorType::InteriorBorder_Partition;
     	const int DuneGPartition   = Dune::PartitionIteratorType::Ghost_Partition;

@@ -35,7 +35,7 @@ int main (int argc , char **argv) {
 	// Check if grid recognises it is parallel
     // *********************************************************
 	std::stringstream loggingStream;
-	loggingStream << "Is curvilinear grid parallel = " << grid->withPeriodic();
+	loggingStream << "Is curvilinear grid periodic = " << grid->withPeriodic();
 	LoggingMessage::template write<LOG_MSG_PRODUCTION>(__FILE__, __LINE__, loggingStream.str());
 
 	// Report the parallel timing statistics

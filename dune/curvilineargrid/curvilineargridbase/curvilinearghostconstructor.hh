@@ -116,14 +116,15 @@ public: /* public methods */
 	CurvilinearGhostConstructor(
     		GridStorageType & gridstorage,
     		MPIHelper &mpihelper,
-			const GlobalIndexPeriodicScatterDataMap * gind2periodicDataMap = nullptr
+			const PeriodicConstr * periodicConstr = nullptr
 	) :
         gridstorage_(gridstorage),
         mpihelper_(mpihelper),
 		allcomm_(mpihelper),
-		gind2periodicDataMap_(gind2periodicDataMap),
+		periodicConstr_(periodicConstr),
 		nPeriodicGhostLocal_(0),
-		nPeriodicGhostNeighbor_(0)
+		nPeriodicGhostNeighbor_(0),
+		nProcessGhost_(0)
     {
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
@@ -262,8 +263,11 @@ protected:
 
         // Determine boundary internal elements associated with each periodic boundary, if there are at all periodic boundaries
         if (gridstorage_.periodicCuboidDimensions_.size() > 0) {
-        	assert(gind2periodicDataMap_ != nullptr);
-			for (auto const & faceIter: (*gind2periodicDataMap_))
+        	assert(periodicConstr_ != nullptr);  // One must provide the periodic map if periodicity is used
+
+        	//const GlobalIndexPeriodicScatterDataMap & periodicMap = periodicConstr_->map();
+
+			for (auto const & faceIter: periodicConstr_->map())
 			{
 				// Get global and local face index
 				GlobalIndexType thisFaceGlobalIndex = faceIter.first;
@@ -271,26 +275,29 @@ protected:
 				assert(thisFaceIndexIter != gridstorage_.entityIndexMap_[FACE_CODIM].end());
 				LocalIndexType thisFaceLocalIndex = thisFaceIndexIter->second;
 
-				// Check that the face is originally a domain boundary, and set its structural type to periodic
-				assert(gridstorage_.face_[thisFaceLocalIndex].boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary);
-				gridstorage_.face_[thisFaceLocalIndex].boundaryType = GridStorageType::FaceBoundaryType::PeriodicBoundary;
-
 				// Get neighbor face index and rank
 				int thisNeighborFaceRank = faceIter.second.ownerRank_;
 				GlobalIndexType thisNeighborFaceGInd = faceIter.second.gind_;
 
 				// If periodic neighbor exists on this process, do not communicate it, but mark it immediately
+				// Optimization: The assignment can be done in pairs
 				auto thisNeighborFaceIndexIter = gridstorage_.entityIndexMap_[FACE_CODIM].find(thisNeighborFaceGInd);
 				if (thisNeighborFaceIndexIter != gridstorage_.entityIndexMap_[FACE_CODIM].end()) {
 					nPeriodicGhostLocal_++;
 					LocalIndexType thisNeighborFaceLInd = thisNeighborFaceIndexIter->second;
 					gridstorage_.face_[thisFaceLocalIndex].element2Index = gridstorage_.face_[thisNeighborFaceLInd].element1Index;
+					gridstorage_.face_[thisFaceLocalIndex].element2SubentityIndex = gridstorage_.face_[thisNeighborFaceLInd].element1SubentityIndex;
+
+					assert(gridstorage_.face_[thisNeighborFaceLInd].element1Index >= 0);
+					assert(gridstorage_.face_[thisNeighborFaceLInd].element1SubentityIndex >= 0);
 
 				} else { // Otherwise, prepare the face for global communication
-					nPeriodicGhostNeighbor_++;
 
 					LocalIndexType  thisGhostLocalIndex = gridstorage_.face_[thisFaceLocalIndex].element1Index;
 					InternalIndexType thisFaceSubentityIndex = gridstorage_.face_[thisFaceLocalIndex].element1SubentityIndex;
+
+		            assert(thisGhostLocalIndex >= 0);
+		            assert(thisFaceSubentityIndex >= 0);
 
 					std::vector<InternalIndexType> assocFaceSubentityIndex;
 
@@ -298,6 +305,7 @@ protected:
 					if (tmpIter != boundaryInternalLocalIndex2TmpIndex[thisNeighborFaceRank].end()) {
 						boundaryInternalAssocSubentityIndex[tmpIter->second].push_back(thisFaceSubentityIndex);
 					} else {
+						nPeriodicGhostNeighbor_++;
 						boundaryInternalAssocSubentityIndex.push_back(std::vector<InternalIndexType>(1, thisFaceSubentityIndex));
 						boundaryInternalLocalIndex2TmpIndex[thisNeighborFaceRank][thisGhostLocalIndex] = boundaryInternalAssocSubentityIndex.size() - 1;
 					}
@@ -316,6 +324,9 @@ protected:
             LocalIndexType  thisGhostLocalIndex = gridstorage_.face_[thisFaceLocalIndex].element1Index;
             InternalIndexType thisFaceSubentityIndex = gridstorage_.face_[thisFaceLocalIndex].element1SubentityIndex;
 
+            assert(thisGhostLocalIndex >= 0);
+            assert(thisFaceSubentityIndex >= 0);
+
             // Check that the face is marked as interior
             assert(gridstorage_.face_[thisFaceLocalIndex].ptype == Dune::PartitionType::BorderEntity);
 
@@ -325,10 +336,19 @@ protected:
             if (tmpIter != boundaryInternalLocalIndex2TmpIndex[thisNeighborFaceRank].end()) {
             	boundaryInternalAssocSubentityIndex[tmpIter->second].push_back(thisFaceSubentityIndex);
             } else {
+            	nProcessGhost_++;
+
             	boundaryInternalAssocSubentityIndex.push_back(std::vector<InternalIndexType>(1, thisFaceSubentityIndex));
             	boundaryInternalLocalIndex2TmpIndex[thisNeighborFaceRank][thisGhostLocalIndex] = boundaryInternalAssocSubentityIndex.size() - 1;
             }
         }
+
+        std::cout << "On rank " << rank_
+        		<< " local periodic elements " << nPeriodicGhostLocal_
+				<< ", periodic ghosts " << nPeriodicGhostNeighbor_
+				<< ", process ghosts " << nProcessGhost_
+				<< std::endl;
+
 
         // Associate the prospective Ghosts with respective neighbor processes
         for (int iProc = 0; iProc < size_; iProc++) {
@@ -412,6 +432,7 @@ protected:
      * based on subentity index of the face. For high orders communication gain is significant. However, complicated
      * pre and post processing required to figure out the exact missing entities and then reassemble all together.
      * Further complication because there may be more than 1 face associated to an element.
+     * Further complication because for periodic faces need to send everything
      *
      * TODO: If planning to use with non-tetrahedral meshes, need to pass element type as well
      *
@@ -524,6 +545,9 @@ protected:
         Dune::GeometryType meshGeometryType;
         meshGeometryType.makeTetrahedron();
 
+        int countMarkedPeriodicFaces = 0;
+        int countMarkedAllBoundaryFaces = 0;
+
         for (int iProc = 0; iProc < size_; iProc++)
         {
         	std::set<GlobalIndexType> missingVerticesFromThisProcess;
@@ -532,24 +556,26 @@ protected:
             {
             	// Unpack element data
             	// ***********************************************************************
-                EntityStorage thisElement;
-                thisElement.geometryType = meshGeometryType;
-                thisElement.globalIndex = packageGhostElementData[iData++];
-                thisElement.ptype       = Dune::PartitionType::GhostEntity;
-                thisElement.interpOrder = neighborProcessGhostInterpOrder_[iProc][iGhost];
-                thisElement.physicalTag = packageGhostElementData[iData++];
+                EntityStorage ghostElement;
+                ghostElement.geometryType = meshGeometryType;
+                ghostElement.globalIndex = packageGhostElementData[iData++];
+                ghostElement.ptype       = Dune::PartitionType::GhostEntity;
+                ghostElement.interpOrder = neighborProcessGhostInterpOrder_[iProc][iGhost];
+                ghostElement.physicalTag = packageGhostElementData[iData++];
 
-                std::vector<InternalIndexType> associatedFaceSubentityIndex;
+                std::vector<InternalIndexType> ghostCommunicatingFaceSubentityIndexSet;
                 for (int iFace = 0; iFace < neighborProcessNAssociatedFace_[iProc][iGhost]; iFace++)
                 {
-                	associatedFaceSubentityIndex.push_back(packageGhostElementData[iData++]);
+                	int faceElementInternalIndex = packageGhostElementData[iData++];
+                	assert((faceElementInternalIndex>= 0)&&(faceElementInternalIndex < nSubentityFace));
+                	ghostCommunicatingFaceSubentityIndexSet.push_back(faceElementInternalIndex);
                 }
 
 
                 // Create the ghost element and insert it into global map
                 // ***********************************************************************
-                LocalIndexType thisElementLocalIndex = gridstorage_.element_.size();
-                gridstorage_.entityIndexMap_[ELEMENT_CODIM][thisElement.globalIndex] = thisElementLocalIndex;
+                LocalIndexType ghostElementLocalIndex = gridstorage_.element_.size();
+                gridstorage_.entityIndexMap_[ELEMENT_CODIM][ghostElement.globalIndex] = ghostElementLocalIndex;
 
 
                 // Unpack face data. Create ghost faces, note them as the ghost element subentities
@@ -557,37 +583,38 @@ protected:
                 gridstorage_.elementSubentityCodim1_.push_back(std::vector<LocalIndexType>());
                 for (int iFace = 0; iFace < nSubentityFace; iFace++)
                 {
-                	GlobalIndexType thisFaceGlobalIndex = packageGhostElementData[iData++];
+                	GlobalIndexType ghostFaceGlobalIndex = packageGhostElementData[iData++];
                 	LocalIndexType thisFaceLocalIndex;
-                	Global2LocalIterator thisFaceIter = gridstorage_.entityIndexMap_[FACE_CODIM].find(thisFaceGlobalIndex);
+                	Global2LocalIterator ghostFaceIter = gridstorage_.entityIndexMap_[FACE_CODIM].find(ghostFaceGlobalIndex);
 
                 	// If the face already exists, then it is one of the process boundaries, otherwise it is a new ghost face
-                	if (thisFaceIter == gridstorage_.entityIndexMap_[FACE_CODIM].end())
+                	if (ghostFaceIter == gridstorage_.entityIndexMap_[FACE_CODIM].end())
                 	{
-                		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Face globalIndex=" + std::to_string(thisFaceGlobalIndex) + " is new");
+                		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Face globalIndex=" + std::to_string(ghostFaceGlobalIndex) + " is new");
 
-                    	FaceStorage thisFace;
-                    	thisFace.geometryType.makeTriangle();
-                    	thisFace.globalIndex              = thisFaceGlobalIndex;
-                    	thisFace.ptype                    = Dune::PartitionType::GhostEntity;
-                    	thisFace.boundaryType             = GridStorageType::FaceBoundaryType::None;
+                    	FaceStorage ghostFace;
+                    	ghostFace.geometryType.makeTriangle();
+                    	ghostFace.globalIndex              = ghostFaceGlobalIndex;
+                    	ghostFace.ptype                    = Dune::PartitionType::GhostEntity;
+                    	ghostFace.boundaryType             = GridStorageType::FaceBoundaryType::None;
 
-                    	thisFace.element1Index            = thisElementLocalIndex;
-                    	thisFace.element2Index            = 0;      // Currently not implemented, user should not need a local index of an entity which is not on this process
-                    	thisFace.element1SubentityIndex   = iFace;  // Faces should be communicated in the correct subentity order
-                    	thisFace.physicalTag              = 0;      // Currently not implemented, not sure if it is at all necessary
+                    	ghostFace.element1Index            = ghostElementLocalIndex;
+                    	ghostFace.element2Index            = -1;      // Currently not implemented, user should not need a local index of an entity which is not on this process
+                    	ghostFace.element1SubentityIndex   = iFace;  // Faces should be communicated in the correct subentity order
+                    	ghostFace.element2SubentityIndex   = -1;  // Currently not implemented, user should not need info of an entity which is not on this process
+                    	ghostFace.physicalTag              = -1;      // Currently not implemented, not sure if it is at all necessary
 
                     	thisFaceLocalIndex = gridstorage_.face_.size();
-                    	gridstorage_.face_.push_back(thisFace);
-                    	gridstorage_.entityIndexMap_[FACE_CODIM][thisFaceGlobalIndex] = thisFaceLocalIndex;
+                    	gridstorage_.face_.push_back(ghostFace);
+                    	gridstorage_.entityIndexMap_[FACE_CODIM][ghostFaceGlobalIndex] = thisFaceLocalIndex;
                 	} else
                 	{
-                		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Face globalIndex=" + std::to_string(thisFaceGlobalIndex) + " already exists");
-                		thisFaceLocalIndex = (*thisFaceIter).second;
+                		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Face globalIndex=" + std::to_string(ghostFaceGlobalIndex) + " already exists");
+                		thisFaceLocalIndex = ghostFaceIter->second;
                 	}
 
                 	// Note this face as the ghost element subentity
-                	gridstorage_.elementSubentityCodim1_[thisElementLocalIndex].push_back(thisFaceLocalIndex);
+                	gridstorage_.elementSubentityCodim1_[ghostElementLocalIndex].push_back(thisFaceLocalIndex);
                 }
 
 
@@ -608,7 +635,7 @@ protected:
                     	EdgeStorage thisEdge;
                 		thisEdge.globalIndex      = thisEdgeGlobalIndex;
                 		thisEdge.ptype            = Dune::PartitionType::GhostEntity;
-                		thisEdge.elementIndex     = thisElementLocalIndex;
+                		thisEdge.elementIndex     = ghostElementLocalIndex;
                 		thisEdge.subentityIndex   = iEdge;  // Edges should be communicated in the correct subentity order
 
                     	thisEdgeLocalIndex = gridstorage_.edge_.size();
@@ -621,13 +648,13 @@ protected:
                 	}
 
                 	// Note this face as the ghost element subentity
-                	gridstorage_.elementSubentityCodim2_[thisElementLocalIndex].push_back(thisEdgeLocalIndex);
+                	gridstorage_.elementSubentityCodim2_[ghostElementLocalIndex].push_back(thisEdgeLocalIndex);
                 }
 
 
                 // Read DoF of this element
                 // ***********************************************************************
-                int thisElementDof = CurvilinearGeometryHelper::dofPerOrder(meshGeometryType, thisElement.interpOrder);
+                int thisElementDof = CurvilinearGeometryHelper::dofPerOrder(meshGeometryType, ghostElement.interpOrder);
                 for (int iDof = 0; iDof < thisElementDof; iDof++)
                 {
                 	GlobalIndexType thisVertexGlobalIndex = packageGhostElementData[iData++];
@@ -636,7 +663,7 @@ protected:
                     // If this vertex already exists, just reuse it. Otherwise, create new vertex, and later request its coordinate
                     if (vertexIter != gridstorage_.entityIndexMap_[VERTEX_CODIM].end()) {
                     	LocalIndexType thisVertexLocalIndex = (*vertexIter).second;
-                        thisElement.vertexIndexSet.push_back(thisVertexLocalIndex);
+                        ghostElement.vertexIndexSet.push_back(thisVertexLocalIndex);
 
                         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Vertex already on this process GlobalIndex=" + std::to_string(thisVertexGlobalIndex));
                     }
@@ -646,7 +673,7 @@ protected:
 
                         // Create a new vertex with local index pointing to the end of current vertex array
                         LocalIndexType localVertexIndex = gridstorage_.point_.size();
-                    	thisElement.vertexIndexSet.push_back(localVertexIndex);
+                    	ghostElement.vertexIndexSet.push_back(localVertexIndex);
 
                         // Insert the fake vertex into the mesh
                         insertFakeVertex(thisVertexGlobalIndex, Dune::PartitionType::GhostEntity);
@@ -657,45 +684,57 @@ protected:
                 }
 
                 // Add the element to the array
-                gridstorage_.element_.push_back(thisElement);
+                gridstorage_.element_.push_back(ghostElement);
 
-                // Associate all relevant process boundary faces with this ghost element
+                // Loop over shared faces (process boundaries and periodic)
+                // Associate all relevant boundary faces with this ghost elements
                 // ***********************************************************************
-                for (const auto & faceSubIndex : associatedFaceSubentityIndex)
+                for (const auto & ghostFaceSubIndex : ghostCommunicatingFaceSubentityIndexSet)
                 {
-                	LocalIndexType    thisGhostFaceLocalIndex = gridstorage_.elementSubentityCodim1_[thisElementLocalIndex][faceSubIndex];
-                	GlobalIndexType   thisFaceGlobalIndexNeighborProcess = gridstorage_.face_[thisGhostFaceLocalIndex].globalIndex;
+                	LocalIndexType    ghostFaceLocalIndex = gridstorage_.elementSubentityCodim1_[ghostElementLocalIndex][ghostFaceSubIndex];
+                	GlobalIndexType   ghostFaceGlobalIndexInNeighbor = gridstorage_.face_[ghostFaceLocalIndex].globalIndex;
 
                 	// Check if face is periodic, in this case the global index of the shared face on this process is different than that on the sender
-                	bool isPeriodic = false;
-                	GlobalIndexType thisFaceGlobalIndexThisProcess;
-                	if (gridstorage_.periodicCuboidDimensions_.size() > 0) {
-                    	auto facePeriodicIter = gind2periodicDataMap_->find(thisFaceGlobalIndexNeighborProcess);
-                    	bool isPeriodic =  (facePeriodicIter != gind2periodicDataMap_->end());
+                	bool isFacePeriodic = false;
+                	GlobalIndexType ghostFaceGlobalIndexThisProcess;
 
-                    	if (isPeriodic) {
-                    		thisFaceGlobalIndexThisProcess = facePeriodicIter->second.first;
+                	// [TODO] Replace dodgy periodicity check with a member function of gridbase, e.g. if (gridbase_.havePeriodic()) {...}
+                	if (gridstorage_.periodicCuboidDimensions_.size() > 0) {
+                    	auto facePeriodicIter = periodicConstr_->mapInverse().find(ghostFaceGlobalIndexInNeighbor);
+                    	isFacePeriodic =  (facePeriodicIter != periodicConstr_->mapInverse().end());
+
+                    	countMarkedAllBoundaryFaces++;
+
+                    	if (isFacePeriodic) {
+                    		countMarkedPeriodicFaces++;
+
+                    		ghostFaceGlobalIndexThisProcess = facePeriodicIter->second.gind_;
 
                     		// For communicated periodic faces the opposite face should not be local to this process
-                    		auto faceG2LiterNeighbor = gridstorage_.entityIndexMap_[FACE_CODIM].find(thisFaceGlobalIndexNeighborProcess);
-                    		assert(faceG2LiterNeighbor == gridstorage_.entityIndexMap_[FACE_CODIM].end());
+                    		// Note that periodic faces local to this process are processed separately in the first routine of this class
+                    		// NOTE: Nope, it already is local because we have just inserted it above when creating the ghost face
+                    		//auto faceG2LiterNeighbor = gridstorage_.entityIndexMap_[FACE_CODIM].find(ghostFaceGlobalIndexInNeighbor);
+                    		//assert(faceG2LiterNeighbor == gridstorage_.entityIndexMap_[FACE_CODIM].end());
                     	}
                 	}
 
-                	// For process boundaries, the global index of shared face is the same
-                	if (!isPeriodic) { thisFaceGlobalIndexThisProcess = thisFaceGlobalIndexNeighborProcess; }
+                	// For process boundaries, the global index of shared face is the same as seen from both neighbors
+                	if (!isFacePeriodic) { ghostFaceGlobalIndexThisProcess = ghostFaceGlobalIndexInNeighbor; }
 
-                	auto faceG2LiterThis = gridstorage_.entityIndexMap_[FACE_CODIM].find(thisFaceGlobalIndexThisProcess);
+                	// Find local index of shared face as seen from inside
+                	auto faceG2LiterThis = gridstorage_.entityIndexMap_[FACE_CODIM].find(ghostFaceGlobalIndexThisProcess);
                 	assert(faceG2LiterThis != gridstorage_.entityIndexMap_[FACE_CODIM].end());  // The face local to this process should have a local index
-                	GlobalIndexType thisFaceLocalIndex = faceG2LiterThis->second;
+                	GlobalIndexType localFaceLocalIndex = faceG2LiterThis->second;
 
                 	// If this is a process boundary face, then the local index of the shared face should be the same as seen from interior and ghost elements
-                	if ((!isPeriodic) && (thisGhostFaceLocalIndex != thisFaceLocalIndex)) {
+                	if ((!isFacePeriodic) && (ghostFaceLocalIndex != localFaceLocalIndex)) {
 						LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Error: Received Ghost process boundary face not found among faces of this process");
 						DUNE_THROW(Dune::IOError, "CurvilinearGridConstructor: Received Ghost process boundary face not found among faces of this process");
                     }
 
-                	gridstorage_.face_[thisFaceLocalIndex].element2Index = thisElementLocalIndex;
+                	// Associate the local face with the ghost element
+                	gridstorage_.face_[localFaceLocalIndex].element2Index = ghostElementLocalIndex;
+                	gridstorage_.face_[localFaceLocalIndex].element2SubentityIndex = ghostFaceSubIndex;  // Note the subentity index in outside
                 }
             }
 
@@ -706,6 +745,8 @@ protected:
             	missingVertices[iProc].push_back(*tmpIter);
             }
         }
+
+        std::cout << "On rank " << rank_ << " total periodic ghosts communicated " << countMarkedPeriodicFaces << ", total " << countMarkedAllBoundaryFaces << std::endl;
     }
 
 
@@ -839,10 +880,11 @@ private: // Private members
 
 
     // Map received from periodic boundary constructor
-    const GlobalIndexPeriodicScatterDataMap * gind2periodicDataMap_;
+    const PeriodicConstr * periodicConstr_;
 
     int nPeriodicGhostLocal_;  // Count the number of periodic ghosts that are in fact elements interior to this process. Use for self-test
     int nPeriodicGhostNeighbor_;  // Count the number of periodic ghosts that are not located on this process
+    int nProcessGhost_;  // Count the number of periodic ghosts that are not located on this process
 
     // Curvilinear Grid Storage Class
     GridStorageType & gridstorage_;

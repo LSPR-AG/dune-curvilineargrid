@@ -1,3 +1,16 @@
+/********************************************
+ * Dune-CurvilinearGrid
+ * Tutorial 7: Global Boundary Container - Domain Boundary
+ *
+ * Author: Aleksejs Fomins
+ *
+ * Description: This tutorial demonstrates the current capabilities for Boundary Integral methods.
+ * The boundary container is used to gather all domain boundary segments on each process.
+ * Then each process performs normal integration presented in tutorial 5b, and checks that
+ * it amounts to approx. zero, thus confirming that the global boundary is closed on each process (all boundary segments are present)
+ ********************************************/
+
+
 #include <config.h>
 
 #include <iostream>
@@ -62,91 +75,91 @@ class TestIntegrals
 	typedef unsigned int UInt;
 
 public:
-  static const int dim =  GridType::dimension;
-  typedef typename GridType::ctype ct;
-  typedef typename GridType::LeafGridView LeafGridView;
-  typedef typename LeafGridView::IntersectionIterator IntersectionIterator;
-  typedef typename LeafGridView::template Codim< ELEMENT_CODIM >::Entity Entity;
-  typedef typename IntersectionIterator :: Intersection Intersection;
+	static const int dim =  GridType::dimension;
+	typedef typename GridType::ctype ct;
+	typedef typename GridType::LeafGridView LeafGridView;
+	typedef typename LeafGridView::IntersectionIterator IntersectionIterator;
+	typedef typename LeafGridView::template Codim< ELEMENT_CODIM >::Entity Entity;
+	typedef typename IntersectionIterator :: Intersection Intersection;
 
-  typedef typename LeafGridView::template Codim<FACE_CODIM>::Entity			EntityFace;
-  typedef typename LeafGridView::template Codim<EDGE_CODIM>::Entity			EntityEdge;
-  typedef typename LeafGridView::template Codim<VERTEX_CODIM>::Entity		EntityVertex;
+	typedef typename LeafGridView::template Codim<FACE_CODIM>::Entity			EntityFace;
+	typedef typename LeafGridView::template Codim<EDGE_CODIM>::Entity			EntityEdge;
+	typedef typename LeafGridView::template Codim<VERTEX_CODIM>::Entity		EntityVertex;
 
-  typedef typename LeafGridView::template Codim<ELEMENT_CODIM>::Iterator EntityLeafIterator;
-  typedef typename LeafGridView::template Codim<FACE_CODIM>::Geometry FaceGeometry;
-  typedef typename LeafGridView::template Codim<EDGE_CODIM>::Geometry EdgeGeometry;
+	typedef typename LeafGridView::template Codim<ELEMENT_CODIM>::Iterator EntityLeafIterator;
+	typedef typename LeafGridView::template Codim<FACE_CODIM>::Geometry FaceGeometry;
+	typedef typename LeafGridView::template Codim<EDGE_CODIM>::Geometry EdgeGeometry;
 
-  typedef typename GridType::template Codim<FACE_CODIM>::EntityGeometryMappingImpl  BaseGeometryFace;
-  typedef typename GridType::template Codim<EDGE_CODIM>::EntityGeometryMappingImpl  BaseGeometryEdge;
+	typedef typename GridType::template Codim<FACE_CODIM>::EntityGeometryMappingImpl  BaseGeometryFace;
+	typedef typename GridType::template Codim<EDGE_CODIM>::EntityGeometryMappingImpl  BaseGeometryEdge;
 
-  typedef typename FaceGeometry::LocalCoordinate  LocalCoordinate;
-  typedef typename FaceGeometry::GlobalCoordinate  GlobalCoordinate;
+	typedef typename FaceGeometry::LocalCoordinate  LocalCoordinate;
+	typedef typename FaceGeometry::GlobalCoordinate  GlobalCoordinate;
 
-  typedef Dune::ReferenceElements<ct, dim> ReferenceElements3d;
-  typedef Dune::ReferenceElements<ct, dim-1> ReferenceElements2d;
+	typedef Dune::ReferenceElements<ct, dim> ReferenceElements3d;
+	typedef Dune::ReferenceElements<ct, dim-1> ReferenceElements2d;
 
-  typedef GlobalBoundaryContainer<GridType> BoundaryContainer;
-  typedef GlobalBoundaryIterator<GridType> BoundaryIterator;
-  //typedef typename BoundaryContainer::BoundaryContainer  SegmentContainer;
+	typedef GlobalBoundaryContainer<GridType> BoundaryContainer;
+	typedef GlobalBoundaryIterator<GridType> BoundaryIterator;
+	//typedef typename BoundaryContainer::BoundaryContainer  SegmentContainer;
 
-  typedef NormalFunctor<GridType, 2, Intersection> Integrand2DVectorLocal;
-  typedef NormalFunctor<GridType, 2, BoundaryIterator> Integrand2DVectorParallel;
-  typedef QuadratureIntegrator<double, 2>  Integrator2DVector;
-  typedef typename Integrator2DVector::template Traits<Integrand2DVectorLocal>::StatInfo  StatInfo;
+	typedef NormalFunctor<GridType, 2, Intersection> Integrand2DVectorLocal;
+	typedef NormalFunctor<GridType, 2, BoundaryIterator> Integrand2DVectorParallel;
+	typedef QuadratureIntegrator<double, 2>  Integrator2DVector;
+	typedef typename Integrator2DVector::template Traits<Integrand2DVectorLocal>::StatInfo  StatInfo;
 
-  typedef std::map<int, int> GIndMap;
-  typedef std::pair<int,int> GIndPair;
-  typedef typename GIndMap::iterator  GIndMapIter;
+	typedef std::map<int, int> GIndMap;
+	typedef std::pair<int,int> GIndPair;
+	typedef typename GIndMap::iterator  GIndMapIter;
 
 public:
 
 
-  TestIntegrals() {}
+	TestIntegrals() {}
 
-  static bool isBoundary(const GridType & grid, const Entity & elem, const Intersection & intr, bool isDB, int volTag = 0, int surfTag = 0) {
+	static bool isBoundary(const GridType & grid, const Entity & elem, const Intersection & intr, bool isDB, int volTag = 0, int surfTag = 0) {
 		EntityFace faceBra = elem.template subEntity<FACE_CODIM>(intr.indexInInside());
 		int elemTag = grid.template entityPhysicalTag<ELEMENT_CODIM>(elem);
 		int boundaryTag = grid.template entityPhysicalTag<FACE_CODIM>(faceBra);
-	  return isDB
+		return isDB
 			  ? (intr.boundary() == true) && (intr.neighbor() == false)
 			  : (elemTag == volTag) && (boundaryTag == surfTag);
-  }
+	}
 
 
-  static GlobalCoordinate normalIntegralSelf (const GridType & grid, bool isDB, int volTag = 0, int surfTag = 0, int normalSign = 1) {
-	  LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Normal Integral on own boundary:::");
+	static GlobalCoordinate normalIntegralSelf (const GridType & grid, bool isDB, int volTag = 0, int surfTag = 0, int normalSign = 1) {
+		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Normal Integral on own boundary:::");
 
-	  // get the instance of the LeafGridView
-	  LeafGridView leafView = grid.leafGridView();
-	  const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
+		// get the instance of the LeafGridView
+		LeafGridView leafView = grid.leafGridView();
+		const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
 
-	  GlobalCoordinate  rez(0.0);
-	  LocalCoordinate faceCenterLocal = ReferenceElements2d::simplex().position( 0, 0 );
+		GlobalCoordinate  rez(0.0);
+		LocalCoordinate faceCenterLocal = ReferenceElements2d::simplex().position( 0, 0 );
 
-	  for (auto&& elemThis : elements(leafView, Dune::Partitions::interiorBorder)) {
-		  //std::cout << "-accessing entity " << indexSet.index(elemThis) << std::endl;
+		for (auto&& elemThis : elements(leafView, Dune::Partitions::interiorBorder)) {
+			//std::cout << "-accessing entity " << indexSet.index(elemThis) << std::endl;
 
-		  for (auto&& intersection : intersections(leafView, elemThis)) {
+			for (auto&& intersection : intersections(leafView, elemThis)) {
 
-			  // Only process the intersection if it is a valid interior or domain boundary segment
-			  bool isBS = isBoundary(grid, elemThis, intersection, isDB, volTag, surfTag);
-			  if (isBS) {
-				  //Dune::GeometryType gt = intersection.type();
-				  FaceGeometry geometry = intersection.geometry();
-				  //GlobalCoordinate normal = intersection.unitOuterNormal(faceCenterLocal);
+				// Only process the intersection if it is a valid interior or domain boundary segment
+				bool isBS = isBoundary(grid, elemThis, intersection, isDB, volTag, surfTag);
+				if (isBS) {
+					//Dune::GeometryType gt = intersection.type();
+					FaceGeometry geometry = intersection.geometry();
+					//GlobalCoordinate normal = intersection.unitOuterNormal(faceCenterLocal);
 
-				  //Integrand2DVector integrand(intersection);
-				  Integrand2DVectorLocal integrand(intersection);
+					//Integrand2DVector integrand(intersection);
+					Integrand2DVectorLocal integrand(intersection);
 
-				  const double RELATIVE_TOLERANCE = 1.0e-5;
-				  const double ACCURACY_GOAL = 1.0e-15;
-				  const int NORM_TYPE = QUADRATURE_NORM_L2;
-				  StatInfo thisIntegralN = Integrator2DVector::template integrateRecursive<FaceGeometry, Integrand2DVectorLocal, NORM_TYPE>(geometry, integrand, RELATIVE_TOLERANCE, ACCURACY_GOAL);
+					const double RELATIVE_TOLERANCE = 1.0e-5;
+					const double ACCURACY_GOAL = 1.0e-15;
+					const int NORM_TYPE = QUADRATURE_NORM_L2;
+					StatInfo thisIntegralN = Integrator2DVector::template integrateRecursive<FaceGeometry, Integrand2DVectorLocal, NORM_TYPE>(geometry, integrand, RELATIVE_TOLERANCE, ACCURACY_GOAL);
 
-				  //std::cout << "---- adding normal contribution " << thisIntegralN.second[0] << " from " << gt << ". Needed order " << thisIntegralN.first << std::endl;
+					//std::cout << "---- adding normal contribution " << thisIntegralN.second[0] << " from " << gt << ". Needed order " << thisIntegralN.first << std::endl;
 
-				  rez += thisIntegralN.second[0];
+					rez += thisIntegralN.second[0];
 				}
 		  }
 	  }
@@ -155,93 +168,93 @@ public:
 	  rez *= normalSign;
 
 	  return rez;
-  }
+	}
 
 
-  static GlobalCoordinate normalIntegralOtherDomain(const BoundaryContainer & container, int normalSign = 1) {
-	  LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Normal Integral on global boundary container:::");
+	static GlobalCoordinate normalIntegralOtherDomain(const BoundaryContainer & container, int normalSign = 1) {
+		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Normal Integral on global boundary container:::");
 
-	  GlobalCoordinate  rez(0.0);
+		GlobalCoordinate  rez(0.0);
 
-	  BoundaryIterator biter(container);
-	  while (!biter.end()) {
-		  Integrand2DVectorParallel integrand(biter);
+		BoundaryIterator biter(container);
+		while (!biter.end()) {
+			Integrand2DVectorParallel integrand(biter);
 
-		  const double RELATIVE_TOLERANCE = 1.0e-5;
-		  const double ACCURACY_GOAL = 1.0e-15;
-		  const int NORM_TYPE = QUADRATURE_NORM_L2;
-		  StatInfo thisIntegralN = Integrator2DVector::template integrateRecursive<BaseGeometryFace, Integrand2DVectorParallel, NORM_TYPE>(
-				  biter.geometry(), integrand, RELATIVE_TOLERANCE, ACCURACY_GOAL);
+			const double RELATIVE_TOLERANCE = 1.0e-5;
+			const double ACCURACY_GOAL = 1.0e-15;
+			const int NORM_TYPE = QUADRATURE_NORM_L2;
+			StatInfo thisIntegralN = Integrator2DVector::template integrateRecursive<BaseGeometryFace, Integrand2DVectorParallel, NORM_TYPE>(
+					biter.geometry(), integrand, RELATIVE_TOLERANCE, ACCURACY_GOAL);
 
-		  //std::cout << "---- adding normal contribution " << thisIntegralN.second[0] << " from " << baseGeom.type() << ". Needed order " << thisIntegralN.first << std::endl;
+			//std::cout << "---- adding normal contribution " << thisIntegralN.second[0] << " from " << baseGeom.type() << ". Needed order " << thisIntegralN.first << std::endl;
 
-		  rez += thisIntegralN.second[0];
+			rez += thisIntegralN.second[0];
 
-		  ++biter;
-	  }
+			++biter;
+		}
 
-	  // Note that the normal may be inner or outer wrt associated volume element, determined by user
-	  rez *= normalSign;
-	  return rez;
-  }
-
-
-  static ct edgeLengthSelf(const GridType & grid, bool isDB, int volTag = 0, int surfTag = 0) {
-	  LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Edge Length on own boundary:::");
-
-	  // get the instance of the LeafGridView
-	  LeafGridView leafView = grid.leafGridView();
-	  const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
-
-	  ct rez(0.0);
-
-	  for (auto&& elemThis : elements(leafView, Dune::Partitions::interiorBorder)) {
-		  //std::cout << "-accessing entity " << indexSet.index(elemThis) << std::endl;
-
-		  for (auto&& intersection : intersections(leafView, elemThis)) {
-
-			  // Only process the intersection if it is a valid interior or domain boundary segment
-			  bool isBS = isBoundary(grid, elemThis, intersection, isDB, volTag, surfTag);
-			  if (isBS) {
-				  for (int iEdge = 0; iEdge < 3; iEdge++) {
-					  // Get subindex of edge inside element
-					  int edgeIndInElem = ReferenceElements3d::general(elemThis.type()).subEntity(intersection.indexInInside(), FACE_CODIM, iEdge, EDGE_CODIM);
-					  EdgeGeometry edgeGeom = elemThis.template subEntity<EDGE_CODIM>(edgeIndInElem).geometry();
-					  rez += edgeGeom.volume();
-				  }
-			  }
-		  }
-	  }
-	  return rez * 0.5; // Count each edge only 1/2 since it is accessed twice, once from each neighboring face
-  }
+		// Note that the normal may be inner or outer wrt associated volume element, determined by user
+		rez *= normalSign;
+		return rez;
+	}
 
 
-  static ct edgeLengthOtherDomain(const BoundaryContainer & container) {
-	  LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Edge Length on global boundary container:::" );
+	static ct edgeLengthSelf(const GridType & grid, bool isDB, int volTag = 0, int surfTag = 0) {
+		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Edge Length on own boundary:::");
 
-	  const double RELATIVE_TOLERANCE = 1.0e-5;
+		// get the instance of the LeafGridView
+		LeafGridView leafView = grid.leafGridView();
+		const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
 
-	  ct  rez(0.0);
+		ct rez(0.0);
 
-	  BoundaryIterator biter(container);
-	  while (!biter.end()) {
-		  for (int iEdge = 0; iEdge < 3; iEdge++) {
-			  rez += biter.geometryEdge(iEdge).volume(RELATIVE_TOLERANCE);
-		  }
-		  ++biter;
-	  }
+		for (auto&& elemThis : elements(leafView, Dune::Partitions::interiorBorder)) {
+			//std::cout << "-accessing entity " << indexSet.index(elemThis) << std::endl;
 
-	  return rez * 0.5; // Count each edge only 1/2 since it is accessed twice, once from each neighboring face
-  }
+			for (auto&& intersection : intersections(leafView, elemThis)) {
+
+				// Only process the intersection if it is a valid interior or domain boundary segment
+				bool isBS = isBoundary(grid, elemThis, intersection, isDB, volTag, surfTag);
+				if (isBS) {
+					for (int iEdge = 0; iEdge < 3; iEdge++) {
+						// Get subindex of edge inside element
+						int edgeIndInElem = ReferenceElements3d::general(elemThis.type()).subEntity(intersection.indexInInside(), FACE_CODIM, iEdge, EDGE_CODIM);
+						EdgeGeometry edgeGeom = elemThis.template subEntity<EDGE_CODIM>(edgeIndInElem).geometry();
+						rez += edgeGeom.volume();
+					}
+				}
+			}
+		}
+		return rez * 0.5; // Count each edge only 1/2 since it is accessed twice, once from each neighboring face
+	}
 
 
-  static void globalIndexSelf(
+	static ct edgeLengthOtherDomain(const BoundaryContainer & container) {
+		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Edge Length on global boundary container:::" );
+
+		const double RELATIVE_TOLERANCE = 1.0e-5;
+
+		ct  rez(0.0);
+
+		BoundaryIterator biter(container);
+		while (!biter.end()) {
+			for (int iEdge = 0; iEdge < 3; iEdge++) {
+				rez += biter.geometryEdge(iEdge).volume(RELATIVE_TOLERANCE);
+			}
+			++biter;
+		}
+
+		return rez * 0.5; // Count each edge only 1/2 since it is accessed twice, once from each neighboring face
+	}
+
+
+	static void globalIndexSelf(
 		  const GridType & grid,
 		  GIndMap & gindmapface,
 		  GIndMap & gindmapedge,
 		  GIndMap & gindmapvertex,
 		  bool isDB, int volTag = 0, int surfTag = 0
-  ) {
+	) {
 	  LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing Global Index on own boundary:::");
 
 
@@ -299,15 +312,15 @@ public:
 			  }
 		  }
 	  }
-  }
+	}
 
 
-  static void globalIndexOtherDomain(
+	static void globalIndexOtherDomain(
 		  const BoundaryContainer & container,
 		  GIndMap & gindmapface,
 		  GIndMap & gindmapedge,
 		  GIndMap & gindmapvertex
-  ) {
+	) {
 	  LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, ":::Testing GlobalIndex on global boundary container:::");
 
 	  BoundaryIterator biter(container);
@@ -343,9 +356,7 @@ public:
 
 		  ++biter;
 	  }
-  }
-
-
+	}
 };
 
 

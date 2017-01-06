@@ -7,6 +7,8 @@
 #include <dune/curvilineargrid/common/loggingtimer.hh>
 #include <dune/curvilineargrid/common/vectorhelper.hh>
 
+#include <dune/curvilineargrid/utility/allcommunication.hh>
+
 
 namespace Dune
 {
@@ -110,7 +112,8 @@ public:
 
     	    gridstorage_(gridstorage),
     	    gridbase_(gridbase),
-    	    mpihelper_(mpihelper)
+    	    mpihelper_(mpihelper),
+			allcomm_(mpihelper)
     {
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
@@ -364,9 +367,9 @@ protected:
 
         // 3) Sort all neighbor rank sets, to accelerate set intersection algorithm in future
         // ********************************************************
-        for (unsigned int i = 0; i < gridstorage_.PB2PBNeighborRank_[VERTEX_CODIM].size(); i++)
+        for (auto && neighborRankVec : gridstorage_.PB2PBNeighborRank_[VERTEX_CODIM])
         {
-            std::sort(gridstorage_.PB2PBNeighborRank_[VERTEX_CODIM][i].begin(), gridstorage_.PB2PBNeighborRank_[VERTEX_CODIM][i].end());
+            std::sort(neighborRankVec.begin(), neighborRankVec.end());
         }
 
 
@@ -407,13 +410,12 @@ protected:
     	// 1) Compute neighbor ranks for each process boundary edge by intersecting neighbor ranks of its corners
     	// *************************************************************************************************************
         int edgeCount = 0;
-        for (Local2LocalIterator edgeIter = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].begin();
-        		                 edgeIter != gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].end(); edgeIter++ )
+        for (const auto & edgeIndexPair : gridstorage_.processBoundaryIndexMap_[EDGE_CODIM])
         {
         	LoggingMessage::writePatience("Determining boundary edge process neighbours...", edgeCount++, gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].size());
 
-            LocalIndexType thisEdgeLocalIndex = (*edgeIter).first;
-            LocalIndexType thisPBEdgeLocalIndex = (*edgeIter).second;
+            LocalIndexType thisEdgeLocalIndex = edgeIndexPair.first;
+            LocalIndexType thisPBEdgeLocalIndex = edgeIndexPair.second;
 
             // Get corners of the edge
             std::vector<LocalIndexType> thisCornerLocalIndices = gridbase_.entityCornerLocalIndex(EDGE_CODIM, thisEdgeLocalIndex);
@@ -464,26 +466,16 @@ protected:
             }
         }
 
-
-        // 2) Communicate to each process the number of complicated edges shared with it
-        // *************************************************************************************************************
-        std::vector<int> processNComplicatedEdgeRequested(size_);
-        std::vector<int> processNComplicatedEdgeToSend(size_);
-        for (int iProc = 0; iProc < size_; iProc++)  { processNComplicatedEdgeRequested[iProc] = neighborProcessComplicatedEdgePBLocalIndex[iProc].size(); }
-        MPI_Alltoall(processNComplicatedEdgeRequested.data(), 1, MPI_INT, reinterpret_cast<int*>(processNComplicatedEdgeToSend.data()), 1, MPI_INT, comm);
-
-        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Total complicated edges per process =(" + VectorHelper::vector2string(processNComplicatedEdgeRequested) + ")");
-
-
         // 3) Communicate to each process the shared complicated edge EdgeKeys
         // *************************************************************************************************************
         int thisCommSize = 0;
-        std::vector<int> processEdgeKeyRequested, sdispls;
-        std::vector<int> processEdgeKeyToSend, rdispls;
+        std::vector<int> processEdgeKeyRequested;
+        std::vector<int> processNComplicatedEdgeRequested(size_);
 
         for (int iProc = 0; iProc < size_; iProc++)
         {
         	LoggingMessage::writePatience("Sending complicated boundary edge keys to neighbour processes...", iProc, size_);
+        	processNComplicatedEdgeRequested[iProc] = neighborProcessComplicatedEdgePBLocalIndex[iProc].size();
 
         	for (int iEdge = 0; iEdge < processNComplicatedEdgeRequested[iProc]; iEdge++)
         	{
@@ -491,17 +483,14 @@ protected:
         		processEdgeKeyRequested.push_back(thisEdgeKey.node0);
         		processEdgeKeyRequested.push_back(thisEdgeKey.node1);
         	}
-
         	processNComplicatedEdgeRequested[iProc] *= 2;
-        	processNComplicatedEdgeToSend[iProc]    *= 2;
-        	thisCommSize += processNComplicatedEdgeToSend[iProc];
-
-            sdispls.push_back((iProc == 0) ? 0 : sdispls[iProc-1] + processNComplicatedEdgeRequested[iProc-1] );
-            rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + processNComplicatedEdgeToSend[iProc-1] );
         }
 
-        processEdgeKeyToSend.resize(thisCommSize);
-        MPI_Alltoallv (processEdgeKeyRequested.data(), processNComplicatedEdgeRequested.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processEdgeKeyToSend.data()), processNComplicatedEdgeToSend.data(), rdispls.data(), MPI_INT, comm );
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Total complicated edges per process =(" + VectorHelper::vector2string(processNComplicatedEdgeRequested) + ")");
+
+        std::vector<int> processEdgeKeyToSend;
+        std::vector<int> processNComplicatedEdgeToSend;
+        allcomm_.all2all(processEdgeKeyRequested, processNComplicatedEdgeRequested, processEdgeKeyToSend, processNComplicatedEdgeToSend);
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated complicated edge EdgeKeys");
 
 
@@ -510,18 +499,14 @@ protected:
 
         // Note: now we communicate 1 int for every edge key requested, so send and recv switch places and are divided by 2
 
-        thisCommSize = 0;
-        std::vector<int> processEdgeExistToSend;      rdispls.clear();
-        std::vector<int> processEdgeExistRequested;   sdispls.clear();
+        std::vector<int> processEdgeExistToSend;
 
         int iData = 0;
         for (int iProc = 0; iProc < size_; iProc++)
         {
         	LoggingMessage::writePatience("Determining whether the received complicated edge candidates exist...", iProc, size_);
 
-        	processNComplicatedEdgeRequested[iProc] /= 2;
         	processNComplicatedEdgeToSend[iProc] /= 2;
-        	thisCommSize += processNComplicatedEdgeRequested[iProc];
 
         	for (int iEdge = 0; iEdge < processNComplicatedEdgeToSend[iProc]; iEdge++)
         	{
@@ -532,14 +517,18 @@ protected:
         		bool isReal = (edgeKey2LocalIndexMap_.find(thisEdgeKey) != edgeKey2LocalIndexMap_.end());
         		processEdgeExistToSend.push_back( isReal ? 1 : 0 );
         	}
-
-            sdispls.push_back((iProc == 0) ? 0 : sdispls[iProc-1] + processNComplicatedEdgeToSend[iProc-1] );
-            rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + processNComplicatedEdgeRequested[iProc-1] );
         }
 
-        processEdgeExistRequested.resize(thisCommSize, 0);
-        MPI_Alltoallv (processEdgeExistToSend.data(), processNComplicatedEdgeToSend.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processEdgeExistRequested.data()), processNComplicatedEdgeRequested.data(), rdispls.data(), MPI_INT, comm );
+        std::vector<int> processEdgeExistRequested;
+        std::vector<int> processNComplicatedEdgeRequested2;
+        allcomm_.all2all(processEdgeExistToSend, processNComplicatedEdgeToSend, processEdgeExistRequested, processNComplicatedEdgeRequested2);
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated if requested EdgeKeys correspond to real edges");
+
+        // Check consistency of send-receive
+        assert(processNComplicatedEdgeRequested.size() == processNComplicatedEdgeRequested2.size());
+        for (unsigned int i = 0; i < processNComplicatedEdgeRequested.size(); i++) {
+        	assert(processNComplicatedEdgeRequested[i] == processNComplicatedEdgeRequested2[i]);
+        }
 
 
         // 5) Fill in correct neighbors for complicated edges
@@ -570,8 +559,6 @@ protected:
         	LoggingMessage::writePatience("Sorting edge neighbour rank sets...", iEdge, gridstorage_.PB2PBNeighborRank_[EDGE_CODIM].size());
         	std::sort(gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][iEdge].begin(), gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][iEdge].end());
         }
-
-
     }
 
 
@@ -595,13 +582,13 @@ protected:
         std::vector<std::vector<TmpFaceData > > neighborProcessComplicatedFaceLocalIndex(size_);
 
         int faceCount = 0;
-        for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++ )
+        for (const auto & faceKeyIndexPair : processBoundaryFaceKey2LocalIndexMap_)
         {
         	LoggingMessage::writePatience("Determining set of complicated faces...", faceCount++, processBoundaryFaceKey2LocalIndexMap_.size());
 
             // Get corners of the face
-            FaceKey thisFaceKey = (*faceIter).first;
-            LocalIndexType thisFaceLocalIndex = (*faceIter).second;
+            FaceKey thisFaceKey = faceKeyIndexPair.first;
+            LocalIndexType thisFaceLocalIndex = faceKeyIndexPair.second;
 
             // Get neighbor processes associated with each corner
             LocalIndexType thisVertexLocalIndex0 = gridstorage_.entityIndexMap_[VERTEX_CODIM][thisFaceKey.node0];
@@ -655,24 +642,16 @@ protected:
         }
 
 
-        // 2) Communicate to each process the number of complicated faces shared with it
-        // *************************************************************************************************************
-        std::vector<int> processNComplicatedFaceRequested(size_);
-        std::vector<int> processNComplicatedFaceToSend(size_);
-        for (int iProc = 0; iProc < size_; iProc++)  { processNComplicatedFaceRequested[iProc] = neighborProcessComplicatedFaceLocalIndex[iProc].size(); }
-        MPI_Alltoall(processNComplicatedFaceRequested.data(), 1, MPI_INT, reinterpret_cast<int*>(processNComplicatedFaceToSend.data()), 1, MPI_INT, comm);
-        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Complicated faces per process sent=( " + VectorHelper::vector2string(processNComplicatedFaceRequested) + ") received =(" + VectorHelper::vector2string(processNComplicatedFaceToSend) + ")");
-
-
         // 3) Communicate to each process the shared complicated face FaceKeys
         // *************************************************************************************************************
-        int thisCommSize = 0;
-        std::vector<int> processFaceKeyRequested, sdispls;
-        std::vector<int> processFaceKeyToSend, rdispls;
+        std::vector<int> processFaceKeyRequested;
+        std::vector<int> processNComplicatedFaceRequested(size_);
 
         for (int iProc = 0; iProc < size_; iProc++)
         {
         	LoggingMessage::writePatience("Communicating complicated face keys to neighbour processors...", iProc, size_);
+
+        	processNComplicatedFaceRequested[iProc] = neighborProcessComplicatedFaceLocalIndex[iProc].size();
 
         	for (int iFace = 0; iFace < processNComplicatedFaceRequested[iProc]; iFace++)
         	{
@@ -681,17 +660,12 @@ protected:
         		processFaceKeyRequested.push_back(thisFaceKey.node1);
         		processFaceKeyRequested.push_back(thisFaceKey.node2);
         	}
-
         	processNComplicatedFaceRequested[iProc] *= 3;
-        	processNComplicatedFaceToSend[iProc]    *= 3;
-        	thisCommSize += processNComplicatedFaceToSend[iProc];
-
-            sdispls.push_back((iProc == 0) ? 0 : sdispls[iProc-1] + processNComplicatedFaceRequested[iProc-1] );
-            rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + processNComplicatedFaceToSend[iProc-1] );
         }
 
-        processFaceKeyToSend.resize(thisCommSize);
-        MPI_Alltoallv (processFaceKeyRequested.data(), processNComplicatedFaceRequested.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processFaceKeyToSend.data()), processNComplicatedFaceToSend.data(), rdispls.data(), MPI_INT, comm );
+        std::vector<int> processFaceKeyToSend;
+        std::vector<int> processNComplicatedFaceToSend;
+        allcomm_.all2all(processFaceKeyRequested, processNComplicatedFaceRequested, processFaceKeyToSend, processNComplicatedFaceToSend);
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated complicated face FaceKeys");
 
         //std::cout << "process_" << rank_ << "stage 3) sendcounts=" << VectorHelper::vector2string(processNComplicatedFaceRequested) << " recvcounts=" << VectorHelper::vector2string(processNComplicatedFaceToSend) <<" send=" << VectorHelper::vector2string(processFaceKeyRequested) << " recv=" << VectorHelper::vector2string(processFaceKeyToSend) << std::endl;
@@ -702,15 +676,13 @@ protected:
 
         // Note: now we communicate 1 int for every face key requested, so send and recv switch places and are divided by 3
 
-        std::vector<int> processFaceExistToSend;                                          rdispls.clear();
-        std::vector<int> processFaceExistRequested(processFaceKeyRequested.size() / 3);   sdispls.clear();
+        std::vector<int> processFaceExistToSend;
 
         int iData = 0;
         for (int iProc = 0; iProc < size_; iProc++)
         {
         	LoggingMessage::writePatience("Determining whether the received complicated face candidates exist...", iProc, size_);
 
-        	processNComplicatedFaceRequested[iProc] /= 3;
         	processNComplicatedFaceToSend[iProc] /= 3;
 
         	for (int iFace = 0; iFace < processNComplicatedFaceToSend[iProc]; iFace++)
@@ -723,12 +695,15 @@ protected:
         		bool isReal = (processBoundaryFaceKey2LocalIndexMap_.find(thisFaceKey) != processBoundaryFaceKey2LocalIndexMap_.end());
         		processFaceExistToSend.push_back( isReal ? 1 : 0 );
         	}
-
-            sdispls.push_back((iProc == 0) ? 0 : sdispls[iProc-1] + processNComplicatedFaceToSend[iProc-1] );
-            rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + processNComplicatedFaceRequested[iProc-1] );
         }
-        MPI_Alltoallv (processFaceExistToSend.data(), processNComplicatedFaceToSend.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(processFaceExistRequested.data()), processNComplicatedFaceRequested.data(), rdispls.data(), MPI_INT, comm );
+
+        std::vector<int> processFaceExistRequested;
+        std::vector<int> processNComplicatedFaceRequested2;
+        allcomm_.all2all(processFaceExistToSend, processNComplicatedFaceToSend, processFaceExistRequested, processNComplicatedFaceRequested2);
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated correspondence of requested FaceKeys correspond to real faces");
+
+        // Self-test
+        assert(processFaceExistRequested.size() == processFaceKeyRequested.size() / 3);
 
         //std::cout << "process_" << rank_ << "stage 4) sendcounts=" << VectorHelper::vector2string(processNComplicatedFaceToSend) << " recvcounts=" << VectorHelper::vector2string(processNComplicatedFaceRequested) <<" send=" << VectorHelper::vector2string(processFaceExistToSend) << " recv=" << VectorHelper::vector2string(processFaceExistRequested) << std::endl;
 
@@ -802,13 +777,14 @@ protected:
     {
     	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started distributing missing face GlobalIndices");
 
+    	MPI_Comm comm = Dune::MPIHelper::getCommunicator();
+
         typedef std::pair<FaceKey, GlobalIndexType>  FaceInfo;
         std::vector< std::vector< FaceInfo > > facesToSend (size_);
 
-        int totalRecvSize = 0;
         int N_INTEGER_FACEINFO = 4;
-        std::vector<int> sendbuf, sendcounts(size_), sdispls;
-        std::vector<int> recvbuf, recvcounts(size_), rdispls;
+        std::vector<int> sendbuf, sendcounts(size_);
+        std::vector<int> recvcounts;
 
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Checking which faces are missing");
 
@@ -816,11 +792,11 @@ protected:
         // 1) Loop over all process boundary faces, split faces on the ones to be sent and to be received
         // ********************************************************************************************
         int faceCount = 0;
-        for (FaceMapIterator iter = processBoundaryFaceKey2LocalIndexMap_.begin(); iter != processBoundaryFaceKey2LocalIndexMap_.end(); iter++)
+        for (const auto & faceIndexPair : processBoundaryFaceKey2LocalIndexMap_)
         {
         	LoggingMessage::writePatience("Determining faces with missing global indices...", faceCount++, processBoundaryFaceKey2LocalIndexMap_.size());
 
-            LocalIndexType localFaceIndex = (*iter).second;
+            LocalIndexType localFaceIndex = faceIndexPair.second;
             LocalIndexType localFacePBIndex = gridstorage_.processBoundaryIndexMap_[FACE_CODIM][localFaceIndex];
             int neighborRank = gridstorage_.PB2PBNeighborRank_[FACE_CODIM][localFacePBIndex][0];
 
@@ -829,7 +805,7 @@ protected:
             else
             {
             	GlobalIndexType thisGlobalIndex = gridstorage_.face_[localFaceIndex].globalIndex;
-                facesToSend[neighborRank].push_back(FaceInfo((*iter).first, thisGlobalIndex ));
+                facesToSend[neighborRank].push_back(FaceInfo(faceIndexPair.first, thisGlobalIndex ));
             }
         }
 
@@ -843,9 +819,6 @@ protected:
         	LoggingMessage::writePatience("Sending missing face global indices...", iProc, size_);
 
             sendcounts[iProc] = facesToSend[iProc].size() * N_INTEGER_FACEINFO;
-            totalRecvSize += recvcounts[iProc];
-            sdispls.push_back((iProc == 0) ? 0 : sdispls[iProc-1] + sendcounts[iProc-1] );
-            rdispls.push_back((iProc == 0) ? 0 : rdispls[iProc-1] + recvcounts[iProc-1] );
 
             for (unsigned int j = 0; j < facesToSend[iProc].size(); j++)
             {
@@ -854,19 +827,23 @@ protected:
                 sendbuf.push_back(facesToSend[iProc][j].first.node1);
                 sendbuf.push_back(facesToSend[iProc][j].first.node2);
             }
-
         }
 
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Sending  sendcounts=(" + VectorHelper::vector2string(sendcounts) + ") recvcounts=(" + VectorHelper::vector2string(recvcounts) + ")");
 
+
         // 3) MPI_alltoall key + globalId
         // ********************************************************************************************
-        recvbuf.resize(totalRecvSize, 0);
-        MPI_Comm comm = Dune::MPIHelper::getCommunicator();
-        MPI_Alltoallv (sendbuf.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvbuf.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
-
-
+        std::vector<int> recvbuf;
+        std::vector<int> recvcounts2;
+        allcomm_.all2all(sendbuf, sendcounts, recvbuf, recvcounts2);
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Extracting missing indices");
+
+        // Self-check
+        assert(recvcounts.size() == recvcounts2.size());
+        for (unsigned int i = 0; i < recvcounts.size(); i++) { assert(recvcounts[i] == recvcounts2[i]); }
+
+
 
         // 4) Mark all missing faces
         // ********************************************************************************************8
@@ -925,26 +902,26 @@ protected:
     {
     	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Started distributing missing edge GlobalIndices");
 
+    	MPI_Comm comm = Dune::MPIHelper::getCommunicator();
+
         typedef std::pair<EdgeKey, GlobalIndexType>  EdgeInfo;
         std::vector< std::vector< EdgeInfo > > edgesToSend (size_);
 
-        int totalRecvSize = 0;
         int N_INTEGER_EDGEINFO = 3;
-        std::vector<int> sendbuf, sendcounts(size_), sdispls;
-        std::vector<int> recvbuf, recvcounts(size_), rdispls;
+        std::vector<int> sendbuf, sendcounts(size_);
+        std::vector<int> recvcounts(size_);
 
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Checking which edges are missing");
 
         // 1) Loop over all process boundary faces, split faces on the ones to be sent and to be received
         // ********************************************************************************************
         int edgeCount = 0;
-        for (Local2LocalIterator iter  = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].begin();
-        		                 iter != gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].end(); iter++)
+        for (const auto & edgeIndexPair : gridstorage_.processBoundaryIndexMap_[EDGE_CODIM])
         {
         	LoggingMessage::writePatience("Determining edges with missing global indices...", edgeCount++, gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].size());
 
-            LocalIndexType localEdgeIndex = (*iter).first;
-            LocalIndexType localEdgePBIndex = (*iter).second;
+            LocalIndexType localEdgeIndex = edgeIndexPair.first;
+            LocalIndexType localEdgePBIndex = edgeIndexPair.second;
 
             // Construct EdgeKey
             std::vector<LocalIndexType> thisCornerLocalIndices =  gridbase_.entityCornerLocalIndex(EDGE_CODIM, localEdgeIndex);
@@ -967,9 +944,7 @@ protected:
 
                 EdgeInfo thisEdgeInfo(thisEdgeKey, thisGlobalIndex);
 
-                for (unsigned int iNeighbor = 0; iNeighbor < gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][localEdgePBIndex].size(); iNeighbor++)
-                {
-                    int thisNeighborRank = gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][localEdgePBIndex][iNeighbor];
+                for (const auto & thisNeighborRank : gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][localEdgePBIndex]) {
                     edgesToSend[thisNeighborRank].push_back(thisEdgeInfo);
                 };
             }
@@ -985,9 +960,6 @@ protected:
         	LoggingMessage::writePatience("Sending missing global edge indices to neighbours...", i, size_);
 
             sendcounts[i] = edgesToSend[i].size() * N_INTEGER_EDGEINFO;
-            totalRecvSize += recvcounts[i];
-            sdispls.push_back((i == 0) ? 0 : sdispls[i-1] + sendcounts[i-1] );
-            rdispls.push_back((i == 0) ? 0 : rdispls[i-1] + recvcounts[i-1] );
 
             for (unsigned int j = 0; j < edgesToSend[i].size(); j++)
             {
@@ -995,7 +967,6 @@ protected:
                 sendbuf.push_back(edgesToSend[i][j].first.node0);
                 sendbuf.push_back(edgesToSend[i][j].first.node1);
             }
-
         }
 
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Sending  sendcounts=(" + VectorHelper::vector2string(sendcounts) + ") recvcounts=(" + VectorHelper::vector2string(recvcounts) + ")");
@@ -1004,12 +975,15 @@ protected:
 
         // 3) MPI_alltoall key + globalId
         // ********************************************************************************************
-        recvbuf.resize(totalRecvSize, 0);   // There are 3 integers per sent FaceInfo
-        MPI_Comm comm = Dune::MPIHelper::getCommunicator();
-        MPI_Alltoallv (sendbuf.data(), sendcounts.data(), sdispls.data(), MPI_INT, reinterpret_cast<int*>(recvbuf.data()), recvcounts.data(), rdispls.data(), MPI_INT, comm );
-
-
+        std::vector<int> recvbuf;   // There are 3 integers per sent FaceInfo
+        std::vector<int> recvcounts2;
+        allcomm_.all2all(sendbuf, sendcounts, recvbuf, recvcounts2);
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Extracting missing indices");
+
+        // Self-check
+        assert(recvcounts.size() == recvcounts2.size());
+        for (unsigned int i = 0; i < recvcounts.size(); i++) { assert(recvcounts[i] == recvcounts2[i]); }
+
 
         // 4) Mark all missing faces
         // ********************************************************************************************8
@@ -1059,6 +1033,9 @@ private:
 
     // Reference to Curvilinear Grid Base - necessary for OCTree construction
     GridBaseType & gridbase_;
+
+    // MPI Communication wrapper
+    AllCommunication allcomm_;
 
     MPIHelper &mpihelper_;
     int rank_;

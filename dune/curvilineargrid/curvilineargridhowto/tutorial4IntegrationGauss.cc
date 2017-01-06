@@ -1,6 +1,13 @@
-// -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
-// vi: set et ts=4 sw=2 sts=2:
-// $Id$
+/********************************************
+ * Dune-CurvilinearGrid
+ * Tutorial 4a: Integration: Gauss Integral
+ *
+ * Author: Aleksejs Fomins
+ *
+ * Description: This tutorial places a unit electric charge at some coordinate inside the domain
+ * It then proceeds to integrate the electric field (without constant factor) over the domain boundary.
+ * The integral should amount to 4pi, according to Gauss Theorem.
+ ********************************************/
 
 #include <config.h>
 

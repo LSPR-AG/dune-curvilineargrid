@@ -1,6 +1,18 @@
-// -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
-// vi: set et ts=4 sw=2 sts=2:
-// $Id$
+/********************************************
+ * Dune-CurvilinearGrid
+ * Tutorial 6: Parallel Data Writer
+ *
+ * Author: Aleksejs Fomins
+ *
+ * Description: The following tutorial demonstrates the use of intrinsic global index provided by curvilinear grid.
+ * In particular, a special parameter of the grid and GMSH reader allows to construct the global index for elements (codim 0) by reusing the GMSH intrinsic index.
+ * The advantage of such global index is that same element has the same global index, regardless of the number of cores the mesh is constructed on, which is very useful for debugging parallel FEM codes.
+ *
+ * The below example uses a small utility called ParallelDataWriter to write the volumes of all elements of the grid in a single file, sorted by their global index.
+ *
+ * The user could verify by himself (e.g. using Matlab) that this code produces exactly the same output file regardless of the number of processes it is run on.
+ ********************************************/
+
 
 #include <config.h>
 
@@ -21,17 +33,6 @@
 
 using namespace Dune;
 using namespace Dune::CurvGrid;
-
-/** \brief
- *
- * The following tutorial demonstrates the use of intrinsic global index provided by curvilinear grid.
- * In particular, a special parameter of the grid and GMSH reader allows to construct the global index for elements (codim 0) by reusing the GMSH intrinsic index.
- * The advantage of such global index is that same element has the same global index, regardless of the number of cores the mesh is constructed on, which is very useful for debugging parallel FEM codes.
- *
- * The below example uses a small utility called ParallelDataWriter to write the volumes of all elements of the grid in a single file, sorted by their global index.
- *
- * The user could verify by himself (e.g. using Matlab) that this code produces exactly the same output file regardless of the number of processes it is run on.
- */
 
 
 int main (int argc , char **argv) {

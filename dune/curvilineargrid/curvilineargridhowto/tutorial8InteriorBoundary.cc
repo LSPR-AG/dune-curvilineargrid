@@ -1,6 +1,15 @@
-// -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
-// vi: set et ts=4 sw=2 sts=2:
-// $Id$
+/********************************************
+ * Dune-CurvilinearGrid
+ * Tutorial 8: Interior Boundaries
+ *
+ * Author: Aleksejs Fomins
+ *
+ * Description: This tutorial demonstrates the current capabilities for Interior Boundary Access
+ * The user hard-codes the physical tags associated with each interior boundary, as well as the physical tag of the volume on its exterior
+ * Then the Gaussian integral (see tutorial 5a) is performed over the interior boundary
+ *
+ * [TODO] Implement passing of interior boundary tags via command line arguments
+ ********************************************/
 
 #include <config.h>
 
@@ -81,70 +90,70 @@ struct GaussFunctor
 template<class GridType>
 std::vector<double> Integrate (GridType& grid, const std::vector<GlobalCoordinate> & chargePos, int tagVol, int tagSurf)
 {
-  const int dim =  GridType::dimension;
-  typedef typename GridType::ctype ct;
-  typedef typename GridType::LeafGridView LeafGridView;
-  typedef typename LeafGridView::IntersectionIterator IntersectionIterator;
-  typedef typename LeafGridView::template Codim< 0 >::Entity Element;
-  typedef typename LeafGridView::template Codim< 1 >::Entity Face;
-  typedef typename IntersectionIterator :: Intersection Intersection;
+	const int dim =  GridType::dimension;
+	typedef typename GridType::ctype ct;
+	typedef typename GridType::LeafGridView LeafGridView;
+	typedef typename LeafGridView::IntersectionIterator IntersectionIterator;
+	typedef typename LeafGridView::template Codim< 0 >::Entity Element;
+	typedef typename LeafGridView::template Codim< 1 >::Entity Face;
+	typedef typename IntersectionIterator :: Intersection Intersection;
 
-  // get the instance of the LeafGridView
-  LeafGridView leafView = grid.leafGridView();
-  const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
+	// get the instance of the LeafGridView
+	LeafGridView leafView = grid.leafGridView();
+	const typename GridType::LeafIndexSet & indexSet = grid.leafIndexSet();
 
-  typedef typename LeafGridView::template Codim<0>::Iterator EntityLeafIterator;
-  typedef typename LeafGridView::template Codim<1>::Geometry FaceGeometry;
+	typedef typename LeafGridView::template Codim<0>::Iterator EntityLeafIterator;
+	typedef typename LeafGridView::template Codim<1>::Geometry FaceGeometry;
 
-  typedef typename GridType::PhysicalTagType         PhysicalTagType;
+	typedef typename GridType::PhysicalTagType         PhysicalTagType;
 
-  typedef GaussFunctor<GridType, 2>              Integrand2D;
-  typedef QuadratureIntegrator<double, 2>  Integrator2DScalar;
-  typedef typename Integrator2DScalar::template Traits<Integrand2D>::StatInfo  StatInfo;
+	typedef GaussFunctor<GridType, 2>              Integrand2D;
+	typedef QuadratureIntegrator<double, 2>  Integrator2DScalar;
+	typedef typename Integrator2DScalar::template Traits<Integrand2D>::StatInfo  StatInfo;
 
 
-  std::vector<double> gaussintegral(chargePos.size(), 0.0);
-  double RELATIVE_TOLERANCE = 1.0e-5;
-  double ACCURACY_GOAL = 1.0e-15;
-  const int NORM_TYPE = QUADRATURE_NORM_L2;
+	std::vector<double> gaussintegral(chargePos.size(), 0.0);
+	double RELATIVE_TOLERANCE = 1.0e-5;
+	double ACCURACY_GOAL = 1.0e-15;
+	const int NORM_TYPE = QUADRATURE_NORM_L2;
 
-  for (auto&& elem : elements(leafView, Dune::Partitions::interiorBorder)) {
+	for (auto&& elem : elements(leafView, Dune::Partitions::interiorBorder)) {
 
-	  // Only count faces neighboring the desired subdomain.
-	  // The subdomain is necessary to determine the direction of the unit outer normal
-	  PhysicalTagType physicalTagElem = grid.template entityPhysicalTag<0>(elem);
-	  if (physicalTagElem == tagVol) {
-		 //std::cout << "-accessing entity " << indexSet.index(elem) << std::endl;
+		// Only count faces neighboring the desired subdomain.
+		// The subdomain is necessary to determine the direction of the unit outer normal
+		PhysicalTagType physicalTagElem = grid.template entityPhysicalTag<0>(elem);
+		if (physicalTagElem == tagVol) {
+			//std::cout << "-accessing entity " << indexSet.index(elem) << std::endl;
 
-		  for(auto && intr : intersections(leafView, elem) )
-		  {
-			  // Only count faces of a boundary of the selected type, as the subdomain can have multiple boundaries
-			  Face face = elem.template subEntity<1>(intr.indexInInside());
-			  PhysicalTagType physicalTagFace = grid.template entityPhysicalTag<1>(face);
-			  if (physicalTagFace == tagSurf) {
-				  FaceGeometry geometry = intr.geometry();
-				  Dune::GeometryType gt = intr.type();
+			for(auto && intr : intersections(leafView, elem) )
+			{
+				// Only count faces of a boundary of the selected type, as the subdomain can have multiple boundaries
+				Face face = elem.template subEntity<1>(intr.indexInInside());
+				PhysicalTagType physicalTagFace = grid.template entityPhysicalTag<1>(face);
+				if (physicalTagFace == tagSurf) {
+					FaceGeometry geometry = intr.geometry();
+					Dune::GeometryType gt = intr.type();
 
-				  for (int iCharge = 0; iCharge < chargePos.size(); iCharge++) {
-					  Integrand2D g(intr, chargePos[iCharge]);
+					for (int iCharge = 0; iCharge < chargePos.size(); iCharge++) {
+						Integrand2D g(intr, chargePos[iCharge]);
 
-					  StatInfo thisIntegralG = Integrator2DScalar::template integrateRecursive<FaceGeometry, Integrand2D, NORM_TYPE>(geometry, g, RELATIVE_TOLERANCE, ACCURACY_GOAL);
-					  std::cout << "---- adding gauss contribution from " << gt << "  " << thisIntegralG.second[0] << ". Needed order " << thisIntegralG.first << std::endl;
+						StatInfo thisIntegralG = Integrator2DScalar::template integrateRecursive<FaceGeometry, Integrand2D, NORM_TYPE>(geometry, g, RELATIVE_TOLERANCE, ACCURACY_GOAL);
+						std::cout << "---- adding gauss contribution from " << gt << "  " << thisIntegralG.second[0] << ". Needed order " << thisIntegralG.first << std::endl;
 
-					  gaussintegral[iCharge] += thisIntegralG.second[0];
-				  }
-			  }
-		  }
-	  }
-  }
+						gaussintegral[iCharge] += thisIntegralG.second[0];
+					}
+				}
+			}
+		}
+	}
 
-  // The actual integral is the sum over all processors
-  std::vector<double> rez(chargePos.size());
-  for (int iCharge = 0; iCharge < chargePos.size(); iCharge++) {
-	  rez[iCharge] = grid.comm().sum(gaussintegral[iCharge]);
-  }
+	// The actual integral is the sum over all processors
+	std::vector<double> rez(chargePos.size());
+	for (int iCharge = 0; iCharge < chargePos.size(); iCharge++) {
+		rez[iCharge] = grid.comm().sum(gaussintegral[iCharge]);
+	}
 
-  return rez;
+	return rez;
 }
 
 

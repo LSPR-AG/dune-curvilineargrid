@@ -1,6 +1,13 @@
-// -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
-// vi: set et ts=4 sw=2 sts=2:
-// $Id$
+/********************************************
+ * Dune-CurvilinearGrid
+ * Tutorial 3: Visualisation
+ *
+ * Author: Aleksejs Fomins
+ *
+ * Description: This tutorial samples 3D sine functions over the grid elements (3D)
+ * and boundary segments (2D), using local and global coordinates. It then writes
+ * the grid and the associated fields to the VTU/PVTU file set.
+ ********************************************/
 
 #include <config.h>
 
@@ -230,7 +237,8 @@ int main (int argc , char **argv) {
 	writer.writeProcessBoundary(true);
 	writer.writeDomainBoundary(true);
 	writer.writeInteriorBoundary(true);
-	writer.writePeriodicBoundary(true);
+	writer.writePeriodicBoundary(grid->withPeriodic());  // Note: Only write periodic fields if there are at all any periodic elements
+	writer.writePeriodicBind(grid->withPeriodic());  // Note: Only write periodic fields if there are at all any periodic elements
 	writer.writeGhost(true);
 	writer.writePatience(true);
 	writer.writeInterpolate(true);

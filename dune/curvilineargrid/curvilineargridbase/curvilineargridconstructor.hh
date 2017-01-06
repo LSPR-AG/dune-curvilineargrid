@@ -12,7 +12,8 @@
                              -------------------
     begin                : Tue Nov 25 2014
     copyright            : (C) 2014 by Aleksejs Fomins, LSPR AG
-    description          : Upgraded the mesh to curvilinear grid
+    description          : Upgraded the mesh to curvilinear grid,
+      implemented global index, ghost elements, dense and sparse communication, interior and periodic boundaries
 ***************************************************************************/
 
 /***************************************************************************
@@ -133,16 +134,16 @@ public:
     static const int   FACE_CODIM     = GridStorageType::FACE_CODIM;
     static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
+    static const unsigned int NO_BOUNDARY_TYPE     = GridStorageType::FaceBoundaryType::None;
+    static const unsigned int DOMAIN_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::DomainBoundary;
+
 
 
 public: /* public methods */
 
     /** Parallel constructor - USE THIS CONSTRUCTOR*/
-    CurvilinearGridConstructor(
-    		GridStorageType & gridstorage,
-    		GridBaseType & gridbase,
-    		MPIHelper &mpihelper) :
-        gridstorage_(gridstorage),
+    CurvilinearGridConstructor(GridBaseType & gridbase, MPIHelper &mpihelper) :
+        gridstorage_(gridbase.gridstorage()),
         gridbase_(gridbase),
         mpihelper_(mpihelper)
     {
@@ -179,6 +180,7 @@ public:
         log_stream << "CurvilinearGridConstructor: Inserted vertex LocalIndex=" << gridstorage_.point_.size()-1 << " GlobalIndex=" << globalIndex;
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
     }
+
 
     /** \brief Insert an element into the mesh
      * \param[in] gt               geometry type of the element (hopefully tetrahedron)
@@ -224,23 +226,24 @@ public:
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
     }
 
+
     /** Insert a boundary segment into the mesh
      *
-     *     Note: It is expected that all faces - domain an process boundaries - are inserted by the factory before finalising
+     *     Note: It is expected that all domain boundaries are inserted by the factory before finalising
      *     Note: Only domain boundary faces have initial globalId given by GMSH. Therefore, we ignore it, and generate our own
      *     globalId for all faces at a later stage.
      *
-     *     Note: associatedElementIndex is no longer necessary. New procedure figures it out at no additional cost
+     *     Note: Support for interior boundaries is optional. There is no restriction on the number of inserted interior boundaries
+     *     The final effect of this operation is that the faces corresponding to the inserted boundary segments will be marked
+     *     with the provided physicalTag, to distinguish them from the other faces
      *
      *  \param[in] gt                       geometry type of the face (should be a triangle)
-     *  \param[in] associatedElementIndex   local index of the element this face is associated to
      *  \param[in] vertexIndexSet           local indices of the interpolatory vertices of this face
      *  \param[in] order                    interpolatory order of the face
      *  \param[in] physicalTag              physical tag of the element (material property)
+     *  \param[in] isDomainBoundary              determines whether the inserted boundary segment belongs to the domain or interior boundary
      *
      * */
-
-
     void insertBoundarySegment(
     	Dune::GeometryType gt,
     	//LocalIndexType associatedElementIndex,
@@ -269,92 +272,14 @@ public:
         // Map the face key to the associated physical tag
         if (isDomainBoundary)	{ domainBoundaryFaceKey2TagMap_[thisFaceKey] = physicalTag; }
         else									{ interiorBoundaryFaceKey2TagMap_[thisFaceKey] = physicalTag; }
-
-
-
-
-        // Take associated element, get all its corners, get all keys, compare to face key
-        // **********************************************************************************
-        /*
-        std::vector<LocalIndexType> elementCorners = CurvilinearGeometryHelper::entityVertexCornerSubset<ctype, 3>(
-        		gridstorage_.element_[associatedElementIndex].geometryType,
-        		gridstorage_.element_[associatedElementIndex].vertexIndexSet,
-        		gridstorage_.element_[associatedElementIndex].interpOrder
-        );*/
-
-        /*
-
-        // Search for the face among subentities of the element
-        // **********************************************************************************
-        int j = 0;
-        int nFacePerTetrahedron = 4; // [FIXME] Replace number by ref elem subentity size
-        bool found_face = false;
-
-        while (!found_face)
-        {
-            if (j == nFacePerTetrahedron)  {
-            	LoggingMessage::template write<LOG_MSG_PERSISTENT>( __FILE__, __LINE__, "CurvilinearGridConstructor: insertBoundarySegment() did not find the face in the associated element");
-                DUNE_THROW(Dune::IOError, "CurvilinearGrid: insertBoundarySegment() did not find the face in the associated element");
-            }
-
-
-            // Get internal indices of the corners of this face wrt its associated element
-            Dune::GeometryType assocElementGeometryType = gridstorage_.element_[associatedElementIndex].geometryType;
-            InternalIndexType node0SubIndex = ReferenceElements::general(assocElementGeometryType).subEntity(j, FACE_CODIM, 0, VERTEX_CODIM);
-            InternalIndexType node1SubIndex = ReferenceElements::general(assocElementGeometryType).subEntity(j, FACE_CODIM, 1, VERTEX_CODIM);
-            InternalIndexType node2SubIndex = ReferenceElements::general(assocElementGeometryType).subEntity(j, FACE_CODIM, 2, VERTEX_CODIM);
-
-            // Define (key = sorted localIndices of corners)
-            FaceKey thisKey;
-            thisKey.node0 = gridstorage_.point_[elementCorners[node0SubIndex]].globalIndex;
-            thisKey.node1 = gridstorage_.point_[elementCorners[node1SubIndex]].globalIndex;
-            thisKey.node2 = gridstorage_.point_[elementCorners[node2SubIndex]].globalIndex;
-
-
-            // Sort in ascending order
-            thisKey.sort();
-
-            // By comparison find internalIndex of this face
-            if (thisKey == thisFaceKey)
-            {
-                found_face = true;
-
-                // Store face in a Map (key -> faceIndex) for constructor purposes
-                // Also create a domain boundary index for future indexing
-                LocalIndexType localFaceIndex = gridstorage_.face_.size();
-                LocalIndexType localFaceDBIndex = gridstorage_.boundarySegmentIndexMap_.size();
-                domainBoundaryFaceKey2LocalIndexMap_[thisKey] = localFaceIndex;
-                gridstorage_.boundarySegmentIndexMap_[localFaceIndex] = localFaceDBIndex;
-                gridstorage_.boundarySegment2LocalIndexMap_[localFaceDBIndex] = localFaceIndex;
-
-                // Store Vector (faceId -> associated element)
-                FaceStorage thisFaceAsSubentity;
-                thisFaceAsSubentity.geometryType = gt;
-                thisFaceAsSubentity.globalIndex  = 0;                  // At this stage the globalId is not known yet
-                thisFaceAsSubentity.ptype = Dune::PartitionType::InteriorEntity;
-                thisFaceAsSubentity.boundaryType = GridStorageType::FaceBoundaryType::DomainBoundary;  // !! When periodic and internal boundaries are introduced this line will change
-
-                thisFaceAsSubentity.element1Index = associatedElementIndex;
-                thisFaceAsSubentity.element2Index = -1;              // Boundary Segments do not have a 2nd neighbor
-                thisFaceAsSubentity.element1SubentityIndex = j;
-                thisFaceAsSubentity.physicalTag = physicalTag;    // Here physical tag is very important as it need not match the tag of the element
-
-                gridstorage_.face_.push_back(thisFaceAsSubentity);
-
-
-                std::stringstream log_stream;
-                log_stream << "CurvilinearGridConstructor: Inserted BoundarySegment Type=" << CurvilinearGeometryHelper::geometryName(gt);
-                log_stream << " LocalIndex=" << gridstorage_.face_.size()-1;
-                log_stream << " Order=" << order;
-                log_stream << " PhysicalTag=" << physicalTag;
-                log_stream << " AssociatedElementIndex=" << associatedElementIndex;
-                log_stream << " InternalSubentityIndex=" << j;
-                LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
-            }
-
-            j++;
-        }*/
     }
+
+
+    /** \brief Compulsory: insert the total number of vertices in the mesh before constructing the grid */
+    void insertNVertexTotal(int nVertexTotal)  { gridstorage_.nEntityTotal_[VERTEX_CODIM] = nVertexTotal; }
+
+    /** \brief Compulsory: insert the total number of elements in the mesh before constructing the grid */
+    void insertNElementTotal(int nElementTotal)  { gridstorage_.nEntityTotal_[ELEMENT_CODIM] = nElementTotal; }
 
 
     /* ***************************************************************************
@@ -380,7 +305,7 @@ public:
     // 7) Construct OCTree
 
     void generateMesh() {
-
+    	LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "[[CurvilinearGridBase: Generating curvilinear mesh...");
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Initializing mesh");
 
         // Construct missing parts of the mesh
@@ -505,20 +430,21 @@ public:
 
         // The PB-PB communication interface is available by default. The below procedures enable the communication interfaces
         // involving ghost entities, and require existence of ghost entities
-//        if ((size_ > 1)&& gridstorage_.withGhostElements_)
-//        {
-//#if HAVE_MPI
-//        	LoggingTimer::time("CurvilinearGridConstructor: Generation of communication maps");
-//        	postConstructor.generateCommunicationMaps();
-//        	LoggingTimer::time("CurvilinearGridConstructor: Generation of communication maps");
-//
-//        	LoggingTimer::time("CurvilinearGridConstructor: Communication of neighbor ranks");
-//            postConstructor.communicateCommunicationEntityNeighborRanks();
-//            LoggingTimer::time("CurvilinearGridConstructor: Communication of neighbor ranks");
-//#endif
-//        }
+        if ((size_ > 1)&& gridstorage_.withGhostElements_)
+        {
+#if HAVE_MPI
+        	LoggingTimer::time("CurvilinearGridConstructor: Generation of communication maps");
+        	postConstructor.generateCommunicationMaps();
+        	LoggingTimer::time("CurvilinearGridConstructor: Generation of communication maps");
+
+        	LoggingTimer::time("CurvilinearGridConstructor: Communication of neighbor ranks");
+            postConstructor.communicateCommunicationEntityNeighborRanks();
+            LoggingTimer::time("CurvilinearGridConstructor: Communication of neighbor ranks");
+#endif
+        }
 
 
+        // ************************************************************
         // Construct OCTree
         // ************************************************************
 
@@ -526,6 +452,44 @@ public:
         computeProcessBoundingBox();
         //constructOctree();
         //LoggingTimer::time("CurvilinearGridConstructor: Constructing OCTree");
+
+
+        // ************************************************************
+        // Diagnostics output
+        // ************************************************************
+        std::stringstream log_stream;
+        log_stream << "CurvilinearGridBase: Constructed Mesh ";
+        log_stream << " nVertexPerMesh="             << gridbase_.nEntityTotal(VERTEX_CODIM);
+        log_stream << " nEdgePerMesh="               << gridbase_.nEntityTotal(EDGE_CODIM);
+        log_stream << " nFacePerMesh="               << gridbase_.nEntityTotal(FACE_CODIM);
+        log_stream << " nElementPerMesh="            << gridbase_.nEntityTotal(ELEMENT_CODIM);
+
+        log_stream << std::endl; "    *** ";
+        log_stream << " nCorner="                    << gridbase_.nEntity(VERTEX_CODIM);
+        log_stream << " nCornerInterior="            << gridbase_.nEntity(VERTEX_CODIM, PartitionType::InteriorEntity);
+        log_stream << " nCornerBorder="              << gridbase_.nEntity(VERTEX_CODIM, PartitionType::BorderEntity);
+        log_stream << " nCornerGhost="               << gridbase_.nEntity(VERTEX_CODIM, PartitionType::GhostEntity);
+
+        log_stream << std::endl; "    *** ";
+        log_stream << " nEdge="                      << gridbase_.nEntity(EDGE_CODIM);
+        log_stream << " nEdgeInterior="              << gridbase_.nEntity(EDGE_CODIM, PartitionType::InteriorEntity);
+        log_stream << " nEdgeBorder="                << gridbase_.nEntity(EDGE_CODIM, PartitionType::BorderEntity);
+        log_stream << " nEdgeGhost="                 << gridbase_.nEntity(EDGE_CODIM, PartitionType::GhostEntity);
+
+        log_stream << std::endl; "    *** ";
+        log_stream << " nFace="                      << gridbase_.nEntity(FACE_CODIM);
+        log_stream << " nFaceInterior="              << gridbase_.nEntity(FACE_CODIM, PartitionType::InteriorEntity);
+        log_stream << " nFaceBoundarySegment="       << gridbase_.nEntity(FACE_CODIM, PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
+        log_stream << " nFaceBorder="                << gridbase_.nEntity(FACE_CODIM, PartitionType::BorderEntity);
+        log_stream << " nFaceGhost="                 << gridbase_.nEntity(FACE_CODIM, PartitionType::GhostEntity);
+
+        log_stream << std::endl; "    *** ";
+        log_stream << " nElement="                   << gridbase_.nEntity(ELEMENT_CODIM);
+        log_stream << " nElementInterior="           << gridbase_.nEntity(ELEMENT_CODIM, PartitionType::InteriorEntity);
+        log_stream << " nElementGhost="              << gridbase_.nEntity(ELEMENT_CODIM, PartitionType::GhostEntity);
+
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
+        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "...CurvilinearGridBase: Finished generating curvilinear mesh]]");
     }
 
 

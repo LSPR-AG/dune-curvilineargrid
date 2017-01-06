@@ -88,6 +88,8 @@
  *  - Currently nEntity counts only corners. Is this expected [Yes]
  *
  * Usage:
+ *  - [TODO] Move insertVertex etc entirely to the GridConstructor. Leave GridBase only with usage methods
+ *  - [TODO] There are two many methods in GridBase. Create subclasses to split file size
  *  - [TODO] Disable all the vertex2string output for multiprocessor case - too much output
  *  - [TODO] Implement TimeSync logging message so processes do not comment on top of each other. Check Boost if already exists
  *
@@ -132,19 +134,6 @@ class CurvilinearGridStorage;
 template <class ct, int cdim, bool isCached>
 class CurvilinearGridBase {
 public:
-
-    /* Stage Structure
-     * *******************************************************************/
-	struct Stage
-	{
-		enum
-		{
-			GRID_CONSTRUCTION,
-			GRID_OPERATION
-		};
-	};
-
-
 
     /* public types
      * *******************************************************************/
@@ -222,12 +211,9 @@ public: /* public methods */
 			bool withElementGlobalIndex,
 			MPIHelper &mpihelper,
 			std::vector<bool> periodicCuboidDimensions) :
-        gridstage_(0),
-        mpihelper_(mpihelper),
-        gridstorage_(withGhostElements, withElementGlobalIndex, periodicCuboidDimensions)
+		gridstorage_(withGhostElements, withElementGlobalIndex, periodicCuboidDimensions),
+		mpihelper_(mpihelper)
     {
-    	gridconstructor_ = new GridConstructorType(gridstorage_, *this, mpihelper);
-
         rank_ = mpihelper_.rank();
         size_ = mpihelper_.size();
 
@@ -243,139 +229,6 @@ private:
     //CurvilinearGridBase& operator=(const CurvilinearGridBase&);
 
 public:
-
-    /* ***************************************************************************
-     * Section: Loading the mesh
-     * ***************************************************************************/
-
-
-    /** \brief Add a new vertex to the mesh
-     * \param[in] globalIndex      global index of this vertex
-     * \param[in] p                coordinate of this vertex
-     * */
-    void insertVertex(GlobalCoordinate p, GlobalIndexType globalIndex)
-    {
-    	assertStage(Stage::GRID_CONSTRUCTION);
-    	gridconstructor_->insertVertex(p, globalIndex);
-    }
-
-    /** \brief Insert an element into the mesh
-     * \param[in] gt               geometry type of the element (hopefully tetrahedron)
-     * \param[in] vertexIndexSet   local indices of interpolatory vertices. Local with respect to the order the vertices were inserted
-     * \param[in] order            interpolatory order of the element
-     * \param[in] physicalTag      physical tag of the element
-     *
-     * */
-    void insertElement(
-        	Dune::GeometryType gt,
-        	const std::vector<LocalIndexType> & vertexIndexSet,
-        	GlobalIndexType globalIndex,
-        	InterpolatoryOrderType order,
-        	PhysicalTagType physicalTag)
-    {
-    	assertStage(Stage::GRID_CONSTRUCTION);
-    	gridconstructor_->insertElement(gt, vertexIndexSet, globalIndex, order, physicalTag);
-    }
-
-    /** Insert a boundary segment into the mesh
-     *
-     *     Note: It is expected that all domain boundaries are inserted by the factory before finalising
-     *     Note: Only domain boundary faces have initial globalId given by GMSH. Therefore, we ignore it, and generate our own
-     *     globalId for all faces at a later stage.
-     *
-     *     Note: Support for interior boundaries is optional. There is no restriction on the number of inserted interior boundaries
-     *     The final effect of this operation is that the faces corresponding to the inserted boundary segments will be marked
-     *     with the provided physicalTag, to distinguish them from the other faces
-     *
-     *  \param[in] gt                       geometry type of the face (should be a triangle)
-     *  \param[in] associatedElementIndex   local index of the element this face is associated to
-     *  \param[in] vertexIndexSet           local indices of the interpolatory vertices of this face
-     *  \param[in] order                    interpolatory order of the face
-     *  \param[in] physicalTag              physical tag of the element (material property)
-     *  \param[in] isDomainBoundary              determines whether the inserted boundary segment belongs to the domain or interior boundary
-     *
-     * */
-
-    void insertBoundarySegment(
-    		Dune::GeometryType gt,
-        	//LocalIndexType associatedElementIndex,
-        	const std::vector<LocalIndexType> & vertexIndexSet,
-        	InterpolatoryOrderType order,
-        	PhysicalTagType physicalTag,
-			bool isDomainBoundary)
-    {
-    	assertStage(Stage::GRID_CONSTRUCTION);
-    	// Note: associatedElementIndex no longer necessary
-    	// gridconstructor_.insertBoundarySegment(gt, associatedElementIndex, vertexIndexSet, order, physicalTag, isDomainBoundary);
-    	gridconstructor_->insertBoundarySegment(gt, vertexIndexSet, order, physicalTag, isDomainBoundary);
-    }
-
-
-
-
-    /** \brief Compulsory: insert the total number of vertices in the mesh before constructing the grid */
-    void insertNVertexTotal(int nVertexTotal)  { gridstorage_.nEntityTotal_[VERTEX_CODIM] = nVertexTotal; }
-
-    /** \brief Compulsory: insert the total number of elements in the mesh before constructing the grid */
-    void insertNElementTotal(int nElementTotal)  { gridstorage_.nEntityTotal_[ELEMENT_CODIM] = nElementTotal; }
-
-
-    /* ***************************************************************************
-     * Section: Constructing the mesh
-     * ***************************************************************************/
-
-    /** Calls the subroutines for transforming the inserted data into a functional mesh.
-     *  Note: It is expected, that all necessary data (vertices, elements and boundary segments) have been added before this function is called.
-     * */
-
-    void generateMesh() {
-    	assertStage(Stage::GRID_CONSTRUCTION);
-    	gridstage_ = Stage::GRID_OPERATION;
-
-        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "[[CurvilinearGridBase: Generating curvilinear mesh...");
-
-        gridconstructor_->generateMesh();
-
-        // Free up the memory taken by the construction procedure
-        delete(gridconstructor_);
-
-        // Diagnostics output
-        std::stringstream log_stream;
-        log_stream << "CurvilinearGridBase: Constructed Mesh ";
-        log_stream << " nVertexPerMesh="             << nEntityTotal(VERTEX_CODIM);
-        log_stream << " nEdgePerMesh="               << nEntityTotal(EDGE_CODIM);
-        log_stream << " nFacePerMesh="               << nEntityTotal(FACE_CODIM);
-        log_stream << " nElementPerMesh="            << nEntityTotal(ELEMENT_CODIM);
-
-        log_stream << std::endl; "    *** ";
-        log_stream << " nCorner="                    << nEntity(VERTEX_CODIM);
-        log_stream << " nCornerInterior="            << nEntity(VERTEX_CODIM, PartitionType::InteriorEntity);
-        log_stream << " nCornerBorder="              << nEntity(VERTEX_CODIM, PartitionType::BorderEntity);
-        log_stream << " nCornerGhost="               << nEntity(VERTEX_CODIM, PartitionType::GhostEntity);
-
-        log_stream << std::endl; "    *** ";
-        log_stream << " nEdge="                      << nEntity(EDGE_CODIM);
-        log_stream << " nEdgeInterior="              << nEntity(EDGE_CODIM, PartitionType::InteriorEntity);
-        log_stream << " nEdgeBorder="                << nEntity(EDGE_CODIM, PartitionType::BorderEntity);
-        log_stream << " nEdgeGhost="                 << nEntity(EDGE_CODIM, PartitionType::GhostEntity);
-
-        log_stream << std::endl; "    *** ";
-        log_stream << " nFace="                      << nEntity(FACE_CODIM);
-        log_stream << " nFaceInterior="              << nEntity(FACE_CODIM, PartitionType::InteriorEntity);
-        log_stream << " nFaceBoundarySegment="       << nEntity(FACE_CODIM, PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
-        log_stream << " nFaceBorder="                << nEntity(FACE_CODIM, PartitionType::BorderEntity);
-        log_stream << " nFaceGhost="                 << nEntity(FACE_CODIM, PartitionType::GhostEntity);
-
-        log_stream << std::endl; "    *** ";
-        log_stream << " nElement="                   << nEntity(ELEMENT_CODIM);
-        log_stream << " nElementInterior="           << nEntity(ELEMENT_CODIM, PartitionType::InteriorEntity);
-        log_stream << " nElementGhost="              << nEntity(ELEMENT_CODIM, PartitionType::GhostEntity);
-
-        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
-        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "...CurvilinearGridBase: Finished generating curvilinear mesh]]");
-    }
-
-
 
     /* ***************************************************************************
      * Section: Setting user constants
@@ -654,8 +507,10 @@ public:
 	}
 
 
-    /** Check if edge is a complex edge */
-    bool isComplex(LocalIndexType localIndex) const
+    /** Check if edge is a complex edge
+     *   Complex edges are shared by more than two processes.
+     * */
+    bool isEdgeComplex(LocalIndexType localIndex) const
     {
     	Local2LocalIterator tmp = gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].find(localIndex);
     	if (tmp == gridstorage_.processBoundaryIndexMap_[EDGE_CODIM].end())  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected local edge index"); }
@@ -855,6 +710,21 @@ public:
     }
 
 
+    unsigned int periodicFacePermutationInner(LocalIndexType faceIndex) const {
+    	auto periodicFaceIter = gridstorage_.periodicBoundaryIndexMap_.find(faceIndex);
+    	assert(periodicFaceIter != gridstorage_.periodicBoundaryIndexMap_.end());  // Should not run this method on a non-periodic face
+    	assert(periodicFaceIter->second < gridstorage_.periodicFaceMatchPermutationIndexInner_.size());
+    	return gridstorage_.periodicFaceMatchPermutationIndexInner_[periodicFaceIter->second];
+    }
+
+    unsigned int periodicFacePermutationOuter(LocalIndexType faceIndex) const {
+    	auto periodicFaceIter = gridstorage_.periodicBoundaryIndexMap_.find(faceIndex);
+    	assert(periodicFaceIter != gridstorage_.periodicBoundaryIndexMap_.end());  // Should not run this method on a non-periodic face
+    	assert(periodicFaceIter->second < gridstorage_.periodicFaceMatchPermutationIndexOuter_.size());
+    	return gridstorage_.periodicFaceMatchPermutationIndexOuter_[periodicFaceIter->second];
+    }
+
+
 
     /** \brief Coordinate of a requested interpolatory vertex
      *  \param[in] localIndex            local vertex index (insertion index)
@@ -968,7 +838,7 @@ public:
     }
 
 
-    const GridStorageType & gridstorage() const { return gridstorage_; }
+    GridStorageType & gridstorage() { return gridstorage_; }
 
     /* ***************************************************************************
      * Section: Public Auxiliary Methods
@@ -1076,19 +946,23 @@ public:
     }
 
 
-    Local2LocalMap & selectCommMap(int codim, PartitionType ptype)
+    Local2LocalMap & selectCommMap(int codim, int ptype)
     {
     	switch (ptype)
     	{
     	case Dune::PartitionType::InteriorEntity :  return gridstorage_.boundaryInternalEntityIndexMap_[codim];  break;
     	case Dune::PartitionType::BorderEntity   :  return gridstorage_.processBoundaryIndexMap_[codim];         break;
     	case Dune::PartitionType::GhostEntity    :  return gridstorage_.ghostIndexMap_[codim];                   break;
+    	case PERIODIC_BOUNDARY_PARTITION_TYPE : {
+    		assert(codim == FACE_CODIM);
+    		return gridstorage_.periodicBoundaryIndexMap_;
+    	} break;
     	default                                  :  DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected comm structural type");  break;
     	}
     }
 
 
-    EntityNeighborRankVector & selectCommRankVector(int codim, PartitionType ptypesend, PartitionType ptyperecv)
+    EntityNeighborRankVector & selectCommRankVector(int codim, int ptypesend, int ptyperecv)
     {
     	// Can only communicate over these 3 PartitionTypes
     	//assertValidCodimStructuralType(codim, ptypesend);
@@ -1096,26 +970,32 @@ public:
 
     	switch (ptypesend)
     	{
-    	case Dune::PartitionType::InteriorEntity :   // Internal -> Ghost protocol
-    	{
-    		assert(ptyperecv == Dune::PartitionType::GhostEntity);
-    		return gridstorage_.BI2GNeighborRank_[codim];
-    	} break;
-    	case Dune::PartitionType::BorderEntity   :   // PB -> PB and PB -> Ghost protocols
-    	{
-    		if      (ptyperecv == Dune::PartitionType::BorderEntity)  { return gridstorage_.PB2PBNeighborRank_[codim]; }
-    		else if (ptyperecv == Dune::PartitionType::GhostEntity)   { return gridstorage_.PB2GNeighborRank_[codim]; }
-    		else { assert(0); }
-    	} break;
-    	case Dune::PartitionType::GhostEntity    :   // Ghost -> (Internal & PB) and Ghost -> Ghost protocols
-    	{
-    		if      (ptyperecv == Dune::PartitionType::InteriorEntity) { return gridstorage_.G2BIPBNeighborRank_[codim]; }
-    		else if (ptyperecv == Dune::PartitionType::BorderEntity)   { return gridstorage_.G2BIPBNeighborRank_[codim]; }
-    		else if (ptyperecv == Dune::PartitionType::GhostEntity)    { return gridstorage_.G2GNeighborRank_[codim]; }
-    		else { assert(0); }
-    	} break;
-    	default: assert(0);  break;
+			case Dune::PartitionType::InteriorEntity :   // Internal -> Ghost protocol
+			{
+				assert(ptyperecv == Dune::PartitionType::GhostEntity);
+				return gridstorage_.BI2GNeighborRank_[codim];
+			} break;
+			case Dune::PartitionType::BorderEntity   :   // PB -> PB and PB -> Ghost protocols
+			{
+				if      (ptyperecv == Dune::PartitionType::BorderEntity)  { return gridstorage_.PB2PBNeighborRank_[codim]; }
+				else if (ptyperecv == Dune::PartitionType::GhostEntity)   { return gridstorage_.PB2GNeighborRank_[codim]; }
+				else { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected comm partition type"); }
+			} break;
+			case Dune::PartitionType::GhostEntity    :   // Ghost -> (Internal & PB) and Ghost -> Ghost protocols
+			{
+				if      (ptyperecv == Dune::PartitionType::InteriorEntity) { return gridstorage_.G2BIPBNeighborRank_[codim]; }
+				else if (ptyperecv == Dune::PartitionType::BorderEntity)   { return gridstorage_.G2BIPBNeighborRank_[codim]; }
+				else if (ptyperecv == Dune::PartitionType::GhostEntity)    { return gridstorage_.G2GNeighborRank_[codim]; }
+				else { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected comm partition type"); }
+			} break;
+			case PERIODIC_BOUNDARY_PARTITION_TYPE :   // Periodic Boundary -> Periodic Boundary protocol
+			{
+				assert(ptyperecv == PERIODIC_BOUNDARY_PARTITION_TYPE);
+				assert(codim == FACE_CODIM);  // Other codim not implemented for this protocol yet
+				return gridstorage_.PERB2PERBNeighborRank_[codim];
+			} break;
 
+			default: DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected comm partition type");  break;
     	}
     }
 
@@ -1127,11 +1007,6 @@ protected:
     /* ***************************************************************************
      * Section: Auxiliary Methods
      * ***************************************************************************/
-
-    void assertStage(int expectedStage)
-    {
-    	if ((gridstage_ == Stage::GRID_OPERATION) && (expectedStage == Stage::GRID_CONSTRUCTION)) { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Attempted to insert entities into grid after construction"); }
-    }
 
     EntityStorage pointData(LocalIndexType localIndex) const
     {
@@ -1244,17 +1119,8 @@ protected:
 
 private: // Private members
 
-    // The stage of the grid determines if the grid has already been assembled or not
-    int gridstage_;
-
-    // Curvilinear Grid Constructor Class
-    GridConstructorType * gridconstructor_;
-
     // Curvilinear Grid Storage Class
     GridStorageType gridstorage_;
-    
-    /** Pointer to single CurvilinearGridBase instance (Singleton) */
-    //static CurvilinearGridBase* instance_ = 0;
 
     MPIHelper &mpihelper_;
     int rank_;

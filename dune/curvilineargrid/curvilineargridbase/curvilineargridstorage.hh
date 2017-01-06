@@ -292,7 +292,7 @@ public:
     // Entity local index -> local structural entity index
     Local2LocalMap  boundarySegmentIndexMap_;				// Domain Boundary Face Index -> Boundary Segment Index
     Local2LocalMap  boundarySegment2LocalIndexMap_;  // Boundary Segment Index -> Domain Boundary Face Index
-    Local2LocalMap  periodicBoundaryIndexMap_;	 			// [TODO] Unique local index for periodic boundaries
+    Local2LocalMap  periodicBoundaryIndexMap_;	 			// Unique local index for periodic boundaries
 
     Local2LocalMap  processBoundaryIndexMap_[4];			// Unique local index for process boundaries
     Local2LocalMap  boundaryInternalEntityIndexMap_[4];	// Unique local index for interior entities next to communicating boundary (process and periodic)
@@ -323,7 +323,8 @@ public:
     EntityNeighborRankVector G2BIPBNeighborRank_[4];  // ghost entity index -> vector{neighbor ranks}
     EntityNeighborRankVector G2GNeighborRank_[4];     // ghost entity index -> vector{neighbor ranks}
 
-    EntityNeighborRankVector PERB2PERBNeighborRank_[4];  // Periodic Boundary Neighbor ranks // [TODO]
+    // [TODO] Currently only available for FACE_CODIM. If necessary, implement for edges and faces
+    EntityNeighborRankVector PERB2PERBNeighborRank_[4];  // Periodic Boundary Neighbor ranks
 
 
     // Periodic boundary storage

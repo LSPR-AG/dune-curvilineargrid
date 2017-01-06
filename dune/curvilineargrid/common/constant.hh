@@ -22,6 +22,7 @@ const int MPI_MASTER_RANK = 0;
 // ******************************************************/
 // Curvilinear Grid Constants                          **/
 // ******************************************************/
+const int PERIODIC_GHOST_BIND_EDGE_TYPE = 1001;  // Additional partition type for periodic ghost binding edges, used for VTK visualization
 const int PERIODIC_GHOST_PARTITION_TYPE = 1000;  // Additional partition type for periodic ghosts
 const int PERIODIC_BOUNDARY_PARTITION_TYPE = 600;  // Additional partition type for periodic boundary faces
 const int BOUNDARY_SEGMENT_PARTITION_TYPE = 500;  // Additional partition type for boundary segments to distinguish them from interior faces
@@ -32,6 +33,20 @@ const int INTERIOR_BOUNDARY_SEGMENT_PARTITION_TYPE = 400;  // Additional partiti
 // ******************************************************/
 const bool LOG_MSG_PATH_ON  = true;  const bool LOG_MSG_PATH_OFF = false;
 const bool LOG_MSG_RANK_ON  = true;  const bool LOG_MSG_RANK_OFF = false;
+
+// ******************************************************/
+// Curvilinear VTK Writer Constants        **/
+// ******************************************************/
+const std::string VTK_XML_VERSION = "1.0";
+const std::string VTK_GRID_TYPE = "UnstructuredGrid";
+const std::string VTK_VTU_VERSION = "0.1";
+const std::string VTK_BYTE_ORDER = "LittleEndian";
+
+const std::string VTK_DATA_FORMAT_ASCII = "ASCII";
+const std::string VTK_DATA_FORMAT_BINARY = "BINARY";
+const std::string VTU_DATA_FORMAT_ASCII = "ascii";
+const std::string VTU_DATA_FORMAT_BINARY = "binary";
+
 
 enum
 {

@@ -65,12 +65,13 @@ namespace Dune
     	{
         	enum
         	{
-        		Internal_Ghost = 0,
-        		ProcessBoundary_ProcessBoundary = 1,
+        		Interior_to_Ghost = 0,
+        		ProcessBoundary_to_ProcessBoundary = 1,
         		ProcessBoundary_Ghost = 2,
-        		Ghost_Internal = 3,
-        		Ghost_ProcessBoundary = 4,
-        		Ghost_Ghost = 5
+        		Ghost_to_Interior = 3,
+        		Ghost_to_ProcessBoundary = 4,
+        		Ghost_to_Ghost = 5,
+				PeriodicBoundary_to_PeriodicBoundary = 6
         	};
     	};
 
@@ -105,7 +106,7 @@ namespace Dune
     		if (codim > 0)
     		{
         		// Communication protocol ProcessBoundary -> ProcessBoundary
-        		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_ProcessBoundary))
+        		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_to_ProcessBoundary))
         		{
         			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol PB->PB");
         			communicateMain<DataHandle, Data, codim>(
@@ -118,51 +119,66 @@ namespace Dune
         		// Communication protocol ProcessBoundary -> Ghost
         		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_Ghost))
         		{
-        			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol PB->G");
-        			communicateMain<DataHandle, Data, codim>(
-        				datahandle,
-        				gridbase_.selectCommMap(codim, PartitionType::BorderEntity),
-        				gridbase_.selectCommRankVector(codim, PartitionType::BorderEntity, PartitionType::GhostEntity)
-        			);
+        			if (gridbase_.withGhostElements()) {
+            			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol PB->G");
+            			communicateMain<DataHandle, Data, codim>(
+            				datahandle,
+            				gridbase_.selectCommMap(codim, PartitionType::BorderEntity),
+            				gridbase_.selectCommRankVector(codim, PartitionType::BorderEntity, PartitionType::GhostEntity)
+            			);
+        			}
         		}
-    		} else
-    		{
+
+        		// Communication protocol Periodic Boundary -> Periodic Boundary
+        		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::PeriodicBoundary_to_PeriodicBoundary))
+        		{
+        			if (gridbase_.withPeriodicBoundaries()) {
+            			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol Periodic->Periodic");
+            			communicateMain<DataHandle, Data, codim>(
+            				datahandle,
+            				gridbase_.selectCommMap(codim, PERIODIC_BOUNDARY_PARTITION_TYPE),
+            				gridbase_.selectCommRankVector(codim, PERIODIC_BOUNDARY_PARTITION_TYPE, PERIODIC_BOUNDARY_PARTITION_TYPE)
+            			);
+        			}
+        		}
+    		} else {
     			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Skipping PB communication for codim=" + std::to_string(codim));
     		}
 
 
+    		if (gridbase_.withGhostElements()) {
+        		// Communication protocol BoundaryInternal -> Ghost
+        		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Interior_to_Ghost))
+        		{
+        			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol I->G");
+        			communicateMain<DataHandle, Data, codim>(
+        				datahandle,
+        				gridbase_.selectCommMap(codim, PartitionType::InteriorEntity),
+        				gridbase_.selectCommRankVector(codim, PartitionType::InteriorEntity, PartitionType::GhostEntity)
+        			);
+        		}
 
-    		// Communication protocol BoundaryInternal -> Ghost
-    		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Internal_Ghost))
-    		{
-    			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol I->G");
-    			communicateMain<DataHandle, Data, codim>(
-    				datahandle,
-    				gridbase_.selectCommMap(codim, PartitionType::InteriorEntity),
-    				gridbase_.selectCommRankVector(codim, PartitionType::InteriorEntity, PartitionType::GhostEntity)
-    			);
-    		}
+        		// Communication protocol Ghost -> BoundaryInternal + ProcessBoundary
+        		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_to_Interior))
+        		{
+        			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol G->I");
+        			communicateMain<DataHandle, Data, codim>(
+        				datahandle,
+        				gridbase_.selectCommMap(codim, PartitionType::GhostEntity),
+        				gridbase_.selectCommRankVector(codim, PartitionType::GhostEntity, PartitionType::InteriorEntity)
+        			);
+        		}
 
-    		// Communication protocol Ghost -> BoundaryInternal + ProcessBoundary
-    		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Internal))
-    		{
-    			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol G->I");
-    			communicateMain<DataHandle, Data, codim>(
-    				datahandle,
-    				gridbase_.selectCommMap(codim, PartitionType::GhostEntity),
-    				gridbase_.selectCommRankVector(codim, PartitionType::GhostEntity, PartitionType::InteriorEntity)
-    			);
-    		}
-
-    		// Communication protocol Ghost -> Ghost
-    		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_Ghost))
-    		{
-    			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol G->G");
-    			communicateMain<DataHandle, Data, codim>(
-    				datahandle,
-    				gridbase_.selectCommMap(codim, PartitionType::GhostEntity),
-    				gridbase_.selectCommRankVector(codim, PartitionType::GhostEntity, PartitionType::GhostEntity)
-    			);
+        		// Communication protocol Ghost -> Ghost
+        		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Ghost_to_Ghost))
+        		{
+        			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol G->G");
+        			communicateMain<DataHandle, Data, codim>(
+        				datahandle,
+        				gridbase_.selectCommMap(codim, PartitionType::GhostEntity),
+        				gridbase_.selectCommRankVector(codim, PartitionType::GhostEntity, PartitionType::GhostEntity)
+        			);
+        		}
     		}
     	}
 
@@ -187,23 +203,30 @@ namespace Dune
     	{
     		if (iftype == Dune::InteriorBorder_InteriorBorder_Interface)
     		{
-    			return (istype == InterfaceSubsetType::ProcessBoundary_ProcessBoundary);
+    			return
+    					(istype == InterfaceSubsetType::ProcessBoundary_to_ProcessBoundary) ||
+						(istype == InterfaceSubsetType::PeriodicBoundary_to_PeriodicBoundary);
     		}
     		else if ((iftype == Dune::InteriorBorder_All_Interface)&&(dir == Dune::ForwardCommunication) )
     		{
-    			return (istype == InterfaceSubsetType::ProcessBoundary_ProcessBoundary) ||
-    				   (istype == InterfaceSubsetType::Internal_Ghost) ||
-    				   (istype == InterfaceSubsetType::ProcessBoundary_Ghost);
+    			return
+    					(istype == InterfaceSubsetType::ProcessBoundary_to_ProcessBoundary) ||
+						(istype == InterfaceSubsetType::PeriodicBoundary_to_PeriodicBoundary) ||
+    				    (istype == InterfaceSubsetType::Interior_to_Ghost) ||
+    				    (istype == InterfaceSubsetType::ProcessBoundary_Ghost);
     		}
     		else if ((iftype == Dune::InteriorBorder_All_Interface)&&(dir == Dune::BackwardCommunication) )
     		{
-    			return (istype == InterfaceSubsetType::ProcessBoundary_ProcessBoundary) ||
-    				   (istype == InterfaceSubsetType::Ghost_Internal) ||
-    				   (istype == InterfaceSubsetType::Ghost_ProcessBoundary);
+    			return
+    					(istype == InterfaceSubsetType::ProcessBoundary_to_ProcessBoundary) ||
+						(istype == InterfaceSubsetType::PeriodicBoundary_to_PeriodicBoundary) ||
+						(istype == InterfaceSubsetType::Ghost_to_Interior) ||
+						(istype == InterfaceSubsetType::Ghost_to_ProcessBoundary);
     		}
     		else if (iftype == Dune::All_All_Interface)  { return true; } // Assuming istype has any allowed value
 
     		// Otherwise an unsupported iftype is provided, so no communication will be done
+    		DUNE_THROW(Dune::IOError, "Unexpected interface type");
     		return false;
     	}
 
@@ -237,26 +260,6 @@ namespace Dune
     		CurvilinearMessageBuffer<DataType> gathermessagebuffer;
     		CurvilinearMessageBuffer<DataType> scattermessagebuffer;
 
-    		/* Debug
-    		std::cout << "Process " << rank_ << " mapsend : " << VectorHelper::map2string(mapSend) << std::endl;
-    		std::cout << "Process " << rank_ << " ranksend : ";
-
-    		for (int i = 0; i < ranklist.size(); i++)
-    		{
-    			std::cout << "(";
-
-        		for (int j = 0; j < ranklist[i].size(); j++)
-        		{
-        			std::cout << ranklist[i][j] << ", ";
-        		}
-        		std::cout << ") ";
-    		}
-
-    		std::cout << std::endl;
-    		*/
-
-
-
     		int nDataSend = 0;
     		int nEntitySend = 0;
 
@@ -284,10 +287,10 @@ namespace Dune
     		// ********************************************************
     		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Computing entities to be sent");
 
-    		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)
+    		for (const auto & entityIndexPair : mapSend)
     		{
-    			LocalIndexType thisEntityLocalIndex = (*iter).first;
-    			LocalIndexType thisEntityLocalSubIndex = (*iter).second;
+    			LocalIndexType thisEntityLocalIndex = entityIndexPair.first;
+    			LocalIndexType thisEntityLocalSubIndex = entityIndexPair.second;
 
     			// Get Entity
     			Entity thisEntity( EntityImpl(thisEntityLocalIndex, gridbase_, Dune::PartitionIteratorType::All_Partition));
@@ -327,11 +330,11 @@ namespace Dune
     		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, logstr.str());
 
 
-    		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)
+    		for (const auto & entityIndexPair : mapSend)
     		{
     			// Get local, sublocal and global indices of this entity (sublocal is local index of all entities of same codim and structural type)
-    			LocalIndexType thisEntityLocalIndex = (*iter).first;
-    			LocalIndexType thisEntityLocalSubIndex = (*iter).second;
+    			LocalIndexType thisEntityLocalIndex = entityIndexPair.first;
+    			LocalIndexType thisEntityLocalSubIndex = entityIndexPair.second;
     			GlobalIndexType thisEntityGlobalIndex;
     			if (!gridbase_.findEntityGlobalIndex(codim, thisEntityLocalIndex, thisEntityGlobalIndex))  {
     				std::cout << " Communication: Global index of communicating entity with local index  " << thisEntityLocalIndex << " not found" << std::endl;

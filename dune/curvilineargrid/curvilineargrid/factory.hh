@@ -31,13 +31,7 @@
 #include <dune/geometry/referenceelements.hh>
 
 #include <dune/grid/common/gridfactory.hh>
-
-//#include <dune/grid/utility/globalindex.hh>
-
-//#include <dune/alugrid/common/transformation.hh>
-//#include <dune/alugrid/3d/alugrid.hh>
-//#include <dune/alugrid/3d/gridfactory.hh>
-//#include <dune/alugrid/3d/gridfactory.cc>
+#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbasefactory.hh>
 
 #include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
@@ -64,6 +58,8 @@ class CurvilinearGridFactory
 	static const int dimension = GridType::dimension;
 	typedef FieldVector< ctype, dimension >                 VertexCoordinate;
 
+	typedef CurvilinearGridBaseFactory<GridBaseType> BaseFactory;
+
 
   public:
 
@@ -74,22 +70,13 @@ class CurvilinearGridFactory
     		MPIHelper &mpihelper,
 			std::vector<bool> periodicCuboidDimensions = std::vector<bool>())
     {
-    	gridbase_ = new GridBaseType(
-    		withGhostElements,
-    		withGmshElementIndex,
-    		mpihelper,
-			periodicCuboidDimensions);
-    }
-
-    // GridBase is constructed and deleted here
-    // NOTE: FACTORY SHOULD NOT DELETE GRIDBASE, BECAUSE THAT KILLS THE GRID IF THE FACTORY IS DESTROYED BEFORE THE GRID
-    ~CurvilinearGridFactory ()  {
-    	//if (gridbase_)  { delete gridbase_; }
+    	basefactory_ = new BaseFactory(withGhostElements, withGmshElementIndex, mpihelper, periodicCuboidDimensions);
     }
 
     void insertVertex ( const VertexCoordinate &pos, const GlobalIndexType globalIndex )
     {
-    	gridbase_->insertVertex(pos, globalIndex);
+    	assert(basefactory_);
+    	basefactory_->insertVertex(pos, globalIndex);
     }
 
     void insertElement(
@@ -99,45 +86,40 @@ class CurvilinearGridFactory
       const int elemOrder,
       const int physicalTag)
     {
-    	gridbase_->insertElement(geometry, vertexIndexSet, globalIndex, elemOrder, physicalTag);
+    	assert(basefactory_);
+    	basefactory_->insertElement(geometry, vertexIndexSet, globalIndex, elemOrder, physicalTag);
     }
 
     void insertBoundarySegment(
         GeometryType &geometry,
         const std::vector< LocalIndexType > &vertexIndexSet,
         const int elemOrder,
-        //const LocalIndexType associatedElementIndex,
         const int physicalTag,
 		bool isDomainBoundary)
     {
-    	// Note: associatedElementIndex no longer necessary
-    	// gridbase_->insertBoundarySegment(geometry, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag, isDomainBoundary);
-    	gridbase_->insertBoundarySegment(geometry, vertexIndexSet, elemOrder, physicalTag, isDomainBoundary);
+    	assert(basefactory_);
+    	basefactory_->insertBoundarySegment(geometry, vertexIndexSet, elemOrder, physicalTag, isDomainBoundary);
     }
 
-    void insertNVertexTotal(int nVertexTotal)  { gridbase_->insertNVertexTotal(nVertexTotal); }
+    void insertNVertexTotal(int nVertexTotal)  { basefactory_->insertNVertexTotal(nVertexTotal); }
 
-    void insertNElementTotal(int nElementTotal)  { gridbase_->insertNElementTotal(nElementTotal); }
+    void insertNElementTotal(int nElementTotal)  { basefactory_->insertNElementTotal(nElementTotal); }
 
-
-    GridType * createGrid()
-    {
-    	gridbase_->generateMesh();
-    	GridType * grid = new GridType(gridbase_);
-
-    	return grid;
+    // NOTE: USER MUST DELETE THE GRID POINTER
+    GridType * createGrid()  {
+    	assert(basefactory_);
+    	grid_ = new GridType(basefactory_->createGrid());
+    	delete basefactory_;
+    	return grid_;
     }
 
 
-    // Variables
-    // -----------------------------------------------------------
   private:
 
-    GridBaseType * gridbase_;
+    BaseFactory * basefactory_;
+    GridType * grid_;
 
-
-
-  };
+};
 
 } // namespace CurvGrid
 

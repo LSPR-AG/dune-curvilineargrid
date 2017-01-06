@@ -1,6 +1,12 @@
-// -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
-// vi: set et ts=4 sw=2 sts=2:
-// $Id$
+/********************************************
+ * Dune-CurvilinearGrid
+ * Tutorial 1: Getting started
+ *
+ * Author: Aleksejs Fomins
+ *
+ * Description: This simple tutorial reads a curvilinear grid from .msh file,
+ * constructs the mesh and reports the timing of reading and construction procedures
+ ********************************************/
 
 #include <config.h>
 

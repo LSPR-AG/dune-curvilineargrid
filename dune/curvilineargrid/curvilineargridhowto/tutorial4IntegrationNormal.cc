@@ -1,6 +1,12 @@
-// -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
-// vi: set et ts=4 sw=2 sts=2:
-// $Id$
+/********************************************
+ * Dune-CurvilinearGrid
+ * Tutorial 4b: Integration: Normal Integral
+ *
+ * Author: Aleksejs Fomins
+ *
+ * Description: This tutorial integrates the vector unit outer normal over the domain boundary.
+ * According to the Divergence theorem, this integral should amount to zero vector.
+ ********************************************/
 
 #include <config.h>
 

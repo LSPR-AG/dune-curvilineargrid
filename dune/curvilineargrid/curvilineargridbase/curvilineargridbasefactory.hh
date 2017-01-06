@@ -52,6 +52,7 @@ class CurvilinearGridBaseFactory
 	// Typedefs and const variables
 	// -----------------------------------------------------------
 	typedef typename GridBaseType::ctype      ctype;
+	typedef typename GridBaseType::GridConstructorType  GridConstructor;
 
 	static const bool  iscached     = GridBaseType::is_cached;
     static const int dimension      = GridBaseType::dimension;
@@ -73,13 +74,19 @@ class CurvilinearGridBaseFactory
 		std::vector<bool> periodicCuboidDimensions = std::vector<bool>())
     {
     	gridbase_ = new GridBaseType(withGhostElements, withGmshElementIndex, mpihelper, periodicCuboidDimensions);
+    	gridconstructor_ = new GridConstructor(*gridbase_, mpihelper);
     }
 
-    ~CurvilinearGridBaseFactory ()  {}
+    // GridBase is constructed and deleted here
+    // NOTE: FACTORY SHOULD NOT DELETE GRIDBASE, BECAUSE THAT KILLS THE GRID IF THE FACTORY IS DESTROYED BEFORE THE GRID
+    ~CurvilinearGridBaseFactory ()  {
+    	//if (gridbase_)  { delete gridbase_; }
+    }
 
     void insertVertex ( const VertexCoordinate &pos, const VertexGlobalIndex globalIndex )
     {
-    	gridbase_->insertVertex(pos, globalIndex);
+    	assert(gridconstructor_);
+    	gridconstructor_->insertVertex(pos, globalIndex);
     }
 
     void insertElement(
@@ -89,31 +96,35 @@ class CurvilinearGridBaseFactory
       const int elemOrder,
       const int physicalTag)
     {
-    	gridbase_->insertElement(geometry, vertexIndexSet, globalIndex, elemOrder, physicalTag);
+    	assert(gridconstructor_);
+    	gridconstructor_->insertElement(geometry, vertexIndexSet, globalIndex, elemOrder, physicalTag);
     }
 
     void insertBoundarySegment(
         GeometryType &geometry,
         const std::vector< VertexLocalIndex > &vertexIndexSet,
         const int elemOrder,
-        //const ElementLocalIndex associatedElementIndex,
         const int physicalTag,
 		bool isDomainBoundary)
     {
-    	// Note: associatedElementIndex no longer necessary
-    	//gridbase_->insertBoundarySegment(geometry, associatedElementIndex, vertexIndexSet, elemOrder, physicalTag, isDomainBoundary);
-    	gridbase_->insertBoundarySegment(geometry, vertexIndexSet, elemOrder, physicalTag, isDomainBoundary);
+    	assert(gridconstructor_);
+    	gridconstructor_->insertBoundarySegment(geometry, vertexIndexSet, elemOrder, physicalTag, isDomainBoundary);
     }
 
+    // [TODO] This functionality is rudimentary. The mpi_comm of 2 integers is really cheap, no reason to further break facade class factory
+    void insertNVertexTotal(int nVertexTotal)  { gridconstructor_->insertNVertexTotal(nVertexTotal); }
+    void insertNElementTotal(int nElementTotal)  { gridconstructor_->insertNElementTotal(nElementTotal); }
 
-    void insertNVertexTotal(int nVertexTotal)  { gridbase_->insertNVertexTotal(nVertexTotal); }
 
-    void insertNElementTotal(int nElementTotal)  { gridbase_->insertNElementTotal(nElementTotal); }
-
-
+    // NOTE: USER MUST DELETE THE GRIDBASE POINTER!!!
     GridBaseType * createGrid()
     {
-    	gridbase_->generateMesh();
+    	assert(gridconstructor_);
+    	gridconstructor_->generateMesh();
+
+        // Free up the memory taken by the construction procedure
+        delete(gridconstructor_);
+
     	return gridbase_;
     }
 
@@ -122,6 +133,7 @@ class CurvilinearGridBaseFactory
   private:
 
     GridBaseType * gridbase_;
+    GridConstructor * gridconstructor_;
 
   };
 

@@ -240,48 +240,11 @@ public: /* public methods */
 
 
     	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Assemble PRB gind map");
-    	const GlobalIndexPeriodicScatterDataMap & gind2gindrankmap = periodicMapGlobal.map();
+    	assemblePeriodicGlobalIndexLocalMap(periodicMapGlobal, nPeriodicFaceTotThisProcess);
 
 
-    	int countFoundPeriodicFaces = 0;
-    	for (auto && faceIter : gridstorage_.boundarySegmentIndexMap_) {
-			LocalIndexType thisFaceLocalIndex = faceIter.first;
-			const FaceStorage & thisFace = gridstorage_.face_[thisFaceLocalIndex];
-			LocalIndexType thisFaceGlobalIndex = thisFace.globalIndex;
-
-			auto g2grmInnerIter = gind2gindrankmap.find(thisFaceGlobalIndex);
-			if (g2grmInnerIter != gind2gindrankmap.end()) {
-				// Check that this boundary is already marked as a periodic boundary
-				assert(gridstorage_.face_[thisFaceLocalIndex].boundaryType == GridStorageType::FaceBoundaryType::PeriodicBoundary);
-
-				// Count the periodic face
-				countFoundPeriodicFaces++;
-
-				// Filter out the periodic boundary connection map only with faces local to this process
-				PeriodicScatterData neighborData = g2grmInnerIter->second;
-				gind2periodicDataMap_[thisFaceGlobalIndex] = neighborData;
-				gind2periodicDataMapInverse_[neighborData.gind_] = PeriodicScatterData(thisFaceGlobalIndex, rank_, 0); // [FIXME] Permutation index set to whatever number since it is not used
-
-				// Generate the periodic boundary local index
-				assert(gridstorage_.periodicBoundaryIndexMap_.find(thisFaceLocalIndex) == gridstorage_.periodicBoundaryIndexMap_.end());
-				LocalIndexType periodicLocalIndex = gridstorage_.periodicBoundaryIndexMap_.size();
-				gridstorage_.periodicBoundaryIndexMap_[thisFaceLocalIndex] = periodicLocalIndex;
-
-				// Store the periodic permutations
-				auto g2grmOuterIter = gind2gindrankmap.find(g2grmInnerIter->second.gind_);
-				assert(g2grmOuterIter != gind2gindrankmap.end());
-				assert(g2grmOuterIter->second.gind_ == thisFaceGlobalIndex);
-
-				gridstorage_.periodicFaceMatchPermutationIndexInner_.push_back(g2grmInnerIter->second.thisPermutationIndex_);
-				gridstorage_.periodicFaceMatchPermutationIndexOuter_.push_back(g2grmOuterIter->second.thisPermutationIndex_);
-			}
-		}
-
-    	assert(gind2periodicDataMap_.size() == gind2periodicDataMapInverse_.size());
-
-    	// Check that all periodic faces were present in the map
-    	assert(countFoundPeriodicFaces == nPeriodicFaceTotThisProcess);
-
+    	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Mark all local periodic neighbors into the grid");
+    	markLocalPeriodicNeighbors();
     }
 
     const GlobalIndexPeriodicScatterDataMap & map() const { return gind2periodicDataMap_; }
@@ -344,7 +307,7 @@ protected:
     // Assert that two faces are translation-conformal w.r.t provided normal
     // Find the permutation of v2 corners such that it conforms to v1
     // Return the permutation index
-    unsigned int matchPeriodicFace(
+    std::pair<unsigned int, unsigned int> matchPeriodicFace(
     		const GlobalCoordinate v1[],
 			const GlobalCoordinate v2[],
 			int dim)
@@ -352,21 +315,27 @@ protected:
     	const unsigned int nFacePoint = 3;  // [TODO] Make me nice
     	const unsigned int NON_INIT = 10000;  // Set some unrealistic size to check if was init
 
-    	std::vector<unsigned int> perm(nFacePoint, NON_INIT);
+    	std::vector<unsigned int> permForwards(nFacePoint, NON_INIT);			// how to permute v1 to become v2
+    	std::vector<unsigned int> permBackwards(nFacePoint, NON_INIT);		// how to permute v2 to become v1
 
     	for (unsigned int i = 0; i < nFacePoint; i++) {
     		unsigned int nMatchThisCorner = 0;
         	for (unsigned int j = 0; j < nFacePoint; j++) {
         		if (matchPeriodicPoints(v1[i], v2[j], dim, false)) {
         			nMatchThisCorner++;
-        			assert(perm[j] == NON_INIT);  // check surjectivity
-        			perm[j] = i;
+        			assert(permForwards[i] == NON_INIT);  // check surjectivity
+        			assert(permBackwards[j] == NON_INIT);  // check surjectivity
+        			permForwards[i] = j;
+        			permBackwards[j] = i;
         		}
         	}
         	assert(nMatchThisCorner == 1);  // check injectivity
     	}
 
-    	return Dune::CurvilinearGeometryHelper::permutation2index(perm);
+    	return std::pair<unsigned int, unsigned int> (
+    			Dune::CurvilinearGeometryHelper::permutation2index(permForwards),
+				Dune::CurvilinearGeometryHelper::permutation2index(permBackwards)
+    	);
     }
 
 
@@ -475,12 +444,13 @@ protected:
 						// Match the corresponding corners, thus get the permutation index of (+) face, when keeping the (-) face orientation fixed
 						// VERY IMPORTANT: THIS STRATEGY RELIES ON LOCAL COORDINATE SYSTEM OF EACH ELEMENT STAYING FIXED
 						// IF GRID DECIDES TO PERMUTE THE LOCAL COORDINATES OF AN ELEMENT, THIS METHOD WILL BECOME INVALID.
-						unsigned int permIndexM = 0;  // Do not permute the negative face
-						unsigned int permIndexP = matchPeriodicFace(
+						std::pair<unsigned int, unsigned int> faceCoordPermutation = matchPeriodicFace(
 								periodicDataTot[iNormDimM][iFace].corner_,
 								periodicDataTot[iNormDimP][iFace].corner_,
 								iDim
 						);
+						unsigned int permIndexM = faceCoordPermutation.first;
+						unsigned int permIndexP = faceCoordPermutation.second;
 
 						// Store the map in both directions
 						// NOTE:The permutation index corresponds to permuting arg face, not val face
@@ -494,6 +464,80 @@ protected:
 			}
 		}
     }
+
+
+    void assemblePeriodicGlobalIndexLocalMap(const GlobalIndexPeriodicScatterDataMapGenerator & periodicMapGlobal, int nPeriodicFaceTotThisProcess)
+    {
+    	const GlobalIndexPeriodicScatterDataMap & gind2gindrankmap = periodicMapGlobal.map();
+
+    	int countFoundPeriodicFaces = 0;
+    	for (auto && faceIter : gridstorage_.boundarySegmentIndexMap_) {
+			LocalIndexType thisFaceLocalIndex = faceIter.first;
+			const FaceStorage & thisFace = gridstorage_.face_[thisFaceLocalIndex];
+			LocalIndexType thisFaceGlobalIndex = thisFace.globalIndex;
+
+			auto g2grmInnerIter = gind2gindrankmap.find(thisFaceGlobalIndex);
+			if (g2grmInnerIter != gind2gindrankmap.end()) {
+				// Check that this boundary is already marked as a periodic boundary
+				assert(gridstorage_.face_[thisFaceLocalIndex].boundaryType == GridStorageType::FaceBoundaryType::PeriodicBoundary);
+
+				// Count the periodic face
+				countFoundPeriodicFaces++;
+
+				// Filter out the periodic boundary connection map only with faces local to this process
+				PeriodicScatterData neighborData = g2grmInnerIter->second;
+				gind2periodicDataMap_[thisFaceGlobalIndex] = neighborData;
+				gind2periodicDataMapInverse_[neighborData.gind_] = PeriodicScatterData(thisFaceGlobalIndex, rank_, 0); // [FIXME] Permutation index set to whatever number since it is not used
+
+				// Generate the periodic boundary local index
+				assert(gridstorage_.periodicBoundaryIndexMap_.find(thisFaceLocalIndex) == gridstorage_.periodicBoundaryIndexMap_.end());
+				LocalIndexType periodicLocalIndex = gridstorage_.periodicBoundaryIndexMap_.size();
+				gridstorage_.periodicBoundaryIndexMap_[thisFaceLocalIndex] = periodicLocalIndex;
+				gridstorage_.PERB2PERBNeighborRank_[FACE_CODIM].push_back(std::vector<int>{neighborData.ownerRank_});
+
+				// Store the periodic permutations
+				auto g2grmOuterIter = gind2gindrankmap.find(g2grmInnerIter->second.gind_);
+				assert(g2grmOuterIter != gind2gindrankmap.end());
+				assert(g2grmOuterIter->second.gind_ == thisFaceGlobalIndex);
+
+				gridstorage_.periodicFaceMatchPermutationIndexInner_.push_back(g2grmInnerIter->second.thisPermutationIndex_);
+				gridstorage_.periodicFaceMatchPermutationIndexOuter_.push_back(g2grmOuterIter->second.thisPermutationIndex_);
+			}
+		}
+
+    	assert(gind2periodicDataMap_.size() == gind2periodicDataMapInverse_.size());
+
+    	// Check that all periodic faces were present in the map
+    	assert(countFoundPeriodicFaces == nPeriodicFaceTotThisProcess);
+    }
+
+
+    void markLocalPeriodicNeighbors() {
+        for (auto const & faceIter: gind2periodicDataMap_)
+		{
+			// Get global and local face index
+			GlobalIndexType thisFaceGlobalIndex = faceIter.first;
+			GlobalIndexType thisNeighborFaceGInd = faceIter.second.gind_;
+			auto thisFaceIndexIter = gridstorage_.entityIndexMap_[FACE_CODIM].find(thisFaceGlobalIndex);
+			assert(thisFaceIndexIter != gridstorage_.entityIndexMap_[FACE_CODIM].end());
+			LocalIndexType thisFaceLocalIndex = thisFaceIndexIter->second;
+
+			// If periodic neighbor exists on this process, do not communicate it, but mark it straight away
+			// Optimization: The assignment can be done in pairs
+			auto thisNeighborFaceIndexIter = gridstorage_.entityIndexMap_[FACE_CODIM].find(thisNeighborFaceGInd);
+			if (thisNeighborFaceIndexIter != gridstorage_.entityIndexMap_[FACE_CODIM].end()) {
+				LocalIndexType thisNeighborFaceLInd = thisNeighborFaceIndexIter->second;
+				gridstorage_.face_[thisFaceLocalIndex].element2Index = gridstorage_.face_[thisNeighborFaceLInd].element1Index;
+				gridstorage_.face_[thisFaceLocalIndex].element2SubentityIndex = gridstorage_.face_[thisNeighborFaceLInd].element1SubentityIndex;
+
+				assert(gridstorage_.face_[thisNeighborFaceLInd].element1Index >= 0);
+				assert(gridstorage_.face_[thisNeighborFaceLInd].element1SubentityIndex >= 0);
+			}
+		}
+    }
+
+
+
 
 private: // Private members
 

@@ -89,7 +89,6 @@ int main(int argc, char** argv)
 	int  VTK_CURV_DISCRETIZATION = 7;       // 2=linear, minimal allowed discretization
 	bool VTK_INTERPOLATE_DISCRETIZATION = true;
 	bool VTK_EXPLODE_ELEMENTS = true;
-	std::vector<bool> VTK_WRITE_CODIM {true, true, false, false};  // Use tetrahedra and triangles to discretize the mesh
 
     diagnostic.vtkWriteMesh(
     	withElements,
@@ -97,9 +96,7 @@ int main(int argc, char** argv)
     	withEdges,
     	VTK_CURV_DISCRETIZATION,
     	VTK_INTERPOLATE_DISCRETIZATION,
-    	VTK_EXPLODE_ELEMENTS,
-    	VTK_WRITE_CODIM
-    );
+    	VTK_EXPLODE_ELEMENTS);
 
     diagnostic.vtkWriteOctree();
 

@@ -122,7 +122,6 @@ public: /* public methods */
         mpihelper_(mpihelper),
 		allcomm_(mpihelper),
 		periodicConstr_(periodicConstr),
-		nPeriodicGhostLocal_(0),
 		nPeriodicGhostNeighbor_(0),
 		nProcessGhost_(0)
     {
@@ -241,7 +240,7 @@ protected:
      *
      * 1) Loop over all Periodic faces, if they exist
      * 1.1) Verify the face structural type was originally a domain boundary, and set it to periodic boundary
-     * 1.2) Check if periodic neighbor is local. If yes, do not communicate it, but directly link face neighbor local indices.
+     * 1.2) Check if periodic neighbor is local. If yes, it has already been treated in the periodic constructor and can safely be ignored
      * 1.3) Otherwise, add this face as subentity for interior element to be communicated as ghost
      * 2) Loop over all PB faces
      * 2.1) Verify the face structural type is periodic boundary
@@ -279,20 +278,9 @@ protected:
 				int thisNeighborFaceRank = faceIter.second.ownerRank_;
 				GlobalIndexType thisNeighborFaceGInd = faceIter.second.gind_;
 
-				// If periodic neighbor exists on this process, do not communicate it, but mark it immediately
-				// Optimization: The assignment can be done in pairs
+				// Prepare the face for global communication of non-local periodic neighbors
 				auto thisNeighborFaceIndexIter = gridstorage_.entityIndexMap_[FACE_CODIM].find(thisNeighborFaceGInd);
-				if (thisNeighborFaceIndexIter != gridstorage_.entityIndexMap_[FACE_CODIM].end()) {
-					nPeriodicGhostLocal_++;
-					LocalIndexType thisNeighborFaceLInd = thisNeighborFaceIndexIter->second;
-					gridstorage_.face_[thisFaceLocalIndex].element2Index = gridstorage_.face_[thisNeighborFaceLInd].element1Index;
-					gridstorage_.face_[thisFaceLocalIndex].element2SubentityIndex = gridstorage_.face_[thisNeighborFaceLInd].element1SubentityIndex;
-
-					assert(gridstorage_.face_[thisNeighborFaceLInd].element1Index >= 0);
-					assert(gridstorage_.face_[thisNeighborFaceLInd].element1SubentityIndex >= 0);
-
-				} else { // Otherwise, prepare the face for global communication
-
+				if (thisNeighborFaceIndexIter == gridstorage_.entityIndexMap_[FACE_CODIM].end()) {
 					LocalIndexType  thisGhostLocalIndex = gridstorage_.face_[thisFaceLocalIndex].element1Index;
 					InternalIndexType thisFaceSubentityIndex = gridstorage_.face_[thisFaceLocalIndex].element1SubentityIndex;
 
@@ -344,7 +332,6 @@ protected:
         }
 
         std::cout << "On rank " << rank_
-        		<< " local periodic elements " << nPeriodicGhostLocal_
 				<< ", periodic ghosts " << nPeriodicGhostNeighbor_
 				<< ", process ghosts " << nProcessGhost_
 				<< std::endl;
@@ -882,7 +869,6 @@ private: // Private members
     // Map received from periodic boundary constructor
     const PeriodicConstr * periodicConstr_;
 
-    int nPeriodicGhostLocal_;  // Count the number of periodic ghosts that are in fact elements interior to this process. Use for self-test
     int nPeriodicGhostNeighbor_;  // Count the number of periodic ghosts that are not located on this process
     int nProcessGhost_;  // Count the number of periodic ghosts that are not located on this process
 

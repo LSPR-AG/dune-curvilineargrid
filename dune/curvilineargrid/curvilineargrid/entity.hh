@@ -79,7 +79,7 @@ namespace Dune
 	  // Constructor that allows the iterator class to iterate over the entities
 	  CurvEntityBase (
 	    const IndexSetIterator & iter,
-	    GridBaseType & gridbase,
+	    const GridBaseType & gridbase,
 	    Dune::PartitionIteratorType pitype
 	    )
 	  	  :
@@ -93,7 +93,7 @@ namespace Dune
 	  // Constructor for when the iterator is irrelevant. Creates default iterator over all-partition
 	  CurvEntityBase (
 	    LocalIndexType localIndex,
-	    GridBaseType & gridbase,
+		const GridBaseType & gridbase,
 	    Dune::PartitionIteratorType pitype
 	    )
 	  	  :
@@ -234,7 +234,7 @@ namespace Dune
   protected:
 	    IndexSetIterator gridbaseIndexIterator_;
 	    mutable Geometry * geometry_;
-	    GridBaseType * gridbase_;
+	    const GridBaseType * gridbase_;
 	    Dune::PartitionIteratorType pitype_;
   };
 
@@ -258,7 +258,7 @@ namespace Dune
 
       CurvEntity (
 	      const IndexSetIterator & iter,
-	      GridBaseType & gridbase,
+		  const GridBaseType & gridbase,
 	      Dune::PartitionIteratorType pitype)
 	  	      : Base(iter, gridbase, pitype)
 	  {}
@@ -266,14 +266,14 @@ namespace Dune
 	  // Constructor for when the iterator is irrelevant. Creates default iterator over all-partition
 	  CurvEntity (
           LocalIndexType localIndex,
-	      GridBaseType & gridbase,
+		  const GridBaseType & gridbase,
 	      Dune::PartitionIteratorType pitype)
 	  	      :  Base(localIndex, gridbase, pitype)
 	  {  }
 
 	  // Constructor from a seed
 	  template <class Seed>
-	  CurvEntity(Seed & seed, GridBaseType & gridbase)
+	  CurvEntity(Seed & seed, const GridBaseType & gridbase)
 	     : Base(seed.localIndex(), gridbase, seed.partitionIteratorType())
 	  {
 
@@ -355,7 +355,7 @@ namespace Dune
 
 	  CurvEntity (
 	      const IndexSetIterator & iter,
-	      GridBaseType & gridbase,
+		  const GridBaseType & gridbase,
 	      Dune::PartitionIteratorType pitype)
 	  	      : Base(iter, gridbase, pitype)
 	  {}
@@ -364,14 +364,14 @@ namespace Dune
 	  // Constructor for when the iterator is irrelevant. Creates default iterator over all-partition
 	  CurvEntity (
           LocalIndexType localIndex,
-	      GridBaseType & gridbase,
+		  const GridBaseType & gridbase,
 	      Dune::PartitionIteratorType pitype)
 	  	      :  Base(localIndex, gridbase, pitype)
 	  {  }
 
 	  // Constructor from a seed
 	  template <class Seed>
-	  CurvEntity(Seed & seed, GridBaseType & gridbase)
+	  CurvEntity(Seed & seed, const GridBaseType & gridbase)
 	     : Base(seed.localIndex(), gridbase, seed.partitionIteratorType())
 	  {
 

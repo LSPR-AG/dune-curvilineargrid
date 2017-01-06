@@ -1,6 +1,12 @@
-// -*- tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
-// vi: set et ts=4 sw=2 sts=2:
-// $Id$
+/********************************************
+ * Dune-CurvilinearGrid
+ * Tutorial 2: Traversal
+ *
+ * Author: Aleksejs Fomins
+ *
+ * Description: Building up from tutorial 1, this tutorial iterates over the entities
+ * of the grid, and outputs properties of the entities, such as global index and curvature order
+ ********************************************/
 
 #include <config.h>
 

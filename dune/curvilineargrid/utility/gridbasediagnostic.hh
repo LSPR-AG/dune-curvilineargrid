@@ -159,8 +159,7 @@ public:
 		std::vector<bool> withEdges,
 		int nDiscretizationPoints,
 		bool interpolate,
-		bool explode,
-		std::vector<bool> writeCodim
+		bool explode
 	)
 
 	{
@@ -177,23 +176,23 @@ public:
 
     	for (int iType = 0; iType < structTypeSet.size(); iType++)
     	{
-    		if (withEdges[iType])     { addVTKentity<EDGE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeCodim); }
-    		if (withFaces[iType])     { addVTKentity<FACE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeCodim); }
+    		if (withEdges[iType])     { addVTKentity<EDGE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode); }
+    		if (withFaces[iType])     { addVTKentity<FACE_CODIM>    (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode); }
 
     		// For elements there is no Domain and Process boundaries, so only Internal and Ghost requests are processed
     		if ((iType < 2) && (withElements[iType]))
-    		                          { addVTKentity<ELEMENT_CODIM> (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode, writeCodim); }
+    		                          { addVTKentity<ELEMENT_CODIM> (vtkCurvWriter, structTypeSet[iType], nDiscretizationPoints, interpolate, explode); }
     	}
 
     	// Write boundarySegments if requested
-    	if (withFaces[3])  { addVTKentity<FACE_CODIM> (vtkCurvWriter, PartitionType::InteriorEntity, nDiscretizationPoints, interpolate, explode, writeCodim, DOMAIN_BOUNDARY_TYPE); }
+    	if (withFaces[3])  { addVTKentity<FACE_CODIM> (vtkCurvWriter, PartitionType::InteriorEntity, nDiscretizationPoints, interpolate, explode, DOMAIN_BOUNDARY_TYPE); }
 
 
 		// Writing Mesh
     	// *************************************************************************
 		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Writing VTK File");
     	//vtkCurvWriter.writeVTK("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
-    	vtkCurvWriter.writeParallelVTU("./", "curvreader_output");
+    	vtkCurvWriter.writeParallelVTU("./", "curvreader_output", VTU_DATA_FORMAT_ASCII);
     	LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Finished writing");
 	}
 
@@ -312,10 +311,11 @@ protected:
 		int nDiscretizationPoints,
 		bool interpolate,
 		bool explode,
-		std::vector<bool> writeCodim,
 		StructuralType boundaryType = NO_BOUNDARY_TYPE
 	)
 	{
+		const int mydim = cdim - codim;
+
 		typedef typename GridBaseType::template Codim<codim>::EntityGeometry     EntityGeometry;
 
 		for (const auto & elemLocalIndex : gridbase_.entityIndexSetSelect(codim, ptype, boundaryType))
@@ -336,15 +336,14 @@ protected:
 			std::vector<GlobalCoordinate>      point             = thisGeometry.vertexSet();
 			std::vector<int>         tags  { physicalTag, typeTag, rank_ };
 
-	    	vtkCurvWriter.template addCurvilinearElement<cdim - codim>(
+	    	vtkCurvWriter.template addCurvilinearElement<mydim, mydim>(
 	    			gt,
 	    			point,
 	    			tags,
 	    			order,
 	    			nDiscretizationPoints,
 	    			interpolate,
-	    			explode,
-	    			writeCodim);
+	    			explode);
 		}
 	}
 

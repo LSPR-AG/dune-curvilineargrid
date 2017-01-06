@@ -426,16 +426,12 @@ namespace CurvGrid {
         {
         	LoggingTimer::time("CurvilinearGMSHReader: Writing VTK output");
         	//vtkCurvWriter_.writeVTK("./curvreader_output_process_" + std::to_string(rank_) + ".vtk");
-        	vtkCurvWriter_.writeParallelVTU("./", "curvreader_output");
+        	vtkCurvWriter_.writeParallelVTU("./", "curvreader_output", VTU_DATA_FORMAT_ASCII);
             LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__,  "Curvilinear VTK Writer finished writing" );
             LoggingTimer::time("CurvilinearGMSHReader: Writing VTK output");
         }
 
-
-
-
         LoggingTimer::time("CurvilinearGMSHReader: Inserting Entities into the factory");
-
 
         // Close file
         fclose(file);
@@ -1400,7 +1396,6 @@ namespace CurvGrid {
     	int VTK_DISCRETIZATION_POINTS = 6;    // Sampling frequency over curved element. min=2 is linear sampling
     	bool VTK_INTERPOLATE = true;          // Whether to use lagrange interpolation or intrinsic interpolatory vertices
     	bool VTK_EXPLODE = true;              // Whether to make gaps between all elements by scaling them away from center
-    	std::vector<bool> writeCodim {true, true, false, false};  // Use tetrahedrons and triangles to discretize the inserted entities
 
     	// Defines what structural purpose this element has in the grid.
     	// Different elements will have different structural tags
@@ -1408,15 +1403,14 @@ namespace CurvGrid {
 
     	std::vector<int> elemTags  { physicalTag, VTK_ELEMENT_STRUCTURAL_TYPE, rank_ };
 
-    	vtkCurvWriter_.template addCurvilinearElement<mydim>(
+    	vtkCurvWriter_.template addCurvilinearElement<mydim, mydim>(
     			elemType,
     			elemNodeVector,
     			elemTags,
     			elemOrder,
     			VTK_DISCRETIZATION_POINTS,
     			VTK_INTERPOLATE,
-    			VTK_EXPLODE,
-    			writeCodim);
+    			VTK_EXPLODE);
     }
 
 

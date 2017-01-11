@@ -155,6 +155,7 @@ public: /* public methods */
      * 6) Distrubute vertex coordinates and add received coordinates to the mesh
      *
      *
+     * TODO: Adapt for the case with no ghost elements whatsoever - then the 2nd neighbor of face should be another periodic face
      * TODO: Only supports tetrahedral ghost elements at the moment
      *
      * */
@@ -525,7 +526,10 @@ protected:
     {
     	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Inserting communicated ghost elements");
 
-        int iData = 0;
+    	// [TODO] Replace dodgy periodicity check with a member function of gridbase, e.g. if (gridbase_.havePeriodic()) {...}
+    	bool havePeriodic = gridstorage_.periodicCuboidDimensions_.size() > 0;
+
+        // [TODO] Replace by ReferenceElement routines
         int nSubentityEdge = 6;
         int nSubentityFace = 4;
 
@@ -535,6 +539,7 @@ protected:
         int countMarkedPeriodicFaces = 0;
         int countMarkedAllBoundaryFaces = 0;
 
+        int iData = 0;
         for (int iProc = 0; iProc < size_; iProc++)
         {
         	std::set<GlobalIndexType> missingVerticesFromThisProcess;
@@ -586,10 +591,10 @@ protected:
                     	ghostFace.boundaryType             = GridStorageType::FaceBoundaryType::None;
 
                     	ghostFace.element1Index            = ghostElementLocalIndex;
-                    	ghostFace.element2Index            = -1;      // Currently not implemented, user should not need a local index of an entity which is not on this process
+                    	ghostFace.element2Index            = -1;      // Neighbor unknown, except for shared face, which is assigned later
                     	ghostFace.element1SubentityIndex   = iFace;  // Faces should be communicated in the correct subentity order
-                    	ghostFace.element2SubentityIndex   = -1;  // Currently not implemented, user should not need info of an entity which is not on this process
-                    	ghostFace.physicalTag              = -1;      // Currently not implemented, not sure if it is at all necessary
+                    	ghostFace.element2SubentityIndex   = -1;  // Neighbor unknown, except for shared face, which is assigned later
+                    	ghostFace.physicalTag              = -1;      // By convention, out of all ghost entities, only element tags are communicated. Update when necessary
 
                     	thisFaceLocalIndex = gridstorage_.face_.size();
                     	gridstorage_.face_.push_back(ghostFace);
@@ -681,12 +686,12 @@ protected:
                 	LocalIndexType    ghostFaceLocalIndex = gridstorage_.elementSubentityCodim1_[ghostElementLocalIndex][ghostFaceSubIndex];
                 	GlobalIndexType   ghostFaceGlobalIndexInNeighbor = gridstorage_.face_[ghostFaceLocalIndex].globalIndex;
 
+                	// For process boundaries, the global index of shared face is the same as seen from both neighbors
+                	GlobalIndexType sharedFaceGlobalIndexThisProcess = ghostFaceGlobalIndexInNeighbor;
+
                 	// Check if face is periodic, in this case the global index of the shared face on this process is different than that on the sender
                 	bool isFacePeriodic = false;
-                	GlobalIndexType ghostFaceGlobalIndexThisProcess;
-
-                	// [TODO] Replace dodgy periodicity check with a member function of gridbase, e.g. if (gridbase_.havePeriodic()) {...}
-                	if (gridstorage_.periodicCuboidDimensions_.size() > 0) {
+                	if (havePeriodic) {
                     	auto facePeriodicIter = periodicConstr_->mapInverse().find(ghostFaceGlobalIndexInNeighbor);
                     	isFacePeriodic =  (facePeriodicIter != periodicConstr_->mapInverse().end());
 
@@ -695,7 +700,7 @@ protected:
                     	if (isFacePeriodic) {
                     		countMarkedPeriodicFaces++;
 
-                    		ghostFaceGlobalIndexThisProcess = facePeriodicIter->second.gind_;
+                    		sharedFaceGlobalIndexThisProcess = facePeriodicIter->second.gind_;
 
                     		// For communicated periodic faces the opposite face should not be local to this process
                     		// Note that periodic faces local to this process are processed separately in the first routine of this class
@@ -705,19 +710,27 @@ protected:
                     	}
                 	}
 
-                	// For process boundaries, the global index of shared face is the same as seen from both neighbors
-                	if (!isFacePeriodic) { ghostFaceGlobalIndexThisProcess = ghostFaceGlobalIndexInNeighbor; }
-
                 	// Find local index of shared face as seen from inside
-                	auto faceG2LiterThis = gridstorage_.entityIndexMap_[FACE_CODIM].find(ghostFaceGlobalIndexThisProcess);
+                	auto faceG2LiterThis = gridstorage_.entityIndexMap_[FACE_CODIM].find(sharedFaceGlobalIndexThisProcess);
                 	assert(faceG2LiterThis != gridstorage_.entityIndexMap_[FACE_CODIM].end());  // The face local to this process should have a local index
                 	GlobalIndexType localFaceLocalIndex = faceG2LiterThis->second;
 
-                	// If this is a process boundary face, then the local index of the shared face should be the same as seen from interior and ghost elements
-                	if ((!isFacePeriodic) && (ghostFaceLocalIndex != localFaceLocalIndex)) {
-						LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Error: Received Ghost process boundary face not found among faces of this process");
-						DUNE_THROW(Dune::IOError, "CurvilinearGridConstructor: Received Ghost process boundary face not found among faces of this process");
-                    }
+                	if (isFacePeriodic) {
+                    	GlobalIndexType localElementLocalIndex = gridstorage_.face_[localFaceLocalIndex].element1Index;
+                    	InternalIndexType localFaceSubIndex = gridstorage_.face_[localFaceLocalIndex].element1SubentityIndex;
+
+                    	// Associate the ghost element face with the local element (Needed for DataHandle)
+                    	// IMPORTANT NOTE: Only a periodic ghost face can have a defined neighbor
+                    	//   Regular ghosts do not have neighbors, and the periodic boundary is already shared by interior and ghost, so it contains all the information the ghost needs in this case
+                    	gridstorage_.face_[ghostFaceLocalIndex].element2Index = localElementLocalIndex;
+                    	gridstorage_.face_[ghostFaceLocalIndex].element2SubentityIndex = localFaceSubIndex;  // Note the subentity index in outside
+                	} else {
+                		// If this is a process boundary face, then the local index of the shared face should be the same as seen from interior and ghost elements
+                    	if (ghostFaceLocalIndex != localFaceLocalIndex) {
+    						LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Error: Received Ghost process boundary face not found among faces of this process");
+    						DUNE_THROW(Dune::IOError, "CurvilinearGridConstructor: Received Ghost process boundary face not found among faces of this process");
+                        }
+                	}
 
                 	// Associate the local face with the ghost element
                 	gridstorage_.face_[localFaceLocalIndex].element2Index = ghostElementLocalIndex;
@@ -733,7 +746,8 @@ protected:
             }
         }
 
-        std::cout << "On rank " << rank_ << " total periodic ghosts communicated " << countMarkedPeriodicFaces << ", total " << countMarkedAllBoundaryFaces << std::endl;
+        std::cout << "On rank " << rank_ << " periodic ghosts communicated " << countMarkedPeriodicFaces
+        		<< " out of total " << countMarkedAllBoundaryFaces << std::endl;
     }
 
 

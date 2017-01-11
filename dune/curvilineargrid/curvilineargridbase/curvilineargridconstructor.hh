@@ -437,9 +437,10 @@ public:
         	postConstructor.generateCommunicationMaps();
         	LoggingTimer::time("CurvilinearGridConstructor: Generation of communication maps");
 
-        	LoggingTimer::time("CurvilinearGridConstructor: Communication of neighbor ranks");
-            postConstructor.communicateCommunicationEntityNeighborRanks();
-            LoggingTimer::time("CurvilinearGridConstructor: Communication of neighbor ranks");
+        	// Does not exist any more
+//        	LoggingTimer::time("CurvilinearGridConstructor: Communication of neighbor ranks");
+//            postConstructor.communicateCommunicationEntityNeighborRanks();
+//            LoggingTimer::time("CurvilinearGridConstructor: Communication of neighbor ranks");
 #endif
         }
 

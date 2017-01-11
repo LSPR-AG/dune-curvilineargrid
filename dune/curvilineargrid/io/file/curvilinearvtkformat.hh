@@ -60,22 +60,29 @@ namespace VTKFormat {
 
 	// [TODO] Implement binary writing, condition on format variable
 	template <class T>
-	void writeArray(std::ofstream & file, unsigned int n, T data, std::string sep, std::string format) {
-		for (unsigned int i = 0; i < n; i++)  { file << data << sep; }
+	void writeArray(std::ofstream & file, std::string logtext, unsigned int n, T data, std::string sep, std::string format) {
+		for (unsigned int i = 0; i < n; i++)  {
+			if (logtext != "") {LoggingMessage::writePatience(logtext, i, n);}
+			file << data << sep;
+		}
 	}
 
 	template <class T>
-	void writeArray(std::ofstream & file, const std::vector<T> & dataVec, std::string sep, std::string format)
+	void writeArray(std::ofstream & file, std::string logtext, const std::vector<T> & dataVec, std::string sep, std::string format)
 	{
-		for (const auto & data : dataVec)  { file << data << sep; }
+		for (unsigned int i = 0; i < dataVec.size(); i++)  {
+			if (logtext != "") { LoggingMessage::writePatience(logtext, i, dataVec.size()); }
+			file << dataVec[i] << sep;
+		}
 	}
 
 	template <int dim, class ctype>
-	void writeCoordinateArray(std::ofstream & file, const std::vector<Dune::FieldVector<ctype,dim>> & dataVec, std::string sep, std::string format)
+	void writeCoordinateArray(std::ofstream & file, std::string logtext, const std::vector<Dune::FieldVector<ctype,dim>> & dataVec, std::string sep, std::string format)
 	{
-		for (const auto & data : dataVec)  {
+		for (unsigned int i = 0; i < dataVec.size(); i++)  {
+			if (logtext != "") { LoggingMessage::writePatience(logtext, i, dataVec.size()); }
 			for (unsigned int d = 0; d < dim; d++) {
-				file << data[d] << " ";
+				file << dataVec[i][d] << " ";
 			}
 			file << sep;
 		}

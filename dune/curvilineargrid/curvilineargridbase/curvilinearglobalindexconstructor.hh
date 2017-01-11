@@ -200,11 +200,10 @@ public:
         // *************************************************************************
         LocalIndexSet faceNonOwned;  // LocalIndex of face not owned by this process
 
-        for (Local2LocalIterator faceIter = gridstorage_.processBoundaryIndexMap_[FACE_CODIM].begin();
-        		                 faceIter != gridstorage_.processBoundaryIndexMap_[FACE_CODIM].end(); faceIter++ )
+        for (const auto & faceIndexPair : gridstorage_.processBoundaryIndexMap_[FACE_CODIM])
         {
-        	LocalIndexType thisFaceLocalIndex = (*faceIter).first;
-        	LocalIndexType thisFacePBIndex = (*faceIter).second;
+        	LocalIndexType thisFaceLocalIndex = faceIndexPair.first;
+        	LocalIndexType thisFacePBIndex = faceIndexPair.second;
             int faceOwnerCandidateRank = gridstorage_.PB2PBNeighborRank_[FACE_CODIM][thisFacePBIndex][0];
             if (faceOwnerCandidateRank < rank_) { faceNonOwned.insert(thisFaceLocalIndex); }
         }
@@ -231,13 +230,13 @@ public:
         GlobalIndexType iFaceGlobalId = facesBeforeMe;
 
         // Faces that are not shared with other processes are automatically owned by this process
-        for (FaceMapIterator faceIter = internalFaceKey2LocalIndexMap_.begin(); faceIter != internalFaceKey2LocalIndexMap_.end(); faceIter++)              { LocalIndexType localIndex = (*faceIter).second;        gridstorage_.face_[localIndex].globalIndex = iFaceGlobalId++; }
-        for (FaceMapIterator faceIter = domainBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != domainBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)  { LocalIndexType localIndex = (*faceIter).second;        gridstorage_.face_[localIndex].globalIndex = iFaceGlobalId++; }
+        for (const auto & faceIter : internalFaceKey2LocalIndexMap_)					{ LocalIndexType localIndex = faceIter.second;  gridstorage_.face_[localIndex].globalIndex = iFaceGlobalId++; }
+        for (const auto & faceIter : domainBoundaryFaceKey2LocalIndexMap_)	{ LocalIndexType localIndex = faceIter.second;  gridstorage_.face_[localIndex].globalIndex = iFaceGlobalId++; }
 
         // This process owns this face if it is in the processInternalMap and if it is not in the non-owned face map
-        for (FaceMapIterator faceIter = processBoundaryFaceKey2LocalIndexMap_.begin(); faceIter != processBoundaryFaceKey2LocalIndexMap_.end(); faceIter++)
+        for (const auto & faceIter : processBoundaryFaceKey2LocalIndexMap_)
         {
-        	LocalIndexType thisFaceLocalIndex = (*faceIter).second;
+        	LocalIndexType thisFaceLocalIndex = faceIter.second;
             if (faceNonOwned.find(thisFaceLocalIndex) == faceNonOwned.end())  {
             	gridstorage_.face_[thisFaceLocalIndex].globalIndex = iFaceGlobalId++;
             }
@@ -470,27 +469,27 @@ protected:
         // *************************************************************************************************************
         int thisCommSize = 0;
         std::vector<int> processEdgeKeyRequested;
-        std::vector<int> processNComplicatedEdgeRequested(size_);
+        std::vector<int> processNComplicatedEdgeVerticesRequested(size_);
 
         for (int iProc = 0; iProc < size_; iProc++)
         {
         	LoggingMessage::writePatience("Sending complicated boundary edge keys to neighbour processes...", iProc, size_);
-        	processNComplicatedEdgeRequested[iProc] = neighborProcessComplicatedEdgePBLocalIndex[iProc].size();
+        	processNComplicatedEdgeVerticesRequested[iProc] = neighborProcessComplicatedEdgePBLocalIndex[iProc].size();
 
-        	for (int iEdge = 0; iEdge < processNComplicatedEdgeRequested[iProc]; iEdge++)
+        	for (int iEdge = 0; iEdge < processNComplicatedEdgeVerticesRequested[iProc]; iEdge++)
         	{
         		EdgeKey thisEdgeKey = neighborProcessComplicatedEdgePBLocalIndex[iProc][iEdge].second;
         		processEdgeKeyRequested.push_back(thisEdgeKey.node0);
         		processEdgeKeyRequested.push_back(thisEdgeKey.node1);
         	}
-        	processNComplicatedEdgeRequested[iProc] *= 2;
+        	processNComplicatedEdgeVerticesRequested[iProc] *= 2;	// Two vertices per edge
         }
 
-        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Total complicated edges per process =(" + VectorHelper::vector2string(processNComplicatedEdgeRequested) + ")");
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Total complicated edges per process =(" + VectorHelper::vector2string(processNComplicatedEdgeVerticesRequested) + ")");
 
         std::vector<int> processEdgeKeyToSend;
-        std::vector<int> processNComplicatedEdgeToSend;
-        allcomm_.all2all(processEdgeKeyRequested, processNComplicatedEdgeRequested, processEdgeKeyToSend, processNComplicatedEdgeToSend);
+        std::vector<int> processNComplicatedEdgeVerticesToSend;
+        allcomm_.all2all(processEdgeKeyRequested, processNComplicatedEdgeVerticesRequested, processEdgeKeyToSend, processNComplicatedEdgeVerticesToSend);
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated complicated edge EdgeKeys");
 
 
@@ -499,6 +498,8 @@ protected:
 
         // Note: now we communicate 1 int for every edge key requested, so send and recv switch places and are divided by 2
 
+
+        std::vector<int> processNComplicatedEdgesToSend(size_);
         std::vector<int> processEdgeExistToSend;
 
         int iData = 0;
@@ -506,9 +507,9 @@ protected:
         {
         	LoggingMessage::writePatience("Determining whether the received complicated edge candidates exist...", iProc, size_);
 
-        	processNComplicatedEdgeToSend[iProc] /= 2;
+        	processNComplicatedEdgesToSend[iProc] = processNComplicatedEdgeVerticesToSend[iProc] / 2;
 
-        	for (int iEdge = 0; iEdge < processNComplicatedEdgeToSend[iProc]; iEdge++)
+        	for (int iEdge = 0; iEdge < processNComplicatedEdgesToSend[iProc]; iEdge++)
         	{
         		EdgeKey thisEdgeKey;
         		thisEdgeKey.node0 = processEdgeKeyToSend[iData++];
@@ -520,14 +521,19 @@ protected:
         }
 
         std::vector<int> processEdgeExistRequested;
-        std::vector<int> processNComplicatedEdgeRequested2;
-        allcomm_.all2all(processEdgeExistToSend, processNComplicatedEdgeToSend, processEdgeExistRequested, processNComplicatedEdgeRequested2);
+        std::vector<int> processNComplicatedEdgesRequested;
+        allcomm_.all2all(processEdgeExistToSend, processNComplicatedEdgesToSend, processEdgeExistRequested, processNComplicatedEdgesRequested);
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated if requested EdgeKeys correspond to real edges");
 
         // Check consistency of send-receive
-        assert(processNComplicatedEdgeRequested.size() == processNComplicatedEdgeRequested2.size());
-        for (unsigned int i = 0; i < processNComplicatedEdgeRequested.size(); i++) {
-        	assert(processNComplicatedEdgeRequested[i] == processNComplicatedEdgeRequested2[i]);
+        assert(processNComplicatedEdgeVerticesRequested.size() == processNComplicatedEdgesRequested.size());
+        for (unsigned int i = 0; i < processNComplicatedEdgeVerticesRequested.size(); i++) {
+        	if (processNComplicatedEdgeVerticesRequested[i] != 2 * processNComplicatedEdgesRequested[i]) {
+        		std::cout << rank_ << " bug: " << VectorHelper::vector2string(processNComplicatedEdgeVerticesRequested)
+        			<< " ::: " << VectorHelper::vector2string(processNComplicatedEdgesRequested) << std::endl;
+        	}
+
+        	assert(processNComplicatedEdgeVerticesRequested[i] == 2 * processNComplicatedEdgesRequested[i]);
         }
 
 
@@ -538,10 +544,17 @@ protected:
         {
         	LoggingMessage::writePatience("Storing correct complicated edge neighbours...", iProc, size_);
 
-        	for (int iEdge = 0; iEdge < processNComplicatedEdgeRequested[iProc]; iEdge++)
+        	for (int iEdge = 0; iEdge < processNComplicatedEdgesRequested[iProc]; iEdge++)
         	{
+        		assert(iData < processEdgeExistRequested.size());
+        		assert(iEdge < neighborProcessComplicatedEdgePBLocalIndex[iProc].size());
+
+
         		bool isReal = (processEdgeExistRequested[iData++] == 1);
         		LocalIndexType thisEdgePBLocalIndex = neighborProcessComplicatedEdgePBLocalIndex[iProc][iEdge].first;
+
+        		assert(thisEdgePBLocalIndex < gridstorage_.PB2PBNeighborRank_[EDGE_CODIM].size());
+
         		if (isReal)  { gridstorage_.PB2PBNeighborRank_[EDGE_CODIM][thisEdgePBLocalIndex].push_back(iProc); }
 
         		std::stringstream log_stream;
@@ -645,30 +658,30 @@ protected:
         // 3) Communicate to each process the shared complicated face FaceKeys
         // *************************************************************************************************************
         std::vector<int> processFaceKeyRequested;
-        std::vector<int> processNComplicatedFaceRequested(size_);
+        std::vector<int> processNComplicatedFaceVertexRequested(size_);
 
         for (int iProc = 0; iProc < size_; iProc++)
         {
         	LoggingMessage::writePatience("Communicating complicated face keys to neighbour processors...", iProc, size_);
 
-        	processNComplicatedFaceRequested[iProc] = neighborProcessComplicatedFaceLocalIndex[iProc].size();
+        	processNComplicatedFaceVertexRequested[iProc] = neighborProcessComplicatedFaceLocalIndex[iProc].size();
 
-        	for (int iFace = 0; iFace < processNComplicatedFaceRequested[iProc]; iFace++)
+        	for (int iFace = 0; iFace < processNComplicatedFaceVertexRequested[iProc]; iFace++)
         	{
         		FaceKey thisFaceKey = neighborProcessComplicatedFaceLocalIndex[iProc][iFace].second;
         		processFaceKeyRequested.push_back(thisFaceKey.node0);
         		processFaceKeyRequested.push_back(thisFaceKey.node1);
         		processFaceKeyRequested.push_back(thisFaceKey.node2);
         	}
-        	processNComplicatedFaceRequested[iProc] *= 3;
+        	processNComplicatedFaceVertexRequested[iProc] *= 3;
         }
 
         std::vector<int> processFaceKeyToSend;
         std::vector<int> processNComplicatedFaceToSend;
-        allcomm_.all2all(processFaceKeyRequested, processNComplicatedFaceRequested, processFaceKeyToSend, processNComplicatedFaceToSend);
+        allcomm_.all2all(processFaceKeyRequested, processNComplicatedFaceVertexRequested, processFaceKeyToSend, processNComplicatedFaceToSend);
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated complicated face FaceKeys");
 
-        //std::cout << "process_" << rank_ << "stage 3) sendcounts=" << VectorHelper::vector2string(processNComplicatedFaceRequested) << " recvcounts=" << VectorHelper::vector2string(processNComplicatedFaceToSend) <<" send=" << VectorHelper::vector2string(processFaceKeyRequested) << " recv=" << VectorHelper::vector2string(processFaceKeyToSend) << std::endl;
+        //std::cout << "process_" << rank_ << "stage 3) sendcounts=" << VectorHelper::vector2string(processNComplicatedFaceVertexRequested) << " recvcounts=" << VectorHelper::vector2string(processNComplicatedFaceToSend) <<" send=" << VectorHelper::vector2string(processFaceKeyRequested) << " recv=" << VectorHelper::vector2string(processFaceKeyToSend) << std::endl;
 
 
         // 4) Communicate to each process whether requested faces exist on this process
@@ -698,14 +711,15 @@ protected:
         }
 
         std::vector<int> processFaceExistRequested;
-        std::vector<int> processNComplicatedFaceRequested2;
-        allcomm_.all2all(processFaceExistToSend, processNComplicatedFaceToSend, processFaceExistRequested, processNComplicatedFaceRequested2);
+        std::vector<int> processNComplicatedFaceRequested;
+        allcomm_.all2all(processFaceExistToSend, processNComplicatedFaceToSend, processFaceExistRequested, processNComplicatedFaceRequested);
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Communicated correspondence of requested FaceKeys correspond to real faces");
 
         // Self-test
+        for (unsigned int iProc = 0; iProc < size_; iProc++) { assert(processNComplicatedFaceVertexRequested[iProc] == 3 * processNComplicatedFaceRequested[iProc]); }
         assert(processFaceExistRequested.size() == processFaceKeyRequested.size() / 3);
 
-        //std::cout << "process_" << rank_ << "stage 4) sendcounts=" << VectorHelper::vector2string(processNComplicatedFaceToSend) << " recvcounts=" << VectorHelper::vector2string(processNComplicatedFaceRequested) <<" send=" << VectorHelper::vector2string(processFaceExistToSend) << " recv=" << VectorHelper::vector2string(processFaceExistRequested) << std::endl;
+        //std::cout << "process_" << rank_ << "stage 4) sendcounts=" << VectorHelper::vector2string(processNComplicatedFaceToSend) << " recvcounts=" << VectorHelper::vector2string(processNComplicatedFaceVertexRequested) <<" send=" << VectorHelper::vector2string(processFaceExistToSend) << " recv=" << VectorHelper::vector2string(processFaceExistRequested) << std::endl;
 
 
         // 5) Fill in correct neighbors for complicated faces
@@ -784,10 +798,9 @@ protected:
 
         int N_INTEGER_FACEINFO = 4;
         std::vector<int> sendbuf, sendcounts(size_);
-        std::vector<int> recvcounts;
+        std::vector<int> recvcountsExpected(size_);
 
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Checking which faces are missing");
-
 
         // 1) Loop over all process boundary faces, split faces on the ones to be sent and to be received
         // ********************************************************************************************
@@ -798,10 +811,12 @@ protected:
 
             LocalIndexType localFaceIndex = faceIndexPair.second;
             LocalIndexType localFacePBIndex = gridstorage_.processBoundaryIndexMap_[FACE_CODIM][localFaceIndex];
+
+            assert(gridstorage_.PB2PBNeighborRank_[FACE_CODIM][localFacePBIndex].size() == 1); // Exactly 1 neighbor process for each PB face
             int neighborRank = gridstorage_.PB2PBNeighborRank_[FACE_CODIM][localFacePBIndex][0];
 
             // If the neighbor of this face has lower rank, then add it to recv, else to send
-            if (neighborRank < rank_)  { recvcounts[neighborRank] += N_INTEGER_FACEINFO; }
+            if (neighborRank < rank_)  { recvcountsExpected[neighborRank] += N_INTEGER_FACEINFO; }
             else
             {
             	GlobalIndexType thisGlobalIndex = gridstorage_.face_[localFaceIndex].globalIndex;
@@ -829,19 +844,18 @@ protected:
             }
         }
 
-        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Sending  sendcounts=(" + VectorHelper::vector2string(sendcounts) + ") recvcounts=(" + VectorHelper::vector2string(recvcounts) + ")");
-
+        LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Sending  sendcounts=(" + VectorHelper::vector2string(sendcounts) + ") recvcounts=(" + VectorHelper::vector2string(recvcountsExpected) + ")");
 
         // 3) MPI_alltoall key + globalId
         // ********************************************************************************************
         std::vector<int> recvbuf;
-        std::vector<int> recvcounts2;
-        allcomm_.all2all(sendbuf, sendcounts, recvbuf, recvcounts2);
+        std::vector<int> recvcounts;
+        allcomm_.all2all(sendbuf, sendcounts, recvbuf, recvcounts);
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: -- Extracting missing indices");
 
         // Self-check
-        assert(recvcounts.size() == recvcounts2.size());
-        for (unsigned int i = 0; i < recvcounts.size(); i++) { assert(recvcounts[i] == recvcounts2[i]); }
+        assert(recvcountsExpected.size() == recvcounts.size());
+        for (unsigned int i = 0; i < recvcountsExpected.size(); i++) { assert(recvcountsExpected[i] == recvcounts[i]); }
 
 
 

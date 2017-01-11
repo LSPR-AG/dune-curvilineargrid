@@ -137,13 +137,15 @@ namespace Dune
     typedef typename GridStorageType::InterpolatoryOrderType  InterpolatoryOrderType;
 
     // Common Partition types
-    static const unsigned int DomainBoundaryType   = GridBaseType::DomainBoundaryType;
-    static const unsigned int ProcessBoundaryType  = GridBaseType::ProcessBoundaryType;
-    static const unsigned int InternalType         = GridBaseType::InternalType;
-    static const unsigned int GhostType            = GridBaseType::GhostType;
+//    static const unsigned int DomainBoundaryType   = GridBaseType::DomainBoundaryType;
+//    static const unsigned int ProcessBoundaryType  = GridBaseType::ProcessBoundaryType;
+//    static const unsigned int InternalType         = GridBaseType::InternalType;
+//    static const unsigned int GhostType            = GridBaseType::GhostType;
 
-    static const int NO_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::None;
-    static const int DOMAIN_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::DomainBoundary;
+    static const unsigned int NO_BOUNDARY_TYPE     = GridStorageType::FaceBoundaryType::None;
+    static const unsigned int DOMAIN_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::DomainBoundary;
+    static const unsigned int INTERIOR_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::InteriorBoundary;
+    static const unsigned int PERIODIC_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::PeriodicBoundary;
 
     static const int   VERTEX_CODIM   = GridStorageType::VERTEX_CODIM;
     static const int   EDGE_CODIM     = GridStorageType::EDGE_CODIM;
@@ -662,6 +664,13 @@ namespace Dune
     // User gets the relative error tolerance for computing volumes of curvilinear entities
     double geometryRelativeTolerance()                { return gridbase_->geometryRelativeTolerance(); }
 
+    // Obtains CurvGrid-intrinsic boundary type.
+    template <int codim>
+    StructuralType entityBoundaryType(const typename Traits::template Codim< codim >::Entity &entity) const {
+    	assert(codim == FACE_CODIM);  // Only defined for faces.
+    	LocalIndexType baseIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
+    	return gridbase_->faceBoundaryType(baseIndex);
+    }
 
     // Obtains global index of an entity
     template<int codim>

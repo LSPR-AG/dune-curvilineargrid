@@ -31,18 +31,25 @@ const int DIM3D = 3;   const int ELEMENT_CODIM = 0;
 
 
 /* A DataHandle class that communicates a fixed constant for all entities participating in the communication */
-template<class GlobalIdSet, class IndexType> // mapper type and vector type
+template<class Grid> // mapper type and vector type
 class DataHandleGlobalIndex
-		: public Dune::CommDataHandleIF<DataHandleGlobalIndex<GlobalIdSet, IndexType>, typename GlobalIdSet::IdType>
+		: public Dune::CommDataHandleIF<DataHandleGlobalIndex<Grid>, typename Grid::GlobalIdSet::IdType>
 {
+	typedef typename Grid::LeafIndexSet   LeafIndexSet;
+	typedef typename Grid::GlobalIdSet    GlobalIdSet;
+	typedef typename Grid::LocalIndexType  LocalIndexType;
 	typedef typename  GlobalIdSet::IdType          IdType;
-	typedef typename  std::map<IndexType, IdType>  GlobalIdMap;
-	typedef typename  GlobalIdMap::iterator        DataIter;
+//	typedef typename  std::map<IdType, IdType>  GlobalIdMap;
+//	typedef typename  GlobalIdMap::iterator        DataIter;
 
 public:
 
 	//! constructor
-	DataHandleGlobalIndex (const GlobalIdSet& idset, int codim) : idset_(idset), codim_(codim)  {  }
+	DataHandleGlobalIndex (const Grid & grid, int codim)
+		: grid_(grid), codim_(codim),
+		  indexset_(grid.leafIndexSet()),
+		  idset_(grid.globalIdSet())
+	{  }
 
 
 	//! returns true if data for this codim should be communicated
@@ -63,11 +70,41 @@ public:
 	/** \brief  Get globalId of this entity, Read globalId from buffer, Assert that the Id's are equal */
 	template<class MessageBuffer, class EntityType>
 	void scatter (MessageBuffer& buff, const EntityType& e, size_t n) {
+		const int codim = EntityType::codimension;
+
 		IdType thisProcId = idset_.id(e);
 		IdType thisRecvId;
 		buff.read(thisRecvId);
 
-		if (thisProcId != thisRecvId)
+		bool directMatch = thisProcId == thisRecvId;
+		bool periodicMatch = false;
+
+		if (codim == FACE_CODIM) {
+			auto boundaryType = grid_.template entityBoundaryType<codim>(e);
+
+			if (boundaryType == Grid::PERIODIC_BOUNDARY_TYPE) {
+				LocalIndexType periodicFaceLocalIndex = indexset_.index(e);
+				LocalIndexType neighborFaceLocalIndex = grid_.gridbase().periodicNeighborFace(periodicFaceLocalIndex);
+				auto neighborBoundaryType = grid_.gridbase().faceBoundaryType(neighborFaceLocalIndex);
+
+				if			(neighborBoundaryType == Grid::PERIODIC_BOUNDARY_TYPE)  { assert(directMatch); }
+				else {
+					IdType expectedId = grid_.gridbase().globalId(codim, neighborFaceLocalIndex);
+
+					 // Periodic boundary face indices should be different
+					if ((directMatch)||(expectedId != thisRecvId)) {
+						std::cout << " Error: DataHandleGlobalId: received periodic id="
+								<< thisRecvId << " does not match the expected id="
+								<< expectedId << " which was sent to the true id=" <<
+								thisProcId << std::endl;
+						DUNE_THROW( Dune::GridError, " DataHandleConst: received data from entity not present on this process" );
+					}
+				}
+				periodicMatch = true;
+			}
+		}
+
+		if (!(directMatch || periodicMatch))
 		{
 			std::cout << " Error: DataHandleGlobalId: received id=" << thisRecvId << " does not match true id=" << thisProcId << std::endl;
 			DUNE_THROW( Dune::GridError, " DataHandleConst: received data from entity not present on this process" );
@@ -77,7 +114,9 @@ public:
 protected:
 	bool haveDim(int dim) const  { return dim == 3; }
 
-	private:
+private:
+	const Grid & grid_;
+	const LeafIndexSet & indexset_;
 	const GlobalIdSet& idset_;
 	int codim_;
 };
@@ -95,20 +134,18 @@ void communicateGlobalIndex(Dune::InterfaceType iftype, Dune::CommunicationDirec
 		std::cout << "Started const-communication example for codim=" << codim << std::endl;
 
 		typedef typename GridType::LeafGridView   LeafGridView;
-		typedef typename GridType::GlobalIdSet    GlobalIdSet;
 		typedef typename LeafGridView::IntersectionIterator IntersectionIterator;
 		typedef typename IntersectionIterator :: Intersection Intersection;
 
-		typedef typename GlobalIdSet::IdType                     IdType;
-		typedef typename GridType::GridBaseType::LocalIndexType  LocalIndexType;
-
-		const GlobalIdSet & idset = grid.globalIdSet();
+		typedef typename GridType::GridBaseType    GridBaseType;
+		typedef typename GridBaseType::LocalIndexType  LocalIndexType;
+;
 		LeafGridView leafView = grid.leafGridView();
 
 		// Create datahandle
 		std::cout << " -- Initialising datahandle" << std::endl;
-		typedef DataHandleGlobalIndex<GlobalIdSet, LocalIndexType> DHGlobalIndexImpl;
-		DHGlobalIndexImpl dhimpl(idset, codim);
+		typedef DataHandleGlobalIndex<GridType> DHGlobalIndexImpl;
+		DHGlobalIndexImpl dhimpl(grid, codim);
 
 		// Perform communication
 		std::cout << " -- started communicate" << std::endl;
@@ -143,13 +180,38 @@ int main (int argc , char **argv) {
 		Dune::CommunicationDirection::ForwardCommunication
 	};
 
+	std::vector<bool> doInterface = grid->withPeriodic()
+			? std::vector<bool> {true, true, false, false}
+			: std::vector<bool> {true, true, true, true};
+
+	std::vector<bool> doCodim = grid->withPeriodic()
+			? std::vector<bool> {true, true, false, false}
+			: std::vector<bool> {true, true, true, true};
+
 	// For each interface and codimension, perform simple communication test given by communicateConst
-	for (int i = 0; i < 4; i++)
+	for (int iInterface = 0; iInterface <= 3; iInterface++)
 	{
-		communicateGlobalIndex<GridType, ELEMENT_CODIM>(interfType[i], interfDir[i], mpihelper, *grid);  // Elements
-		communicateGlobalIndex<GridType, FACE_CODIM>(interfType[i], interfDir[i], mpihelper, *grid);  // Faces
-		communicateGlobalIndex<GridType, EDGE_CODIM>(interfType[i], interfDir[i], mpihelper, *grid);  // Edges
-		communicateGlobalIndex<GridType, VERTEX_CODIM>(interfType[i], interfDir[i], mpihelper, *grid);  // Vertices
+		if (doInterface[iInterface]) {
+			for (int iCodim = 0; iCodim <= 3; iCodim++)
+			{
+				if (doCodim[iCodim]) {
+					if (iCodim == ELEMENT_CODIM) { communicateGlobalIndex<GridType, ELEMENT_CODIM>(interfType[iInterface], interfDir[iInterface], mpihelper, *grid); }
+					if (iCodim == FACE_CODIM) { communicateGlobalIndex<GridType, FACE_CODIM>(interfType[iInterface], interfDir[iInterface], mpihelper, *grid); }
+					if (iCodim == EDGE_CODIM) { communicateGlobalIndex<GridType, EDGE_CODIM>(interfType[iInterface], interfDir[iInterface], mpihelper, *grid); }
+					if (iCodim == VERTEX_CODIM) { communicateGlobalIndex<GridType, VERTEX_CODIM>(interfType[iInterface], interfDir[iInterface], mpihelper, *grid); }
+				} else {
+					if (grid->comm().rank() == MPI_MASTER_RANK) {
+						std::cout << "Skipping codim " << iCodim << " because not defined for periodic case" << std::endl;
+					}
+				}
+			}
+		} else {
+			if (grid->comm().rank() == MPI_MASTER_RANK) {
+				std::cout << "Skipping interface " << iInterface << " because not defined for periodic case" << std::endl;
+			}
+		}
+
+
 	}
 
 	typedef LoggingTimer<LoggingMessage>                 LoggingTimerDev;

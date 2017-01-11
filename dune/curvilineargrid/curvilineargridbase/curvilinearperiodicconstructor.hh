@@ -512,6 +512,7 @@ protected:
     }
 
 
+    // [TODO] Adapt for the case with no ghost elements whatsoever - then the 2nd neighbor of face should be another periodic face
     void markLocalPeriodicNeighbors() {
         for (auto const & faceIter: gind2periodicDataMap_)
 		{

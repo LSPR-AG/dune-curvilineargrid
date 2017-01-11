@@ -191,10 +191,9 @@ public: /* public methods */
     	// Generate iterator lists
     	// ***************************************************************
     	int cornerCount = 0;
-        for (Local2LocalIterator iCorner = gridstorage_.cornerIndexMap_.begin();
-        	                     iCorner != gridstorage_.cornerIndexMap_.end(); iCorner++) {
+        for (const auto & cornerIndexPair : gridstorage_.cornerIndexMap_) {
         	LoggingMessage::writePatience("Generating corner iterator list...", cornerCount++, gridstorage_.cornerIndexMap_.size());
-        	fillPartitionIterator(VERTEX_CODIM, (*iCorner).first, gridstorage_.point_[(*iCorner).first].ptype);
+        	fillPartitionIterator(VERTEX_CODIM, cornerIndexPair.first, gridstorage_.point_[cornerIndexPair.first].ptype);
         }
 
         for (LocalIndexType iEdge = 0; iEdge < gridstorage_.edge_.size(); iEdge++)         {
@@ -236,13 +235,7 @@ public: /* public methods */
     {
     	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Started generating communication maps");
 
-    	// [FIXME] GET DATA FROM REF SUBENTITY SIZE
-    	// [FIXME] GET DATA INDIVIDUALLY FOR EACH ELEMENT
-		int nEdgeTriangle = 3;
-		int nVertexTriangle = 3;
-		int nTriangleTet = 4;
-		int nEdgeTet = 6;
-		int nVertexTet = 4;
+    	MPI_Comm comm = Dune::MPIHelper::getCommunicator();
 
 		// Resize all neighbor rank arrays, except the boundary internals, since we do not know their lengths
 		// Boundary Internals will be resized as its number is calculated
@@ -258,205 +251,49 @@ public: /* public methods */
 		}
 
 
-
-
-		// Iterate over all PB faces
-		// [FIXME] Iterate also over periodic
-		int faceCount = 0;
-		for (const auto & thisFaceLocalIndex : gridbase_.entityIndexSetSelect(FACE_CODIM , Dune::PartitionType::BorderEntity))
-		{
-			LoggingMessage::writePatience("Generating communication maps...", faceCount++, gridbase_.nEntity(FACE_CODIM, Dune::PartitionType::BorderEntity));
-
-			int thisFaceNeighborRank = gridbase_.commEntityNeighborRankSet(FACE_CODIM, thisFaceLocalIndex, Dune::PartitionType::BorderEntity, Dune::PartitionType::BorderEntity)[0];
-
-			// 1) Find all Internal and Ghost entities associated with this PB Face
-			// **********************************************************************
-
-			// Find local indices of all subentities of this PB face
-			// [FIXME] For more general formulation (to allow periodic), extract subentities from the neighbor element directly, using indexInInside/indexInOutside
-			std::vector<LocalIndexType> faceSubentityLocalIndex[4];
-			faceSubentityLocalIndex[FACE_CODIM].push_back(thisFaceLocalIndex);
-			for (int i = 0; i < nEdgeTriangle; i++)    { faceSubentityLocalIndex[EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, EDGE_CODIM, i)); }
-			for (int i = 0; i < nVertexTriangle; i++)  { faceSubentityLocalIndex[VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, VERTEX_CODIM, i)); }
-
-			// Verify that the outer neighbor of the process boundary exists
-			if (!gridbase_.checkFaceOuterNeighbor(thisFaceLocalIndex)) {
-				std::stringstream logstr;
-				logstr << "Supposed process boundary " << thisFaceLocalIndex << " does not have initialised outer neighbor" << std::endl;
-				DUNE_THROW(Dune::IOError, logstr.str());
-			}
-
-			// Iterate over process boundary neighbor elements: inner and outer
-			for (int iFaceNeighbor = 0; iFaceNeighbor <= 1; iFaceNeighbor++)
-			{
-				// Gets either internal or ghost element depending on iFaceNeighbor
-				LocalIndexType thisElementLocalIndex = gridbase_.faceNeighbor(thisFaceLocalIndex, iFaceNeighbor);
-
-				Dune::PartitionType thisElementPTypeExpected = iFaceNeighbor == 0 ? Dune::PartitionType::InteriorEntity : Dune::PartitionType::GhostEntity;
-				Dune::PartitionType thisElementPType = gridbase_.entityPartitionType(ELEMENT_CODIM, thisElementLocalIndex);
-				assert(thisElementPType == thisElementPTypeExpected);
-
-				// Find local indices of all subentities of this element
-				std::vector<LocalIndexType> neighborElementSubentityLocalIndex[4];
-				neighborElementSubentityLocalIndex[ELEMENT_CODIM].push_back(thisElementLocalIndex);
-				for (int i = 0; i < nTriangleTet; i++)  { neighborElementSubentityLocalIndex[FACE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, i)); }
-				for (int i = 0; i < nEdgeTet; i++)      { neighborElementSubentityLocalIndex[EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, EDGE_CODIM, i)); }
-				for (int i = 0; i < nVertexTet; i++)    { neighborElementSubentityLocalIndex[VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, VERTEX_CODIM, i)); }
-
-
-				for (int iCodim = 0; iCodim <= dimension; iCodim++)
-				{
-					// Sort subentity index vectors
-					std::sort(faceSubentityLocalIndex[iCodim].begin(), faceSubentityLocalIndex[iCodim].end());
-					std::sort(neighborElementSubentityLocalIndex[iCodim].begin(), neighborElementSubentityLocalIndex[iCodim].end());
-
-					// Subtract face subentity set from element subentity set, such that only internal and ghost subentities are left
-					neighborElementSubentityLocalIndex[iCodim] = VectorHelper::sortedSetComplement(neighborElementSubentityLocalIndex[iCodim], faceSubentityLocalIndex[iCodim]);
-
-					// 2) Add entities to the map unless they are already added.
-					// **********************************************************************
-					Local2LocalMap & thisLocalMap = gridbase_.selectCommMap(iCodim, thisElementPTypeExpected);
-
-					for (unsigned int iEntity = 0; iEntity < neighborElementSubentityLocalIndex[iCodim].size(); iEntity++ )
-					{
-						// [FIXME] Extract also boundaryType to identify periodicity
-						LocalIndexType thisEntityLocalIndex = neighborElementSubentityLocalIndex[iCodim][iEntity];
-						Dune::PartitionType thisEntityType = gridbase_.entityPartitionType(iCodim, thisEntityLocalIndex);
-
-						std::stringstream log_str;
-						log_str << "CurvilinearPostConstructor: ---- Iterating over iFaceNeighbor=" << Dune::PartitionName(thisElementPTypeExpected);
-						log_str << " codim=" << iCodim;
-						log_str << " subentityNo=" << iEntity;
-						log_str << " localindex =" << thisEntityLocalIndex;
-						log_str << " gives structural type =" << Dune::PartitionName(thisEntityType);
-						LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_str.str());
-
-
-						// If this is a PB Entity, that happens to not be on the face, it is possible
-						// that it is on a face of a different process, then it is a PB->G link
-						// Otherwise, this entity is either internal or ghost, and it contributes to one
-						// of the new maps
-						// [FIXME] Explicitly ensure this is only PB and not periodic
-						if (thisEntityType == Dune::PartitionType::BorderEntity)
-						{
-							std::vector<int> & thisEntityPBNeighbors = gridbase_.commEntityNeighborRankSet(iCodim, thisEntityLocalIndex, Dune::PartitionType::BorderEntity, Dune::PartitionType::BorderEntity);
-							bool isNewRank = !VectorHelper::isInside(thisEntityPBNeighbors, thisFaceNeighborRank);
-							//std::cout << "testing isInside vector=(" << VectorHelper::vector2string(thisEntityPBNeighbors) << ") elem=" << thisFaceNeighborRank << " isNew=" << isNewRank << std::endl;
-
-							// If this rank is not already in PB-PB of this entity, then it must be in PB-G
-							if (isNewRank)
-							{
-								LocalIndexType thisEntityPBIndex = gridstorage_.processBoundaryIndexMap_[iCodim][thisEntityLocalIndex];
-								gridstorage_.PB2GNeighborRank_[iCodim][thisEntityPBIndex].push_back(thisFaceNeighborRank);
-							}
-						}
-						else
-						{
-							// Check if the type of the entity is expected
-					    	bool entityTypeExpected =
-					    		((iFaceNeighbor == 0)&&(thisEntityType == Dune::PartitionType::InteriorEntity)) ||
-					    		((iFaceNeighbor == 1)&&(thisEntityType == Dune::PartitionType::GhostEntity));
-
-					    	if (!entityTypeExpected) {
-					    		GlobalIndexType thisEntityGlobalIndex;
-
-					    		if (!gridbase_.findEntityGlobalIndex(iCodim, thisEntityLocalIndex, thisEntityGlobalIndex)) {
-					    			std::cout << "Global index not found " << std::endl;
-					    		}
-
-					    		std::cout << "error in codim " << iCodim << " entity localindex=" << thisEntityLocalIndex << " globalIndex=" << thisEntityGlobalIndex << std::endl;
-
-					    		std::string expectedTypeName = Dune::PartitionName(thisElementPTypeExpected);
-					    		std::string receivedTypeName = Dune::PartitionName(thisEntityType);
-
-					    		std::cout << rank_ << " ERROR: " << expectedTypeName << " " << receivedTypeName << std::endl;
-
-					    		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridBase: Unexpected type name expected=" + expectedTypeName + ", received="+receivedTypeName);
-					    		DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected type name");
-					    	}
-
-
-							Local2LocalIterator thisIter = thisLocalMap.find(thisEntityLocalIndex);
-							LocalIndexType thisEntitySubsetIndex;
-
-							if (thisIter == thisLocalMap.end())
-							{
-								thisEntitySubsetIndex = thisLocalMap.size();
-								thisLocalMap[thisEntityLocalIndex] = thisEntitySubsetIndex;
-
-								// Enlarge the neighbour rank vector such that it has enough entries for all entities of subset
-								if (iFaceNeighbor == 0)  { gridstorage_.BI2GNeighborRank_[iCodim].resize(thisEntitySubsetIndex + 1); }
-
-							} else {
-								thisEntitySubsetIndex = (*thisIter).second;
-							}
-
-							// 3) Mark PB face neighbor rank on all subset entities
-							// **********************************************************************
-							if (iFaceNeighbor == 0)  { gridstorage_.BI2GNeighborRank_[iCodim][thisEntitySubsetIndex].push_back(thisFaceNeighborRank); }
-							else            { gridstorage_.G2BIPBNeighborRank_[iCodim][thisEntitySubsetIndex].push_back(thisFaceNeighborRank); }
-						}
-					}
-				}
-			}
-		}
-
-
-		// Compactify I -> G, as this array will not be accessed at a later stage
-		// Compactification means deleting repeating elements, because each neighbor rank set should only contain each of its neighbour ranks once
-		// The reason for them being added more than one time, is because a boundary entity can be assigned a neighbour rank by more than one PB face
-		for (int iCodim = 0; iCodim <= dimension; iCodim++)
-		{
-			for (unsigned int iEntity = 0; iEntity < gridstorage_.BI2GNeighborRank_[iCodim].size(); iEntity++)
-			{
-				VectorHelper::compactify(gridstorage_.BI2GNeighborRank_[iCodim][iEntity]);
-			}
-		}
-
-
+		// Local part of the communication map construction
+		//   - Construct communication maps I -> G and G->I
+		//   - Contribute locally known part to PB->G
+		computeIG(Dune::PartitionType::BorderEntity, NO_BOUNDARY_TYPE);
+		computeIG(Dune::PartitionType::InteriorEntity, PERIODIC_BOUNDARY_TYPE);
 
 		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Finished generating communication maps");
-    }
 
 
-    /** \brief After this function, all entities that can be communicated over should be
-     * associated an array of ranks of all other processes over which this entity is shared
-     *
-     *
-     *  After the generateCommunicationMaps(), the neighbour ranks that could be computed locally
-     *  have already been added to the corresponding maps. That is, the protocols
-     *    * PB->PB
-     *    * I -> G
-     *    * G -> I
-     *  now have sufficient information, and the protocol
-     *    * PB->G
-     *  has candidates on all processes, but is incomplete
-     *
-     *  So this function must enable protocols
-     *    * PB->G, G->PB, G->G
-     *
-     *
-     *  Algorithm:
-     *  1) Iterate over all PB entities
-     *  1.1) divide provisional PB->G set by PB->PB set to see which provisional PB->G are new
-     *  1.2) Mark number of real PB-G candidates for each process
-     *  2) For all PB entities having non-zero PB->G, communicate G to all neighbouring PB
-     *
-     *  3) For all PB append received G by using union on them - This completes PB->G (hopefully)
-     *  4) For all PB entities having non-zero PB->G, communicate self to all G of (PB->G)
-     *  5) For all G append received PB by using union on them - This completes G->PB (hopefully)
-     *
-     *  6) For all PB entities having non-zero PB->G, communicate to all G all remaining G
-     *  6.1) Optimization - do this only if you are lowest rank among all PB-neighbors
-     *  6.2) Further optimization - do this only if you are modulus-rank among all PB-neighbors
-     *  7) For all G append received G by using union on them - This completes G->G (hopefully)
-     *
-     *
-     *  */
-    void communicateCommunicationEntityNeighborRanks()
-    {
-    	MPI_Comm comm = Dune::MPIHelper::getCommunicator();
-
+	    /** \brief After this function, all entities that can be communicated over should be
+	     * associated an array of ranks of all other processes over which this entity is shared
+	     *
+	     *
+	     *  After the generateCommunicationMaps(), the neighbour ranks that could be computed locally
+	     *  have already been added to the corresponding maps. That is, the protocols
+	     *    * PB->PB
+	     *    * I -> G
+	     *    * G -> I
+	     *  now have sufficient information, and the protocol
+	     *    * PB->G
+	     *  has candidates on all processes, but is incomplete
+	     *
+	     *  So this function must enable protocols
+	     *    * PB->G, G->PB, G->G
+	     *
+	     *
+	     *  Algorithm:
+	     *  1) Iterate over all PB entities
+	     *  1.1) divide provisional PB->G set by PB->PB set to see which provisional PB->G are new
+	     *  1.2) Mark number of real PB-G candidates for each process
+	     *  2) For all PB entities having non-zero PB->G, communicate G to all neighbouring PB
+	     *
+	     *  3) For all PB append received G by using union on them - This completes PB->G (hopefully)
+	     *  4) For all PB entities having non-zero PB->G, communicate self to all G of (PB->G)
+	     *  5) For all G append received PB by using union on them - This completes G->PB (hopefully)
+	     *
+	     *  6) For all PB entities having non-zero PB->G, communicate to all G all remaining G
+	     *  6.1) Optimization - do this only if you are lowest rank among all PB-neighbors
+	     *  6.2) Further optimization - do this only if you are modulus-rank among all PB-neighbors
+	     *  7) For all G append received G by using union on them - This completes G->G (hopefully)
+	     *
+	     *
+	     *  */
     	for (int iCodim = 0; iCodim <= dimension; iCodim++)
     	{
     		LoggingMessage::writePatience("Communicating neighbour ranks for different communication protocols...", iCodim, dimension + 1);
@@ -482,10 +319,7 @@ public: /* public methods */
 
     	    LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: Finished communicating entity ranks for codim=" + std::to_string(iCodim));
     	}
-
     }
-
-
 
 
 protected:
@@ -501,7 +335,6 @@ protected:
 
     // Fill all LocalIndexSets necessary to iterate over the grid
     // Note: Must not contain all interpolatory vertices, only corners
-    // [TODO] Implement for Periodic
     void fillPartitionIterator (int codim, LocalIndexType localIndex, PartitionType pitype, StructuralType bordertype = NO_BOUNDARY_TYPE)
     {
     	// Check if the entity is of a valid type
@@ -547,14 +380,208 @@ protected:
     }
 
 
+    // Extracts the locally available data to construct the protocols I -> G, G ->I and, partially, PB->G
+    // This is possible, because the PB<->PB is generated during global index construction, and
+    //    I -> G and G->I are effectively equivalent to PB<->PB, given that ghost elements exist
+    void computeIG(Dune::PartitionType ptype, StructuralType boundarytype) {
+
+    	// [FIXME] GET DATA FROM REF SUBENTITY SIZE
+    	// [FIXME] GET DATA INDIVIDUALLY FOR EACH ELEMENT
+		int nEdgeTriangle = 3;
+		int nVertexTriangle = 3;
+		int nTriangleTet = 4;
+		int nEdgeTet = 6;
+		int nVertexTet = 4;
+
+		bool isPeriodic = boundarytype == PERIODIC_BOUNDARY_TYPE;
+
+		// [FIXME] Iterate also over periodic
+		int faceCount = 0;
+		const LocalIndexSet & faceIndexSet = gridbase_.entityIndexSetSelect(FACE_CODIM , ptype, boundarytype);
+		for (const auto & insideFaceLocalIndex : faceIndexSet)
+		{
+			LoggingMessage::writePatience("Generating communication maps...", faceCount++, gridbase_.nEntity(FACE_CODIM, Dune::PartitionType::BorderEntity));
+
+			// Verify that the outer neighbor of the process boundary exists
+			if (!gridbase_.checkFaceOuterNeighbor(insideFaceLocalIndex)) {
+				std::stringstream logstr;
+				logstr << "Supposed process boundary " << insideFaceLocalIndex << " does not have initialised outer neighbor" << std::endl;
+				DUNE_THROW(Dune::IOError, logstr.str());
+			}
+
+			LocalIndexType insideElementLocalIndex = gridbase_.faceNeighbor(insideFaceLocalIndex, 0);
+			LocalIndexType outsideElementLocalIndex = gridbase_.faceNeighbor(insideFaceLocalIndex, 1);
+
+			Dune::PartitionType insideElementPartitionType = gridbase_.entityPartitionType(ELEMENT_CODIM, insideElementLocalIndex);
+			Dune::PartitionType outsideElementPartitionType = gridbase_.entityPartitionType(ELEMENT_CODIM, outsideElementLocalIndex);
+
+			// Avoid communication between local ghost pairs. It is completely unnecessary - any would be communicated from entity to itself on the same process
+			bool isInteriorGhost = isPeriodic && (outsideElementPartitionType == Dune::PartitionType::InteriorEntity);
+			if (!isInteriorGhost) {
+
+				// Pair local face and element indices, as seen from both neighbors of the face
+				// For PB it is the same face,
+				// In periodic case these are different faces
+				typedef std::pair<LocalIndexType, LocalIndexType> FaceElemLocalIndexPair;
+				std::vector<FaceElemLocalIndexPair> neighborLocalIndex {
+					FaceElemLocalIndexPair(insideElementLocalIndex, insideFaceLocalIndex),
+					FaceElemLocalIndexPair(outsideElementLocalIndex, insideFaceLocalIndex)
+				};
+
+
+				if ((insideElementPartitionType != Dune::PartitionType::InteriorEntity) ||
+						(outsideElementPartitionType != Dune::PartitionType::GhostEntity))
+				{
+					std::cerr << rank_ << " I->G communication constructor for a communication set with ptype="
+							<< Dune::PartitionName(ptype) << ", boundarytype="
+							<< boundarytype
+							<< " found unexpected ptype pair=("
+							<< Dune::PartitionName(insideElementPartitionType) << ", "
+							<< Dune::PartitionName(outsideElementPartitionType) << ") " << std::endl;
+					DUNE_THROW(Dune::IOError, "Unexpected partition type pair");
+				}
+
+
+				if (isPeriodic) {
+					// NOTE: The inside face stores subindex info. Outside (ghost) face does not store anything
+					InternalIndexType faceSubIndexInOuter = gridbase_.faceSubIndexInNeighbor(insideFaceLocalIndex, 1);
+					neighborLocalIndex[1].second = gridbase_.subentityLocalIndex(outsideElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, faceSubIndexInOuter);
+				}
+
+				// Find neighbor process rank
+				int thisFaceNeighborRank = gridbase_.commEntityNeighborRankSet(FACE_CODIM, insideFaceLocalIndex, ptype, ptype, boundarytype)[0];
+
+
+				// 1) Find all Internal and Ghost entities associated with this boundary face
+				// **********************************************************************
+
+				for (const auto & neighborLocalIndexPair : neighborLocalIndex) {
+
+					LocalIndexType thisElementLocalIndex = neighborLocalIndexPair.first;
+					LocalIndexType thisFaceLocalIndex = neighborLocalIndexPair.second;
+
+					Dune::PartitionType thisElementPType = gridbase_.entityPartitionType(ELEMENT_CODIM, thisElementLocalIndex);
+
+					// Find local indices of all subentities of the PB face, as seen from this neighbor element
+					std::vector<LocalIndexType> thisFaceSubentityLocalIndex[4];
+					thisFaceSubentityLocalIndex[FACE_CODIM].push_back(thisFaceLocalIndex);
+					for (int i = 0; i < nEdgeTriangle; i++)    { thisFaceSubentityLocalIndex[EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, EDGE_CODIM, i)); }
+					for (int i = 0; i < nVertexTriangle; i++)  { thisFaceSubentityLocalIndex[VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, VERTEX_CODIM, i)); }
+
+					// Find local indices of all subentities of this element
+					std::vector<LocalIndexType> thisElementSubentityLocalIndex[4];
+					thisElementSubentityLocalIndex[ELEMENT_CODIM].push_back(thisElementLocalIndex);
+					for (int i = 0; i < nTriangleTet; i++)  { thisElementSubentityLocalIndex[FACE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, i)); }
+					for (int i = 0; i < nEdgeTet; i++)      { thisElementSubentityLocalIndex[EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, EDGE_CODIM, i)); }
+					for (int i = 0; i < nVertexTet; i++)    { thisElementSubentityLocalIndex[VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, VERTEX_CODIM, i)); }
+
+					for (int iCodim = 0; iCodim <= dimension; iCodim++)
+					{
+						// Sort subentity index vectors
+						std::sort(thisFaceSubentityLocalIndex[iCodim].begin(), thisFaceSubentityLocalIndex[iCodim].end());
+						std::sort(thisElementSubentityLocalIndex[iCodim].begin(), thisElementSubentityLocalIndex[iCodim].end());
+
+						// Subtract face subentity set from element subentity set, such that only internal and ghost subentities are left
+						thisElementSubentityLocalIndex[iCodim] = VectorHelper::sortedSetComplement(thisElementSubentityLocalIndex[iCodim], thisFaceSubentityLocalIndex[iCodim]);
+
+						// 2) Add entities to the map unless they are already added.
+						// **********************************************************************
+
+						Local2LocalMap & thisLocalCommMap = gridbase_.selectCommMap(iCodim, thisElementPType, NO_BOUNDARY_TYPE);
+
+
+						for (unsigned int iEntity = 0; iEntity < thisElementSubentityLocalIndex[iCodim].size(); iEntity++ )
+						{
+							LocalIndexType thisEntityLocalIndex = thisElementSubentityLocalIndex[iCodim][iEntity];
+							Dune::PartitionType thisEntityType = gridbase_.entityPartitionType(iCodim, thisEntityLocalIndex);
+							StructuralType thisBoundaryType = iCodim == FACE_CODIM ?
+									gridbase_.faceBoundaryType(thisEntityLocalIndex) :
+									NO_BOUNDARY_TYPE;
+
+							std::stringstream log_str;
+							log_str << "CurvilinearPostConstructor: ---- Iterating over subentity ";
+							log_str << " codim=" << iCodim;
+							log_str << " subentityNo=" << iEntity;
+							log_str << " localindex =" << thisEntityLocalIndex;
+							log_str << " ptype =" << Dune::PartitionName(thisEntityType);
+							log_str << " boundaryType =" << thisBoundaryType;
+							LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_str.str());
+
+
+							// If this is a PB Entity, that happens to not be on the face, it is possible
+							// that it is on a face of a different process, then it is a PB->G link
+							// Otherwise, this entity is either internal or ghost, and it contributes to one
+							// of the new maps
+							// [TODO] NOTE: Periodic <-> Ghost protocol not implemented at the moment
+							if (thisEntityType == Dune::PartitionType::BorderEntity)
+							{
+								std::vector<int> & thisEntityPBNeighbors = gridbase_.commEntityNeighborRankSet(iCodim, thisEntityLocalIndex, Dune::PartitionType::BorderEntity, Dune::PartitionType::BorderEntity, NO_BOUNDARY_TYPE);
+								bool isNewRank = !VectorHelper::isInside(thisEntityPBNeighbors, thisFaceNeighborRank);
+								//std::cout << "testing isInside vector=(" << VectorHelper::vector2string(thisEntityPBNeighbors) << ") elem=" << thisFaceNeighborRank << " isNew=" << isNewRank << std::endl;
+
+								// If this rank is not already in PB-PB of this entity, then it must be in PB-G
+								if (isNewRank)
+								{
+									LocalIndexType thisEntityPBIndex = gridstorage_.processBoundaryIndexMap_[iCodim][thisEntityLocalIndex];
+									gridstorage_.PB2GNeighborRank_[iCodim][thisEntityPBIndex].push_back(thisFaceNeighborRank);
+								}
+							} else {
+								Local2LocalIterator thisIter = thisLocalCommMap.find(thisEntityLocalIndex);
+								LocalIndexType thisEntitySubsetIndex;
+
+								if (thisIter == thisLocalCommMap.end())
+								{
+									thisEntitySubsetIndex = thisLocalCommMap.size();
+									thisLocalCommMap[thisEntityLocalIndex] = thisEntitySubsetIndex;
+
+									// Enlarge the neighbour rank vector such that it has enough entries for all entities of subset
+									if (thisElementPType == Dune::PartitionType::InteriorEntity)  {
+										gridstorage_.BI2GNeighborRank_[iCodim].resize(thisEntitySubsetIndex + 1);
+									}
+								} else {
+									thisEntitySubsetIndex = (*thisIter).second;
+								}
+
+								// 3) Mark PB face neighbor rank on all subset entities
+								// Note: No communication of interior to interior
+								// **********************************************************************
+								if (thisElementPType == Dune::PartitionType::InteriorEntity)  {
+									gridstorage_.BI2GNeighborRank_[iCodim][thisEntitySubsetIndex].push_back(thisFaceNeighborRank);
+								} else {
+									gridstorage_.G2BIPBNeighborRank_[iCodim][thisEntitySubsetIndex].push_back(thisFaceNeighborRank);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+
+		// Compactify I -> G, as this array will not be accessed at a later stage
+		// Compactification means deleting repeating elements, because each neighbor rank set should only contain each of its neighbour ranks once
+		// The reason for them being added more than one time, is because a boundary entity can be assigned a neighbour rank by more than one PB face
+		// [TODO] Not sure if this is actually necessary at all. Are there repeating entities possible?
+		for (int iCodim = 0; iCodim <= dimension; iCodim++) {
+			for (auto && entityNbRanks : gridstorage_.BI2GNeighborRank_[iCodim])  { VectorHelper::compactify(entityNbRanks); }
+			for (auto && entityNbRanks : gridstorage_.G2BIPBNeighborRank_[iCodim])  { VectorHelper::compactify(entityNbRanks); }
+		}
+
+
+    }
+
 
 
     // ************************************************************************************
 	// Auxiliary methods for communicating communication entity neighbor ranks
 	// ************************************************************************************
 
-
-    // [TODO] Possibly set complement unnecessary, since already only adding neighbor if it is not a neighbor already
+    /* \brief Construction of Process Boundary -> Ghost communication protocol
+     *
+     * [TODO]  Implement for periodic, whenever becomes necessary
+     * [TODO] Possibly set complement unnecessary, since already only adding neighbor if it is not a neighbor
+     *
+     */
     void communicatePBG(int codim, MPI_Comm comm)
     {
     	LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearPostConstructor: -- Started ProcessBoundary-Ghost communication construction");
@@ -792,7 +819,7 @@ protected:
      * 2) Communicate global indices for each G-PB entity
      * 3) On receiving end, mark sender's rank on all received G-PB
      *
-     *
+     * [TODO]  Implement for periodic, whenever becomes necessary
      *
      * */
     void communicateGPB(int codim, MPI_Comm comm)
@@ -921,6 +948,7 @@ protected:
     /** \brief For each PB entity that has non-zero PB-G, and is lowest rank among all its neighbor PB,
      *   communicate to each its neighbour G all other G on the list
      *
+     * [TODO]  Implement for periodic, whenever becomes necessary
      * [TODO]  Seems like this procedure could be compactified in 1 loop since there is no feedback
      *
      * */

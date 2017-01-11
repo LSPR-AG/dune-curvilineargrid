@@ -199,6 +199,8 @@ public:
 
     static const unsigned int NO_BOUNDARY_TYPE     = GridStorageType::FaceBoundaryType::None;
     static const unsigned int DOMAIN_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::DomainBoundary;
+    static const unsigned int INTERIOR_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::InteriorBoundary;
+    static const unsigned int PERIODIC_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::PeriodicBoundary;
 
 
 
@@ -360,6 +362,15 @@ public:
     	return IdType(globalIndex);
     }
 
+    /** Returns the local index of the associated globalId of the entity  */
+    LocalIndexType localIndexFromGlobalId(int codim, IdType globalId) const
+    {
+    	GlobalIndexType globalIndex = globalId.globalindex_;
+    	LocalIndexType localIndex;
+    	if (! findEntityLocalIndex(codim, globalIndex, localIndex))  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: requested globalID does not have an associated local index on this process");  }
+    	return localIndex;
+    }
+
 
     /** Get boundary segment index of this entity if it is a Domain Boundary Face */
     LocalIndexType boundarySegmentIndex(LocalIndexType localIndex) const
@@ -402,6 +413,7 @@ public:
     /** Get Boundary type of an face */
     StructuralType faceBoundaryType(LocalIndexType localIndex) const
     {
+    	assert(localIndex < gridstorage_.face_.size());
     	return gridstorage_.face_[localIndex].boundaryType;
     }
 
@@ -522,18 +534,33 @@ public:
 
     /** Get the neighbour ranks of this communication entity  */
     std::vector<int> & commEntityNeighborRankSet(
-    	int codim, LocalIndexType localIndex, PartitionType structSend, PartitionType structRecv
+    	int codim, LocalIndexType localIndex, PartitionType ptypeSend, PartitionType ptypeRecv, StructuralType boundarytype
     )
 	{
     	typedef typename std::map<LocalIndexType,LocalIndexType>::const_iterator Local2LocalConstIter;
 
-    	Local2LocalMap & tmpMap = selectCommMap(codim, structSend);
+    	Local2LocalMap & tmpMap = selectCommMap(codim, ptypeSend, boundarytype);
     	Local2LocalConstIter tmp = tmpMap.find(localIndex);
 
     	if (tmp == tmpMap.end())  { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected local index"); }
 
-    	LocalIndexType entityLocalSubIndex = (*tmp).second;
-    	return selectCommRankVector(codim, structSend, structRecv)[entityLocalSubIndex];
+    	LocalIndexType entityLocalSubsetIndex = (*tmp).second;
+
+    	EntityNeighborRankVector & rezMapSet = selectCommRankVector(codim, ptypeSend, ptypeRecv, boundarytype);
+
+    	if (entityLocalSubsetIndex >= rezMapSet.size()) {
+    		std::cout << "rank_ " << " fail to find comm protocol for codim=" << codim
+    				<< " pSend=" << ptypeSend
+					<< " pRecv=" << ptypeRecv
+					<< " btype=" << boundarytype
+					<< " ::: real_size =" << rezMapSet.size()
+					<< " requested=" << entityLocalSubsetIndex << std::endl;
+    	}
+
+    	assert(entityLocalSubsetIndex < rezMapSet.size());			// Communicating entity must have defined comm set
+    	assert(rezMapSet[entityLocalSubsetIndex].size() != 0);		// If entity is communicating, it must have at least one destination
+
+    	return rezMapSet[entityLocalSubsetIndex];
 	}
 
 
@@ -710,6 +737,46 @@ public:
     }
 
 
+    // Given the periodic face index, finds the associated ghost face index
+    // [TODO] This approach is cumbersome and error-prone. Implement periodicGhost indexSet and check if index is in it
+    LocalIndexType periodicNeighborFace(LocalIndexType periodicfaceIndex) const {
+    	assert(withGhostElements());
+    	assert(faceBoundaryType(periodicfaceIndex) == GridStorageType::FaceBoundaryType::PeriodicBoundary);
+    	assert(checkFaceOuterNeighbor(periodicfaceIndex));
+
+		InternalIndexType subind = faceSubIndexInNeighbor(periodicfaceIndex, 1);
+		LocalIndexType elemind = faceNeighbor(periodicfaceIndex, 1);
+		LocalIndexType neighborFaceIndex = subentityLocalIndex (elemind, ELEMENT_CODIM, FACE_CODIM, subind);
+
+		bool isGhost = entityPartitionType(FACE_CODIM, neighborFaceIndex) == Dune::PartitionType::GhostEntity;
+		bool isPeriodic = faceBoundaryType(neighborFaceIndex) == PERIODIC_BOUNDARY_TYPE;
+
+		// Given ghost elements, for each periodic face there must be an associated (ghost/local periodic) face
+		assert(isGhost || isPeriodic);
+		return neighborFaceIndex;
+    }
+
+    // Given the index of ghost face, looks for the associated periodic face index. If there isnt any, returns false. If there is, returns true, and the periodic index
+    // [TODO] This approach is cumbersome and error-prone. Implement periodicGhost indexSet and check if index is in it
+    bool findGhostPeriodicNeighborFace(LocalIndexType ghostfaceindex, LocalIndexType & periodicfaceIndex) const {
+    	assert(withGhostElements());
+    	assert(entityPartitionType(FACE_CODIM, ghostfaceindex) == Dune::PartitionType::GhostEntity);
+
+    	if (checkFaceOuterNeighbor(ghostfaceindex)) {
+    		InternalIndexType subind = faceSubIndexInNeighbor(ghostfaceindex, 1);
+    		LocalIndexType elemind = faceNeighbor(ghostfaceindex, 1);
+    		periodicfaceIndex = subentityLocalIndex (elemind, ELEMENT_CODIM, FACE_CODIM, subind);
+
+    		// If the ghost face at all has a neighbor defined, it must be because it is a periodic ghost. Other ghosts do not have neighbors
+    		assert(faceBoundaryType(periodicfaceIndex) == GridStorageType::FaceBoundaryType::PeriodicBoundary);
+    		return true;
+    	} else {
+    		// This is a regular ghost face, it is not a periodic boundary ghost
+    		return false;
+    	}
+    }
+
+    // Extracts the permutation index by which the indices of the periodic face ON THIS PROCESS have to be permuted to be conformal to the periodic face ON THE NEIGHBOR PROCESS
     unsigned int periodicFacePermutationInner(LocalIndexType faceIndex) const {
     	auto periodicFaceIter = gridstorage_.periodicBoundaryIndexMap_.find(faceIndex);
     	assert(periodicFaceIter != gridstorage_.periodicBoundaryIndexMap_.end());  // Should not run this method on a non-periodic face
@@ -717,6 +784,9 @@ public:
     	return gridstorage_.periodicFaceMatchPermutationIndexInner_[periodicFaceIter->second];
     }
 
+    // Extracts the permutation index by which the indices of the periodic face ON THE NEIGHBOR PROCESS have to be permuted to be conformal to the periodic face ON THIS PROCESS
+    // [TODO] These two permutations are inverses of each other. Having both is excessive
+    //   Only communicate the Inner permutation, and obtain the outer by simple permutation inversion routine. Implement routine in CurvilinearGeometryHelper
     unsigned int periodicFacePermutationOuter(LocalIndexType faceIndex) const {
     	auto periodicFaceIter = gridstorage_.periodicBoundaryIndexMap_.find(faceIndex);
     	assert(periodicFaceIter != gridstorage_.periodicBoundaryIndexMap_.end());  // Should not run this method on a non-periodic face
@@ -896,22 +966,26 @@ public:
     	// Check if this is a request for a boundary index set
     	if (boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary)  {
     		assert(codim == FACE_CODIM);  // According to convention, only faces can be boundarySegments
+    		assert(ptype == Dune::PartitionType::InteriorEntity);
     		return gridstorage_.faceDomainBoundaryIndexSet_;
     	} else if (boundaryType == GridStorageType::FaceBoundaryType::InteriorBoundary)  {
     		assert(codim == FACE_CODIM);  // According to convention, only faces can be boundarySegments
     		return gridstorage_.faceInteriorBoundaryIndexSet_;
     	} else if (boundaryType == GridStorageType::FaceBoundaryType::PeriodicBoundary)  {
     		assert(codim == FACE_CODIM);  // According to convention, only faces can be boundarySegments
+    		assert(ptype == Dune::PartitionType::InteriorEntity);
     		return gridstorage_.facePeriodicBoundaryIndexSet_;
+    	} else if (boundaryType == NO_BOUNDARY_TYPE)  {
+        	// Otherwise, this must be a request for a standard dune entity iterator
+        	switch(ptype)
+        	{
+        	case Dune::PartitionType::InteriorEntity   : return gridstorage_.entityInternalIndexSet_[codim];          break;
+        	case Dune::PartitionType::BorderEntity     : return gridstorage_.entityProcessBoundaryIndexSet_[codim];   break;
+        	case Dune::PartitionType::GhostEntity      : return gridstorage_.entityGhostIndexSet_[codim];             break;
+        	}
     	}
 
-    	// Otherwise, this must be a request for a standard dune entity iterator
-    	switch(ptype)
-    	{
-    	case Dune::PartitionType::InteriorEntity   : return gridstorage_.entityInternalIndexSet_[codim];          break;
-    	case Dune::PartitionType::BorderEntity     : return gridstorage_.entityProcessBoundaryIndexSet_[codim];   break;
-    	case Dune::PartitionType::GhostEntity      : return gridstorage_.entityGhostIndexSet_[codim];             break;
-    	}
+    	DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Invalid partition type / structural type");
     }
 
 
@@ -946,23 +1020,29 @@ public:
     }
 
 
-    Local2LocalMap & selectCommMap(int codim, int ptype)
+    Local2LocalMap & selectCommMap(int codim, Dune::PartitionType ptype, StructuralType boundarytype)
     {
+
+
     	switch (ptype)
     	{
-    	case Dune::PartitionType::InteriorEntity :  return gridstorage_.boundaryInternalEntityIndexMap_[codim];  break;
+    	case Dune::PartitionType::InteriorEntity :  {
+        	if (boundarytype == GridStorageType::FaceBoundaryType::PeriodicBoundary) {
+        		assert(codim == FACE_CODIM);
+        		return gridstorage_.periodicBoundaryIndexMap_;
+        	} else {
+        		return gridstorage_.boundaryInternalEntityIndexMap_[codim];
+        	}
+    	} break;
     	case Dune::PartitionType::BorderEntity   :  return gridstorage_.processBoundaryIndexMap_[codim];         break;
     	case Dune::PartitionType::GhostEntity    :  return gridstorage_.ghostIndexMap_[codim];                   break;
-    	case PERIODIC_BOUNDARY_PARTITION_TYPE : {
-    		assert(codim == FACE_CODIM);
-    		return gridstorage_.periodicBoundaryIndexMap_;
-    	} break;
     	default                                  :  DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected comm structural type");  break;
     	}
     }
 
 
-    EntityNeighborRankVector & selectCommRankVector(int codim, int ptypesend, int ptyperecv)
+    EntityNeighborRankVector & selectCommRankVector(
+    		int codim, Dune::PartitionType ptypesend, Dune::PartitionType ptyperecv, StructuralType boundarytype)
     {
     	// Can only communicate over these 3 PartitionTypes
     	//assertValidCodimStructuralType(codim, ptypesend);
@@ -972,8 +1052,13 @@ public:
     	{
 			case Dune::PartitionType::InteriorEntity :   // Internal -> Ghost protocol
 			{
-				assert(ptyperecv == Dune::PartitionType::GhostEntity);
-				return gridstorage_.BI2GNeighborRank_[codim];
+				if (boundarytype == GridStorageType::FaceBoundaryType::PeriodicBoundary) {
+					assert(codim == FACE_CODIM);  // Other codim not implemented for this protocol yet
+					return gridstorage_.PERB2PERBNeighborRank_[codim];
+				} else {
+					assert(ptyperecv == Dune::PartitionType::GhostEntity);
+					return gridstorage_.BI2GNeighborRank_[codim];
+				}
 			} break;
 			case Dune::PartitionType::BorderEntity   :   // PB -> PB and PB -> Ghost protocols
 			{
@@ -988,13 +1073,6 @@ public:
 				else if (ptyperecv == Dune::PartitionType::GhostEntity)    { return gridstorage_.G2GNeighborRank_[codim]; }
 				else { DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected comm partition type"); }
 			} break;
-			case PERIODIC_BOUNDARY_PARTITION_TYPE :   // Periodic Boundary -> Periodic Boundary protocol
-			{
-				assert(ptyperecv == PERIODIC_BOUNDARY_PARTITION_TYPE);
-				assert(codim == FACE_CODIM);  // Other codim not implemented for this protocol yet
-				return gridstorage_.PERB2PERBNeighborRank_[codim];
-			} break;
-
 			default: DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Unexpected comm partition type");  break;
     	}
     }

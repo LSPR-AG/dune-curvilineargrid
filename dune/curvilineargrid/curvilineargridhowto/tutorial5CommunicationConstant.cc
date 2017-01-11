@@ -50,7 +50,7 @@ public:
 		assert(gtVec.size() == 1);
 
 		std::cout << "expecting to communicate " << in_.size() << " of " << indexset_.size(gtVec[0]) << " entities" << std::endl;
-		std::cout << "the expected send-indices are " << VectorHelper::map2string(in_) << std::endl;
+		//std::cout << "the expected send-indices are " << VectorHelper::map2string(in_) << std::endl;
 	}
 
 	//! returns true if data for this codim should be communicated
@@ -71,28 +71,33 @@ public:
 		IndexType ind = indexset_.index(e);
 		DataIter iter = in_.find(ind);
 
+
 		if (iter == in_.end())
 		{
-			std::cout << " Error: DataHandleConstant: sending data from unexpected entity index=" << ind;
-
-			/*
-			std::cout << " of structural type " << Dune::PartitionName(e.partitionType());
-			int parentIndex = grid_.gridbase().edgeNeighbor(ind);
-			std::cout << " of parent index " << parentIndex << " of structural type " << grid_.gridbase().entityStructuralType(0, parentIndex);
-
-			const auto & storage = grid_.gridbase().gridstorage();
-			for (int i = 0; i < storage.elementSubentityCodim1_[parentIndex].size(); i++)
-			{
-				std::cout << " has neighbor face " << storage.elementSubentityCodim1_[parentIndex][i] << " of type " << grid_.gridbase().entityStructuralType(0, parentIndex);
-			}
-			std::cout << std::endl;
-			*/
-
+			std::cout << " Error: DataHandleConstant: sending data from unexpected entity index=" << ind
+					<< " of ptype=" << Dune::PartitionName(e.partitionType()) << std::endl;
 
 			DUNE_THROW( Dune::GridError, " DataHandleConst: sending data from entity that is not supposed to communicate" );
 		}
 
-		buff.write((*iter).second);
+
+		if (codim_ == FACE_CODIM) {
+			bool isPB = e.partitionType() == Dune::PartitionType::BorderEntity;
+			bool isPeriodic = (e.partitionType() == Dune::PartitionType::InteriorEntity) &&
+					grid_.gridbase().faceBoundaryType(iter->second) != GridType::GridStorageType::FaceBoundaryType::PeriodicBoundary;
+
+			if (!(isPB || isPeriodic))
+			{
+				std::cout << " Error: DataHandleConstant: sending data from unexpected entity index=" << ind
+						<< " of ptype=" << Dune::PartitionName(e.partitionType()) << std::endl;
+
+				DUNE_THROW( Dune::GridError, " DataHandleConst: sending data from entity that is not supposed to communicate" );
+			}
+
+			//if (isPeriodic) { std::cout << " sending from periodic face " << std::endl; }
+		}
+
+		buff.write(iter->second);
 	}
 
 	/** \brief Unpack data from message buffer to user
@@ -107,7 +112,12 @@ public:
 
 		if (iter == out_.end())
 		{
-			std::cout << " Error: DataHandleConstant: received data from entity index=" << ind << " which was not found" << std::endl;
+			//if ((e.partitionType() == Dune::PartitionType::GhostEntity) && gridbase_.)
+
+
+			std::cout << " Error: DataHandleConstant: received data from entity index=" << ind
+					<< " of ptype=" << e.partitionType()
+					<< " which was not among the expected receiving entities" << std::endl;
 			DUNE_THROW( Dune::GridError, " DataHandleConst: received data from entity not present on this process" );
 		}
 
@@ -161,6 +171,9 @@ public:
 
 	/* This class runs simple grid communication of selected codim and interface
 	 * It then checks that exactly the entities that were supposed to participate in the communication participated in it
+	 *
+	 * NOTE: This procedure is much more complicated than necessary for regular communication and is excessive for user.
+	 *   For a simpler example look at CommunicationGlobalIndex tutorial
 	 *   */
 	template<int codim>
 	static void communicateConst(Dune::InterfaceType iftype, Dune::CommunicationDirection dir, Dune::MPIHelper & mpihelper, GridType & grid)
@@ -175,27 +188,43 @@ public:
 
 			DataMap in;
 			DataMap out;
-			int TMP = 5;
+			int TMP = 5; // Just some number to be communicated
 
 			// Iterate over entities of this codimension
 			bool withGhosts = grid.gridbase().withGhostElements();
+			bool withPeriodic = grid.withPeriodic();
 
 			//std::cout << " -- creating send-arrays" << std::endl;
 			for (auto&& elementThis : elements(leafView, Dune::Partitions::interiorBorder)) {
 				bool marked_internal = false;
 
 				for (auto&& intersection : intersections(leafView, elementThis)) {
-					// We are interested in marking process boundaries, and their neighbor entities
-					if (isProcessBoundary(intersection, withGhosts)) {
+
+					bool isDB = intersection.boundary() && !intersection.neighbor();
+					bool isPB = !intersection.boundary() && intersection.neighbor() && (intersection.outside().partitionType() == Dune::PartitionType::GhostEntity);
+					bool isPeriodic = intersection.boundary() && intersection.neighbor();
+
+					assert(!isPeriodic || withPeriodic);  // Can only find periodic if grid has periodic, otherwise something weird happens
+
+					// We are interested in marking communicating boundaries, and their neighbor entities
+					if (isPB || isPeriodic) {
 						//std::cout << "process=" << mpihelper.rank() << " visiting face " << indset.subIndex(entity, intersection.indexInInside(), 1) << std::endl;
 
 						const Face thisFace = elementThis.template subEntity<FACE_CODIM>(intersection.indexInInside());
 						const Element & elementNeighbor = intersection.outside();
 
-						mark_subentity<Face, codim>(thisFace, in, out, iftype, dir, grid, TMP);
-						if (!marked_internal)  { mark_subentity<Element, codim>(elementThis, in, out, iftype, dir, grid, TMP); }
-						if (withGhosts)        { mark_subentity<Element, codim>(elementNeighbor, in, out, iftype, dir, grid, TMP); }
-						marked_internal = true;
+						// Mark subentities of the shared face for communication
+						// This includes process and periodic boundary communication
+						if (codim > ELEMENT_CODIM) {  // Element can't be a subentity of a face
+							mark_subentity<Face, codim>(thisFace, in, out, iftype, dir, grid, TMP);
+						}
+
+						// Mark subentities of Ghosts and corresponding Interior elements, that would communicate if ghosts are present in the mesh
+						if (withGhosts)        {
+							if (!marked_internal)  { mark_subentity<Element, codim>(elementThis, in, out, iftype, dir, grid, TMP); }
+							mark_subentity<Element, codim>(elementNeighbor, in, out, iftype, dir, grid, TMP);
+							marked_internal = true;
+						}
 					}
 				}
 			}
@@ -204,11 +233,9 @@ public:
 			// Create datahandle
 			std::cout << " -- Initialising datahandle" << std::endl;
 			DHConstImpl dhimpl(grid, indset, in, out, codim);
-			//DHConst dh(DHConstImpl(indset, in, out, codim));
 
 			// Perform communication
 			std::cout << " -- started communicate" << std::endl;
-			//grid.communicate (dh, iftype, dir);
 			grid.communicate (dhimpl, iftype, dir);
 
 			// assert all values of out array to be what they need to be
@@ -223,10 +250,9 @@ public:
 			*/
 
 
-			for (DataIter datait = out.begin(); datait != out.end(); datait++)
+			for (const auto & datait : out)
 			{
-				if ((*datait).second != TMP) { std::cout << "received unexpected data = " << (*datait).second << std::endl; }
-				assert((*datait).second == TMP);
+				if (datait.second != TMP) { DUNE_THROW(Dune::IOError, "received unexpected data = " + std::to_string(datait.second)); }
 			}
 		}
 	}
@@ -235,22 +261,6 @@ public:
 
 
 private:
-
-	// Warning, this procedure can not tell apart Ghosts and ProcessBoundaries
-	static bool isProcessBoundary(const Intersection & intr, bool withGhosts)
-	{
-	    if (intr.boundary()) { return false; }
-	    if (intr.neighbor()) {
-	    	return intr.outside().partitionType() == Dune::PartitionType::GhostEntity;
-	    } else {
-	    	if (!withGhosts)  { return true; }
-	    	else
-	    	{
-	        	std::cout << "Found non-boundary entity with no neighbour, given that a mesh has ghosts" << std::endl;
-	        	DUNE_THROW( Dune::IOError, "Found non-boundary entity with no neighbour" );
-	    	}
-	    }
-	}
 
 	static bool usePartitionType(Dune::PartitionType ptype, Dune::InterfaceType iftype, Dune::CommunicationDirection dir, bool send)
 	{
@@ -261,7 +271,7 @@ private:
 			case Dune::InterfaceType::InteriorBorder_All_Interface  :
 			{
 				if ((dir == Dune::CommunicationDirection::ForwardCommunication) == send)  { return ptype == Dune::PartitionType::InteriorEntity; }
-				else                                                                      { return ptype != Dune::PartitionType::InteriorEntity; }
+				else                                                                      { return ptype == Dune::PartitionType::GhostEntity; }
 			} break;
 		}
 	}
@@ -280,26 +290,30 @@ private:
 	{
 		const int entityCodim = Entity::codimension;
 
+		assert(entityCodim <= codim);
+
 		// Add subentities from all PB faces
-		bool useFace = ((entityCodim == 1)&&(codim >= 1));
+		bool commSharedFace = entityCodim == FACE_CODIM;
 
 		// Add subentities of entities if they are to be communicated
-		bool useEntitySend = ((entityCodim == 0)&&(usePartitionType(entity.partitionType (), iftype, dir, true) ));
-		bool useEntityRecv = ((entityCodim == 0)&&(usePartitionType(entity.partitionType (), iftype, dir, false) ));
+		bool commElementSend = ((entityCodim == ELEMENT_CODIM)&&(usePartitionType(entity.partitionType(), iftype, dir, true) ));
+		bool commElementRecv = ((entityCodim == ELEMENT_CODIM)&&(usePartitionType(entity.partitionType(), iftype, dir, false) ));
 
-		if (useFace || useEntitySend || useEntityRecv)
+		if (commSharedFace || commElementSend || commElementRecv)
 		{
 			const LeafIndexSet & indset = grid.leafIndexSet();
-			// Get index set
 
+			// Find out how many subentities of the given codim are in this entity
+			// [TODO] generalize for generic geometry types
 			Dune::GeometryType gt;  gt.makeSimplex(cdim);
 			int nSub = ReferenceElements3D::general(gt).size(0, entityCodim, codim);
+
 
 			for (int i = 0; i < nSub; i++) {
 				 int ind = indset.subIndex(entity, i, codim);
 
-				 if (useFace || useEntitySend)  { in[ind] = TMP;  }
-				 if (useFace || useEntityRecv)  { out[ind] = 0;   }
+				 if (commSharedFace || commElementSend)  { in[ind] = TMP;  }	// Note that this index will send
+				 if (commSharedFace || commElementRecv)  { out[ind] = 0;   }	// Note that this index will receive, and that it has not received yet
 			}
 		}
 	}
@@ -360,13 +374,40 @@ int main (int argc , char **argv) {
 	// For each interface and codimension, perform simple communication test given by communicateConst
 	typedef ConstCommTest<GridType> TestClass;
 
-	for (int i = 0; i < 4; i++)
+	std::vector<bool> doInterface = grid->withPeriodic()
+			? std::vector<bool> {true, false, false, false}
+			: std::vector<bool> {true, false, false, false};
+
+	std::vector<bool> doCodim = grid->withPeriodic()
+			? std::vector<bool> {true, true, false, false}
+			: std::vector<bool> {true, true, true, true};
+
+	// For each interface and codimension, perform simple communication test given by communicateConst
+	for (int iInterface = 0; iInterface <= 3; iInterface++)
 	{
-		TestClass::communicateConst<ELEMENT_CODIM>(interfType[i], interfDir[i], mpihelper, *grid);  // Elements
-		TestClass::communicateConst<FACE_CODIM>(interfType[i], interfDir[i], mpihelper, *grid);  // Faces
-		TestClass::communicateConst<EDGE_CODIM>(interfType[i], interfDir[i], mpihelper, *grid);  // Edges
-		TestClass::communicateConst<VERTEX_CODIM>(interfType[i], interfDir[i], mpihelper, *grid);  // Vertices
+		if (doInterface[iInterface]) {
+			for (int iCodim = 0; iCodim <= 3; iCodim++)
+			{
+				if (doCodim[iCodim]) {
+					if (iCodim == ELEMENT_CODIM) { TestClass::communicateConst<ELEMENT_CODIM>(interfType[iInterface], interfDir[iInterface], mpihelper, *grid); }
+					if (iCodim == FACE_CODIM) { TestClass::communicateConst<FACE_CODIM>(interfType[iInterface], interfDir[iInterface], mpihelper, *grid); }
+					if (iCodim == EDGE_CODIM) { TestClass::communicateConst<EDGE_CODIM>(interfType[iInterface], interfDir[iInterface], mpihelper, *grid); }
+					if (iCodim == VERTEX_CODIM) { TestClass::communicateConst<VERTEX_CODIM>(interfType[iInterface], interfDir[iInterface], mpihelper, *grid); }
+				} else {
+					if (grid->comm().rank() == MPI_MASTER_RANK) {
+						std::cout << "Skipping codim " << iCodim << " because not defined for periodic case" << std::endl;
+					}
+				}
+			}
+		} else {
+			if (grid->comm().rank() == MPI_MASTER_RANK) {
+				std::cout << "Skipping interface " << iInterface << " because not defined for periodic case" << std::endl;
+			}
+		}
+
+
 	}
+
 
 
 	typedef LoggingTimer<LoggingMessage>                 LoggingTimerDev;

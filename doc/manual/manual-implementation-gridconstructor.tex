@@ -68,12 +68,101 @@ Each process then locally enumerates the global index of all its entities. To be
 The enumerated global indices are then communicated among all processes sharing the entities. By analyzing entity neighbors, each process can compute how many global indices it needs to send to and receive from each other process, avoiding extra communication. At the end of this process, the global-to-local index map is filled on each process.
 
 
+\subsection{Periodic boundary construction}
+\label{impl-grid-constructor-periodic}
+
+A recent feature of the \curvgrid is the Periodic Boundary Condition (PBC) support for cuboid domains. It is possible to have any 1, 2 or 3 dimensions periodic. \curvgrid supports Periodic Boundaries and the associated Ghost Entities. \\
+
+\noindent
+In order to generate a Periodic mesh it is sufficient to provide a periodic-conformal .msh file. This means that the Domain Boundary must be a cuboid surface, and all faces on parallel cuboid planes, for which periodicity is specified, should be conformal. That is, the conformal faces must exactly match via translation along the orthogonal axis (\cref{fig:impl:periodicconformal}). There is no need to provide any periodicity information in the .msh file - the periodic faces are recognized automatically. In order to inform the grid constructor of the periodicity, it is sufficient to pass to the \textit{CurvilinearGridFactory} an additional parameter, denoting which dimensions are expected to be parallel (see \cref{interface-grid-factory}) \\
+
+\begin{figure}
+    \centering
+	\includegraphics[scale=1.5]{images/periodic-conform}
+	\captionsetup{width = 0.8\textwidth}
+	\caption{The image demonstrates that a conformal periodic face pair is such that one of them can be obtained from the other through translation along the periodicity axis}
+	\label{fig:impl:periodicconformal}
+\end{figure}
+
+
+\noindent
+Currently the construction of the periodic boundary relies on gathering all the periodic faces on the master process, determining periodic neighbors, and scattering the neighboring information to the boundary owner processes.
+
+\begin{mybox}
+\begin{enumerate}
+ \item Master process gathers the global indices of all periodic boundary faces, as well as their corner coordinates. 
+ \item It separates all periodic faces into 6 arrays, with normals $-X$, $+X$, $-Y$, $+Y$, $-Z$, $+Z$ (non-periodic dimensions are ignored)
+ \item For each periodic face the Center of Mass (CoM) is calculated, and each array is sorted w.r.t center of mass.
+ \item If the mesh is indeed conformal, the each two arrays of opposite normals should now have the periodic neighbors in exactly the same order. Thus the periodic face pairs are found.
+ \item For each face pair, the corresponding vertices are matched by checking that the vector connecting them is collinear with the face normal. The relative permutation index of vertices is calculated
+ \item For each process its periodic neighbor information is communicated - the neighbor global index pair, as well as the permutation index.
+\end{enumerate}
+\end{mybox}
+
+\noindent
+IMPORTANT NOTE: The orientation of each boundary face is determined by the reference subentity orientation of the corresponding element, and thus does not follow any global pattern. Thus, any two periodic neighbor faces are conformal up to a permutation of indices. Since the grid element vertex indexing does not change, the permutation of indices also stays the same. It is therefore essential for each process to know the permutation that needs to be applied to its periodic face, such that it matches to the periodic face of the neighbor process. It is later used in the intersection implementation to link together the local indices of the neighboring elements within the shared face. \\
+
+\noindent
+It is important to note that the intersection is viewed as a subentity of its inner neighbor element. Should we construct the intersection of the other neighboring element (for which it will be the inner element), corresponding to the same face, the orientation of the face may change, depending on the vertex ordering of that element. The typical way to perform the face orientation matching for neighbor elements in \dune{} is to construct neighboring local geometries \textit{geometryInInside} and \textit{geometryInOutside} for each intersection. These geometries are maps from the local coordinate of a face to the corresponding local coordinate of the containing element, namely
+
+\begin{mybox}
+\begin{lstlisting}
+  LocalCoordinate3D insideElementLocalCoordinate = geometryInInside. global(localFaceCoordinate)
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+The above design pattern makes use of two important observations
+\begin{itemize}
+ \item The coordinates of the \textit{geometryInInside} are a subset of the coordinates of a 3D reference element, which exactly correspond to the corners of the face, viewed as a subentity of the inner reference element.
+ \item The coordinates of the \textit{geometryInOutside} are a subset of the coordinates of a 3D reference element, which exactly correspond to the corners of the face, viewed as a subentity of the outer reference element, followed by a permutation. The permutation the permutation that needs to be applied to the corners of the face, as seen from the inner element, to correspond to the corners of that face, as seen from the outer element.
+\end{itemize}
+
+\noindent
+For example, a given face is the $s0=$2nd subentity of the inner element, and the $s1=$0th subentity of the outer element (out of 4 possible). Also, assume that the order of vertices in inner and outer elements is such, that the corners of the face as seen from the inner element would map to the corners, as seen from the outer element as $M = (0,1,2) \rightarrow (2,0,1)$. As of time of writing, the \dune{} tetrahedral reference element is such, that its corner coordinates are $pref=\{(0.0\ 0.0\ 0.0), (1.0\ 0.0\ 0.0), (0.0\ 1.0\ 0.0), (0.0\ 0.0\ 1.0)\}$ and the indices corresponding to the reference subentity faces are $fref=\{(0 1 2), (0 1 3), (0 2 3), (1 2 3)\}$. Thus, the corners of the \textit{geometryInInside} are
+
+\begin{mybox}
+\begin{lstlisting}
+ pref[fref[s0]] = pref[fref[2]] = {pref[0], pref[2], pref[3]}
+   = {(0.0 0.0 0.0), (0.0 1.0 0.0), (0.0 0.0 1.0)}
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+and of the \textit{geometryInOutside} are
+\begin{mybox}
+\begin{lstlisting}
+ M[pref[fref[s1]]] = M[pref[fref[0]]]
+   = M[{pref[0], pref[1], pref[2]}] = {pref[2], pref[0], pref[1]}
+   = {(0.0 1.0 0.0), (0.0 0.0 0.0), (1.0 0.0 0.0)}
+\end{lstlisting}
+\end{mybox}
+
+\noindent
+Currently in \curvgrid{}, for the entities that share a face, the necessary permutation is generated upon construction of the intersection, by simply matching the local indices of the face, as seen from inner and outer neighbor elements. For the periodic boundaries, this information might not be locally available, if ghost elements are not constructed, and the determination of the permutation is a tedious procedure with multiple floating point comparisons. Thus, for periodic boundaries, the permutation index is calculated once during the construction, then stored and reused for intersection construction. \\
+
+\noindent
+As a result, calculating coupling integrals over any intersection, including periodic, follows exactly the same procedure, and no additional effort is necessary from the user (see tutorial \cref{usage-howto-tutorial-periodic}) \\
+
+
+
+
+
+\textbf{[TODO]} Append changes to communication \\
+
+
+
+
+
 
 \subsection{Ghost element construction}
 \label{impl-grid-constructor-ghost}
 
 \noindent
-Ghost entities are the subentities of the element on the other side of the process boundary face, including the element itself. The process boundary entities are not considered Ghost entities. Thus, the Ghost entities are the internal/domain boundary entities of another process, borrowed by this process. Construction of Ghost entities involves communicating all the information associated with the entities to the neighboring processes, and then incorporating the Ghost entities into the grid on the receiving side (\cref{fig:impl:ghostelements}). \\
+Ghost entities are the subentities of the element on the other side of the process or periodic boundary face, including the element itself. The process and periodic boundary entities themselves can be part of a Ghost entity, but are not considered Ghost entities. Thus, the Ghost entities are the entities of \textit{InteriorBorder} partition (on their parent process) normally not present on this process, but are borrowed by this process. On the borrowing process, the ghost entities have the partition type \textit{GhostEntity}. The ghost entities due to a periodic boundary are treated exactly the same way as those due to a process boundary, with the exception that all of the process boundaries of a ghost element are the same local process boundaries, whereas for each periodic boundary a ghost element has another ghost face, which corresponds to that periodic boundary, but is disjoint from it, and has different local and global index (\cref{fig:impl:periodicvsprocessboundary}). Another special case are the ghost elements of the periodic boundaries, for which the periodic neighbor element is also local to the same process. In this case, no \textbf{ghost element is constructed}, and no entities are copied. The outer neighbor element of the periodic boundary in that case is simply specified as the local element on the other side. Local periodic neighbors are treated during the periodic construction \cref{impl-grid-constructor-periodic}, whereas this section only deals with non-local periodic neighbors. \\
+
+\noindent
+Construction of Ghost entities involves communicating all the information associated with the entities to the neighboring processes, and then incorporating the Ghost entities into the grid on the receiving side (\cref{fig:impl:ghostelements}). \\
 
 \begin{figure}
     \centering
@@ -82,8 +171,16 @@ Ghost entities are the subentities of the element on the other side of the proce
 	\label{fig:impl:ghostelements}
 \end{figure}
 
+\begin{figure}
+    \centering
+	\includegraphics[scale=1.5]{images/periodic-vs-process-boundary}
+	\captionsetup{width = 0.8\textwidth}
+	\caption{This image explains the difference between process boundary ghost elements (left), periodic ghost elements (center), and local periodic neighbors(right). In the left-most image, the green process borrows an element from the red process via a process boundary. That element becomes a ghost. Both the interior green element and the ghost element share the yellow process boundary face. In the center, the green process borrows an element from the red process via a periodic boundary. That element becomes a ghost. The ghost element stays in the same geometric position, and is completely disjoint from its periodic neighbour. The right-most image demonstrates periodic neighbour elements for the case, when both neighboring periodic boundaries are on the same process (blue). In this case, nothing is borrowed or copied, only that each of the neighboring elements considers the other a neighbor. It is important to note that both the coordinates and the global and local indices of periodic neighbors are completely disjoint, thus allowing to address these entities individually. }
+	\label{fig:impl:periodicvsprocessboundary}
+\end{figure}
+
 \noindent
-Since for every $PB$ face the neighboring process rank has already been determined in the previous section, and the global index is already known, it remains only to communicate the corresponding neighbor entities and correctly integrate them into the local grid. Firstly, one needs to communicate the properties of the structure to be communicated. Thus, for each interior element next to the $PB$ the interpolation order is communicated, as well as the number of $PB$ faces it shares with the receiving side. It is important to note that a Ghost element can have more than one $PB$ face associated to it, and the receiving side does not know in advance that two or three of its $PB$ faces are associated with the same Ghost element. This is also the reason it is not possible to know in advance how many ghosts will be received from a neighbor process. Afterwards, for each Ghost element the global index, physical tag, global indices of all codimension subentities and subentity indices of $PB$ faces of the element are communicated. The corresponding Ghost elements are then added to the mesh, and it is determined which vertex coordinates are missing. The vertex coordinates are not communicated immediately, because the neighbor process may already have some of the global coordinates due to narrow mesh appendices. Thus, each process communicates the number of vertex coordinates missing from each of its neighbors, and then communicates the missing coordinates.
+Since for every $PB$ and \textit{Periodic} face the neighboring process rank has already been determined in the previous sections, and the global index is already known, it remains only to communicate the corresponding neighbor entities and correctly integrate them into the local grid. Firstly, one needs to communicate the properties of the structure to be communicated. Thus, for each interior element next to the boundary the interpolation order is communicated, as well as the number of boundary faces it shares with the receiving side. It is important to note that a Ghost element can have more than one boundary face associated to it, and the receiving side does not know in advance if one, two or three of its boundary faces are associated with the same Ghost element on the other side. This is also the reason it is not possible to know in advance how many ghosts will be received from a neighbor process. Afterwards, for each Ghost element the global index, physical tag, global indices of all codimension subentities and subentity indices of boundary faces of the boundary-interior elements are communicated. The corresponding Ghost elements are then added to the mesh, and it is determined which vertex coordinates are missing. The vertex coordinates are not communicated immediately, because the neighbor process may already have some of the global coordinates due to narrow mesh appendices. Thus, each process communicates the number of vertex coordinates missing from each of its neighbors, and then communicates the missing coordinates.
 
 
 
@@ -96,6 +193,7 @@ The communication paradigm of \dune{} \textit{DataHandle} interface is to commun
 	\item $PB$ - Process boundary entities, that is, process boundary faces and their subentities
 	\item $I$ - Interior entities, including the $DB$ but excluding the $PB$ entities.
 	\item $G$ - Ghost elements and their subentities, excluding $PB$
+	\item $PERB$ - Periodic Boundaries
 \end{itemize}
 
 
@@ -125,6 +223,9 @@ The communication paradigm of \dune{} \textit{DataHandle} interface is to commun
 	\caption{ Partition type pairs that can communicate to each other}
 	\label{fig:impl:comm:partitionpairs}
 \end{figure}
+
+\noindent
+A special case is the recently added periodic communication $PERB \rightarrow PERB$. Currently it is only implemented for periodic faces (not yet the edges and vertices). Each periodic boundary communicates with its neighbor on the other process. By convention, if both periodic boundaries are on the same process, they do not communicate, as that would result in entities sending data to themselves. Also, the user must be aware that in all cases except the periodic communication the sending and receiving entities have the same global index, and the same position in space. The periodic boundaries communicate to each other, while being spatially-separated, and having different global indices. Note also, that ghost elements generated by periodic boundaries also participate in all above protocols, and are in principle the same, as the ghosts, generated by the process boundaries, except that they are disjoint from the boundary (see \cref{fig:impl:periodicvsprocessboundary}). \\
 
 
 \noindent

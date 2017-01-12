@@ -1,15 +1,34 @@
 
-For the grid output, two hierarchic classes have been implemented - \textit{CurvilinearVTKWriter} and \textit{CurvilinearVTKGridWriter}. The former discretizes and accumulates entities and fields one-by-one and later writes them, and the latter uses the former to write the entities of the grid by iterating over them. The implementation of the \textit{CurvilinearVTKWriter} is best understood by considering its features.
+For the grid output, two hierarchic classes have been implemented - \textit{CurvilinearVTKWriter} and \textit{CurvilinearVTKGridWriter}. The former discretizes and accumulates entities and fields one-by-one and later writes them to a file, and the latter uses the former to write the entities of the grid by iterating over them. \textit{CurvilinearVTKWriter} supports VTK, VTU and PVTU file formats.  
+In order to append an entity to the writer, one needs to call the following member function:
 
+\begin{mybox}
+\begin{lstlisting}
+  template<int mydim, int subdim>
+  void addCurvilinearElement(
+	  const Dune::GeometryType & geomtype,
+	  const GlobalCoordinateVec & nodeSet,
+	  const TagVector & tagSet,
+	  int elementOrder,
+	  int nDiscretizationPoint,
+	  bool interpolate,
+	  bool explode)
+\end{lstlisting}
+\end{mybox}
+\noindent
+where
 
-\begin{enumerate}  
+\begin{itemize}  
+  \item \textit{mydim} is the dimension of the entity to be written
+  \item \textit{subdim} is the dimension of the subentities into which the entity is to be discretized. For example, a tetrahedron can be discretized into smaller tetrahedra, or one can only write its faces, discretized into smaller triangles, or its edges discretized into smaller edges
+  \item \textit{geomtype} is the geometry type of the entity. Currently only simplex entities are supported
   \item \textit{nodeSet} is a vector of global coordinates of interpolatory vertices of the entity in correct order \ref{impl-gmsh-numbering-convention}
-  \item \textit{tagSet} is a set of 3 scalar fields used for diagnostics, which typically accompany all written elements. Namely, they are the physical tag, the partition type, and the containing process rank in that very order. 
+  \item \textit{tagSet} is a set of 3 scalar fields used for diagnostics, which typically accompany all written elements. Namely, they are the physical tag, the partition type, and the containing process rank in that very order
+  \item \textit{nDiscretizationPoint} is the number of vertices into which to discretize each edge. The number has to be at least 2
   \item \textit{interpolate} parameter determines how the virtual refinement of the entity is performed. If true, the regular grid of interpolatory points is re-used to subdivide the entity into smaller linear entities. If false, a new regular grid is constructed for this purpose, using the \textit{nDiscretizationPoint} parameter to determine the number of desired discretization vertices per edge. If the interpolation vertices are used the latter parameter is discarded. Note that the associated fields are sampled over the vertices of the virtual refinement grid, and thus increasing the virtual refinement is useful for better visualizing the element curvature and/or finer field resolution. Note that increasing \textit{nDiscretizationPoint} results in quadratic increase in both writing time and the resulting visualization file size, so the parameter must be used with care.
   \item \textit{explode} optional parameter shrinks all entities with respect to their mass-centers, allowing to better visualize the 3D structure of the grid. Default parameter is $0.0$, which corresponds to no shrinking, and the maximum allowed parameter is $0.99$
-  \item \textit{magnify} optional parameter expands all boundary surfaces with respect to the origin, allowing to better visualize the difference between boundary segments and element faces. By default there is no magnification  
-  \item \textit{writeCodim} is a vector of 4 boolean variables, one for each entity codimension. This vector allows the user to control the specific codimensions of entities to be displayed. For example, it is possible to switch on only the edge wireframe of the mesh by providing $\{ false, false, true, false \}$
-\end{enumerate}
+  %\item \textit{magnify} optional parameter expands all boundary surfaces with respect to the origin, allowing to better visualize the difference between boundary segments and element faces. By default there is no magnification
+\end{itemize}
 
 
 \begin{figure}
@@ -18,6 +37,32 @@ For the grid output, two hierarchic classes have been implemented - \textit{Curv
 	\caption{Visualization of an edge wireframe of a 32 element 2nd order mesh using the manual virtual refinement with  \textit{nDiscretizationPoint=3}  }
 	\label{fig:gmshreader:wireframe}
 \end{figure}
+
+\noindent
+By default, to write a grid to a PVTU file, one only needs to call the \textit{CurvilinearVTKGridWriter} write method
+
+\begin{mybox}
+\begin{lstlisting}
+  void write(std::string path, std::string filenamePrefix)
+\end{lstlisting}
+\end{mybox}
+\noindent
+where \textit{path} is the output path, and \textit{filenamePrefix} is the desired file name without the extension. \textit{CurvilinearVTKGridWriter} is a flexible grid writing tool. By calling setup member functions, one can tune the following output
+\begin{itemize}
+ \item Set custom discretization order (\textit{nDiscretizationPoint} in the above)
+ \item Determine individually, whether or not to write the entities of any of the following types: process boundaries, domain boundaries, interior boundaries, periodic boundaries, ghosts.
+ \item An additional option (called PeriodicBind) allows to write lines connecting each pair of periodic faces, to visually check if the periodic grid is initialized correctly.
+ \item Determine whether or not to write patience logging output
+ \item Whether or not to reuse interpolation vertices (as explained above)
+ \item Whether or not to use element explosion (as explained above)
+ \item Whether to use ASCII or BINARY output format (currently only ASCII supported)
+\end{itemize}
+
+\noindent
+In addition, the writer supports arbitrary number of scalar and vector fields, that can be written to the grid via the \textit{addFieldSet} routine. The fields must be provided in terms of functors, that return the field value given the entity, and the local coordinate. Currently, fields can be associated to elements and/or to faces. Currently the element fields are only wriiten over interior elements, and face fields are only written over Domain Boundaries and Interior Boundaries. \\
+
+\noindent
+For further details please consult the explanation of tutorials 3 and 4 \cref{usage-howto-tutorial-visualisation}, as well as the tutorial codes in the repository.
 
 
 % \subsection{Optimal Sampling Rate}

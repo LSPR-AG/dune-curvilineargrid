@@ -5,12 +5,12 @@ This section will discuss the information that needs to be provided in order to 
 
 \begin{mybox}
 \begin{lstlisting}
-  Dune::CurvilinearGridFactory<GridType> factory(withGhostElements, withGmshElementIndex, mpihelper);
+  Dune::CurvilinearGridFactory<GridType> factory(bool withGhostElements, bool withGmshElementIndex, MPIHelper & mpihelper, std::vector<bool> periodicCuboidDimensions = std::vector<bool>());
 \end{lstlisting}
 \end{mybox}
 
 \noindent
-In the above constructor, \textit{withGhostElements} determines if Ghost elements will be constructed, \textit{withGmshElementIndex} determines if the global element index will be re-used from the \gmsh{} file, or constructed from scratch, and \textit{mpihelper} is the MPI Helper class provided by \dune{}. \\
+In the above constructor, \textit{withGhostElements} determines if Ghost elements will be constructed, \textit{withGmshElementIndex} determines if the global element index will be re-used from the \gmsh{} file, or constructed from scratch, and \textit{mpihelper} is the MPI Helper class provided by \dune{}. The final optional argument \textit{periodicCuboidDimensions} is a vector of 3 boolean variables, which determine if the dimension $X$, $Y$, and/or $Z$ respectively is to be treated as periodic or not. By default all dimensions of the grid are assumed to be non-periodic. \\
 
 \noindent
 A vertex must be inserted using its global coordinate and global index. At the moment, \curvgrid{} construction procedure requires \textit{a priori} knowledge of the vertex global index. All vertices belonging to each process must be inserted this way.

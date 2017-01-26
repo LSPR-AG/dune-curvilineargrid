@@ -111,8 +111,8 @@ public:
 	typedef typename GridType::template Codim<ELEMENT_CODIM>::Entity                         EntityElement;
 	typedef typename GridType::template Codim<FACE_CODIM>::Entity                            EntityFace;
 	typedef typename GridType::LeafGridView::Traits::Intersection  Intersection;
-	typedef typename GridType::GridBaseType::template Codim<ELEMENT_CODIM>::EntityGeometry   ElementGeometry;
-	typedef typename GridType::GridBaseType::template Codim<FACE_CODIM>::EntityGeometry      FaceGeometry;
+	typedef typename GridType::GridBaseType::GridEntity::template Codim<ELEMENT_CODIM>::EntityGeometry   ElementGeometry;
+	typedef typename GridType::GridBaseType::GridEntity::template Codim<FACE_CODIM>::EntityGeometry      FaceGeometry;
 	typedef typename ElementGeometry::GlobalCoordinate  GlobalCoordinate;
 	typedef std::vector<GlobalCoordinate> GlobalVector;
 
@@ -136,7 +136,6 @@ public:
 
 	CurvilinearVTKGridWriter(const Grid & grid) :
 		grid_(grid),
-		baseWriter_(grid_.comm().rank(), grid_.comm().size()),
 		vtkScalarFaceFunctionSet_(nullptr),
 		vtkScalarElementFunctionSet_(nullptr),
 		vtkVectorFaceFunctionSet_(nullptr),
@@ -189,6 +188,11 @@ public:
 	// Write Grid to VTK, including vector field set defined over each element
 	void write(std::string path, std::string filenamePrefix)
 	{
+		// Construct base writer
+		// Important note: Basis writer stores a lot of data. Current paradigm is to construct a new writer for each file, and destroy the writer after writing is done.
+		BaseWriter baseWriter(grid_.comm().rank(), grid_.comm().size());
+
+
 		// Determine Grid Capabilities
 		bool isGridParallel = grid_.comm().size() > 1;
 		bool hasGridGhost = grid_.ghostSize(ELEMENT_CODIM) > 0;
@@ -197,10 +201,10 @@ public:
         bool writeAnyFace = writeDB_ || writePB_ || writeIB_ || writePeriodic_;
 
         // Initialize all vector fields, in case there are none on this process
-		if (vtkScalarFaceFunctionSet_ != nullptr)  { for (unsigned int i = 0; i < vtkScalarFaceFunctionSet_->size(); i++) { baseWriter_.initScalarField( *((*vtkScalarFaceFunctionSet_)[i])); } }
-		if (vtkVectorFaceFunctionSet_ != nullptr)  { for (unsigned int i = 0; i < vtkVectorFaceFunctionSet_->size(); i++) { baseWriter_.initVectorField( *((*vtkVectorFaceFunctionSet_)[i])); } }
-		if (vtkScalarElementFunctionSet_ != nullptr)  { for (unsigned int i = 0; i < vtkScalarElementFunctionSet_->size(); i++) { baseWriter_.initScalarField( *((*vtkScalarElementFunctionSet_)[i])); } }
-		if (vtkVectorElementFunctionSet_ != nullptr)  { for (unsigned int i = 0; i < vtkVectorElementFunctionSet_->size(); i++) { baseWriter_.initVectorField( *((*vtkVectorElementFunctionSet_)[i])); } }
+		if (vtkScalarFaceFunctionSet_ != nullptr)  { for ( const auto & scalarFaceFunctor : *vtkScalarFaceFunctionSet_) { baseWriter.initScalarField(*scalarFaceFunctor); } }
+		if (vtkVectorFaceFunctionSet_ != nullptr)  { for ( const auto & vectorFaceFunctor : *vtkVectorFaceFunctionSet_) { baseWriter.initVectorField(*vectorFaceFunctor); } }
+		if (vtkScalarElementFunctionSet_ != nullptr)  { for ( const auto & scalarElementFunctor : *vtkScalarElementFunctionSet_) { baseWriter.initScalarField(*scalarElementFunctor); } }
+		if (vtkVectorElementFunctionSet_ != nullptr)  { for ( const auto & vectorElementFunctor : *vtkVectorElementFunctionSet_) { baseWriter.initVectorField(*vectorElementFunctor); } }
 
 		// Iterate over elements
   		/** \brief Iterate over all elements of Interior Border partition */
@@ -218,7 +222,7 @@ public:
 			GlobalIndexType interiorElemGInd = grid_.template entityGlobalIndex<ELEMENT_CODIM>(interiorElem);
 			bool interiorElemWriteField = true;
 
-			writeEntity(interiorElem, interiorElem, interiorElemType, interiorElemWriteField);
+			writeEntity(baseWriter, interiorElem, interiorElem, interiorElemType, interiorElemWriteField);
 
 			// Write faces and ghost elements
 			if (writeAnyFace || writeGhost_)
@@ -267,7 +271,7 @@ public:
 
 					// Write face
 					// Note: For now, only write face-based fields for domain boundaries
-					if  (writeFace) { writeEntity(intersectionFace, intersection, intersectionEffectivePartitionType, isDB); }
+					if  (writeFace) { writeEntity(baseWriter, intersectionFace, intersection, intersectionEffectivePartitionType, isDB); }
 
 					// Write ghost element
 					if (writeGhost_ && (isPB || isPeriodic)) {
@@ -282,9 +286,9 @@ public:
 
 						if (isPB) {
 							assert(ghostType == Dune::PartitionType::GhostEntity);  // In periodic case, periodic ghost can be local interior element. In this case, it is not marked as a ghost
-							writeEntity(ghostElement, ghostElement, ghostType, ghostElementWriteField);
+							writeEntity(baseWriter, ghostElement, ghostElement, ghostType, ghostElementWriteField);
 						} else {
-							writeEntity(ghostElement, ghostElement, PERIODIC_GHOST_PARTITION_TYPE, ghostElementWriteField);
+							writeEntity(baseWriter, ghostElement, ghostElement, PERIODIC_GHOST_PARTITION_TYPE, ghostElementWriteField);
 
 							////////////////////////////////////////////////////////////////////////////////////
 							// Test:
@@ -316,7 +320,7 @@ public:
 								logstr << "CurvilinearVTKGridWriter: --Inserting periodic binding edge ";
 								LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, logstr.str());
 
-								baseWriter_.template addCurvilinearElement<DIM1D, DIM1D>(edgeType, periodicBindEdge, tagSet, curvOrder, nDiscretizationPoint, writeInterpolate_, writeExplode_);
+								baseWriter.template addCurvilinearElement<DIM1D, DIM1D>(edgeType, periodicBindEdge, tagSet, curvOrder, nDiscretizationPoint, writeInterpolate_, writeExplode_);
 							}
 						}
 					}
@@ -328,7 +332,7 @@ public:
 		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, "CurvilinearVTKGridWriter: Writing .vtk file = " + path + filenamePrefix + ".pvtu");
 
 		//writer_.writeVTK(filenamePrefix + ".vtk");
-		baseWriter_.writeParallelVTU(path, filenamePrefix, vtkDataFormat_);
+		baseWriter.writeParallelVTU(path, filenamePrefix, vtkDataFormat_);
 
 		// With current design it is expected that the VTK Writer deletes all the VTK functions
 		deleteField(vtkScalarFaceFunctionSet_);
@@ -343,13 +347,13 @@ public:
 protected:
 
 	template <class GridEntityType, class FieldEntityType>
-	void writeEntity(const GridEntityType & gridEntity, const FieldEntityType & fieldEntity, int ptEff, bool withField) {
+	void writeEntity(BaseWriter & baseWriter, const GridEntityType & gridEntity, const FieldEntityType & fieldEntity, int ptEff, bool withField) {
 		const int codim = GridEntityType::codimension;
 		const int mydim = dimension - codim;
 		Dune::GeometryType gt   = gridEntity.type();
 
 		// Constructing a geometry is quite expensive, do it only once
-		typedef typename GridType::GridBaseType::template Codim<codim>::EntityGeometry   ThisGeometry;
+		typedef typename GridType::GridBaseType::GridEntity::template Codim<codim>::EntityGeometry   ThisGeometry;
 		ThisGeometry geom = grid_.template entityBaseGeometry<codim>(gridEntity);
 		GlobalVector nodeSet = geom.vertexSet();
 
@@ -364,25 +368,25 @@ protected:
 		std::stringstream logstr;
 		logstr << "CurvilinearVTKGridWriter: --Inserting entity " << gt;
 		LoggingMessage::template write<LOG_MSG_DVERB>(__FILE__, __LINE__, logstr.str());
-		baseWriter_.template addCurvilinearElement<mydim, mydim>(gt, nodeSet, tagSet, curvOrder, nDiscretizationPoint, writeInterpolate_, writeExplode_);
+		baseWriter.template addCurvilinearElement<mydim, mydim>(gt, nodeSet, tagSet, curvOrder, nDiscretizationPoint, writeInterpolate_, writeExplode_);
 
 		if (withField) {
 			// Explicitly disallow writing fields for entities other than elements and faces
 			assert((codim == ELEMENT_CODIM) || (codim == FACE_CODIM));
-			writeField(fieldEntity);
+			writeField(baseWriter, fieldEntity);
 		}
 	}
 
-	void writeField(typename VTKVectorFunction<Grid, DIM3D-ELEMENT_CODIM>::Entity fieldEntity)
+	void writeField(BaseWriter & baseWriter, typename VTKVectorFunction3D::Entity fieldEntity)
 	{
-		writeScalarField(vtkScalarElementFunctionSet_, fieldEntity, baseWriter_);
-		writeVectorField(vtkVectorElementFunctionSet_, fieldEntity, baseWriter_);
+		writeScalarField(vtkScalarElementFunctionSet_, fieldEntity, baseWriter);
+		writeVectorField(vtkVectorElementFunctionSet_, fieldEntity, baseWriter);
 	}
 
-	void writeField(typename VTKVectorFunction<Grid, DIM3D-FACE_CODIM>::Entity fieldEntity)
+	void writeField(BaseWriter & baseWriter, typename VTKVectorFunction2D::Entity fieldEntity)
 	{
-		writeScalarField(vtkScalarFaceFunctionSet_, fieldEntity, baseWriter_);
-		writeVectorField(vtkVectorFaceFunctionSet_, fieldEntity, baseWriter_);
+		writeScalarField(vtkScalarFaceFunctionSet_, fieldEntity, baseWriter);
+		writeVectorField(vtkVectorFaceFunctionSet_, fieldEntity, baseWriter);
 	}
 
 
@@ -430,7 +434,6 @@ protected:
 private:
 
 	const Grid & grid_;
-	BaseWriter baseWriter_;
 
 	VTKScPtrVector2D  * vtkScalarFaceFunctionSet_;      // Store scalar functions defined over faces
 	VTKVecPtrVector2D * vtkVectorFaceFunctionSet_;      // Store vector functions defined over faces

@@ -34,6 +34,9 @@
 
 #include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilineargridconstructor.hh>
+
+
 
 
 
@@ -52,11 +55,12 @@ class CurvilinearGridBaseFactory
 	// Typedefs and const variables
 	// -----------------------------------------------------------
 	typedef typename GridBaseType::ctype      ctype;
-	typedef typename GridBaseType::GridConstructorType  GridConstructor;
 
 	static const bool  iscached     = GridBaseType::is_cached;
     static const int dimension      = GridBaseType::dimension;
     static const int dimensionworld = GridBaseType::dimensionworld;
+
+    typedef CurvilinearGridConstructor<GridBaseType>  GridConstructor;
 
 	typedef FieldVector< ctype, dimensionworld >                           VertexCoordinate;
 

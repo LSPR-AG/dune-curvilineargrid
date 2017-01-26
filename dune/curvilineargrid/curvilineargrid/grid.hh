@@ -8,7 +8,6 @@
 #include <dune/grid/common/grid.hh>
 #include <dune/grid/common/datahandleif.hh>
 
-#include <dune/curvilineargrid/curvilineargridbase/curvilineargridstorage.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
 
 #include <dune/curvilineargrid/curvilineargrid/capabilities.hh>
@@ -232,7 +231,7 @@ namespace Dune
      */
     CurvilinearGrid (GridBaseType * gridbase)
       : gridbase_(gridbase),
-        mpihelper_(gridbase->mpiHelper()),
+        mpihelper_(gridbase->gridstorage().mpihelper_),
         globalIdSet_(),
         leafIndexSet_(*gridbase)
     {
@@ -282,7 +281,7 @@ namespace Dune
      */
     int size ( int codim ) const
     {
-      return gridbase_->nEntity(codim);
+      return gridbase_->property().nEntity(codim);
     }
 
     /** \brief obtain number of entites on a level
@@ -313,18 +312,18 @@ namespace Dune
      */
     size_t numBoundarySegments () const
     {
-    	return gridbase_->nEntity(FACE_CODIM, PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
+    	return gridbase_->property().nEntity(FACE_CODIM, PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
     }
     /** \} */
 
     size_t numProcessBoundaries () const
     {
-    	return gridbase_->nEntity(FACE_CODIM, PartitionType::BorderEntity);
+    	return gridbase_->property().nEntity(FACE_CODIM, PartitionType::BorderEntity);
     }
 
     size_t numInternal(int codim) const
     {
-    	return gridbase_->nEntity(codim, PartitionType::InteriorEntity);
+    	return gridbase_->property().nEntity(codim, PartitionType::InteriorEntity);
     }
 
     const GlobalIdSet &globalIdSet () const  { return globalIdSet_; }
@@ -409,7 +408,7 @@ namespace Dune
     typename IterTraits<cd, pitype>::LevelIterator lbegin (int level) const
     {
     	assert(level == 0);
-    	const auto baseIter = gridbase_->entityIndexSetDuneSelect(cd, pitype).begin();
+    	const auto baseIter = gridbase_->indexset().entityIndexSetDuneSelect(cd, pitype).begin();
     	const typename IterTraits<cd, pitype>::LevelIterImpl iterImpl(baseIter, *gridbase_);
     	return typename IterTraits<cd, pitype>::LevelIterator(iterImpl);
     }
@@ -419,7 +418,7 @@ namespace Dune
     typename IterTraits<cd, pitype>::LevelIterator lend (int level) const
     {
     	assert(level == 0);
-    	const auto baseIter = gridbase_->entityIndexSetDuneSelect(cd, pitype).end();
+    	const auto baseIter = gridbase_->indexset().entityIndexSetDuneSelect(cd, pitype).end();
     	const typename IterTraits<cd, pitype>::LevelIterImpl iterImpl(baseIter, *gridbase_);
     	return typename IterTraits<cd, pitype>::LevelIterator(iterImpl);
     }
@@ -428,7 +427,7 @@ namespace Dune
     template<int cd, PartitionIteratorType pitype>
     typename IterTraits<cd, pitype>::LeafIterator leafbegin () const
     {
-    	const auto baseIter = gridbase_->entityIndexSetDuneSelect(cd, pitype).begin();
+    	const auto baseIter = gridbase_->indexset().entityIndexSetDuneSelect(cd, pitype).begin();
     	const typename IterTraits<cd, pitype>::LeafIterImpl iterImpl(baseIter, *gridbase_);
     	return typename IterTraits<cd, pitype>::LeafIterator(iterImpl);
     }
@@ -437,7 +436,7 @@ namespace Dune
     template<int cd, PartitionIteratorType pitype>
     typename IterTraits<cd, pitype>::LeafIterator leafend () const
     {
-    	const auto baseIter = gridbase_->entityIndexSetDuneSelect(cd, pitype).end();
+    	const auto baseIter = gridbase_->indexset().entityIndexSetDuneSelect(cd, pitype).end();
     	const typename IterTraits<cd, pitype>::LeafIterImpl iterImpl(baseIter, *gridbase_);
     	return typename IterTraits<cd, pitype>::LeafIterator(iterImpl);
     }
@@ -493,7 +492,7 @@ namespace Dune
      *
      *  \param[in]  codim  codimension for with the information is desired
      */
-    int ghostSize( int codim ) const  { return gridbase_->nEntity(codim, Dune::PartitionType::GhostEntity); }
+    int ghostSize( int codim ) const  { return gridbase_->property().nEntity(codim, Dune::PartitionType::GhostEntity); }
 
     /** \brief obtain size of overlap region for a grid level
      *
@@ -646,7 +645,7 @@ namespace Dune
 
 
     // Returns reference to the GridBase class
-    const GridBaseType & gridbase() const  { return *gridbase_; }
+    GridBaseType & gridbase() { return *gridbase_; }
 
 
     // Returns the default communicator
@@ -659,17 +658,17 @@ namespace Dune
     // *******************************************************************
 
     // User sets the relative error tolerance for computing volumes of curvilinear entities
-    void geometryRelativeTolerance(double tolerance)  { gridbase_->geometryRelativeTolerance(tolerance); }
+    void geometryRelativeTolerance(double tolerance)  { gridbase_->property().geometryRelativeTolerance(tolerance); }
 
     // User gets the relative error tolerance for computing volumes of curvilinear entities
-    double geometryRelativeTolerance()                { return gridbase_->geometryRelativeTolerance(); }
+    double geometryRelativeTolerance()                { return gridbase_->property().geometryRelativeTolerance(); }
 
     // Obtains CurvGrid-intrinsic boundary type.
     template <int codim>
     StructuralType entityBoundaryType(const typename Traits::template Codim< codim >::Entity &entity) const {
     	assert(codim == FACE_CODIM);  // Only defined for faces.
     	LocalIndexType baseIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
-    	return gridbase_->faceBoundaryType(baseIndex);
+    	return gridbase_->intersection().boundaryType(baseIndex);
     }
 
     // Obtains global index of an entity
@@ -685,7 +684,7 @@ namespace Dune
     GlobalIndexType entityGlobalIndex(int codim, LocalIndexType baseLocalIndex) const
     {
     	GlobalIndexType globalIndex;
-    	bool exist = gridbase_->findEntityGlobalIndex(codim, baseLocalIndex, globalIndex);
+    	bool exist = gridbase_->entity().findGlobalIndex(codim, baseLocalIndex, globalIndex);
     	assert(exist);  // Check if the index exists for self-consistency
     	return globalIndex;
     }
@@ -694,7 +693,7 @@ namespace Dune
     template <int codim, int subcodim>
     GlobalIndexType subentityGlobalIndex(const typename Traits::template Codim< codim >::Entity &entity, LocalIndexType subInternalIndex) const {
     	LocalIndexType entityLocalIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
-    	LocalIndexType subLocalIndex = gridbase_->subentityLocalIndex (entityLocalIndex, codim, subcodim, subInternalIndex);
+    	LocalIndexType subLocalIndex = gridbase_->entity().subentityLocalIndex (entityLocalIndex, codim, subcodim, subInternalIndex);
     	return entityGlobalIndex(subcodim, subLocalIndex);
     }
 
@@ -702,11 +701,11 @@ namespace Dune
     bool entityLocalIndex(int codim, GlobalIndexType globalIndex, LocalIndexType & localIndex) const
     {
     	LocalIndexType baseLocalIndex;
-    	bool exist = gridbase_->findEntityLocalIndex(codim, globalIndex, baseLocalIndex);
+    	bool exist = gridbase_->entity().findLocalIndex(codim, globalIndex, baseLocalIndex);
 
     	// Convert from base local index back to Grid local index
     	if (exist) {
-        	if (codim == dimension)	{ localIndex = gridbase_->cornerUniqueLocalIndex(baseLocalIndex); }
+        	if (codim == dimension)	{ localIndex = gridbase_->corner().uniqueLocalIndex(baseLocalIndex); }
         	else										{ localIndex = baseLocalIndex; }
     	}
     	return exist;
@@ -718,7 +717,7 @@ namespace Dune
     PhysicalTagType entityPhysicalTag(const typename Traits::template Codim< codim >::Entity &entity) const
     {
     	LocalIndexType baseIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
-    	return gridbase_->physicalTag(codim, baseIndex);
+    	return gridbase_->entity().physicalTag(codim, baseIndex);
     }
 
 
@@ -727,7 +726,7 @@ namespace Dune
     InterpolatoryOrderType entityInterpolationOrder (const typename Traits::template Codim< codim >::Entity &entity) const
     {
     	LocalIndexType baseIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
-    	return gridbase_->entityInterpolationOrder(codim, baseIndex);
+    	return gridbase_->entity().interpolationOrder(codim, baseIndex);
     }
 
 
@@ -735,7 +734,7 @@ namespace Dune
     typename Codim<codim>::EntityGeometryMappingImpl entityBaseGeometry (const typename Traits::template Codim< codim >::Entity &entity) const
     {
     	LocalIndexType baseIndex = baseLocalIndex<codim>(leafIndexSet().index(entity));
-    	return gridbase_->template entityGeometry<codim>(baseIndex);
+    	return gridbase_->entity().template geometry<codim>(baseIndex);
     }
 
 
@@ -744,7 +743,7 @@ namespace Dune
     template<int codim>
     LocalIndexType baseLocalIndex(LocalIndexType localIndex) const {
     	if (codim == dimension) {
-    		return gridbase_->cornerUnique2LocalIndex(localIndex);
+    		return gridbase_->corner().unique2LocalIndex(localIndex);
     	} else {
     		return localIndex;
     	}
@@ -753,11 +752,11 @@ namespace Dune
 
     /** Get DomainBoundaryFace index given its boundary segment index */
     LocalIndexType boundarySegment2BaseLocalIndex(LocalIndexType boundarySegmentIndex) const {
-    	return gridbase_->boundarySegment2LocalIndex(boundarySegmentIndex);
+    	return gridbase_->intersection().boundarySegment2LocalIndex(boundarySegmentIndex);
     }
 
 
-    bool withPeriodic() { return gridbase_->withPeriodicBoundaries(); }
+    bool withPeriodic() { return gridbase_->property().withPeriodicBoundaries(); }
 
 
   private:
@@ -783,7 +782,7 @@ namespace Dune
     : public Base::template Codim< codim >
   {
 
-	typedef typename GridBaseType::template Codim<codim>::EntityGeometry  EntityGeometryMappingImpl;
+	typedef typename GridBaseType::GridEntity::template Codim<codim>::EntityGeometry  EntityGeometryMappingImpl;
 
     /** \name Entity and Entity Pointer Types
      *  \{ */

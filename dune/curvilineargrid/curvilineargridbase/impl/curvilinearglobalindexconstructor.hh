@@ -417,7 +417,7 @@ protected:
             LocalIndexType thisPBEdgeLocalIndex = edgeIndexPair.second;
 
             // Get corners of the edge
-            std::vector<LocalIndexType> thisCornerLocalIndices = gridbase_.entityCornerLocalIndex(EDGE_CODIM, thisEdgeLocalIndex);
+            std::vector<LocalIndexType> thisCornerLocalIndices = gridbase_.entity().cornerLocalIndex(EDGE_CODIM, thisEdgeLocalIndex);
 
             EdgeKey thisEdgeKey;
             thisEdgeKey.node0 = gridstorage_.point_[thisCornerLocalIndices[0]].globalIndex;
@@ -938,7 +938,7 @@ protected:
             LocalIndexType localEdgePBIndex = edgeIndexPair.second;
 
             // Construct EdgeKey
-            std::vector<LocalIndexType> thisCornerLocalIndices =  gridbase_.entityCornerLocalIndex(EDGE_CODIM, localEdgeIndex);
+            std::vector<LocalIndexType> thisCornerLocalIndices =  gridbase_.entity().cornerLocalIndex(EDGE_CODIM, localEdgeIndex);
             EdgeKey thisEdgeKey;
             thisEdgeKey.node0 = gridstorage_.point_[thisCornerLocalIndices[0]].globalIndex;
             thisEdgeKey.node1 = gridstorage_.point_[thisCornerLocalIndices[1]].globalIndex;

@@ -43,7 +43,7 @@ class DataHandleConstant
 public:
 
 	//! constructor
-	DataHandleConstant (const GridType& grid, const IndexSet& indexset, DataMap & in, DataMap & out, int codim)
+	DataHandleConstant (GridType& grid, const IndexSet& indexset, DataMap & in, DataMap & out, int codim)
 	  : grid_(grid), indexset_(indexset), in_(in), out_(out), codim_(codim)
 	{
 		TypeVector gtVec = indexset_.types(codim_);
@@ -84,7 +84,7 @@ public:
 		if (codim_ == FACE_CODIM) {
 			bool isPB = e.partitionType() == Dune::PartitionType::BorderEntity;
 			bool isPeriodic = (e.partitionType() == Dune::PartitionType::InteriorEntity) &&
-					grid_.gridbase().faceBoundaryType(iter->second) != GridType::GridStorageType::FaceBoundaryType::PeriodicBoundary;
+					grid_.gridbase().intersection().boundaryType(iter->second) != GridType::GridStorageType::FaceBoundaryType::PeriodicBoundary;
 
 			if (!(isPB || isPeriodic))
 			{
@@ -130,7 +130,7 @@ protected:
 	bool haveDim(int dim) const  { return dim == 3; }
 
 private:
-	const GridType& grid_;
+	GridType& grid_;
 	const IndexSet& indexset_;
 	DataMap& in_;
 	DataMap& out_;
@@ -191,7 +191,7 @@ public:
 			int TMP = 5; // Just some number to be communicated
 
 			// Iterate over entities of this codimension
-			bool withGhosts = grid.gridbase().withGhostElements();
+			bool withGhosts = grid.gridbase().property().withGhostElements();
 			bool withPeriodic = grid.withPeriodic();
 
 			//std::cout << " -- creating send-arrays" << std::endl;

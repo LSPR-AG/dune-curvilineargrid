@@ -41,6 +41,8 @@
 
 //#include <dune/grid/common/mcmgmapper.hh>
 
+#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
+#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbasefactory.hh>
 #include <dune/curvilineargrid/io/file/curvilineargmshreader.hh>
 
 

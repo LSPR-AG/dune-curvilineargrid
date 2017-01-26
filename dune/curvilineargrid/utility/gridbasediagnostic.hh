@@ -52,11 +52,6 @@
 #include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/common/vectorhelper.hh>
 
-#include <dune/curvilineargrid/curvilineargridbase/curvilineargridstorage.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilinearoctreenode.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilinearlooseoctree.hh>
-
 
 
 namespace Dune {
@@ -94,8 +89,8 @@ private:
 	typedef typename GridStorageType::LocalIndexSet         LocalIndexSet;
 	typedef typename GridStorageType::IndexSetIterator      IndexSetIterator;
 
-	typedef typename GridBaseType::template Codim<FACE_CODIM>::EntityGeometry        GridFaceGeometry;
-	typedef typename GridBaseType::template Codim<ELEMENT_CODIM>::EntityGeometry     GridElementGeometry;
+	typedef typename GridBaseType::GridEntity::template Codim<FACE_CODIM>::EntityGeometry        GridFaceGeometry;
+	typedef typename GridBaseType::GridEntity::template Codim<ELEMENT_CODIM>::EntityGeometry     GridElementGeometry;
 
     // Face Boundary Type
     static const int NO_BOUNDARY_TYPE = GridStorageType::FaceBoundaryType::None;
@@ -215,17 +210,17 @@ protected:
 		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Started collecting mesh statistics");
 
 
-		rez[0].push_back(gridbase_.template nEntity(ELEMENT_CODIM,  Dune::PartitionType::InteriorEntity));
-		rez[1].push_back(gridbase_.template nEntity(FACE_CODIM, Dune::PartitionType::BorderEntity));
-		rez[2].push_back(gridbase_.template nEntity(FACE_CODIM, Dune::PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE));
+		rez[0].push_back(gridbase_.property().nEntity(ELEMENT_CODIM,  Dune::PartitionType::InteriorEntity));
+		rez[1].push_back(gridbase_.property().nEntity(FACE_CODIM, Dune::PartitionType::BorderEntity));
+		rez[2].push_back(gridbase_.property().nEntity(FACE_CODIM, Dune::PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE));
 
 		// 1) Collect statistics related to the elements of the mesh
 		// ***********************************************************************8
 		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting element statistics");
 
-		for (const auto & elemLocalIndex : gridbase_.entityIndexSetSelect(ELEMENT_CODIM))
+		for (const auto & elemLocalIndex : gridbase_.indexset().entityIndexSetSelect(ELEMENT_CODIM))
 		{
-			GridElementGeometry thisGeometry = gridbase_.template entityGeometry<ELEMENT_CODIM>(elemLocalIndex);
+			GridElementGeometry thisGeometry = gridbase_.entity().template geometry<ELEMENT_CODIM>(elemLocalIndex);
 			std::vector<GlobalCoordinate> cr       = thisGeometry.cornerSet();
 
 			GlobalCoordinate CoM = cr[0] + cr[1] + cr[2] + cr[3];
@@ -270,9 +265,9 @@ protected:
 		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Process Boundary statistics");
 		rez[12].push_back(0.0);  // processBoundarySurfaceArea
 
-		for (const auto & pbLocalIndex : gridbase_.entityIndexSetSelect(FACE_CODIM, Dune::PartitionType::BorderEntity))
+		for (const auto & pbLocalIndex : gridbase_.indexset().entityIndexSetSelect(FACE_CODIM, Dune::PartitionType::BorderEntity))
 		{
-			GridFaceGeometry faceGeom = gridbase_.template entityGeometry<FACE_CODIM>(pbLocalIndex);
+			GridFaceGeometry faceGeom = gridbase_.entity().template geometry<FACE_CODIM>(pbLocalIndex);
 			double faceCurvilinearArea = faceGeom.volume(1.0e-5);
 			rez[12][0] += faceCurvilinearArea;
 
@@ -285,9 +280,9 @@ protected:
 		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearDiagnostics: Collecting Domain Boundary Statistics");
 		rez[13].push_back(0.0);  // domainBoundarySurfaceArea
 
-		for (const auto & dbLocalIndex : gridbase_.entityIndexSetSelect(FACE_CODIM, Dune::PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE))
+		for (const auto & dbLocalIndex : gridbase_.indexset().entityIndexSetSelect(FACE_CODIM, Dune::PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE))
 		{
-			GridFaceGeometry faceGeom = gridbase_.template entityGeometry<FACE_CODIM>(dbLocalIndex);
+			GridFaceGeometry faceGeom = gridbase_.entity().template geometry<FACE_CODIM>(dbLocalIndex);
 			double faceCurvilinearArea = faceGeom.volume(1.0e-5);
 			rez[13][0] += faceCurvilinearArea;
 
@@ -316,11 +311,11 @@ protected:
 	{
 		const int mydim = cdim - codim;
 
-		typedef typename GridBaseType::template Codim<codim>::EntityGeometry     EntityGeometry;
+		typedef typename GridBaseType::GridEntity::template Codim<codim>::EntityGeometry     EntityGeometry;
 
-		for (const auto & elemLocalIndex : gridbase_.entityIndexSetSelect(codim, ptype, boundaryType))
+		for (const auto & elemLocalIndex : gridbase_.indexset().entityIndexSetSelect(codim, ptype, boundaryType))
 		{
-			PartitionType     thisPType = gridbase_.entityPartitionType(codim, elemLocalIndex);
+			PartitionType     thisPType = gridbase_.entity().partitionType(codim, elemLocalIndex);
 
 			// Checking grid self-consistency
 			assert(thisPType == ptype);
@@ -329,8 +324,8 @@ protected:
 			// [TODO] Rewrite this line when Periodic or Internal boundaries are implemented
 			StructuralType typeTag = (boundaryType != NO_BOUNDARY_TYPE) ? BOUNDARY_SEGMENT_PARTITION_TYPE : ptype;
 
-			PhysicalTagType          physicalTag       = gridbase_.physicalTag(codim, elemLocalIndex);
-			EntityGeometry           thisGeometry      = gridbase_.template entityGeometry<codim>(elemLocalIndex);
+			PhysicalTagType          physicalTag       = gridbase_.entity().physicalTag(codim, elemLocalIndex);
+			EntityGeometry           thisGeometry      = gridbase_.entity().template geometry<codim>(elemLocalIndex);
 			Dune::GeometryType       gt                = thisGeometry.type();
 			InterpolatoryOrderType   order             = thisGeometry.order();
 			std::vector<GlobalCoordinate>      point             = thisGeometry.vertexSet();

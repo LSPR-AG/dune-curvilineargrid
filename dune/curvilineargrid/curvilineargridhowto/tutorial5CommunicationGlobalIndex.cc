@@ -45,7 +45,7 @@ class DataHandleGlobalIndex
 public:
 
 	//! constructor
-	DataHandleGlobalIndex (const Grid & grid, int codim)
+	DataHandleGlobalIndex (Grid & grid, int codim)
 		: grid_(grid), codim_(codim),
 		  indexset_(grid.leafIndexSet()),
 		  idset_(grid.globalIdSet())
@@ -84,12 +84,12 @@ public:
 
 			if (boundaryType == Grid::PERIODIC_BOUNDARY_TYPE) {
 				LocalIndexType periodicFaceLocalIndex = indexset_.index(e);
-				LocalIndexType neighborFaceLocalIndex = grid_.gridbase().periodicNeighborFace(periodicFaceLocalIndex);
-				auto neighborBoundaryType = grid_.gridbase().faceBoundaryType(neighborFaceLocalIndex);
+				LocalIndexType neighborFaceLocalIndex = grid_.gridbase().intersection().periodicNeighborFace(periodicFaceLocalIndex);
+				auto neighborBoundaryType = grid_.gridbase().intersection().boundaryType(neighborFaceLocalIndex);
 
 				if			(neighborBoundaryType == Grid::PERIODIC_BOUNDARY_TYPE)  { assert(directMatch); }
 				else {
-					IdType expectedId = grid_.gridbase().globalId(codim, neighborFaceLocalIndex);
+					IdType expectedId = grid_.gridbase().entity().globalId(codim, neighborFaceLocalIndex);
 
 					 // Periodic boundary face indices should be different
 					if ((directMatch)||(expectedId != thisRecvId)) {
@@ -115,7 +115,7 @@ protected:
 	bool haveDim(int dim) const  { return dim == 3; }
 
 private:
-	const Grid & grid_;
+	Grid & grid_;
 	const LeafIndexSet & indexset_;
 	const GlobalIdSet& idset_;
 	int codim_;

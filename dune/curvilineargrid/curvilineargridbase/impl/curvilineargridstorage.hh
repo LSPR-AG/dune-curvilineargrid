@@ -30,8 +30,8 @@
 
 #include <dune/curvilineargeometry/curvilineargeometry.hh>
 
-#include <dune/curvilineargrid/curvilineargridbase/curvilinearoctreenode.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilinearlooseoctree.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilinearoctreenode.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilinearlooseoctree.hh>
 
 
 namespace Dune {
@@ -55,6 +55,8 @@ public:
 	typedef  int      StructuralType;
 	typedef  int      PhysicalTagType;
 	typedef  int      InterpolatoryOrderType;
+
+	static const int dimension = cdim;
 
 	// Grid Coordinate types
 	// ******************************************************************
@@ -336,10 +338,14 @@ public:
     // Octree used to efficiently locate elements in which the points are located
     CurvilinearLooseOctree * octree_;
 
+    // MPIHelper used for parallel communication
+    MPIHelper & mpihelper_;
+
 
     // Constructor and Destructor
     // ******************************************************************
-    CurvilinearGridStorage (bool withGhostElements, bool withElementGlobalIndex, std::vector<bool> periodicCuboidDimensions) :
+    CurvilinearGridStorage (MPIHelper & mpihelper, bool withGhostElements, bool withElementGlobalIndex, std::vector<bool> periodicCuboidDimensions) :
+    	mpihelper_(mpihelper),
     	withGhostElements_(withGhostElements),
     	withElementGlobalIndex_(withElementGlobalIndex),
     	nEntityTotal_ {0, 0, 0, 0},

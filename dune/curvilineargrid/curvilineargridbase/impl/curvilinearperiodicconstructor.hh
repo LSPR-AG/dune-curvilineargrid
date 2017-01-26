@@ -55,9 +55,8 @@
 #include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/common/vectorhelper.hh>
 
-#include <dune/curvilineargrid/curvilineargridbase/curvilineargridstorage.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilineargridstorage.hh>
 
-#include <dune/curvilineargrid/common/constant.hh>
 #include <dune/curvilineargrid/utility/allcommunication.hh>
 #include <dune/curvilineargrid/utility/globalcommmap.hh>
 
@@ -351,7 +350,7 @@ protected:
             FaceStorage & thisFace_ = gridstorage_.face_[thisFaceLocalIndex];
             InternalIndexType thisFaceSubIndex = thisFace_.element1SubentityIndex;
 
-            auto parentGeom = gridbase_.template entityGeometry<ELEMENT_CODIM>(thisFace_.element1Index);
+            auto parentGeom = gridbase_.entity().template geometry<ELEMENT_CODIM>(thisFace_.element1Index);
             auto faceGeom = parentGeom.template subentityGeometry<dimension-1>(thisFaceSubIndex);
             LocalCoordinate2D faceCenterLocal2D = faceGeom.refElement().position( 0, 0 );
             LocalCoordinate3D faceCenterLocal3D = CurvilinearGeometryHelper::coordinateInParent<ctype, dimension-1, dimension>(parentGeom.type(), thisFaceSubIndex, faceCenterLocal2D);

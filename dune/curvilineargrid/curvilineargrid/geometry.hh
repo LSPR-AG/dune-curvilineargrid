@@ -6,10 +6,17 @@
 //#include <dune/common/typetraits.hh>
 
 #include <dune/geometry/referenceelements.hh>
+
+#include <dune/grid/common/capabilities.hh>
+
 #include <dune/curvilineargeometry/interpolation/polynomial.hh>
 #include <dune/curvilineargeometry/curvilineargeometry.hh>
 
-#include <dune/grid/common/capabilities.hh>
+#include <dune/curvilineargrid/common/vectorhelper.hh>
+
+
+
+
 
 namespace Dune
 {
@@ -62,7 +69,7 @@ namespace Dune
           const GeometryType &type,
           const Vertices &vertices,
           InterpolatoryOrderType order,
-          const GridBaseType & gridbase) :
+          GridBaseType & gridbase) :
           	  gridbase_(&gridbase),
           	  mapping_ (type, vertices, order)
       {
@@ -72,7 +79,7 @@ namespace Dune
 
       CurvGeometry (
           const BasicMapping & mapping,
-          const GridBaseType & gridbase)
+          GridBaseType & gridbase)
               : gridbase_(&gridbase),
                 mapping_ ( mapping )
       { }
@@ -156,7 +163,7 @@ namespace Dune
       ctype integrateAnalyticalDot(const PolynomialVector & PVec)   const { return mapping_.integrateAnalyticalDot(PVec); }
       */
 
-      ctype volume () const  { return mapping_.volume(gridbase_->geometryRelativeTolerance()); }
+      ctype volume () const  { return mapping_.volume(gridbase_->property().geometryRelativeTolerance()); }
 
       JacobianTransposed jacobianTransposed ( const LocalCoordinate &local )                const { return mapping_.jacobianTransposed( local ); }
       JacobianInverseTransposed jacobianInverseTransposed ( const LocalCoordinate &local )  const { return mapping_.jacobianInverseTransposed( local ); }
@@ -167,7 +174,7 @@ namespace Dune
 
     private:
 
-      const GridBaseType * gridbase_;
+      GridBaseType * gridbase_;
       BasicMapping mapping_;
     };
 

@@ -494,7 +494,7 @@ int main (int argc , char **argv) {
 		bool local = grid->entityLocalIndex(FACE_CODIM, iter->first, tmpLocalIndex);
 
 		if (local) {
-			Dune::PartitionType thisType = grid->gridbase().entityPartitionType(FACE_CODIM, tmpLocalIndex);
+			Dune::PartitionType thisType = grid->gridbase().entity().partitionType(FACE_CODIM, tmpLocalIndex);
 			if (thisType != Dune::PartitionType::GhostEntity) {
 				std::cout << "...Warning: Unexpexted parallel face of local index " << tmpLocalIndex << " and type " << thisType << std::endl;
 			}

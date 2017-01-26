@@ -53,15 +53,15 @@
 #include <dune/curvilineargrid/common/loggingtimer.hh>
 #include <dune/curvilineargrid/common/vectorhelper.hh>
 
-#include <dune/curvilineargrid/curvilineargridbase/curvilineargridstorage.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilineargridstorage.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilinearglobalindexconstructor.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilinearghostconstructor.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilinearperiodicconstructor.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilinearpostconstructor.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilinearoctreenode.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilinearlooseoctree.hh>
 
-#include <dune/curvilineargrid/curvilineargridbase/curvilinearglobalindexconstructor.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilinearghostconstructor.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilinearperiodicconstructor.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilinearpostconstructor.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilinearoctreenode.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilinearlooseoctree.hh>
+#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
 
 
 namespace Dune {
@@ -460,34 +460,34 @@ public:
         // ************************************************************
         std::stringstream log_stream;
         log_stream << "CurvilinearGridBase: Constructed Mesh ";
-        log_stream << " nVertexPerMesh="             << gridbase_.nEntityTotal(VERTEX_CODIM);
-        log_stream << " nEdgePerMesh="               << gridbase_.nEntityTotal(EDGE_CODIM);
-        log_stream << " nFacePerMesh="               << gridbase_.nEntityTotal(FACE_CODIM);
-        log_stream << " nElementPerMesh="            << gridbase_.nEntityTotal(ELEMENT_CODIM);
+        log_stream << " nVertexPerMesh="             << gridbase_.property().nEntityTotal(VERTEX_CODIM);
+        log_stream << " nEdgePerMesh="               << gridbase_.property().nEntityTotal(EDGE_CODIM);
+        log_stream << " nFacePerMesh="               << gridbase_.property().nEntityTotal(FACE_CODIM);
+        log_stream << " nElementPerMesh="            << gridbase_.property().nEntityTotal(ELEMENT_CODIM);
 
         log_stream << std::endl; "    *** ";
-        log_stream << " nCorner="                    << gridbase_.nEntity(VERTEX_CODIM);
-        log_stream << " nCornerInterior="            << gridbase_.nEntity(VERTEX_CODIM, PartitionType::InteriorEntity);
-        log_stream << " nCornerBorder="              << gridbase_.nEntity(VERTEX_CODIM, PartitionType::BorderEntity);
-        log_stream << " nCornerGhost="               << gridbase_.nEntity(VERTEX_CODIM, PartitionType::GhostEntity);
+        log_stream << " nCorner="                    << gridbase_.property().nEntity(VERTEX_CODIM);
+        log_stream << " nCornerInterior="            << gridbase_.property().nEntity(VERTEX_CODIM, PartitionType::InteriorEntity);
+        log_stream << " nCornerBorder="              << gridbase_.property().nEntity(VERTEX_CODIM, PartitionType::BorderEntity);
+        log_stream << " nCornerGhost="               << gridbase_.property().nEntity(VERTEX_CODIM, PartitionType::GhostEntity);
 
         log_stream << std::endl; "    *** ";
-        log_stream << " nEdge="                      << gridbase_.nEntity(EDGE_CODIM);
-        log_stream << " nEdgeInterior="              << gridbase_.nEntity(EDGE_CODIM, PartitionType::InteriorEntity);
-        log_stream << " nEdgeBorder="                << gridbase_.nEntity(EDGE_CODIM, PartitionType::BorderEntity);
-        log_stream << " nEdgeGhost="                 << gridbase_.nEntity(EDGE_CODIM, PartitionType::GhostEntity);
+        log_stream << " nEdge="                      << gridbase_.property().nEntity(EDGE_CODIM);
+        log_stream << " nEdgeInterior="              << gridbase_.property().nEntity(EDGE_CODIM, PartitionType::InteriorEntity);
+        log_stream << " nEdgeBorder="                << gridbase_.property().nEntity(EDGE_CODIM, PartitionType::BorderEntity);
+        log_stream << " nEdgeGhost="                 << gridbase_.property().nEntity(EDGE_CODIM, PartitionType::GhostEntity);
 
         log_stream << std::endl; "    *** ";
-        log_stream << " nFace="                      << gridbase_.nEntity(FACE_CODIM);
-        log_stream << " nFaceInterior="              << gridbase_.nEntity(FACE_CODIM, PartitionType::InteriorEntity);
-        log_stream << " nFaceBoundarySegment="       << gridbase_.nEntity(FACE_CODIM, PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
-        log_stream << " nFaceBorder="                << gridbase_.nEntity(FACE_CODIM, PartitionType::BorderEntity);
-        log_stream << " nFaceGhost="                 << gridbase_.nEntity(FACE_CODIM, PartitionType::GhostEntity);
+        log_stream << " nFace="                      << gridbase_.property().nEntity(FACE_CODIM);
+        log_stream << " nFaceInterior="              << gridbase_.property().nEntity(FACE_CODIM, PartitionType::InteriorEntity);
+        log_stream << " nFaceBoundarySegment="       << gridbase_.property().nEntity(FACE_CODIM, PartitionType::InteriorEntity, DOMAIN_BOUNDARY_TYPE);
+        log_stream << " nFaceBorder="                << gridbase_.property().nEntity(FACE_CODIM, PartitionType::BorderEntity);
+        log_stream << " nFaceGhost="                 << gridbase_.property().nEntity(FACE_CODIM, PartitionType::GhostEntity);
 
         log_stream << std::endl; "    *** ";
-        log_stream << " nElement="                   << gridbase_.nEntity(ELEMENT_CODIM);
-        log_stream << " nElementInterior="           << gridbase_.nEntity(ELEMENT_CODIM, PartitionType::InteriorEntity);
-        log_stream << " nElementGhost="              << gridbase_.nEntity(ELEMENT_CODIM, PartitionType::GhostEntity);
+        log_stream << " nElement="                   << gridbase_.property().nEntity(ELEMENT_CODIM);
+        log_stream << " nElementInterior="           << gridbase_.property().nEntity(ELEMENT_CODIM, PartitionType::InteriorEntity);
+        log_stream << " nElementGhost="              << gridbase_.property().nEntity(ELEMENT_CODIM, PartitionType::GhostEntity);
 
         LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, log_stream.str());
         LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "...CurvilinearGridBase: Finished generating curvilinear mesh]]");
@@ -852,7 +852,7 @@ protected:
         {
         	LoggingMessage::writePatience("Marking process boundary vertices...", faceCount++, processBoundaryFaceKey2LocalIndexMap_.size());
 
-        	EntityStorage thisFace = gridbase_.entityData(1, (*faceIter).second);
+        	EntityStorage thisFace = gridbase_.entity().data(1, (*faceIter).second);
 
             for (unsigned int i = 0; i < thisFace.vertexIndexSet.size(); i++)
             {

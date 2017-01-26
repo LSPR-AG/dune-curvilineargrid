@@ -52,8 +52,8 @@
 #include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/common/vectorhelper.hh>
 
-#include <dune/curvilineargrid/curvilineargridbase/curvilineargridstorage.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilinearperiodicconstructor.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilineargridstorage.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilinearperiodicconstructor.hh>
 
 #include <dune/curvilineargrid/utility/allcommunication.hh>
 

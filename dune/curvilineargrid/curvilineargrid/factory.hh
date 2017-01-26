@@ -31,10 +31,10 @@
 #include <dune/geometry/referenceelements.hh>
 
 #include <dune/grid/common/gridfactory.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbasefactory.hh>
 
 #include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/curvilineargridbase/curvilineargridbase.hh>
+#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbasefactory.hh>
 
 
 

@@ -25,6 +25,7 @@
 #include <vector>
 
 #include <stdio.h>
+#include <stdint.h>
 
 #include <dune/common/exceptions.hh>
 #include <dune/common/fvector.hh>
@@ -36,9 +37,9 @@
 
 #include <dune/curvilineargrid/common/constant.hh>
 #include <dune/curvilineargrid/common/loggingmessage.hh>
+
 #include <dune/curvilineargrid/io/file/curvilinearvtkformat.hh>
 #include <dune/curvilineargrid/io/file/curvilinearvtkentitysubset.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilineargridstorage.hh>
 
 
 
@@ -115,6 +116,11 @@ namespace CurvGrid {
 
 	  typedef std::vector< std::size_t >                  SizeTVec;
       typedef std::vector< std::string >                  StrVec;
+
+      typedef VTKFormat::VTKArrayWriter<VTKUInt8> VTKOutUInt8;
+      typedef VTKFormat::VTKArrayWriter<VTKInt32> VTKOutInt32;
+      typedef VTKFormat::VTKArrayWriter<VTKFloat> VTKOutFloat;
+
 
   public:
 
@@ -334,12 +340,12 @@ namespace CurvGrid {
         vtkFile << "DATASET UNSTRUCTURED_GRID" << std::endl;
 
         // Write all points
-        vtkFile << "POINTS " << vtkPoint_.size() << " double" << std::endl;
-        VTKFormat::writeCoordinateArray(vtkFile, "VTK writing vertex coordinates", vtkPoint_, "\n", format);
+        vtkFile << "POINTS " << std::string(vtkPoint_.size()) << " double" << std::endl;
+        VTKOutFloat::writeCoordinateArray(vtkFile, "VTK writing vertex coordinates", vtkPoint_, "\n", format);
 
         // Write all elements
         vtkFile << std::endl;
-        vtkFile << "CELLS " << nEntityTot << " " << nCellTot << std::endl;
+        vtkFile << "CELLS " << std::string(nEntityTot) << " " << std::string(nCellTot) << std::endl;
         for (int iCodim = EDGE_CODIM; iCodim >= ELEMENT_CODIM; iCodim--)  // Write edges first, elements last
         {
         	IndexVector codimVertexIndex;
@@ -347,16 +353,16 @@ namespace CurvGrid {
             	codimVertexIndex.push_back(vertexIndex.size());
 				for (auto const & thisIndex : vertexIndex) { codimVertexIndex.push_back(thisIndex); }
             }
-            VTKFormat::writeArray(vtkFile, "VTK writing cells codim=" + std::to_string(iCodim), codimVertexIndex, " ", format);
+            VTKOutInt32::writeArray(vtkFile, "VTK writing cells codim=" + std::to_string(iCodim), codimVertexIndex, " ", format);
         }
 
 
         // Write edge and triangle cell types
         vtkFile << std::endl;
         vtkFile << "CELL_TYPES " << nEntityTot << std::endl;
-    	VTKFormat::writeArray(vtkFile, "VTK cell types codim=" + std::to_string(EDGE_CODIM), nEntity[EDGE_CODIM], "3", "\n", format);
-    	VTKFormat::writeArray(vtkFile, "VTK cell types codim=" + std::to_string(FACE_CODIM), nEntity[FACE_CODIM], "5", "\n", format);
-    	VTKFormat::writeArray(vtkFile, "VTK cell types codim=" + std::to_string(ELEMENT_CODIM), nEntity[ELEMENT_CODIM], "10", "\n", format);
+        VTKOutUInt8::writeArray(vtkFile, "VTK cell types codim=" + std::to_string(EDGE_CODIM), nEntity[EDGE_CODIM], 3, "\n", format);
+        VTKOutUInt8::writeArray(vtkFile, "VTK cell types codim=" + std::to_string(FACE_CODIM), nEntity[FACE_CODIM], 5, "\n", format);
+        VTKOutUInt8::writeArray(vtkFile, "VTK cell types codim=" + std::to_string(ELEMENT_CODIM), nEntity[ELEMENT_CODIM], 10, "\n", format);
 
         // If are defined fields associated with vertices, then write them too
         if ((vectorFieldName2Index_.size() > 0) || (scalarFieldName2Index_.size() > 0))
@@ -381,7 +387,7 @@ namespace CurvGrid {
                     		scalarField.push_back((*iterField).second);
                     	}
                     }
-                    VTKFormat::writeArray(vtkFile, "VTK writing point scalar field " + fieldName, scalarField, "\n", format);
+                    VTKOutFloat::writeArray(vtkFile, "VTK writing point scalar field " + fieldName, scalarField, "\n", format);
         		}
         	}
 
@@ -402,7 +408,7 @@ namespace CurvGrid {
                     		vectorField.push_back((*iterField).second);
                     	}
                     }
-                    VTKFormat::writeCoordinateArray(vtkFile, "VTK writing point vector field " + fieldName, vectorField, "\n", format);
+                    VTKOutFloat::writeCoordinateArray(vtkFile, "VTK writing point vector field " + fieldName, vectorField, "\n", format);
         		}
         	}
         }
@@ -411,35 +417,35 @@ namespace CurvGrid {
         vtkFile << "CELL_DATA " << nEntityTot << std::endl;
 
         // Write edge and triangle Structural type
-        vtkFile << "SCALARS physicalTag FLOAT" << std::endl;
+        vtkFile << "SCALARS physicalTag INT" << std::endl;
         vtkFile << "LOOKUP_TABLE default" << std::endl;
         {
 			std::string logtext = "VTU writing cell scalar physicalTag for codim=";
-			VTKFormat::writeArray(vtkFile, logtext + std::to_string(EDGE_CODIM), vtkCodimPhysicalTag_[EDGE_CODIM], "\n", format);
-			VTKFormat::writeArray(vtkFile, logtext + std::to_string(FACE_CODIM), vtkCodimPhysicalTag_[FACE_CODIM], "\n", format);
-			VTKFormat::writeArray(vtkFile, logtext + std::to_string(ELEMENT_CODIM), vtkCodimPhysicalTag_[ELEMENT_CODIM], "\n", format);
+			VTKOutInt32::writeArray(vtkFile, logtext + std::to_string(EDGE_CODIM), vtkCodimPhysicalTag_[EDGE_CODIM], "\n", format);
+			VTKOutInt32::writeArray(vtkFile, logtext + std::to_string(FACE_CODIM), vtkCodimPhysicalTag_[FACE_CODIM], "\n", format);
+			VTKOutInt32::writeArray(vtkFile, logtext + std::to_string(ELEMENT_CODIM), vtkCodimPhysicalTag_[ELEMENT_CODIM], "\n", format);
 			vtkFile << std::endl;
         }
 
         // Write edge and triangle physicalTags
-        vtkFile << "SCALARS structuralType FLOAT" << std::endl;
+        vtkFile << "SCALARS structuralType INT" << std::endl;
         vtkFile << "LOOKUP_TABLE default" << std::endl;
         {
     		std::string logtext = "VTU writing cell scalar structuralType for codim=";
-    		VTKFormat::writeArray(vtkFile, logtext + std::to_string(EDGE_CODIM), vtkCodimStructuralType_[EDGE_CODIM], "\n", format);
-    		VTKFormat::writeArray(vtkFile, logtext + std::to_string(FACE_CODIM), vtkCodimStructuralType_[FACE_CODIM], "\n", format);
-    		VTKFormat::writeArray(vtkFile, logtext + std::to_string(ELEMENT_CODIM), vtkCodimStructuralType_[ELEMENT_CODIM], "\n", format);
+    		VTKOutUInt8::writeArray(vtkFile, logtext + std::to_string(EDGE_CODIM), vtkCodimStructuralType_[EDGE_CODIM], "\n", format);
+    		VTKOutUInt8::writeArray(vtkFile, logtext + std::to_string(FACE_CODIM), vtkCodimStructuralType_[FACE_CODIM], "\n", format);
+    		VTKOutUInt8::writeArray(vtkFile, logtext + std::to_string(ELEMENT_CODIM), vtkCodimStructuralType_[ELEMENT_CODIM], "\n", format);
             vtkFile << std::endl;
         }
 
         // Write edge and triangle provider process ranks
-        vtkFile << "SCALARS processRank FLOAT" << std::endl;
+        vtkFile << "SCALARS processRank INT" << std::endl;
         vtkFile << "LOOKUP_TABLE default" << std::endl;
         {
     		std::string logtext = "VTU writing cell scalar processRank for codim=";
-    		VTKFormat::writeArray(vtkFile, logtext + std::to_string(EDGE_CODIM), vtkCodimProcessRank_[EDGE_CODIM], "\n", format);
-    		VTKFormat::writeArray(vtkFile, logtext + std::to_string(FACE_CODIM), vtkCodimProcessRank_[FACE_CODIM], "\n", format);
-    		VTKFormat::writeArray(vtkFile, logtext + std::to_string(ELEMENT_CODIM), vtkCodimProcessRank_[ELEMENT_CODIM], "\n", format);
+    		VTKOutUInt8::writeArray(vtkFile, logtext + std::to_string(EDGE_CODIM), vtkCodimProcessRank_[EDGE_CODIM], "\n", format);
+    		VTKOutUInt8::writeArray(vtkFile, logtext + std::to_string(FACE_CODIM), vtkCodimProcessRank_[FACE_CODIM], "\n", format);
+    		VTKOutUInt8::writeArray(vtkFile, logtext + std::to_string(ELEMENT_CODIM), vtkCodimProcessRank_[ELEMENT_CODIM], "\n", format);
             vtkFile << std::endl;
         }
 
@@ -484,14 +490,14 @@ namespace CurvGrid {
                     	for (const auto & iterName : scalarFieldName2Index_) {
                 			VTKFormat::XMLClauseSingle(pvtuFile, "DataArray",
                 					StrVec{"type", "Name", "NumberOfComponents", "format"},
-        							StrVec{"Float32", iterName.first, "1", format}, true
+        							StrVec{VTU_FLOAT_TYPE, iterName.first, "1", format}, true
                 			);
                     	}
 
                     	for (const auto & iterName : vectorFieldName2Index_) {
                 			VTKFormat::XMLClauseSingle(pvtuFile, "DataArray",
                 					StrVec{"type", "Name", "NumberOfComponents", "format"},
-        							StrVec{"Float32", iterName.first, "3", format}, true
+        							StrVec{VTU_FLOAT_TYPE, iterName.first, "3", format}, true
                 			);
                     	}
                     }
@@ -505,15 +511,15 @@ namespace CurvGrid {
 
                     VTKFormat::XMLClauseSingle(pvtuFile, "PDataArray",
                     		StrVec{"type", "Name", "NumberOfComponents"},
-    						StrVec{"Float32","physicalTag", "1"}, true);
+    						StrVec{VTU_INT_32_TYPE,"physicalTag", "1"}, true);
 
                     VTKFormat::XMLClauseSingle(pvtuFile, "PDataArray",
                     		StrVec{"type", "Name", "NumberOfComponents"},
-    						StrVec{"Float32","structuralType", "1"}, true);
+    						StrVec{VTU_UINT_8_TYPE,"structuralType", "1"}, true);
 
                     VTKFormat::XMLClauseSingle(pvtuFile, "PDataArray",
                     		StrVec{"type", "Name", "NumberOfComponents"},
-    						StrVec{"Float32","processRank", "1"}, true);
+    						StrVec{VTU_UINT_8_TYPE,"processRank", "1"}, true);
                 }
 
 
@@ -521,16 +527,16 @@ namespace CurvGrid {
                 // *****************************************************
                 {
                 	VTKFormat::XMLClause clausePPoints(pvtuFile, "PPoints");
-                    VTKFormat::XMLClauseSingle(pvtuFile, "PDataArray", StrVec{"type", "NumberOfComponents"}, StrVec{"Float32", "3"}, true);
+                    VTKFormat::XMLClauseSingle(pvtuFile, "PDataArray", StrVec{"type", "NumberOfComponents"}, StrVec{VTU_FLOAT_TYPE, "3"}, true);
                 }
 
                 // Write element information
                 // *****************************************************
                 {
                 	VTKFormat::XMLClause clausePCells(pvtuFile, "PCells");
-                    VTKFormat::XMLClauseSingle(pvtuFile, "PDataArray", StrVec{"type", "Name"}, StrVec{"Int32", "connectivity"}, true);
-                    VTKFormat::XMLClauseSingle(pvtuFile, "PDataArray", StrVec{"type", "Name"}, StrVec{"Int32", "offsets"}, true);
-                    VTKFormat::XMLClauseSingle(pvtuFile, "PDataArray", StrVec{"type", "Name"}, StrVec{"UInt8", "types"}, true);
+                    VTKFormat::XMLClauseSingle(pvtuFile, "PDataArray", StrVec{"type", "Name"}, StrVec{VTU_INT_32_TYPE, "connectivity"}, true);
+                    VTKFormat::XMLClauseSingle(pvtuFile, "PDataArray", StrVec{"type", "Name"}, StrVec{VTU_INT_32_TYPE, "offsets"}, true);
+                    VTKFormat::XMLClauseSingle(pvtuFile, "PDataArray", StrVec{"type", "Name"}, StrVec{VTU_UINT_8_TYPE, "types"}, true);
                 }
 
                 // Write all .vtu data files file
@@ -549,9 +555,19 @@ namespace CurvGrid {
     // Writes serial VTU file
     void writeVTU(std::string filename, std::string format) const
     {
-    	assert((format == "ascii") || (format == "binary"));
+    	std::ofstream vtkFile;
 
-    	std::ofstream vtkFile(filename.c_str());
+    	bool newLineData;
+    	if (format == "binary") {
+    		newLineData = true;
+    		assert(sizeof(VTKFloat) == 8);
+    		vtkFile.open (filename.c_str(), std::ios::out | std::ios::binary);
+    	} else if (format == "ascii") {
+    		newLineData = true;
+    		vtkFile.open (filename.c_str(), std::ios::out);
+    	} else {
+    		DUNE_THROW(Dune::IOError, "Unexpected vtu file format=" + format);
+    	}
 
         std::vector<std::size_t> nEntity
         {
@@ -605,7 +621,8 @@ namespace CurvGrid {
                         		{
                         			VTKFormat::XMLClause clauseVTKScalarField(vtkFile, "DataArray",
                         					StrVec{"type", "Name", "NumberOfComponents", "format"},
-											StrVec{"Float32", fieldName, "1", format}
+											StrVec{VTU_FLOAT_TYPE, fieldName, "1", format},
+											newLineData
                         			);
 
                         			std::vector<ctype> scalarField;
@@ -619,7 +636,7 @@ namespace CurvGrid {
                                     		scalarField.push_back((*iterField).second);
                                     	}
                                     }
-                                    VTKFormat::writeArray(vtkFile, "VTU writing point scalar field "+fieldName, scalarField, " ", format);
+                                    VTKOutFloat::writeArray(vtkFile, "VTU writing point scalar field "+fieldName, scalarField, " ", format);
                         		}
                         	}
 
@@ -631,7 +648,8 @@ namespace CurvGrid {
                         		{
                         			VTKFormat::XMLClause clauseVTKVectorField(vtkFile, "DataArray",
                         					StrVec{"type", "Name", "NumberOfComponents", "format"},
-											StrVec{"Float32", fieldName, "3", format}
+											StrVec{VTU_FLOAT_TYPE, fieldName, "3", format},
+											newLineData
                         			);
 
                         			std::vector<GlobalCoordinate> vectorField;
@@ -645,7 +663,7 @@ namespace CurvGrid {
                                     		vectorField.push_back((*iterField).second);
                                     	}
                                     }
-                                    VTKFormat::writeCoordinateArray(vtkFile, "VTU writing point vector field "+ fieldName, vectorField, "\n", format);
+                                    VTKOutFloat::writeCoordinateArray(vtkFile, "VTU writing point vector field "+ fieldName, vectorField, "\n", format);
                         		}
                         	}
                         }
@@ -659,37 +677,40 @@ namespace CurvGrid {
                         { // Write edge and triangle physicalTags
                 			VTKFormat::XMLClause clauseTag(vtkFile, "DataArray",
                 					StrVec{"type", "Name", "NumberOfComponents", "format"},
-									StrVec{"Float32", "physicalTag", "1", format}
+									StrVec{VTU_INT_32_TYPE, "physicalTag", "1", format},
+									newLineData
                 			);
 
                 			std::string logtext = "VTU writing cell scalar physicalTag for codim=";
-                			VTKFormat::writeArray(vtkFile, logtext + std::to_string(EDGE_CODIM), vtkCodimPhysicalTag_[EDGE_CODIM], " ", format);
-                			VTKFormat::writeArray(vtkFile, logtext + std::to_string(FACE_CODIM), vtkCodimPhysicalTag_[FACE_CODIM], " ", format);
-                			VTKFormat::writeArray(vtkFile, logtext + std::to_string(ELEMENT_CODIM), vtkCodimPhysicalTag_[ELEMENT_CODIM], " ", format);
+                			VTKOutInt32::writeArray(vtkFile, logtext + std::to_string(EDGE_CODIM), vtkCodimPhysicalTag_[EDGE_CODIM], " ", format);
+                			VTKOutInt32::writeArray(vtkFile, logtext + std::to_string(FACE_CODIM), vtkCodimPhysicalTag_[FACE_CODIM], " ", format);
+                			VTKOutInt32::writeArray(vtkFile, logtext + std::to_string(ELEMENT_CODIM), vtkCodimPhysicalTag_[ELEMENT_CODIM], " ", format);
                         }
 
                         { // Write edge and triangle structural type
                 			VTKFormat::XMLClause clauseTag(vtkFile, "DataArray",
                 					StrVec{"type", "Name", "NumberOfComponents", "format"},
-									StrVec{"Float32", "structuralType", "1", format}
+									StrVec{VTU_UINT_8_TYPE, "structuralType", "1", format},
+									newLineData
                 			);
 
                 			std::string logtext = "VTU writing cell scalar structuralType for codim=";
-                			VTKFormat::writeArray(vtkFile, logtext + std::to_string(EDGE_CODIM), vtkCodimStructuralType_[EDGE_CODIM], " ", format);
-                			VTKFormat::writeArray(vtkFile, logtext + std::to_string(FACE_CODIM), vtkCodimStructuralType_[FACE_CODIM], " ", format);
-                			VTKFormat::writeArray(vtkFile, logtext + std::to_string(ELEMENT_CODIM), vtkCodimStructuralType_[ELEMENT_CODIM], " ", format);
+                			VTKOutUInt8::writeArray(vtkFile, logtext + std::to_string(EDGE_CODIM), vtkCodimStructuralType_[EDGE_CODIM], " ", format);
+                			VTKOutUInt8::writeArray(vtkFile, logtext + std::to_string(FACE_CODIM), vtkCodimStructuralType_[FACE_CODIM], " ", format);
+                			VTKOutUInt8::writeArray(vtkFile, logtext + std::to_string(ELEMENT_CODIM), vtkCodimStructuralType_[ELEMENT_CODIM], " ", format);
                         }
 
                         { // Write edge and triangle provider process ranks
                 			VTKFormat::XMLClause clauseTag(vtkFile, "DataArray",
                 					StrVec{"type", "Name", "NumberOfComponents", "format"},
-									StrVec{"Float32", "processRank", "1", format}
+									StrVec{VTU_UINT_8_TYPE, "processRank", "1", format},
+									newLineData
                 			);
 
                 			std::string logtext = "VTU writing cell scalar processRank for codim=";
-                			VTKFormat::writeArray(vtkFile, logtext + std::to_string(EDGE_CODIM), vtkCodimProcessRank_[EDGE_CODIM], " ", format);
-                			VTKFormat::writeArray(vtkFile, logtext + std::to_string(FACE_CODIM), vtkCodimProcessRank_[FACE_CODIM], " ", format);
-                			VTKFormat::writeArray(vtkFile, logtext + std::to_string(ELEMENT_CODIM), vtkCodimProcessRank_[ELEMENT_CODIM], " ", format);
+                			VTKOutUInt8::writeArray(vtkFile, logtext + std::to_string(EDGE_CODIM), vtkCodimProcessRank_[EDGE_CODIM], " ", format);
+                			VTKOutUInt8::writeArray(vtkFile, logtext + std::to_string(FACE_CODIM), vtkCodimProcessRank_[FACE_CODIM], " ", format);
+                			VTKOutUInt8::writeArray(vtkFile, logtext + std::to_string(ELEMENT_CODIM), vtkCodimProcessRank_[ELEMENT_CODIM], " ", format);
                         }
                     }
 
@@ -700,10 +721,11 @@ namespace CurvGrid {
                         { // Write all points
                 			VTKFormat::XMLClause clauseTag(vtkFile, "DataArray",
                 					StrVec{"type", "NumberOfComponents", "format"},
-									StrVec{"Float32", "3", format}
+									StrVec{VTU_FLOAT_TYPE, "3", format},
+									newLineData
                 			);
 
-                			VTKFormat::writeCoordinateArray(vtkFile, "VTU writing vertex coordinates", vtkPoint_, "\n", format);
+                			VTKOutFloat::writeCoordinateArray(vtkFile, "VTU writing vertex coordinates", vtkPoint_, "\n", format);
                         }
                     }
 
@@ -714,14 +736,15 @@ namespace CurvGrid {
                         {
                 			VTKFormat::XMLClause clauseTag(vtkFile, "DataArray",
                 					StrVec{"type", "Name", "format"},
-									StrVec{"Int32", "connectivity", format}
+									StrVec{VTU_INT_32_TYPE, "connectivity", format},
+									newLineData
                 			);
 
                             for (int iCodim = EDGE_CODIM; iCodim >= ELEMENT_CODIM; iCodim--)  // Write edges first, elements last
                             {
                             	for (int i = 0; i < vtkCodimVertexIndex_[iCodim].size(); i++) {
                             		LoggingMessage::writePatience("VTU writing cells codim=" + std::to_string(iCodim), i, vtkCodimVertexIndex_[iCodim].size());
-                            		VTKFormat::writeArray(vtkFile, "", vtkCodimVertexIndex_[iCodim][i], " ", format);
+                            		VTKOutInt32::writeArray(vtkFile, "", vtkCodimVertexIndex_[iCodim][i], " ", format);
                             	}
                             }
                         }
@@ -729,21 +752,23 @@ namespace CurvGrid {
                         {
                 			VTKFormat::XMLClause clauseTag(vtkFile, "DataArray",
                 					StrVec{"type", "Name", "format"},
-									StrVec{"Int32", "offsets", format}
+									StrVec{VTU_INT_32_TYPE, "offsets", format},
+									newLineData
                 			);
 
-                			VTKFormat::writeArray(vtkFile, "VTU writing offsets", offsets, " ", format);
+                			VTKOutInt32::writeArray(vtkFile, "VTU writing offsets", offsets, " ", format);
                         }
 
                         {   // Element types
                 			VTKFormat::XMLClause clauseTag(vtkFile, "DataArray",
                 					StrVec{"type", "Name", "format"},
-									StrVec{"UInt8", "types", format}
+									StrVec{VTU_UINT_8_TYPE, "types", format},
+									newLineData
                 			);
 
-                        	VTKFormat::writeArray(vtkFile, "VTU writing types codim=" + std::to_string(EDGE_CODIM), nEntity[EDGE_CODIM], "3", " ", format);
-                        	VTKFormat::writeArray(vtkFile, "VTU writing types codim=" + std::to_string(FACE_CODIM), nEntity[FACE_CODIM], "5", " ", format);
-                        	VTKFormat::writeArray(vtkFile, "VTU writing types codim=" + std::to_string(ELEMENT_CODIM), nEntity[ELEMENT_CODIM], "10", " ", format);
+                			VTKOutUInt8::writeArray(vtkFile, "VTU writing types codim=" + std::to_string(EDGE_CODIM), nEntity[EDGE_CODIM], 3, " ", format);
+                			VTKOutUInt8::writeArray(vtkFile, "VTU writing types codim=" + std::to_string(FACE_CODIM), nEntity[FACE_CODIM], 5, " ", format);
+                			VTKOutUInt8::writeArray(vtkFile, "VTU writing types codim=" + std::to_string(ELEMENT_CODIM), nEntity[ELEMENT_CODIM], 10, " ", format);
                         }
                     }
         		}

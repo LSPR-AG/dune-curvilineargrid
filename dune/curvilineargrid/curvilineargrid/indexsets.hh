@@ -109,7 +109,7 @@ namespace Dune
       }
 
 
-      IndexType size ( int codim ) const  { return gridbase_.nEntity(codim); }
+      IndexType size ( int codim ) const  { return gridbase_.property().nEntity(codim); }
 
       template< class EntityType >
       bool contains ( const EntityType &entity ) const
@@ -117,7 +117,7 @@ namespace Dune
     	  int localIndex = Grid::getRealImplementation(entity).index();
     	  int globalIndex;
 
-    	  return gridbase_.findEntityGlobalIndex(EntityType::codimension, localIndex, globalIndex);
+    	  return gridbase_.entity().findGlobalIndex(EntityType::codimension, localIndex, globalIndex);
       }
 
       std::vector< GeometryType > types ( int codim ) const  { return geomtypes_[codim]; }

@@ -51,7 +51,7 @@
 #include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/common/vectorhelper.hh>
 
-#include <dune/curvilineargrid/curvilineargridbase/curvilineargridstorage.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilineargridstorage.hh>
 
 #include <dune/curvilineargrid/utility/allcommunication.hh>
 
@@ -147,7 +147,7 @@ public: /* public methods */
     		LoggingMessage::writePatience("Generating unique corner indices...", iElem, gridstorage_.element_.size());
 
         	// Get LocalCornerIndices
-    		std::vector<LocalIndexType> thisCornerIndex = gridbase_.entityCornerLocalIndex(ELEMENT_CODIM, iElem);
+    		std::vector<LocalIndexType> thisCornerIndex = gridbase_.entity().cornerLocalIndex(ELEMENT_CODIM, iElem);
 
         	// Loop over LocalCornerIndices
     		for (unsigned int iCorner = 0; iCorner < thisCornerIndex.size(); iCorner++)
@@ -241,8 +241,8 @@ public: /* public methods */
 		// Boundary Internals will be resized as its number is calculated
 		for (int iCodim = 0; iCodim <= dimension; iCodim++)
 		{
-			int nPB = (iCodim == 0) ? 0 : gridbase_.nEntity(iCodim, Dune::PartitionType::BorderEntity);
-			int nG  =                     gridbase_.nEntity(iCodim, Dune::PartitionType::GhostEntity);
+			int nPB = (iCodim == 0) ? 0 : gridbase_.property().nEntity(iCodim, Dune::PartitionType::BorderEntity);
+			int nG  =                     gridbase_.property().nEntity(iCodim, Dune::PartitionType::GhostEntity);
 
 			// PB2PB already exists, so need not resize it
 			gridstorage_.PB2GNeighborRank_[iCodim].resize(nPB);
@@ -338,7 +338,7 @@ protected:
     void fillPartitionIterator (int codim, LocalIndexType localIndex, PartitionType pitype, StructuralType bordertype = NO_BOUNDARY_TYPE)
     {
     	// Check if the entity is of a valid type
-    	gridbase_.assertValidCodimStructuralType(codim, pitype);
+    	gridbase_.property().assertValidCodimStructuralType(codim, pitype);
 
     	// All-set includes entities of all structural types
         gridstorage_.entityAllIndexSet_[codim].insert(localIndex);
@@ -397,23 +397,23 @@ protected:
 
 		// [FIXME] Iterate also over periodic
 		int faceCount = 0;
-		const LocalIndexSet & faceIndexSet = gridbase_.entityIndexSetSelect(FACE_CODIM , ptype, boundarytype);
+		const LocalIndexSet & faceIndexSet = gridbase_.indexset().entityIndexSetSelect(FACE_CODIM , ptype, boundarytype);
 		for (const auto & insideFaceLocalIndex : faceIndexSet)
 		{
-			LoggingMessage::writePatience("Generating communication maps...", faceCount++, gridbase_.nEntity(FACE_CODIM, Dune::PartitionType::BorderEntity));
+			LoggingMessage::writePatience("Generating communication maps...", faceCount++, gridbase_.property().nEntity(FACE_CODIM, Dune::PartitionType::BorderEntity));
 
 			// Verify that the outer neighbor of the process boundary exists
-			if (!gridbase_.checkFaceOuterNeighbor(insideFaceLocalIndex)) {
+			if (!gridbase_.intersection().checkOuterNeighbor(insideFaceLocalIndex)) {
 				std::stringstream logstr;
 				logstr << "Supposed process boundary " << insideFaceLocalIndex << " does not have initialised outer neighbor" << std::endl;
 				DUNE_THROW(Dune::IOError, logstr.str());
 			}
 
-			LocalIndexType insideElementLocalIndex = gridbase_.faceNeighbor(insideFaceLocalIndex, 0);
-			LocalIndexType outsideElementLocalIndex = gridbase_.faceNeighbor(insideFaceLocalIndex, 1);
+			LocalIndexType insideElementLocalIndex = gridbase_.intersection().neighborElement(insideFaceLocalIndex, 0);
+			LocalIndexType outsideElementLocalIndex = gridbase_.intersection().neighborElement(insideFaceLocalIndex, 1);
 
-			Dune::PartitionType insideElementPartitionType = gridbase_.entityPartitionType(ELEMENT_CODIM, insideElementLocalIndex);
-			Dune::PartitionType outsideElementPartitionType = gridbase_.entityPartitionType(ELEMENT_CODIM, outsideElementLocalIndex);
+			Dune::PartitionType insideElementPartitionType = gridbase_.entity().partitionType(ELEMENT_CODIM, insideElementLocalIndex);
+			Dune::PartitionType outsideElementPartitionType = gridbase_.entity().partitionType(ELEMENT_CODIM, outsideElementLocalIndex);
 
 			// Avoid communication between local ghost pairs. It is completely unnecessary - any would be communicated from entity to itself on the same process
 			bool isInteriorGhost = isPeriodic && (outsideElementPartitionType == Dune::PartitionType::InteriorEntity);
@@ -444,12 +444,12 @@ protected:
 
 				if (isPeriodic) {
 					// NOTE: The inside face stores subindex info. Outside (ghost) face does not store anything
-					InternalIndexType faceSubIndexInOuter = gridbase_.faceSubIndexInNeighbor(insideFaceLocalIndex, 1);
-					neighborLocalIndex[1].second = gridbase_.subentityLocalIndex(outsideElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, faceSubIndexInOuter);
+					InternalIndexType faceSubIndexInOuter = gridbase_.intersection().subIndexInNeighbor(insideFaceLocalIndex, 1);
+					neighborLocalIndex[1].second = gridbase_.entity().subentityLocalIndex(outsideElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, faceSubIndexInOuter);
 				}
 
 				// Find neighbor process rank
-				int thisFaceNeighborRank = gridbase_.commEntityNeighborRankSet(FACE_CODIM, insideFaceLocalIndex, ptype, ptype, boundarytype)[0];
+				int thisFaceNeighborRank = gridbase_.comm().entityNeighborRankSet(FACE_CODIM, insideFaceLocalIndex, ptype, ptype, boundarytype)[0];
 
 
 				// 1) Find all Internal and Ghost entities associated with this boundary face
@@ -460,20 +460,20 @@ protected:
 					LocalIndexType thisElementLocalIndex = neighborLocalIndexPair.first;
 					LocalIndexType thisFaceLocalIndex = neighborLocalIndexPair.second;
 
-					Dune::PartitionType thisElementPType = gridbase_.entityPartitionType(ELEMENT_CODIM, thisElementLocalIndex);
+					Dune::PartitionType thisElementPType = gridbase_.entity().partitionType(ELEMENT_CODIM, thisElementLocalIndex);
 
 					// Find local indices of all subentities of the PB face, as seen from this neighbor element
 					std::vector<LocalIndexType> thisFaceSubentityLocalIndex[4];
 					thisFaceSubentityLocalIndex[FACE_CODIM].push_back(thisFaceLocalIndex);
-					for (int i = 0; i < nEdgeTriangle; i++)    { thisFaceSubentityLocalIndex[EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, EDGE_CODIM, i)); }
-					for (int i = 0; i < nVertexTriangle; i++)  { thisFaceSubentityLocalIndex[VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, VERTEX_CODIM, i)); }
+					for (int i = 0; i < nEdgeTriangle; i++)    { thisFaceSubentityLocalIndex[EDGE_CODIM].push_back  (gridbase_.entity().subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, EDGE_CODIM, i)); }
+					for (int i = 0; i < nVertexTriangle; i++)  { thisFaceSubentityLocalIndex[VERTEX_CODIM].push_back(gridbase_.entity().subentityLocalIndex(thisFaceLocalIndex, FACE_CODIM, VERTEX_CODIM, i)); }
 
 					// Find local indices of all subentities of this element
 					std::vector<LocalIndexType> thisElementSubentityLocalIndex[4];
 					thisElementSubentityLocalIndex[ELEMENT_CODIM].push_back(thisElementLocalIndex);
-					for (int i = 0; i < nTriangleTet; i++)  { thisElementSubentityLocalIndex[FACE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, i)); }
-					for (int i = 0; i < nEdgeTet; i++)      { thisElementSubentityLocalIndex[EDGE_CODIM].push_back  (gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, EDGE_CODIM, i)); }
-					for (int i = 0; i < nVertexTet; i++)    { thisElementSubentityLocalIndex[VERTEX_CODIM].push_back(gridbase_.subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, VERTEX_CODIM, i)); }
+					for (int i = 0; i < nTriangleTet; i++)  { thisElementSubentityLocalIndex[FACE_CODIM].push_back  (gridbase_.entity().subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, FACE_CODIM, i)); }
+					for (int i = 0; i < nEdgeTet; i++)      { thisElementSubentityLocalIndex[EDGE_CODIM].push_back  (gridbase_.entity().subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, EDGE_CODIM, i)); }
+					for (int i = 0; i < nVertexTet; i++)    { thisElementSubentityLocalIndex[VERTEX_CODIM].push_back(gridbase_.entity().subentityLocalIndex(thisElementLocalIndex, ELEMENT_CODIM, VERTEX_CODIM, i)); }
 
 					for (int iCodim = 0; iCodim <= dimension; iCodim++)
 					{
@@ -487,15 +487,15 @@ protected:
 						// 2) Add entities to the map unless they are already added.
 						// **********************************************************************
 
-						Local2LocalMap & thisLocalCommMap = gridbase_.selectCommMap(iCodim, thisElementPType, NO_BOUNDARY_TYPE);
+						Local2LocalMap & thisLocalCommMap = gridbase_.comm().selectCommMap(iCodim, thisElementPType, NO_BOUNDARY_TYPE);
 
 
 						for (unsigned int iEntity = 0; iEntity < thisElementSubentityLocalIndex[iCodim].size(); iEntity++ )
 						{
 							LocalIndexType thisEntityLocalIndex = thisElementSubentityLocalIndex[iCodim][iEntity];
-							Dune::PartitionType thisEntityType = gridbase_.entityPartitionType(iCodim, thisEntityLocalIndex);
+							Dune::PartitionType thisEntityType = gridbase_.entity().partitionType(iCodim, thisEntityLocalIndex);
 							StructuralType thisBoundaryType = iCodim == FACE_CODIM ?
-									gridbase_.faceBoundaryType(thisEntityLocalIndex) :
+									gridbase_.intersection().boundaryType(thisEntityLocalIndex) :
 									NO_BOUNDARY_TYPE;
 
 							std::stringstream log_str;
@@ -515,7 +515,7 @@ protected:
 							// [TODO] NOTE: Periodic <-> Ghost protocol not implemented at the moment
 							if (thisEntityType == Dune::PartitionType::BorderEntity)
 							{
-								std::vector<int> & thisEntityPBNeighbors = gridbase_.commEntityNeighborRankSet(iCodim, thisEntityLocalIndex, Dune::PartitionType::BorderEntity, Dune::PartitionType::BorderEntity, NO_BOUNDARY_TYPE);
+								std::vector<int> & thisEntityPBNeighbors = gridbase_.comm().entityNeighborRankSet(iCodim, thisEntityLocalIndex, Dune::PartitionType::BorderEntity, Dune::PartitionType::BorderEntity, NO_BOUNDARY_TYPE);
 								bool isNewRank = !VectorHelper::isInside(thisEntityPBNeighbors, thisFaceNeighborRank);
 								//std::cout << "testing isInside vector=(" << VectorHelper::vector2string(thisEntityPBNeighbors) << ") elem=" << thisFaceNeighborRank << " isNew=" << isNewRank << std::endl;
 
@@ -658,7 +658,7 @@ protected:
     				int thisPBNeighborRank = gridstorage_.PB2PBNeighborRank_[codim][thisEntityLocalPBIndex][i];
     				int thisTmpIndex = displSendTmp2[thisPBNeighborRank]++;
 
-    				if (!gridbase_.findEntityGlobalIndex(codim, thisEntityLocalIndex, PBGEntityGlobalIndexSend[thisTmpIndex]))
+    				if (!gridbase_.entity().findGlobalIndex(codim, thisEntityLocalIndex, PBGEntityGlobalIndexSend[thisTmpIndex]))
     				{
     					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found by its local index");
     				}
@@ -762,12 +762,12 @@ protected:
 
 				// Get local index corresponding to the communicated global index, check that it exists
 				LocalIndexType thisEntityLocalIndex;
-				if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex)) {
+				if (!gridbase_.entity().findLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex)) {
 					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found corresponding to communicated global index");
 				}
 
 				// Check if the structural type of the received entity is PB
-				StructuralType thisEntityType = gridbase_.entityPartitionType(codim, thisEntityLocalIndex);
+				StructuralType thisEntityType = gridbase_.entity().partitionType(codim, thisEntityLocalIndex);
 				assert(thisEntityType == Dune::PartitionType::BorderEntity);
 
 				LocalIndexType thisEntityLocalPBIndex = gridstorage_.processBoundaryIndexMap_[codim][thisEntityLocalIndex];
@@ -873,7 +873,7 @@ protected:
 				int thisTmpIndex = displSendTmp2[thisGNeighborRank]++;
 
 				// Check if element with this local index exists at all, otherwise bug in the map
-				if (!gridbase_.findEntityGlobalIndex(codim, thisEntityLocalIndex, GPBEntityGlobalIndexSend[thisTmpIndex])) {
+				if (!gridbase_.entity().findGlobalIndex(codim, thisEntityLocalIndex, GPBEntityGlobalIndexSend[thisTmpIndex])) {
 					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found by its local index");
 				}
 			}
@@ -905,12 +905,12 @@ protected:
 
 				// Get local index corresponding to the communicated global index, check that it exists
 				LocalIndexType thisEntityLocalIndex;
-				if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex)) {
+				if (!gridbase_.entity().findLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex)) {
 					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found corresponding to communicated global index");
 				}
 
 				// Check if the structural type of the received entity is Ghost
-				Dune::PartitionType thisEntityType = gridbase_.entityPartitionType(codim, thisEntityLocalIndex);
+				Dune::PartitionType thisEntityType = gridbase_.entity().partitionType(codim, thisEntityLocalIndex);
 				if (thisEntityType != Dune::PartitionType::GhostEntity)
 				{
 					std::stringstream logstr;
@@ -1033,7 +1033,7 @@ protected:
     				int thisTmpIndex = displSendTmp2[thisGNeighborRank]++;
 
     				// Check if element with this local index exists at all, otherwise bug in the map
-    				if (!gridbase_.findEntityGlobalIndex(codim, thisEntityLocalIndex, GGEntityGlobalIndexSend[thisTmpIndex])) {
+    				if (!gridbase_.entity().findGlobalIndex(codim, thisEntityLocalIndex, GGEntityGlobalIndexSend[thisTmpIndex])) {
     					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found by its local index");
     				}
 
@@ -1148,12 +1148,12 @@ protected:
 
 				// Get local index corresponding to the communicated global index, check that it exists
 				LocalIndexType thisEntityLocalIndex;
-				if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex)) {
+				if (!gridbase_.entity().findLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex)) {
 					DUNE_THROW(Dune::IOError, "CurvilinearGridBase: Element not found corresponding to communicated global index");
 				}
 
 				// Check if the structural type of the received entity is Ghost
-				StructuralType thisEntityType = gridbase_.entityPartitionType(codim, thisEntityLocalIndex);
+				StructuralType thisEntityType = gridbase_.entity().partitionType(codim, thisEntityLocalIndex);
 				assert(thisEntityType == Dune::PartitionType::GhostEntity);
 
 				LocalIndexType thisEntityGhostLocalIndex = gridstorage_.ghostIndexMap_[codim][thisEntityLocalIndex];

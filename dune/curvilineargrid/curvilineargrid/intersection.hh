@@ -80,7 +80,7 @@ namespace Dune
       CurvIntersection (
     		  LocalIndexType localIndexInside,    // Index of the element wrt which this intersection is calculated
     		  InternalIndexType subIndexInside,   // Internal index of the face as the element subentity
-    		  const GridBaseType & gridbase,
+    		  GridBaseType & gridbase,
     		  bool ghostcheck = false             // If ghostcheck=true, then subIndex should be the first index that does not point to a ghost
       ) :
     	  localIndexInside_(localIndexInside),
@@ -96,11 +96,11 @@ namespace Dune
     	  assert(subIndexInside_ <= 4);
     	  if (subIndexInside_ < 4)
     	  {
-        	  localFaceIndex_ = gridbase_.subentityLocalIndex (localIndexInside, ELEMENT_CODIM, FACE_CODIM, subIndexInside);
+        	  localFaceIndex_ = gridbase_.entity().subentityLocalIndex (localIndexInside, ELEMENT_CODIM, FACE_CODIM, subIndexInside);
 
         	  //std::cout << "Constructing Intersection elementIndex=" << localIndexInside << " internal index=" << subIndexInside << " gets face index=" << localFaceIndex_ << std::endl;
 
-        	  StructuralType faceType = gridbase_.entityPartitionType(FACE_CODIM, localFaceIndex_);
+        	  StructuralType faceType = gridbase_.entity().partitionType(FACE_CODIM, localFaceIndex_);
 
         	  if (faceType == Dune::PartitionType::GhostEntity)
         	  {
@@ -165,7 +165,7 @@ namespace Dune
 
       Entity inside () const
       {
-    	  IndexSetIterator thisIter = gridbase_.entityIndexSetSelect(ELEMENT_CODIM).find(localIndexInside_);
+    	  IndexSetIterator thisIter = gridbase_.indexset().entityIndexSetSelect(ELEMENT_CODIM).find(localIndexInside_);
     	  return Entity(EntityImpl(thisIter, gridbase_, All_Partition));
       }
 
@@ -177,14 +177,14 @@ namespace Dune
     		  DUNE_THROW(Dune::IOError, "Intersection: entityPointer of non-existing outside entity requested");
     	  }
 
-    	  IndexSetIterator thisIter = gridbase_.entityIndexSetSelect(ELEMENT_CODIM).find(localIndexOutside_);
+    	  IndexSetIterator thisIter = gridbase_.indexset().entityIndexSetSelect(ELEMENT_CODIM).find(localIndexOutside_);
     	  return Entity(EntityImpl(thisIter, gridbase_, All_Partition));
       }
 
 
       // By dune-convention, domain and periodic boundaries are considered boundaries
       bool boundary () const {
-    	  StructuralType boundaryType = gridbase_.faceBoundaryType(localFaceIndex_);
+    	  StructuralType boundaryType = gridbase_.intersection().boundaryType(localFaceIndex_);
     	  bool isDB = (boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary);
     	  bool isPeriodic = (boundaryType == GridStorageType::FaceBoundaryType::PeriodicBoundary);
     	  return (isDB || isPeriodic);
@@ -198,8 +198,8 @@ namespace Dune
       // By dune-convention, everything has a neighbour, except domain boundaries, and (process boundaries in serial case)
       bool neighbor () const
       {
-    	  StructuralType boundaryType  = gridbase_.faceBoundaryType(localFaceIndex_);
-    	  StructuralType partitionType = gridbase_.entityPartitionType(FACE_CODIM, localFaceIndex_);
+    	  StructuralType boundaryType  = gridbase_.intersection().boundaryType(localFaceIndex_);
+    	  StructuralType partitionType = gridbase_.entity().partitionType(FACE_CODIM, localFaceIndex_);
 
     	  bool isDB = (boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary);
     	  bool isPB = (partitionType == Dune::PartitionType::BorderEntity);
@@ -215,11 +215,11 @@ namespace Dune
     	  }
 
     	  if			(isDB)			{ return false; }	// Pure domain boundaries should not have outer neighbors
-    	  else if	(isPB)			{ return gridbase_.withGhostElements(); }  // Boundaries that can have ghost neighbor must check if ghosts are present
-    	  else if	(isPeriodic)	{ return gridbase_.withGhostElements() || gridbase_.checkFaceOuterNeighbor(localFaceIndex_); }		// Periodic boundaries may be interior or ghost
+    	  else if	(isPB)			{ return gridbase_.property().withGhostElements(); }  // Boundaries that can have ghost neighbor must check if ghosts are present
+    	  else if	(isPeriodic)	{ return gridbase_.property().withGhostElements() || gridbase_.intersection().checkOuterNeighbor(localFaceIndex_); }		// Periodic boundaries may be interior or ghost
     	  else {
     		  // Interior case - must always have neighbor
-    		  assert(gridbase_.checkFaceOuterNeighbor(localFaceIndex_));
+    		  assert(gridbase_.intersection().checkOuterNeighbor(localFaceIndex_));
     		  return true;
     	  }
       }
@@ -228,7 +228,7 @@ namespace Dune
       size_t boundarySegmentIndex () const
       {
     	  assert(boundary());  // If this entity is not a Domain Boundary should throw error
-    	  return gridbase_.boundarySegmentIndex(localFaceIndex_);
+    	  return gridbase_.intersection().boundarySegmentIndex(localFaceIndex_);
       }
 
       // Geometry of the intersection from within the inside element
@@ -352,9 +352,9 @@ namespace Dune
     	  subIndexInside_++;
     	  while( inc && (subIndexInside_ < SUBENTITY_SIZE) )
     	  {
-    		  localFaceIndex_ = gridbase_.subentityLocalIndex (localIndexInside_, ELEMENT_CODIM, FACE_CODIM, subIndexInside_);
+    		  localFaceIndex_ = gridbase_.entity().subentityLocalIndex (localIndexInside_, ELEMENT_CODIM, FACE_CODIM, subIndexInside_);
 
-    		  inc = (gridbase_.entityPartitionType(FACE_CODIM, localFaceIndex_) == Dune::PartitionType::GhostEntity);
+    		  inc = (gridbase_.entity().partitionType(FACE_CODIM, localFaceIndex_) == Dune::PartitionType::GhostEntity);
     		  if (inc) { subIndexInside_++; }
     	  }
 
@@ -365,7 +365,7 @@ namespace Dune
 
       /** \brief Calculates inside geometry */
       void computeInsideGeo() const {
-    	  if (!insideGeo_)  { insideGeo_ = new ElementGeometryImpl(gridbase_.template entityGeometry<ELEMENT_CODIM>(localIndexInside_), gridbase_); }
+    	  if (!insideGeo_)  { insideGeo_ = new ElementGeometryImpl(gridbase_.entity().template geometry<ELEMENT_CODIM>(localIndexInside_), gridbase_); }
       }
 
 
@@ -375,8 +375,8 @@ namespace Dune
     	  // Only do something if the outside entity exists at all
     	  if (neighbor())
     	  {
-        	  LocalIndexType neighborElementIndex0 = gridbase_.faceNeighbor(localFaceIndex_, 0);
-        	  LocalIndexType neighborElementIndex1 = gridbase_.faceNeighbor(localFaceIndex_, 1);
+        	  LocalIndexType neighborElementIndex0 = gridbase_.intersection().neighborElement(localFaceIndex_, 0);
+        	  LocalIndexType neighborElementIndex1 = gridbase_.intersection().neighborElement(localFaceIndex_, 1);
 
         	  // Determine the outside element local index
         	  // NOTE: If the outside element is not interior, then the inside elem is always 0th
@@ -388,7 +388,7 @@ namespace Dune
         	  InternalIndexType neighborOrderOutside = thisInsideElemIs0 ? 1 : 0;
 
         	  // IMPORTANT NOTE: IN CASE OF PERIODIC FACES, THE INTERSECTION AS SEEN FROM INSIDE AND OUTSIDE ARE DIFFERENT ENTITIES
-        	  subIndexOutside_ = gridbase_.faceSubIndexInNeighbor(localFaceIndex_, neighborOrderOutside);
+        	  subIndexOutside_ = gridbase_.intersection().subIndexInNeighbor(localFaceIndex_, neighborOrderOutside);
 
 
 //        	  int iFace = 0;
@@ -405,7 +405,7 @@ namespace Dune
 //        			  DUNE_THROW(Dune::IOError, logstr.str());
 //        		  }
 //
-//        		  if (localFaceIndex_ == gridbase_.subentityLocalIndex(localIndexOutside_, ELEMENT_CODIM, FACE_CODIM, iFace))
+//        		  if (localFaceIndex_ == gridbase_.entity().subentityLocalIndex(localIndexOutside_, ELEMENT_CODIM, FACE_CODIM, iFace))
 //        		  {
 //        			  found_face = true;
 //        			  subIndexOutside_ = iFace;
@@ -454,7 +454,7 @@ namespace Dune
     	  for (int i = 0; i < nCornerPerFace; i++)
     	  {
     		  insideCornerIndexInParent. push_back(ref.subEntity(subIndexInside_,  FACE_CODIM, i, VERTEX_CODIM));
-    		  insideCornerLocalIndex. push_back(gridbase_.subentityLocalIndex(localIndexInside_,  ELEMENT_CODIM, VERTEX_CODIM, insideCornerIndexInParent[i]));
+    		  insideCornerLocalIndex. push_back(gridbase_.entity().subentityLocalIndex(localIndexInside_,  ELEMENT_CODIM, VERTEX_CODIM, insideCornerIndexInParent[i]));
     	  }
 
     	  // 3) Find local coordinates of outside in inside, flip internal coordinates of outside accordingly
@@ -475,13 +475,13 @@ namespace Dune
         	  for (int i = 0; i < nCornerPerFace; i++)
         	  {
         		  outsideCornerIndexInParent.push_back(ref.subEntity(subIndexOutside_, FACE_CODIM, i, VERTEX_CODIM));
-        		  outsideCornerLocalIndex.push_back(gridbase_.subentityLocalIndex(localIndexOutside_, ELEMENT_CODIM, VERTEX_CODIM, outsideCornerIndexInParent[i]));
+        		  outsideCornerLocalIndex.push_back(gridbase_.entity().subentityLocalIndex(localIndexOutside_, ELEMENT_CODIM, VERTEX_CODIM, outsideCornerIndexInParent[i]));
         	  }
 
         	  std::vector<InternalIndexType> outsideCornerIndexInParentNew;
         	  std::vector<GlobalCoordinate> outCoord;
 
-        	  StructuralType boundaryType  = gridbase_.faceBoundaryType(localFaceIndex_);
+        	  StructuralType boundaryType  = gridbase_.intersection().boundaryType(localFaceIndex_);
         	  if (boundaryType != GridStorageType::FaceBoundaryType::PeriodicBoundary) {
 
         		  // If the two neighboring elements are not periodic, they share a common face.
@@ -504,8 +504,8 @@ namespace Dune
 
         		  // In case of periodic boundaries, they are disjoint, and thus additional information is required to determine the correct rotation
         		  // A permutation index is constructed during the periodic face construction, so we will use it
-        		  unsigned int permutationIndexInner = gridbase_.periodicFacePermutationInner(localFaceIndex_);
-        		  unsigned int permutationIndexOuter = gridbase_.periodicFacePermutationOuter(localFaceIndex_);
+        		  unsigned int permutationIndexInner = gridbase_.intersection().periodicPermutationInner(localFaceIndex_);
+        		  unsigned int permutationIndexOuter = gridbase_.intersection().periodicPermutationOuter(localFaceIndex_);
 
         		  outsideCornerIndexInParentNew = CurvilinearGeometryHelper::permuteVec(outsideCornerIndexInParent, permutationIndexInner);
         	  }
@@ -525,7 +525,7 @@ namespace Dune
       InternalIndexType   subIndexInside_;
       InternalIndexType   subIndexOutside_;
 
-      const GridBaseType & gridbase_;
+      GridBaseType & gridbase_;
 
       // Store all geometries as pointers and init only when needed to accelerate the code
       mutable GeometryImpl * geo_;

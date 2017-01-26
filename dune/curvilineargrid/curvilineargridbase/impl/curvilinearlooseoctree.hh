@@ -25,7 +25,7 @@
 
 
 #include <dune/curvilineargrid/common/loggingmessage.hh>
-#include <dune/curvilineargrid/curvilineargridbase/curvilinearoctant.hh>
+#include <dune/curvilineargrid/curvilineargridbase/impl/curvilinearoctant.hh>
 
 
 

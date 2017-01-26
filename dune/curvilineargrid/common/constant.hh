@@ -1,6 +1,8 @@
 #ifndef DUNE_CURVILINEARGRID_CONSTANT_HH
 #define DUNE_CURVILINEARGRID_CONSTANT_HH
 
+#include <stdint.h>
+
 namespace Dune
 {
 
@@ -46,6 +48,15 @@ const std::string VTK_DATA_FORMAT_ASCII = "ASCII";
 const std::string VTK_DATA_FORMAT_BINARY = "BINARY";
 const std::string VTU_DATA_FORMAT_ASCII = "ascii";
 const std::string VTU_DATA_FORMAT_BINARY = "binary";
+
+const std::string VTU_FLOAT_TYPE = "Float32";
+const std::string VTU_UINT_8_TYPE = "UInt8";
+const std::string VTU_INT_32_TYPE = "Int32";
+
+typedef float  VTKFloat;
+typedef uint8_t VTKUInt8;
+typedef int32_t VTKInt32;
+
 
 
 enum

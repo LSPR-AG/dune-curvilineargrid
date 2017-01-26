@@ -64,13 +64,13 @@ namespace Dune
   	    typedef typename Grid::GridStorageType  GridStorageType;
   	    typedef typename Grid::GridBaseType     GridBaseType;
 
-  	    typedef typename GridBaseType::InternalIndexType  InternalIndexType;
-    	typedef typename GridBaseType::LocalIndexType        LocalIndexType;
-    	typedef typename GridBaseType::GlobalIndexType       GlobalIndexType;
-    	typedef typename GridBaseType::StructuralType        StructuralType;
+  	    typedef typename GridStorageType::InternalIndexType  InternalIndexType;
+    	typedef typename GridStorageType::LocalIndexType        LocalIndexType;
+    	typedef typename GridStorageType::GlobalIndexType       GlobalIndexType;
+    	typedef typename GridStorageType::StructuralType        StructuralType;
 
-    	typedef typename GridBaseType::Local2LocalMap        Local2LocalMap;
-    	typedef typename GridBaseType::Local2LocalIterator   Local2LocalIterator;
+    	typedef typename GridStorageType::Local2LocalMap        Local2LocalMap;
+    	typedef typename GridStorageType::Local2LocalIterator   Local2LocalIterator;
 
         // Codimensions of entity types for better code readability
         static const int   VERTEX_CODIM   = GridStorageType::VERTEX_CODIM;
@@ -129,20 +129,20 @@ namespace Dune
         			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol PB->PB");
         			communicateMain<DataHandle, Data, codim>(
         				datahandle,
-        				gridbase_.selectCommMap(codim, PartitionType::BorderEntity, GridStorageType::FaceBoundaryType::None),
-        				gridbase_.selectCommRankVector(codim, PartitionType::BorderEntity, PartitionType::BorderEntity, GridStorageType::FaceBoundaryType::None)
+        				gridbase_.comm().selectCommMap(codim, PartitionType::BorderEntity, GridStorageType::FaceBoundaryType::None),
+        				gridbase_.comm().selectCommRankVector(codim, PartitionType::BorderEntity, PartitionType::BorderEntity, GridStorageType::FaceBoundaryType::None)
         			);
         		}
 
         		// Communication protocol ProcessBoundary -> Ghost
         		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::ProcessBoundary_Ghost))
         		{
-        			if (gridbase_.withGhostElements()) {
+        			if (gridbase_.property().withGhostElements()) {
             			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol PB->G");
             			communicateMain<DataHandle, Data, codim>(
             				datahandle,
-            				gridbase_.selectCommMap(codim, PartitionType::BorderEntity, GridStorageType::FaceBoundaryType::None),
-            				gridbase_.selectCommRankVector(codim, PartitionType::BorderEntity, PartitionType::GhostEntity, GridStorageType::FaceBoundaryType::None)
+            				gridbase_.comm().selectCommMap(codim, PartitionType::BorderEntity, GridStorageType::FaceBoundaryType::None),
+            				gridbase_.comm().selectCommRankVector(codim, PartitionType::BorderEntity, PartitionType::GhostEntity, GridStorageType::FaceBoundaryType::None)
             			);
         			}
         		}
@@ -150,12 +150,12 @@ namespace Dune
         		// Communication protocol Periodic Boundary -> Periodic Boundary
         		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::PeriodicBoundary_to_PeriodicBoundary))
         		{
-        			if (gridbase_.withPeriodicBoundaries()) {
+        			if (gridbase_.property().withPeriodicBoundaries()) {
             			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol Periodic->Periodic");
             			communicateMain<DataHandle, Data, codim>(
             				datahandle,
-            				gridbase_.selectCommMap(codim, PartitionType::InteriorEntity, GridStorageType::FaceBoundaryType::PeriodicBoundary),
-            				gridbase_.selectCommRankVector(codim, PartitionType::InteriorEntity, PartitionType::InteriorEntity, GridStorageType::FaceBoundaryType::PeriodicBoundary)
+            				gridbase_.comm().selectCommMap(codim, PartitionType::InteriorEntity, GridStorageType::FaceBoundaryType::PeriodicBoundary),
+            				gridbase_.comm().selectCommRankVector(codim, PartitionType::InteriorEntity, PartitionType::InteriorEntity, GridStorageType::FaceBoundaryType::PeriodicBoundary)
             			);
         			}
         		}
@@ -164,15 +164,15 @@ namespace Dune
     		}
 
 
-    		if (gridbase_.withGhostElements()) {
+    		if (gridbase_.property().withGhostElements()) {
         		// Communication protocol BoundaryInternal -> Ghost
         		if (allowedInterfaceSubset(iftype, dir, InterfaceSubsetType::Interior_to_Ghost))
         		{
         			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol I->G");
         			communicateMain<DataHandle, Data, codim>(
         				datahandle,
-        				gridbase_.selectCommMap(codim, PartitionType::InteriorEntity, GridStorageType::FaceBoundaryType::None),
-        				gridbase_.selectCommRankVector(codim, PartitionType::InteriorEntity, PartitionType::GhostEntity, GridStorageType::FaceBoundaryType::None)
+        				gridbase_.comm().selectCommMap(codim, PartitionType::InteriorEntity, GridStorageType::FaceBoundaryType::None),
+        				gridbase_.comm().selectCommRankVector(codim, PartitionType::InteriorEntity, PartitionType::GhostEntity, GridStorageType::FaceBoundaryType::None)
         			);
         		}
 
@@ -182,8 +182,8 @@ namespace Dune
         			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol G->I");
         			communicateMain<DataHandle, Data, codim>(
         				datahandle,
-        				gridbase_.selectCommMap(codim, PartitionType::GhostEntity, GridStorageType::FaceBoundaryType::None),
-        				gridbase_.selectCommRankVector(codim, PartitionType::GhostEntity, PartitionType::InteriorEntity, GridStorageType::FaceBoundaryType::None)
+        				gridbase_.comm().selectCommMap(codim, PartitionType::GhostEntity, GridStorageType::FaceBoundaryType::None),
+        				gridbase_.comm().selectCommRankVector(codim, PartitionType::GhostEntity, PartitionType::InteriorEntity, GridStorageType::FaceBoundaryType::None)
         			);
         		}
 
@@ -193,8 +193,8 @@ namespace Dune
         			LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, " -- Using communication protocol G->G");
         			communicateMain<DataHandle, Data, codim>(
         				datahandle,
-        				gridbase_.selectCommMap(codim, PartitionType::GhostEntity, GridStorageType::FaceBoundaryType::None),
-        				gridbase_.selectCommRankVector(codim, PartitionType::GhostEntity, PartitionType::GhostEntity, GridStorageType::FaceBoundaryType::None)
+        				gridbase_.comm().selectCommMap(codim, PartitionType::GhostEntity, GridStorageType::FaceBoundaryType::None),
+        				gridbase_.comm().selectCommRankVector(codim, PartitionType::GhostEntity, PartitionType::GhostEntity, GridStorageType::FaceBoundaryType::None)
         			);
         		}
     		}
@@ -343,7 +343,7 @@ namespace Dune
     		std::stringstream logstr;
     		logstr << "---- contents of this comm map: total=" << mapSend.size() << " ";
     		for (Local2LocalIterator iter = mapSend.begin(); iter != mapSend.end(); iter++)  {
-    			logstr << "(" << (*iter).first << "," << gridbase_.entityPartitionType(codim, (*iter).first) << ") ";
+    			logstr << "(" << (*iter).first << "," << gridbase_.entity().partitionType(codim, (*iter).first) << ") ";
     		}
     		LoggingMessage::template write<CurvGrid::LOG_MSG_DVERB>( __FILE__, __LINE__, logstr.str());
 
@@ -354,7 +354,7 @@ namespace Dune
     			LocalIndexType thisEntityLocalIndex = entityIndexPair.first;
     			LocalIndexType thisEntityLocalSubIndex = entityIndexPair.second;
     			GlobalIndexType thisEntityGlobalIndex;
-    			if (!gridbase_.findEntityGlobalIndex(codim, thisEntityLocalIndex, thisEntityGlobalIndex))  {
+    			if (!gridbase_.entity().findGlobalIndex(codim, thisEntityLocalIndex, thisEntityGlobalIndex))  {
     				std::cout << " Communication: Global index of communicating entity with local index  " << thisEntityLocalIndex << " not found" << std::endl;
     				DUNE_THROW( GridError, " Communication: Global index of communicating entity with local index  " << thisEntityLocalIndex << " not found" );
     			}
@@ -414,11 +414,11 @@ namespace Dune
     			// Get Entity
     			GlobalIndexType thisEntityGlobalIndex = globalIndexRecv[i];
     			LocalIndexType thisEntityLocalIndex;
-    			if (!gridbase_.findEntityLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex))  {
+    			if (!gridbase_.entity().findLocalIndex(codim, thisEntityGlobalIndex, thisEntityLocalIndex))  {
     				std::cout << " Communication: Local index of received entity with global index " << thisEntityGlobalIndex << " not found" << std::endl;
     				DUNE_THROW( GridError, " Communication: Local index of received entity with global index " << thisEntityGlobalIndex << " not found" );
     			}
-    			Dune::PartitionType thisEntityPartitionType = gridbase_.entityPartitionType(codim, thisEntityLocalIndex);
+    			Dune::PartitionType thisEntityPartitionType = gridbase_.entity().partitionType(codim, thisEntityLocalIndex);
 
 
     			// IMPORTANT NOTE:
@@ -431,15 +431,15 @@ namespace Dune
     			//StructuralType thisEntityStructType = gridbase_.entityStructuralType(codim, thisEntityLocalIndex);
 				LocalIndexType thisEntityCommLocalIndex = thisEntityLocalIndex;
 				LocalIndexType thisEntityCommGlobalIndex = thisEntityGlobalIndex;
-				if ((gridbase_.withPeriodicBoundaries()) && (codim == FACE_CODIM)&&(thisEntityPartitionType == PartitionType::GhostEntity))
+				if ((gridbase_.property().withPeriodicBoundaries()) && (codim == FACE_CODIM)&&(thisEntityPartitionType == PartitionType::GhostEntity))
 				{
 					// If this ghost face is a periodic ghost face, find associated periodic face local index and define that as the communicated local index
 					LocalIndexType tmpEntityLocalIndex;
-					if (gridbase_.findGhostPeriodicNeighborFace(thisEntityLocalIndex, tmpEntityLocalIndex)) {
+					if (gridbase_.intersection().findGhostPeriodicNeighborFace(thisEntityLocalIndex, tmpEntityLocalIndex)) {
 						thisEntityCommLocalIndex = tmpEntityLocalIndex;
 
 						// Perhaps this check is excessive
-		    			if (!gridbase_.findEntityGlobalIndex(codim, thisEntityCommLocalIndex, thisEntityCommGlobalIndex))  {
+		    			if (!gridbase_.entity().findGlobalIndex(codim, thisEntityCommLocalIndex, thisEntityCommGlobalIndex))  {
 		    				std::cout << " Communication: Local index of received entity with local index " << thisEntityCommLocalIndex << " not found" << std::endl;
 		    				DUNE_THROW( GridError, " Communication: Local index of received entity with local index " << thisEntityCommLocalIndex << " not found" );
 		    			}

@@ -47,10 +47,8 @@
 #include <dune/curvilineargrid/common/constant.hh>
 #include <dune/curvilineargrid/common/loggingmessage.hh>
 #include <dune/curvilineargrid/common/loggingtimer.hh>
-
 #include <dune/curvilineargrid/common/vectorhelper.hh>
 
-#include <dune/curvilineargrid/curvilineargridbase/curvilineargridbasefactory.hh>
 #include <dune/curvilineargrid/io/file/curvilinearvtkwriter.hh>
 #include <dune/curvilineargrid/io/file/gmsh2dunemapper.hh>
 
@@ -183,12 +181,12 @@ namespace CurvGrid {
 
     	std::string log_string;
         LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: using file " + fileName);
-        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: reading" + std::to_string(dim_) + "d curvilinear gmsh grid...");
+        LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, ":: reading " + std::to_string(dim_) + "d curvilinear gmsh grid...");
 
         // open file name, we use C I/O
         // ***********************************************
         FILE* file = fopen(fileName.c_str(),"r");
-        if (file==0)  { DUNE_THROW(Dune::IOError, "Could not open " << fileName); }
+        if (file==0)  { DUNE_THROW(Dune::IOError, "Could not open " + fileName); }
 
         // Reading MeshFormat Header
         // ***********************************************

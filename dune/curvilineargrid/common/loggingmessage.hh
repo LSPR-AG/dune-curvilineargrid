@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <time.h>
 
 
@@ -138,6 +139,16 @@ public:
     static void write(std::string filename, unsigned int linenumber, std::string message)
     {
     	getInstance().template writeImpl<messageCat>(filename, linenumber, message);
+    }
+
+    template <class T>
+    static void assertWrite(std::string filename, unsigned int linenumber, T a, T b, std::string message) {
+    	if (a != b) {
+    		std::stringstream messageEff;
+    		messageEff << message << "; expected=" << a << ", received=" << b;
+    		getInstance().writeImpl(filename, linenumber, messageEff.str(), true, true);
+    		DUNE_THROW(Dune::IOError, message);
+    	}
     }
 
 

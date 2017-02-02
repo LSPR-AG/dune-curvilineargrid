@@ -84,6 +84,7 @@
  * Missing functionality:
  *  - [DESIGN] reader must provide globalIds for vertices and elements, they are not generated automatically.
  *  - [DESIGN] reader must provide all BoundarySegments (process boundaries), they are not communicated automatically
+ *  - [TODO] Currently it is essential that corners come first among all curvilinear vertices. CurvGrid and some applications based on it rely on it. It would be best to replace this by explicit method returning corner subentities
  *  - [TODO] Does NOT support refinement - it is not possible to dynamically refine or coarsen the mesh at the moment
  *  - [TODO] Does NOT support hanging nodes - it is not possible to load non-uniform h-refined mesh at the moment
  *  - [TODO] Does NOT support front/overlap elements at the moment

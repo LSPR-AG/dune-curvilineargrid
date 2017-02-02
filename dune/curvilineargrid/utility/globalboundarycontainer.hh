@@ -114,18 +114,18 @@ public:
 		}
 
 		// MPI_COMM Data
-		std::vector<UInt> elemOrder;
-		std::vector<UInt> nBS;
-		std::vector<UInt> bsSubInd;
-		std::vector<UInt> nPoint;
-		std::vector<GlobalCoordinate> point;
-		std::vector<UInt> gInd[4];
+		// Note: Linearization means that several arrays are stuck together consecutively into 1 array
+		std::vector<UInt> elemOrder;							// Element order of each element that has boundary segments
+		std::vector<UInt> elemNBoundarySegment;		// Number of boundary segments in each element that has boundary segments
+		std::vector<UInt> boundarySegmentSubInd;		// Subentity indices of each boundary segment - linearization for all elements
+		std::vector<UInt> elemNPoint;							// Number of points in each element to be communicated
+		std::vector<GlobalCoordinate> elemPoint;		// Points of each element to be communicated - linearization
+		std::vector<UInt> gInd[4];									// Global indices of element and all its subentities. First index is codimension
 
 		// [TODO] Hard-coded for Tetrahedron - can extend to other geometry types if necessary
-		int NELEM = 1;
-		int NFACE = 4;
-		int NEDGE = 6;
-		int NCORNER = 4;
+		UInt nElemFace = 4;
+		UInt nElemEdge = 6;
+		UInt nElemCorner = 4;
 
 
 
@@ -144,8 +144,10 @@ public:
 			LoggingMessage::writePatience("Preparing domain boundary for global communication...", elemCount++, nElementInterior);
 			PhysicalTagType elementThisTag = grid_.template entityPhysicalTag<ELEMENT_CODIM>(elemThis);
 
-			int nBSThis = 0;
+			UInt nBSThis = 0;
 
+			// a) Determine if this element has BS, store their subindices
+			//////////////////////////////////////////////////////////////////////////////////////
 			for (auto&& interThis : intersections(leafView, elemThis))
 			{
 				// Obtain the entity associated with this intersection
@@ -160,27 +162,37 @@ public:
 
 				if (isBoundary)  {
 					nBSThis++;
-					bsSubInd.push_back(interThis.indexInInside());
+					boundarySegmentSubInd.push_back(interThis.indexInInside());
 				}
 			}
 
-			// If this element contains any boundary segments at all, fill in other information and add it to the set
+			// b) For all elements with BS, store other information
+			//////////////////////////////////////////////////////////////////////////////////////
 			if (nBSThis > 0) {
+
+				// c) Element order
+				//////////////////////////////////////////////////////////////////////////////////////
 				elemOrder.push_back(grid_.template entityInterpolationOrder<ELEMENT_CODIM>(elemThis));
 
-				nBS.push_back(nBSThis);
+				// b) Number of BS
+				//////////////////////////////////////////////////////////////////////////////////////
+				elemNBoundarySegment.push_back(nBSThis);
 
+				// b) Number of element points, and their coordinates
+				//////////////////////////////////////////////////////////////////////////////////////
 				BaseGeometryElement elemGeomBase = grid_.template entityBaseGeometry<ELEMENT_CODIM>(elemThis);
 				std::vector<GlobalCoordinate> pThis = elemGeomBase.vertexSet();
-				nPoint.push_back(pThis.size());
-				for (int ip = 0; ip < pThis.size(); ip++) { point.push_back(pThis[ip]); }
+				elemNPoint.push_back(pThis.size());
+				for (UInt ip = 0; ip < pThis.size(); ip++) { elemPoint.push_back(pThis[ip]); }
 
+				// b) Global indices of the element and all its subentities
+				//////////////////////////////////////////////////////////////////////////////////////
 				gInd[ELEMENT_CODIM].push_back(grid_.template entityGlobalIndex<ELEMENT_CODIM>(elemThis));
-				for (int ip = 0; ip < NFACE; ip++)  { gInd[FACE_CODIM].push_back(grid_.template subentityGlobalIndex<ELEMENT_CODIM, FACE_CODIM>(elemThis, ip)); }
-				for (int ip = 0; ip < NEDGE; ip++)  { gInd[EDGE_CODIM].push_back(grid_.template subentityGlobalIndex<ELEMENT_CODIM, EDGE_CODIM>(elemThis, ip)); }
-				for (int ip = 0; ip < NCORNER; ip++)  { gInd[VERTEX_CODIM].push_back(grid_.template subentityGlobalIndex<ELEMENT_CODIM, VERTEX_CODIM>(elemThis, ip)); }
+				for (UInt ip = 0; ip < nElemFace; ip++)  { gInd[FACE_CODIM].push_back(grid_.template subentityGlobalIndex<ELEMENT_CODIM, FACE_CODIM>(elemThis, ip)); }
+				for (UInt ip = 0; ip < nElemEdge; ip++)  { gInd[EDGE_CODIM].push_back(grid_.template subentityGlobalIndex<ELEMENT_CODIM, EDGE_CODIM>(elemThis, ip)); }
 
-
+				// Note: This designe relies on the fact that currently CurvGrid stores corners first
+				for (UInt ip = 0; ip < nElemCorner; ip++)  { gInd[VERTEX_CODIM].push_back(grid_.template subentityGlobalIndex<ELEMENT_CODIM, VERTEX_CODIM>(elemThis, ip)); }
 
 				/* Test for Grid self-consistency between globalIndex of subentity and subentityGlobalIndex
 				bool BBS = false;  // Bloody BullShit :D
@@ -201,133 +213,123 @@ public:
 			}
 		}
 
-		std::vector<UInt> elemOrderTotal;
-		std::vector<UInt> nBSTotal;
-		std::vector<UInt> bsSubIndTotal;
-		std::vector<UInt> nPointTotal;
-		std::vector<GlobalCoordinate> pointTotal;
-		std::vector<UInt> gIndTotal[4];
 
-		std::vector<int> commSize;
 
-		/*
-		std::cout << rank_ << " BeforeComm: "
-				<< elemOrder.size() << " "
-				<< nBS.size() << " "
-				<< bsSubInd.size() << " "
-				<< nPoint.size() << " "
-				<< point.size() << " "
-				<< gInd[0].size() << " "
-				<< gInd[1].size() << " "
-				<< gInd[2].size() << " "
-				<< gInd[3].size() << std::endl;
-		*/
+
+		/*********************************************************************************
+		 *  Stage 2. Communicate data from all to all
+		 *********************************************************************************/
 
 		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "Started Global Boundary Communication");
 
-		mpiAllGatherVwrapper(nBS, nBSTotal, commSize);
-		mpiAllGatherVwrapper(bsSubInd, bsSubIndTotal, commSize);
-		mpiAllGatherVwrapper(nPoint, nPointTotal, commSize);
-		mpiAllGatherVwrapper(point, pointTotal, commSize);
-		mpiAllGatherVwrapper(gInd[0], gIndTotal[0], commSize);
-		mpiAllGatherVwrapper(gInd[1], gIndTotal[1], commSize);
-		mpiAllGatherVwrapper(gInd[2], gIndTotal[2], commSize);
-		mpiAllGatherVwrapper(gInd[3], gIndTotal[3], commSize);
+		std::vector<UInt> elemOrderTotal;
+		std::vector<UInt> elemNBoundarySegmentTotal;
+		std::vector<UInt> boundarySegmentSubIndTot;
+		std::vector<UInt> elemNPointTotal;
+		std::vector<GlobalCoordinate> elemPointTotal;
+		std::vector<UInt> gIndTotal[4];
 
-		// Have order last, so that we know from commSize, how many boundary elements there are on each process
+		std::vector<UInt> commSize;
+
+		// [TODO] Potentially, it may be possible to do less communications
+		// The difficulty is that different elements can have different number of points and boundary segments
+		// Thus making a struct for each element is not an option, as it will not be POD. Perhaps there is another way
+		mpiAllGatherVwrapper(elemNBoundarySegment, elemNBoundarySegmentTotal, commSize);	assert(commSize.size() == size_);
+		mpiAllGatherVwrapper(boundarySegmentSubInd, boundarySegmentSubIndTot, commSize);		assert(commSize.size() == size_);
+		mpiAllGatherVwrapper(elemNPoint, elemNPointTotal, commSize);												assert(commSize.size() == size_);
+		mpiAllGatherVwrapper(elemPoint, elemPointTotal, commSize);													assert(commSize.size() == size_);
+		mpiAllGatherVwrapper(gInd[0], gIndTotal[0], commSize);																assert(commSize.size() == size_);
+		mpiAllGatherVwrapper(gInd[1], gIndTotal[1], commSize);																assert(commSize.size() == size_);
+		mpiAllGatherVwrapper(gInd[2], gIndTotal[2], commSize);																assert(commSize.size() == size_);
+		mpiAllGatherVwrapper(gInd[3], gIndTotal[3], commSize);																assert(commSize.size() == size_);
+
+		// We want commSize = commSizeElem. To not make commSize array for each communication, we just reuse the same array, and make sure that the element communication is done last
 		mpiAllGatherVwrapper(elemOrder, elemOrderTotal, commSize);
+
+		// Test if communication produced arrays of expected size
+		UInt nElemCommTotal = elemOrderTotal.size();
+		UInt nBSCommTotal = std::accumulate(elemNBoundarySegmentTotal.begin(), elemNBoundarySegmentTotal.end(), 0);
+		UInt nPointCommTotal = std::accumulate(elemNPointTotal.begin(), elemNPointTotal.end(), 0);
+
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, nElemCommTotal, elemNBoundarySegmentTotal.size(), "unexpected total number of communicated elements");
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, nElemCommTotal, elemNPointTotal.size(), "unexpected total number of communicated point numbers");
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, nBSCommTotal, boundarySegmentSubIndTot.size(), "unexpected total number of communicated boundary segments");
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, nPointCommTotal, elemPointTotal.size(), "unexpected total number of communicated vertices");
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, nElemCommTotal, gIndTotal[0].size(), "unexpected total number of communicated global indices");
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, nElemFace * nElemCommTotal, gIndTotal[1].size(), "unexpected total number of communicated global indices");
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, nElemEdge * nElemCommTotal, gIndTotal[2].size(), "unexpected total number of communicated global indices");
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, nElemCorner * nElemCommTotal, gIndTotal[3].size(), "unexpected total number of communicated global indices");
 
 		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "Finished Global Boundary Communication");
 
-		/*
-		std::cout << rank_  << " AfterComm: "
-				<< elemOrderTotal.size() << " "
-				<< nBSTotal.size() << " "
-				<< bsSubIndTotal.size() << " "
-				<< nPointTotal.size() << " "
-				<< pointTotal.size() << " "
-				<< gIndTotal[0].size() << " "
-				<< gIndTotal[1].size() << " "
-				<< gIndTotal[2].size() << " "
-				<< gIndTotal[3].size() << std::endl;
-		*/
 
-		// Test if communication produced arrays of expected size
-		assert(commSize.size() == size_);
-		UInt nFaceCommTotal = nBSTotal.size();
-		assert(nPointTotal.size() == nFaceCommTotal);
-		assert(gIndTotal[0].size() == NELEM * nFaceCommTotal);
-		assert(gIndTotal[1].size() == NFACE * nFaceCommTotal);
-		assert(gIndTotal[2].size() == NEDGE * nFaceCommTotal);
-		assert(gIndTotal[3].size() == NCORNER * nFaceCommTotal);
 
 		/*********************************************************************************
 		 *  4) Transfer the communicated arrays to a useable storage
 		 *  Note: Explicitly remove all boundary segments already stored on this process
 		 *********************************************************************************/
 
-		int iElem = 0;
-		int iRank = 0;
-		int iSubInt = 0;
-		int iPoint = 0;
-		std::vector<int> igInd {0, 0, 0, 0};
+		// Iterators over all of the communicated arrays
+		UInt iRank = 0;
+		UInt iElemGlobal = 0;
+		UInt iSubInt = 0;
+		UInt iPoint = 0;
+		std::vector<UInt> igInd {0, 0, 0, 0};
 
 	    UInt order_;															// Curvilinear order of the entity
 	    std::vector<UInt> subBoundarySegInd_;			// Subentity boundary segment index set
 	    std::vector<GlobalCoordinate> p_;					// Vertices of the boundary face in the original order
 		std::vector<std::vector<UInt> > subGInd_;		// Global index of all subentities of this element by codim, in correct subentity order
 
-		while (iRank < size_) {
+		for (iRank = 0; iRank < size_; iRank++) {
+			for (UInt iElemLocal = 0; iElemLocal < commSize[iRank]; iElemLocal++) {
+				assert(iElemGlobal < nElemCommTotal);
 
-			//std::cout << rank_ << " IterTest: " << iRank << " " << iElem << " " << iSubInt << " " << iPoint << " " << igInd[0] << " " << igInd[1] << " " << igInd[2] << " " << igInd[3] << std::endl;
+				// Make boundary container
+				BoundaryContainer thisCont;
 
-			BoundaryContainer thisCont;							// Make boundary container
-			thisCont.order_ = elemOrderTotal[iElem];		// Insert order
+				// Insert order
+				thisCont.order_ = elemOrderTotal[iElemGlobal];
 
-			//std::cout << "aaa" << std::endl;
+				// Insert subInt
+				assert((elemNBoundarySegmentTotal[iElemGlobal] > 0) && (elemNBoundarySegmentTotal[iElemGlobal] < 4));
+				for (UInt i = iSubInt; i < iSubInt + elemNBoundarySegmentTotal[iElemGlobal]; i++)  {
+					thisCont.subBoundarySegInd_.push_back(boundarySegmentSubIndTot[i]);
+				}
+				iSubInt += elemNBoundarySegmentTotal[iElemGlobal];
 
-			// Insert subInt
-			assert((nBSTotal[iElem] > 0) && (nBSTotal[iElem] < 4));
-			for (int i = iSubInt; i < iSubInt + nBSTotal[iElem]; i++)  { thisCont.subBoundarySegInd_.push_back(bsSubIndTotal[i]); }
-			iSubInt += nBSTotal[iElem];
+				// Insert points
+				assert(iPoint + elemNPointTotal[iElemGlobal] <= elemPointTotal.size());
+				for (UInt i = iPoint; i < iPoint + elemNPointTotal[iElemGlobal]; i++)  { thisCont.p_.push_back(elemPointTotal[i]); }
+				iPoint += elemNPointTotal[iElemGlobal];
 
-			//std::cout << "bbb" << std::endl;
+				// insert global indices
+				thisCont.subGInd_ = std::vector<std::vector<UInt> > (4);
+				thisCont.subGInd_[0].push_back(gIndTotal[0][igInd[0]++]);
+				for (UInt i = igInd[1]; i < igInd[1] + nElemFace; i++)  { thisCont.subGInd_[1].push_back(gIndTotal[1][i]); }
+				for (UInt i = igInd[2]; i < igInd[2] + nElemEdge; i++)  { thisCont.subGInd_[2].push_back(gIndTotal[2][i]); }
+				for (UInt i = igInd[3]; i < igInd[3] + nElemCorner; i++)  { thisCont.subGInd_[3].push_back(gIndTotal[3][i]); }
+				igInd[1] += nElemFace;
+				igInd[2] += nElemEdge;
+				igInd[3] += nElemCorner;
 
-			// Insert points
-			assert(iPoint + nPointTotal[iElem] <= pointTotal.size());
-			for (int i = iPoint; i < iPoint + nPointTotal[iElem]; i++)  { thisCont.p_.push_back(pointTotal[i]); }
-			iPoint += nPointTotal[iElem];
+				// Increase the global element count
+				iElemGlobal++;
 
-			//std::cout << "ccc" << std::endl;
-
-			// insert global indices
-			thisCont.subGInd_ = std::vector<std::vector<UInt> > (4);
-			for (int i = igInd[0]; i < igInd[0] + NELEM; i++)  { thisCont.subGInd_[0].push_back(gIndTotal[0][i]); }
-			for (int i = igInd[1]; i < igInd[1] + NFACE; i++)  { thisCont.subGInd_[1].push_back(gIndTotal[1][i]); }
-			for (int i = igInd[2]; i < igInd[2] + NEDGE; i++)  { thisCont.subGInd_[2].push_back(gIndTotal[2][i]); }
-			for (int i = igInd[3]; i < igInd[3] + NCORNER; i++)  { thisCont.subGInd_[3].push_back(gIndTotal[3][i]); }
-			igInd[0] += NELEM;
-			igInd[1] += NFACE;
-			igInd[2] += NEDGE;
-			igInd[3] += NCORNER;
-
-			//std::cout << "ddd" << std::endl;
-
-			// Ignore entities on this process, they are already located in the local grid, save space
-			iElem++;
-			if (iRank != rank_) { boundaryContainerGlobal_.push_back(thisCont); }
-
-			//std::cout << "eee" << std::endl;
-
-			// If traversed all elements sent by this rank, jump to next one
-			// Skip ranks that have communicated nothing
-			while ((iRank < size_) && (iElem == commSize[iRank])) {
-				iElem = 0;
-				iRank++;
+				// Ignore entities on this process, they are already located in the local grid, save space
+				if (iRank != rank_) { boundaryContainerGlobal_.push_back(thisCont); }
 			}
 		}
 
-		//std::cout << "rank=" << rank_ << " Finished Loop" << std::endl;
+		// Test that we have iterated exactly over all communicated elements
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, nElemCommTotal, iElemGlobal, "unexpected total number of communicated elements");
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, nBSCommTotal, iSubInt, "unexpected total number of communicated boundary segments");
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, nPointCommTotal, iPoint, "unexpected total number of communicated vertices");
+
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, gIndTotal[0].size(), igInd[0], "unexpected total number of communicated global indices");
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, gIndTotal[1].size(), igInd[1], "unexpected total number of communicated global indices");
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, gIndTotal[2].size(), igInd[2], "unexpected total number of communicated global indices");
+		LoggingMessage::template assertWrite<UInt>(__FILE__, __LINE__, gIndTotal[3].size(), igInd[3], "unexpected total number of communicated global indices");
 	}
 
 
@@ -335,8 +337,9 @@ public:
 	ContainerVectorConstIter end()  const { return boundaryContainerGlobal_.end(); }
 
 
+	// [TODO] Move to AllCommunication
 	template<class DataType>
-	void mpiAllGatherVwrapper(std::vector <DataType> & src, std::vector<DataType> & rez, std::vector<int> & nCommRecv) {
+	void mpiAllGatherVwrapper(std::vector <DataType> & src, std::vector<DataType> & rez, std::vector<UInt> & nCommRecv) {
 
 		/********************************************************************
 		 *   Stage 2: MPI communicate boundary data to all other processes
@@ -349,9 +352,9 @@ public:
 		/*********************************************************
 		 *  1) Preliminary steps - compute sizes for communication
 		 *********************************************************/
-		int structSize = sizeof(DataType);	// the size of the communiated structure
-		int nCommThis = src.size();		// the number of structures to be communicated
-		int sizeCommThis = nCommThis * structSize;			// the total communication size in bytes
+		UInt structSize = sizeof(DataType);	// the size of the communiated structure
+		UInt nCommThis = src.size();		// the number of structures to be communicated
+		UInt sizeCommThis = nCommThis * structSize;			// the total communication size in bytes
 
 		/*********************************************************************************
 		 *  2) Send number of structures this proc will communicate to all other processes
@@ -359,11 +362,11 @@ public:
 
 		LoggingMessage::template write<LOG_MSG_PRODUCTION>( __FILE__, __LINE__, "--GlobalBoundaryContainer: Communicating Domain Size. ThisSize=" + std::to_string(nCommThis));
 
-		nCommRecv = std::vector<int>(size_, 0);		// Number of elements that are sent by each of the processes
+		nCommRecv = std::vector<UInt>(size_, 0);		// Number of elements that are sent by each of the processes
 		std::vector<int> sizeCommRecv(size_, 0);		// Total size in bytes sent by each process
 		std::vector<int> displCommRecv(size_, 0);		// Displacement in bytes
-		mpi_err = MPI_Allgather(&nCommThis, 1, MPI_INT, reinterpret_cast<int *>(nCommRecv.data()), 1, MPI_INT, comm);
-		int nCommRecvTot = std::accumulate(nCommRecv.begin(), nCommRecv.end(), 0);		// The total number of structrures that will be received by any one process
+		mpi_err = MPI_Allgather(&nCommThis, 1, MPI_UNSIGNED, reinterpret_cast<UInt *>(nCommRecv.data()), 1, MPI_UNSIGNED, comm);
+		UInt nCommRecvTot = std::accumulate(nCommRecv.begin(), nCommRecv.end(), 0);		// The total number of structrures that will be received by any one process
 		assert(nCommRecvTot > 0);																								// It is unexpected that there are no boundary segments over all processes. Likely to be mesh/job file bug
 
 		for (int i = 0; i < size_; i++) { sizeCommRecv[i] = nCommRecv[i] * structSize; }
@@ -481,7 +484,10 @@ public:
 
 	template <int codim>
 	UInt globalIndexInParent(UInt subIndexInElem) const {
-		assert(subIndexInElem < baseiter_->subGInd_[codim].size() );
+		if (subIndexInElem >= baseiter_->subGInd_[codim].size()) {
+			std::cout << "Error: for codim " << codim << " requested subindex" << subIndexInElem << " greater than expected " << baseiter_->subGInd_[codim].size() << std::endl;
+			DUNE_THROW(Dune::IOError, "Unexpected subentity index");
+		}
 		return baseiter_->subGInd_[codim][subIndexInElem];
 	}
 

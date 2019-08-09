@@ -22,7 +22,7 @@
 #include <iostream>
 #include <fstream>
 
-#include <dune/common/array.hh>
+
 #include <dune/common/exceptions.hh>
 #include <dune/common/parallel/mpihelper.hh>
 #include <dune/common/parallel/mpicollectivecommunication.hh>

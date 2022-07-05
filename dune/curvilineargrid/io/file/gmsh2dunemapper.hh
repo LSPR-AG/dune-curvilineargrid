@@ -58,14 +58,14 @@ GeometryType geometryType(int gmshType)
     GeometryType rez;
     int gi = gmshType;
 
-         if (gi == 15)                                                                                                     { rez.makeVertex(); }
-    else if ((gi == 1) || (gi == 8) || (gi == 26) || (gi == 27) || (gi == 28))                                             { rez.makeLine(); }
-    else if ((gi == 2) || (gi == 9) || (gi == 20) || (gi == 21) || (gi == 22) || (gi == 23) || (gi == 24) || (gi == 25))   { rez.makeTriangle(); }
-    else if ((gi == 3) || (gi == 10) || (gi == 16))                                                                        { rez.makeQuadrilateral(); }
-    else if ((gi == 4) || (gi == 11) || (gi == 29) || (gi == 30) || (gi == 31))                                            { rez.makeTetrahedron(); }
-    else if ((gi == 5) || (gi == 12) || (gi == 17) || (gi == 92) || (gi == 93))                                            { rez.makeHexahedron(); }
-    else if ((gi == 6) || (gi == 13) || (gi == 18))                                                                        { rez.makePrism(); }
-    else if ((gi == 7) || (gi == 14) || (gi == 19))                                                                        { rez.makePyramid(); }
+         if (gi == 15)                                                                                                     { rez=Dune::GeometryTypes::vertex;        /* make vertex */         }
+    else if ((gi == 1) || (gi == 8) || (gi == 26) || (gi == 27) || (gi == 28))                                             { rez=Dune::GeometryTypes::line;          /* make line */           }
+    else if ((gi == 2) || (gi == 9) || (gi == 20) || (gi == 21) || (gi == 22) || (gi == 23) || (gi == 24) || (gi == 25))   { rez=Dune::GeometryTypes::triangle;      /* make triangle */       }
+    else if ((gi == 3) || (gi == 10) || (gi == 16))                                                                        { rez=Dune::GeometryTypes::quadrilateral; /* make quaddrilateral */ }
+    else if ((gi == 4) || (gi == 11) || (gi == 29) || (gi == 30) || (gi == 31))                                            { rez=Dune::GeometryTypes::tetrahedron;   /* make tetrahedron */    }
+    else if ((gi == 5) || (gi == 12) || (gi == 17) || (gi == 92) || (gi == 93))                                            { rez=Dune::GeometryTypes::hexahedron;    /* make hexahederon */    }
+    else if ((gi == 6) || (gi == 13) || (gi == 18))                                                                        { rez=Dune::GeometryTypes::prism;         /* make prism */          }
+    else if ((gi == 7) || (gi == 14) || (gi == 19))                                                                        { rez=Dune::GeometryTypes::pyramid;       /* make pyramid */        }
     else  { DUNE_THROW(Dune::IOError, "Unexpected geometry type");  }
 
 /*             // Note that hexahedron GeometryType is missing

@@ -29,7 +29,7 @@ add_executable(tutorial6ParallelData tutorial6ParallelData.cc)
 add_executable(tutorial7GlobalBoundary tutorial7GlobalBoundary.cc)
 add_executable(tutorial8InteriorBoundary tutorial8InteriorBoundary.cc)
 add_executable(tutorial9PeriodicBoundary tutorial9PeriodicBoundary.cc)
-target_link_libraries(tutorial1gettingstarted dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial1gettingstarted dunecommon dunegeometry dunegrid ${DUNE_LIBS}) # dunecurvilineargeometry
 target_link_libraries(tutorial2traversal dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial3visualisation dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 target_link_libraries(tutorial4IntegrationGauss dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
@@ -65,6 +65,7 @@ if(HAVE_MPI)
     add_dune_mpi_flags(tutorial7GlobalBoundary)
     add_dune_mpi_flags(tutorial8InteriorBoundary)
     add_dune_mpi_flags(tutorial9PeriodicBoundary)
+    
     add_dune_parmetis_flags(tutorial1gettingstarted)
     add_dune_parmetis_flags(tutorial2traversal)
     add_dune_parmetis_flags(tutorial3visualisation)
@@ -78,6 +79,8 @@ if(HAVE_MPI)
     add_dune_parmetis_flags(tutorial9PeriodicBoundary)
 endif(HAVE_MPI)
 
+
+#
 # Add boost
 #if(Boost_FOUND)
 #   target_link_libraries(tutorial1gettingstarted ${Boost_LIBRARIES})

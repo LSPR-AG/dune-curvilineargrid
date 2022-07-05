@@ -533,8 +533,7 @@ protected:
         int nSubentityEdge = 6;
         int nSubentityFace = 4;
 
-        Dune::GeometryType meshGeometryType;
-        meshGeometryType.makeTetrahedron();
+        Dune::GeometryType meshGeometryType=Dune::GeometryTypes::simplex(dimension);
 
         int countMarkedPeriodicFaces = 0;
         int countMarkedAllBoundaryFaces = 0;
@@ -585,7 +584,7 @@ protected:
                 		LoggingMessage::template write<LOG_MSG_DVERB>( __FILE__, __LINE__, "CurvilinearGridConstructor: Ghost Face globalIndex=" + std::to_string(ghostFaceGlobalIndex) + " is new");
 
                     	FaceStorage ghostFace;
-                    	ghostFace.geometryType.makeTriangle();
+                    	ghostFace.geometryType=Dune::GeometryTypes::triangle;
                     	ghostFace.globalIndex              = ghostFaceGlobalIndex;
                     	ghostFace.ptype                    = Dune::PartitionType::GhostEntity;
                     	ghostFace.boundaryType             = GridStorageType::FaceBoundaryType::None;

@@ -28,9 +28,9 @@ public:
 	typedef typename GridStorageType::StructuralType            StructuralType;
 	typedef typename GridStorageType::PhysicalTagType           PhysicalTagType;
 	typedef typename GridStorageType::InterpolatoryOrderType    InterpolatoryOrderType;
-	typedef typename GridStorageType::IdType                 IdType;
+	typedef typename GridStorageType::IdType                 	IdType;
 
-    typedef typename GridStorageType::GlobalCoordinate                 GlobalCoordinate;
+    typedef typename GridStorageType::GlobalCoordinate       GlobalCoordinate;
     typedef typename GridStorageType::VertexStorage          VertexStorage;
     typedef typename GridStorageType::EdgeStorage            EdgeStorage;
     typedef typename GridStorageType::FaceStorage            FaceStorage;
@@ -43,7 +43,10 @@ public:
     static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
     typedef Dune::ReferenceElement< ctype, dimension > ReferenceElement3d;
-    typedef Dune::ReferenceElements<ctype, dimension>  ReferenceElements3d;
+//    typedef Dune::ReferenceElements<ctype, dimension>  ReferenceElements3d;
+    typedef Dune::Geo::template ReferenceElements<ctype, dimension>  ReferenceElements3d;
+
+
 
 public:
 
@@ -80,10 +83,10 @@ public:
     {
     	switch(codim)
     	{
-    	case VERTEX_CODIM  : return Dune::GeometryType(Dune::Impl::SimplexTopology< 0 >::type::id);   break;
-    	case EDGE_CODIM    : return Dune::GeometryType(Dune::Impl::SimplexTopology< 1 >::type::id);   break;
-    	case FACE_CODIM    : return gridstorage_.face_[localIndex].geometryType;                                  break;
-    	case ELEMENT_CODIM : return gridstorage_.element_[localIndex].geometryType;                               break;
+    	case VERTEX_CODIM  : return Dune::GeometryTypes::vertex;                         break;
+    	case EDGE_CODIM    : return Dune::GeometryTypes::line;                           break;
+    	case FACE_CODIM    : return gridstorage_.face_[localIndex].geometryType;         break;
+    	case ELEMENT_CODIM : return gridstorage_.element_[localIndex].geometryType;      break;
     	}
     }
 
@@ -235,8 +238,8 @@ public:
 
         // Otherwise, we need to calculate the subset of corners wrt selected subentity
 
-        Dune::GeometryType elemGT;  elemGT.makeSimplex(dimension);
-        const ReferenceElement3d & refElem = ReferenceElements3d::general(elemGT);
+        Dune::GeometryType elemGT=Dune::GeometryTypes::simplex(dimension);
+        const auto & refElem = ReferenceElements3d::general(elemGT);
         int thisEntityCornerNumber = refElem.size(0, codim, dimension);
 
         for (int i = 0; i < thisEntityCornerNumber; i++)  {
@@ -272,9 +275,8 @@ public:
     {
     	// Stage 1) Find this subentity as an element subentity
     	// **************************************************************************
-    	Dune::GeometryType tetrahedronGeometry;
-    	tetrahedronGeometry.makeTetrahedron();
-    	const ReferenceElement3d & thisRefElement = ReferenceElements3d::general(tetrahedronGeometry);
+    	Dune::GeometryType tetrahedronGeometry=Dune::GeometryTypes::simplex(3);
+    	const auto & thisRefElement = ReferenceElements3d::general(tetrahedronGeometry);
 
     	if (subcodim == codim)  { return entityIndex; }  // In this case return itself as own subentity
     	if (subcodim < codim) {                          // Wrong by definition
@@ -365,7 +367,7 @@ protected:
     	const VertexStorage & thisPointData =  gridstorage_.point_[localIndex];
 
         EntityStorage thisPoint;
-        thisPoint.geometryType.makeVertex();
+        thisPoint.geometryType=Dune::GeometryTypes::vertex;
         thisPoint.globalIndex  = thisPointData.globalIndex;
         thisPoint.ptype        = thisPointData.ptype;
         thisPoint.interpOrder  = 0;                    // Note: Points do not have an interpolation order
@@ -382,7 +384,7 @@ protected:
         const EntityStorage & assocElement =  gridstorage_.element_[thisEdgeData.elementIndex];
 
         EntityStorage thisEdge;
-        thisEdge.geometryType.makeLine();
+        thisEdge.geometryType=Dune::GeometryTypes::line;
         thisEdge.globalIndex  = thisEdgeData.globalIndex;
         thisEdge.ptype        = thisEdgeData.ptype;
         thisEdge.interpOrder  = assocElement.interpOrder;
@@ -406,7 +408,7 @@ protected:
         const EntityStorage & assocElement = gridstorage_.element_[thisFaceData.element1Index];
 
         EntityStorage thisFace;
-        thisFace.geometryType.makeTriangle();
+        thisFace.geometryType=Dune::GeometryTypes::triangle;
         thisFace.globalIndex  = thisFaceData.globalIndex;
         thisFace.ptype        = thisFaceData.ptype;
         //if (thisFaceData.boundaryType == GridStorageType::FaceBoundaryType::DomainBoundary)  { thisFace.ptype = BOUNDARY_SEGMENT_PARTITION_TYPE; }

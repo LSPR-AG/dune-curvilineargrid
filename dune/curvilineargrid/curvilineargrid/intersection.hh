@@ -266,14 +266,12 @@ namespace Dune
       }
 
       GeometryType type () const {
-    	  Dune::GeometryType gt;
-    	  gt.makeSimplex(dimension - FACE_CODIM);
+    	  Dune::GeometryType gt=Dune::GeometryTypes::simplex(dimension - FACE_CODIM);
     	  return gt;
       }
 
       GeometryType typeInside() const {
-    	  Dune::GeometryType gt;
-    	  gt.makeSimplex(dimension - ELEMENT_CODIM);
+    	  Dune::GeometryType gt=Dune::GeometryTypes::simplex(dimension - FACE_CODIM);
     	  return gt;
       }
 

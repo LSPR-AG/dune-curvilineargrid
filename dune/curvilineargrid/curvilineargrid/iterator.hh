@@ -37,8 +37,8 @@ namespace Dune
         {
       	  // Access by reference the entity stored in entity pointer, and call its method next() to iterate the entity.
 //          Grid::asImp(this->dereference()).next();
-          this->dereference().next();
-//          Base::dereference().next();
+//          this->dereference().next();
+          Base::dereference().next();
         }
     };
 

@@ -72,26 +72,26 @@ namespace Dune
       template< int codim >
       IndexType index ( const typename Traits::template Codim< codim >::Entity &entity ) const
       {
-        return Grid::getRealImplementation( entity ).index();
+        return entity.impl().index();
       }
 
       template< int codim >
       IndexType subIndex ( const typename Traits::template Codim< codim >::Entity &entity, int i, unsigned int subcodim ) const
       {
-        return Grid::getRealImplementation( entity ).subIndex( i, subcodim );
+        return entity.impl().subIndex( i, subcodim );
       }
 
 
       template< int codim >
       IndexType indexBase ( const typename Traits::template Codim< codim >::Entity &entity ) const
       {
-        return Grid::getRealImplementation( entity ).indexBase();
+        return entity.impl().indexBase();
       }
 
       template< int codim >
       IndexType subIndexBase ( const typename Traits::template Codim< codim >::Entity &entity, int i, unsigned int subcodim ) const
       {
-        return Grid::getRealImplementation( entity ).subIndexBase( i, subcodim );
+        return entity.impl().subIndexBase( i, subcodim );
       }
 
 

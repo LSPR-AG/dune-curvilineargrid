@@ -315,7 +315,7 @@ namespace Dune
       // TODO: This does not work in 2D
       GlobalCoordinate centerUnitOuterNormal () const
       {
-    	  const ReferenceElement< ctype, dimension-1 > &refFace = ReferenceElements< ctype, dimension-1 >::general( type() );
+    	  const auto &refFace = ReferenceElements< ctype, dimension-1 >::general( type() );
     	  return unitOuterNormal( refFace.position( 0, 0 ) );
       }
 
@@ -439,7 +439,7 @@ namespace Dune
 
     	  // Find number of corners per face
     	  Dune::GeometryType elemGT = typeInside();
-    	  const Dune::ReferenceElement<ctype, dimension> & ref = Dune::ReferenceElements<ctype, dimension>::general(elemGT);
+    	  const auto & ref = Dune::ReferenceElements<ctype, dimension>::general(elemGT);
     	  int nCornerPerFace = ref.size(0, FACE_CODIM, VERTEX_CODIM);
 
     	  // Generate GeometryInInside

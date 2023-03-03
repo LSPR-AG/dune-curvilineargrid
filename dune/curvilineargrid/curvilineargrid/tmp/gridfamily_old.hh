@@ -133,7 +133,7 @@ namespace Dune
 
             typedef typename GridBaseType::IdType  IdType;
 
-            typedef typename Dune::CollectiveCommunication<MPI_Comm> CollectiveCommunication;
+            typedef typename Dune::Communication<MPI_Comm> CollectiveCommunication;
 
             template< PartitionIteratorType pitype >
             struct Partition

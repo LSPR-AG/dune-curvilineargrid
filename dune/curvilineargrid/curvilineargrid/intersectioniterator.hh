@@ -50,7 +50,7 @@ namespace Dune
       {}
 
       CurvIntersectionIterator ( const CurvIntersectionIterator &other )
-        : intersection_( IntersectionImpl( Grid::getRealImplementation( other.intersection_ ) ) )
+        : intersection_( IntersectionImpl( other.intersection_.impl()  ) )
       {}
 
       CurvIntersectionIterator &operator= ( const CurvIntersectionIterator &other )
@@ -68,7 +68,7 @@ namespace Dune
     private:
       IntersectionImpl &intersectionImpl () const
       {
-        return Grid::getRealImplementation( intersection_ );
+        return intersection_.impl();
       }
 
       mutable Intersection intersection_;

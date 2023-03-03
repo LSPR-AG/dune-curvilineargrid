@@ -44,7 +44,7 @@ namespace Dune
       template< int codim >
       IdType id ( const typename Traits::template Codim< codim >::Entity &entity ) const
       {
-        return Grid::getRealImplementation( entity ).id();
+    	return entity.impl().id();
       }
 
       template< class Entity >
@@ -55,7 +55,7 @@ namespace Dune
 
       IdType subId ( const typename Traits::template Codim< 0 >::Entity &entity, int i, unsigned int codim ) const
       {
-        return Grid::getRealImplementation( entity ).subId(i, codim);
+        return entity.impl().subId(i, codim);
       }
 
     };

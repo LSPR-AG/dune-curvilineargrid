@@ -264,7 +264,7 @@ protected:
     // Communicates all finished timers to master process.
     void reportParallelImpl()
     {
-    	Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_->getCollectiveCommunication();
+    	Dune::Communication<MPI_Comm> collective_comm = mpihelper_->getCommunication();
     	int rank = mpihelper_->rank();
     	int size = mpihelper_->size();
 

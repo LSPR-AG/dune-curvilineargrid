@@ -35,7 +35,7 @@
 
 #include <dune/common/exceptions.hh>
 #include <dune/common/fvector.hh>
-#include <dune/common/parallel/mpicollectivecommunication.hh>
+#include <dune/common/parallel/mpicommunication.hh>
 
 #include <dune/geometry/type.hh>
 
@@ -116,10 +116,14 @@ namespace CurvGrid {
 
     // typedefs
     typedef Dune::FieldVector< ctype, dimWorld_ > GlobalCoordinate;
-    typedef Dune::ReferenceElement< ctype, dim_ > ReferenceElement;
+    //typedef Dune::ReferenceElement< ctype, dim_ >ReferenceElement;
+    typedef Dune::ReferenceElements< ctype, dim_ > ReferenceElement; //typename Dune::ReferenceElements< ctype, dim_ >::ReferenceElement ReferenceElement;
+
     typedef Dune::ReferenceElements< ctype, dim_ > ReferenceElements;
 
-    typedef Dune::ReferenceElement< ctype, dim_-1 > SubReferenceElement;
+    //typedef Dune::ReferenceElement< ctype, dim_-1 > SubReferenceElement;
+    typedef Dune::ReferenceElements< ctype, dim_-1 > SubReferenceElement;
+
     typedef Dune::ReferenceElements< ctype, dim_-1 > SubReferenceElements;
 
     typedef int LocalIndex;
@@ -387,7 +391,7 @@ namespace CurvGrid {
         	}
         }
 
-        Dune::CollectiveCommunication<MPI_Comm> comm = mpihelper_.getCollectiveCommunication();
+        Dune::Communication<MPI_Comm> comm = mpihelper_.getCommunication();
         int nElementParallelSum  = comm.sum(nInternalElement);
         nDomainBoundarySegmentTotal_ = comm.sum(nDomainBoundaryElement);
         nInteriorBoundarySegmentTotal_ = comm.sum(nInteriorBoundaryElement);
@@ -868,7 +872,7 @@ namespace CurvGrid {
         // After above iteration, for each IB there must exist at least 2 processes that are certain about it
         // However, no process is guaranteed to know about all IB.
         // Thus it is essential to combine the knowledge of all processes to obtain the full picture
-        Dune::CollectiveCommunication<MPI_Comm> comm = mpihelper_.getCollectiveCommunication();
+        Dune::Communication<MPI_Comm> comm = mpihelper_.getCommunication();
         for (int iTagInd = 0; iTagInd < nPhysicalTag; iTagInd++) {
         	int tagDBVote  = comm.sum(isTagInteriorBoundary[iTagInd]);
         	assert(tagDBVote >= 0);
@@ -1482,7 +1486,7 @@ namespace CurvGrid {
       // The index of elmdist_tmp should be the process number, the value the number of elements on each process
 #if HAVE_MPI
       MPI_Comm comm = Dune::MPIHelper::getCommunicator();
-      Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
+      Dune::Communication<MPI_Comm> collective_comm = mpihelper_.getCommunication();
 
       collective_comm.allgather(&elementNumber, 1, reinterpret_cast<ParmetisIndexType*>(elmdist_tmp.data()));
 #endif

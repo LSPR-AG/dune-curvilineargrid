@@ -39,8 +39,10 @@ namespace Dune
 //          Grid::asImp(this->dereference()).next();
 //          this->dereference().next();
 
-          auto &ent=Base::dereference();
-          ent.next();
+          this->dereference().impl().next();
+
+          //auto &ent=Base::dereference();
+          //ent.next();
         }
     };
 

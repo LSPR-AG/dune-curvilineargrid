@@ -126,7 +126,7 @@ public:
 
     void generateEdgeGlobalIndex()
     {
-    	Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
+    	Dune::Communication<MPI_Comm> collective_comm = mpihelper_.getCommunication();
 
         // 2) Compute neighbour ranks of PB edges and faces by intersection of ranks of associated PB corners
         //    Then eliminate non-existing entities generated this way
@@ -187,7 +187,7 @@ public:
 
     void generateFaceGlobalIndex()
     {
-        Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
+        Dune::Communication<MPI_Comm> collective_comm = mpihelper_.getCommunication();
 
 
         // 2) Compute neighbour ranks of PB edges and faces by intersection of ranks of associated PB corners
@@ -250,7 +250,7 @@ public:
 
     void generateElementGlobalIndex()
     {
-        Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
+        Dune::Communication<MPI_Comm> collective_comm = mpihelper_.getCommunication();
 
         int elementsOwned = gridstorage_.element_.size();
 
@@ -315,7 +315,7 @@ protected:
         // 1) collective_comm.max() - find the maximal number of process boundary corners per process
         // ********************************************************
 
-        Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
+        Dune::Communication<MPI_Comm> collective_comm = mpihelper_.getCommunication();
 
         // Reserve memory for saving ranks associated to process boundary corners
         LocalIndexType thisProcessBoundarySize = gridstorage_.processBoundaryIndexMap_[VERTEX_CODIM].size();

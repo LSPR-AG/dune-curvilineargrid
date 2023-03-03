@@ -371,6 +371,11 @@ protected:
 			lengthByteIn[iProc]  = dataSize * lengthIn[iProc];
 			lengthByteOut[iProc] = dataSize * lengthOut[iProc];
 			displByteIn[iProc]  = (iProc == 0) ? 0 : displByteIn[iProc - 1]  + lengthByteIn[iProc - 1];
+			//displByteOut[iProc] = (iProc == 0) ? 0 : displByteOut[iProc - 1] + lengthByteOut[iProc - 1];
+		}
+
+		for (int iProc = 0; iProc < nNeighborOut; iProc++)
+		{
 			displByteOut[iProc] = (iProc == 0) ? 0 : displByteOut[iProc - 1] + lengthByteOut[iProc - 1];
 		}
 

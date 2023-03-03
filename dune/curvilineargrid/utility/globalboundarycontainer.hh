@@ -429,8 +429,8 @@ class GlobalBoundaryIterator {
 	typedef typename Grid::ctype  CoordinateType;
 	typedef unsigned int UInt;
 
-	typedef Dune::ReferenceElement<CoordinateType, dimension>  ReferenceElement3D;
-	typedef Dune::ReferenceElement<CoordinateType, dimension-1>  ReferenceElement2D;
+	typedef Dune::ReferenceElements<CoordinateType, dimension>  ReferenceElement3D;
+	typedef Dune::ReferenceElements<CoordinateType, dimension-1>  ReferenceElement2D;
 	typedef Dune::ReferenceElements<CoordinateType, dimension> ReferenceElements3D;
 	typedef Dune::ReferenceElements<CoordinateType, dimension-1> ReferenceElements2D;
 
@@ -473,8 +473,8 @@ public:
 	// Can optimize by storing and communicating less stuff
 	template <int codim>
 	UInt globalIndex(UInt subIndexInFace) const {
-		Dune::GeometryType gt2d;   gt2d.makeTriangle();
-		Dune::GeometryType gt3d;   gt3d.makeTetrahedron();
+		Dune::GeometryType gt2d = Dune::GeometryTypes::triangle;  
+		Dune::GeometryType gt3d = Dune::GeometryTypes::tetrahedron;  
 		assert((codim > 0)&&(codim <= dimension));
 		assert(subIndexInFace < ReferenceElements2D::general(gt2d).size(codim - FACE_CODIM));  // Do not allow subentity index out of bounds
 		UInt subIndexInElem = ReferenceElements3D::general(gt3d).subEntity(indexInInside(), FACE_CODIM, subIndexInFace, codim);
@@ -513,7 +513,7 @@ public:
 
 	/** \brief Extract geometry of a subentity edge of the associated face, given by the subentity index */
 	BaseGeometryEdge geometryEdge(UInt subIndex) const {
-		Dune::GeometryType gt;   gt.makeTetrahedron();
+		Dune::GeometryType gt = Dune::GeometryTypes::tetrahedron;   
 		UInt edgeSubIndex =  ReferenceElements3D::general(gt).subEntity(indexInInside(), FACE_CODIM, subIndex, EDGE_CODIM);
 		return thisElemGeom_->template subentityGeometry<dimension - 2>(edgeSubIndex);
 	}

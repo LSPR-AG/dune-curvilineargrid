@@ -40,7 +40,7 @@
 #include <dune/common/fvector.hh>
 #include <dune/common/exceptions.hh>
 #include <dune/common/parallel/mpihelper.hh>
-#include <dune/common/parallel/mpicollectivecommunication.hh>
+#include <dune/common/parallel/mpicommunication.hh>
 
 #include <dune/geometry/type.hh>
 #include <dune/geometry/referenceelements.hh>
@@ -387,7 +387,7 @@ protected:
 	template<class T>
 	void writeCommunicateVector(std::ofstream & filestr, std::string title, std::vector<T> & data)
 	{
-		Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
+		Dune::Communication<MPI_Comm> collective_comm = mpihelper_.getCommunication();
 
 		// 1) Communicate size of communication to root
 		// *************************************************************
@@ -424,7 +424,7 @@ protected:
 	template <class T>
 	void writeCommunicateSum(std::ofstream & filestr, std::string title, T data)
 	{
-		Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
+		Dune::Communication<MPI_Comm> collective_comm = mpihelper_.getCommunication();
 		T sum = collective_comm.sum(data);
 		if (rank_ == MPI_MASTER_RANK)  { filestr << "<" << title << ">" << sum << "</" << title << ">" << std::endl; }
 	}

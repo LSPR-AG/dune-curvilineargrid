@@ -25,7 +25,7 @@
 #include <dune/common/array.hh>
 #include <dune/common/exceptions.hh>
 #include <dune/common/parallel/mpihelper.hh>
-#include <dune/common/parallel/mpicollectivecommunication.hh>
+#include <dune/common/parallel/mpicommunication.hh>
 
 #include <dune/geometry/type.hh>
 #include <dune/geometry/referenceelements.hh>
@@ -785,7 +785,7 @@ class CurvilinearGridFactory
 
       // The index of elmdist_tmp should be the process number, the value the number of elements on each process
       MPI_Comm comm = Dune::MPIHelper::getCommunicator();
-      Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper_.getCollectiveCommunication();
+      Dune::Communication<MPI_Comm> collective_comm = mpihelper_.getCommunication();
 
       collective_comm.allgather(&elementNumber, 1, elmdist_tmp);
 

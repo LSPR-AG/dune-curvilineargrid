@@ -305,7 +305,7 @@ private:
 
 			// Find out how many subentities of the given codim are in this entity
 			// [TODO] generalize for generic geometry types
-			Dune::GeometryType gt;  gt.makeSimplex(cdim);
+			Dune::GeometryType gt = Dune::GeometryTypes::simplex(cdim);
 			int nSub = ReferenceElements3D::general(gt).size(0, entityCodim, codim);
 
 

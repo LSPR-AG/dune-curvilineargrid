@@ -42,8 +42,7 @@ public:
     static const int   FACE_CODIM     = GridStorageType::FACE_CODIM;
     static const int   ELEMENT_CODIM  = GridStorageType::ELEMENT_CODIM;
 
-    typedef Dune::ReferenceElement< ctype, dimension > ReferenceElement3d;
-//    typedef Dune::ReferenceElements<ctype, dimension>  ReferenceElements3d;
+    typedef Dune::ReferenceElements<ctype, dimension>  ReferenceElement3d;
     typedef Dune::Geo::template ReferenceElements<ctype, dimension>  ReferenceElements3d;
 
 

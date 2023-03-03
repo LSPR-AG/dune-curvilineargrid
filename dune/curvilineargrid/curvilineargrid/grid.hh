@@ -235,7 +235,7 @@ namespace Dune
         globalIdSet_(),
         leafIndexSet_(*gridbase)
     {
-    	commobj_ = mpihelper_.getCollectiveCommunication();
+    	commobj_ = mpihelper_.getCommunication();
     }
 
 
@@ -526,7 +526,7 @@ namespace Dune
      *  \param[in]  level       grid level to communicate
      */
     template< class DataHandle, class Data >
-    void communicate ( CommDataHandleIF< DataHandle, Data > &dataHandle,
+    auto communicate ( CommDataHandleIF< DataHandle, Data > &dataHandle,
                        InterfaceType interface,
                        CommunicationDirection direction,
                        int level ) const
@@ -547,7 +547,7 @@ namespace Dune
      *                          ForwardCommunication, BackwardCommunication)
      */
     template< class DataHandle, class Data >
-    void communicate ( CommDataHandleIF< DataHandle, Data > &dataHandle,
+    auto communicate ( CommDataHandleIF< DataHandle, Data > &dataHandle,
                        InterfaceType interface,
                        CommunicationDirection direction ) const
     {

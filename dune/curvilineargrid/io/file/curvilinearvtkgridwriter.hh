@@ -299,7 +299,7 @@ public:
 								GlobalCoordinate ghostCoM = ghostElement.template subEntity<FACE_CODIM>(intersection.indexInOutside()).geometry().center();
 								GlobalVector periodicBindEdge {interiorCoM, ghostCoM};
 
-								Dune::GeometryType edgeType;  edgeType.makeLine();
+								Dune::GeometryType edgeType = Dune::GeometryTypes::line;
 
 								// Color the connecting edge by the direction
 								int periodicPhysicalTag = -1;

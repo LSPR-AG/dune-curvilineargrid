@@ -9,7 +9,7 @@ set(TESTS
   curvilineargmshtest)
 
 add_executable(curvilineargmshtest curvilineargmshtest.cc)
-target_link_libraries(curvilineargmshtest dunecommon dunegeometry dunegrid)  # dunecurvilineargeometry
+target_link_libraries(curvilineargmshtest PUBLIC dunecommon dunegeometry dunegrid)  # dunecurvilineargeometry
 
 
 # We do not want want to build the tests during make all,
@@ -25,7 +25,7 @@ target_link_libraries(curvilineargmshtest dunecommon dunegeometry dunegrid)  # d
 # Add parmetis
 if(HAVE_MPI)
     add_dune_parmetis_flags(curvilineargmshtest)
-endif(HAVE_MPI)
+endif()
 
 # Add boost
 if(Boost_FOUND)

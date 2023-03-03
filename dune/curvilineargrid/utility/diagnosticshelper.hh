@@ -197,7 +197,7 @@ struct DiagnosticsHelper
 		int rank = mpihelper.rank();
 		int size = mpihelper.size();
 
-		Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper.getCollectiveCommunication();
+		Dune::Communication<MPI_Comm> collective_comm = mpihelper.getCommunication();
 
 		// 1) Communicate size of communication to root
 		// *************************************************************
@@ -236,7 +236,7 @@ struct DiagnosticsHelper
 	{
 		int rank = mpihelper.rank();
 		int size = mpihelper.size();
-		Dune::CollectiveCommunication<MPI_Comm> collective_comm = mpihelper.getCollectiveCommunication();
+		Dune::Communication<MPI_Comm> collective_comm = mpihelper.getCommunication();
 		T sum = collective_comm.sum(data);
 		if (rank == MPI_MASTER_RANK)  { filestr << "<" << title << ">" << sum << "</" << title << ">" << std::endl; }
 	}

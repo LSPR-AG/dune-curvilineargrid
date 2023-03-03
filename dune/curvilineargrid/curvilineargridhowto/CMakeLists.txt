@@ -29,17 +29,17 @@ add_executable(tutorial6ParallelData tutorial6ParallelData.cc)
 add_executable(tutorial7GlobalBoundary tutorial7GlobalBoundary.cc)
 add_executable(tutorial8InteriorBoundary tutorial8InteriorBoundary.cc)
 add_executable(tutorial9PeriodicBoundary tutorial9PeriodicBoundary.cc)
-target_link_libraries(tutorial1gettingstarted dunecommon dunegeometry dunegrid ${DUNE_LIBS}) # dunecurvilineargeometry
-target_link_libraries(tutorial2traversal dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(tutorial3visualisation dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(tutorial4IntegrationGauss dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(tutorial4IntegrationNormal dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(tutorial5CommunicationConstant dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(tutorial5CommunicationGlobalIndex dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(tutorial6ParallelData dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(tutorial7GlobalBoundary dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(tutorial8InteriorBoundary dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(tutorial9PeriodicBoundary dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial1gettingstarted PUBLIC dunecommon dunegeometry dunegrid ${DUNE_LIBS}) # dunecurvilineargeometry
+target_link_libraries(tutorial2traversal PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial3visualisation PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial4IntegrationGauss PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial4IntegrationNormal PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial5CommunicationConstant PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial5CommunicationGlobalIndex PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial6ParallelData PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial7GlobalBoundary PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial8InteriorBoundary PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(tutorial9PeriodicBoundary PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 
 
 # We do not want want to build the tests during make all,

@@ -23,14 +23,14 @@ add_executable(test-curvgrid test-curvgrid.cc)
 add_executable(test-mpimutex test-mpimutex.cc)
 add_executable(test-realtimelog test-realtimelog.cc)
 
-target_link_libraries(test-diagnostics dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(test-diagnostics-base dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(test-allcommunicate dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(test-globalcommmap dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(test-vectorhelper dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(test-curvgrid dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(test-mpimutex dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
-target_link_libraries(test-realtimelog dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-diagnostics PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-diagnostics-base PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-allcommunicate PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-globalcommmap PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-vectorhelper PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-curvgrid PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-mpimutex PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
+target_link_libraries(test-realtimelog PUBLIC dunecommon dunegeometry dunegrid) # dunecurvilineargeometry
 
 
 # We do not want want to build the tests during make all,
@@ -55,7 +55,7 @@ if(HAVE_MPI)
     add_dune_parmetis_flags(test-diagnostics-base)
     add_dune_parmetis_flags(test-curvgrid)
     add_dune_parmetis_flags(test-realtimelog)
-endif(HAVE_MPI)
+endif()
 
 #set_property(TARGET test-diagnostics APPEND_STRING PROPERTY COMPILE_FLAGS ${CURVGRID_FLAGS})
 #set_property(TARGET test-diagnostics-base APPEND_STRING PROPERTY COMPILE_FLAGS ${CURVGRID_FLAGS})

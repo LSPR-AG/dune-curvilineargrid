@@ -24,7 +24,9 @@ target_link_libraries(curvilineargmshtest PUBLIC dunecommon dunegeometry dunegri
 
 # Add parmetis
 if(HAVE_MPI)
+	add_dune_mpi_flags(curvilineargmshtest)
     add_dune_parmetis_flags(curvilineargmshtest)
+    
 endif()
 
 # Add boost

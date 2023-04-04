@@ -46,6 +46,7 @@ target_link_libraries(test-realtimelog PUBLIC dunecommon dunegeometry dunegrid) 
 # Add parmetis
 if(HAVE_MPI)
     add_dune_mpi_flags(test-diagnostics)
+    add_dune_mpi_flags(test-curvgrid)
     add_dune_mpi_flags(test-diagnostics-base)
     add_dune_mpi_flags(test-allcommunicate)
     add_dune_mpi_flags(test-globalcommmap)

@@ -30,7 +30,8 @@ namespace Dune
     {
         static const bool v = true;
         //static const unsigned int topologyId = GenericGeometry::SimplexTopology<3>::type::id;
-        static const unsigned int topologyId = Impl::SimplexTopology< 3 >::type::id;
+        // static const unsigned int topologyId = Impl::SimplexTopology< 3 >::type::id;
+        static const unsigned int topologyId = GeometryTypes::simplex(3).id();
     };
 
 

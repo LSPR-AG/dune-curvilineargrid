@@ -218,7 +218,7 @@ namespace Dune
      * \{ */
 
     //! communicator with all other processes having some part of the grid
-    typedef typename Traits::CollectiveCommunication CollectiveCommunication;
+    typedef typename Traits::Communication CollectiveCommunication;
 
     /** \} */
 
